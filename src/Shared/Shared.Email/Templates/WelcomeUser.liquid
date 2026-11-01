@@ -1,0 +1,31 @@
+{% comment %}Variables: firstName{% endcomment %}
+
+<h2 style="margin:0 0 20px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}مرحباً بك في {{ brandName }}{% else %}Welcome to {{ brandName }}{% endif %}
+</h2>
+
+<p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ firstName }}</strong>،
+  {% else %}
+    Hi <strong style="color:#0f172a;">{{ firstName }}</strong>,
+  {% endif %}
+</p>
+
+<p style="margin:0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    نحن سعداء بانضمامك إلى <strong>{{ brandName }}</strong>. حسابك جاهز الآن ويمكنك البدء فوراً.
+  {% else %}
+    We're thrilled to have you on board. Your account is ready — welcome to <strong>{{ brandName }}</strong>.
+  {% endif %}
+</p>
+
+{% include 'Components/Divider' %}
+
+<p style="margin:0;font-size:14px;color:#64748b;line-height:1.7;">
+  {% if culture == 'ar' %}
+    إذا كان لديك أي استفسار، فريقنا دائماً في خدمتك.
+  {% else %}
+    If you have any questions, our support team is always here to help.
+  {% endif %}
+</p>

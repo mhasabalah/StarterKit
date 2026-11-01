@@ -1,0 +1,73 @@
+{% comment %}
+  Alert Component — Coloured notice strip
+  ─────────────────────────────────────────────────────────
+  Required variables:
+    alert_text_en  — English text
+    alert_text_ar  — Arabic text
+  Optional variables:
+    alert_type     — "info" (default) | "success" | "warning" | "danger"
+  ─────────────────────────────────────────────────────────
+{% endcomment %}
+{% if alert_type == 'success' %}
+  {% assign _a_bg     = '#f0fdf4' %}
+  {% assign _a_border = '#bbf7d0' %}
+  {% assign _a_bar    = '#16a34a' %}
+  {% assign _a_color  = '#15803d' %}
+  {% assign _a_icon   = '✓' %}
+{% elsif alert_type == 'warning' %}
+  {% assign _a_bg     = '#fffbeb' %}
+  {% assign _a_border = '#fde68a' %}
+  {% assign _a_bar    = '#d97706' %}
+  {% assign _a_color  = '#92400e' %}
+  {% assign _a_icon   = '!' %}
+{% elsif alert_type == 'danger' %}
+  {% assign _a_bg     = '#fef2f2' %}
+  {% assign _a_border = '#fecaca' %}
+  {% assign _a_bar    = '#dc2626' %}
+  {% assign _a_color  = '#991b1b' %}
+  {% assign _a_icon   = '✕' %}
+{% else %}
+  {% assign _a_bg     = '#eff6ff' %}
+  {% assign _a_border = '#bfdbfe' %}
+  {% assign _a_bar    = '#2563eb' %}
+  {% assign _a_color  = '#1e40af' %}
+  {% assign _a_icon   = 'i' %}
+{% endif %}
+
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
+       style="margin:16px 0;">
+  <tr>
+    <td style="background-color:{{ _a_bg }};
+               border:1px solid {{ _a_border }};
+               border-radius:8px;
+               padding:13px 16px;"
+        dir="{% if culture == 'ar' %}rtl{% else %}ltr{% endif %}">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <!-- Icon cell — positioned at leading edge based on direction -->
+          {% unless culture == 'ar' %}
+          <td width="26" style="vertical-align:top;padding-top:2px;">
+            <span style="display:inline-block;width:18px;height:18px;border-radius:50%;
+                         background-color:{{ _a_bar }};color:#fff;
+                         font-size:11px;font-weight:700;text-align:center;line-height:18px;
+                         font-style:normal;">{{ _a_icon }}</span>
+          </td>
+          {% endunless %}
+
+          <td style="vertical-align:top;font-size:14px;color:{{ _a_color }};line-height:1.6;">
+            {% if culture == 'ar' %}{{ alert_text_ar }}{% else %}{{ alert_text_en }}{% endif %}
+          </td>
+
+          {% if culture == 'ar' %}
+          <td width="26" style="vertical-align:top;padding-top:2px;text-align:right;">
+            <span style="display:inline-block;width:18px;height:18px;border-radius:50%;
+                         background-color:{{ _a_bar }};color:#fff;
+                         font-size:11px;font-weight:700;text-align:center;line-height:18px;
+                         font-style:normal;">{{ _a_icon }}</span>
+          </td>
+          {% endif %}
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

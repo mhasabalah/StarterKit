@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Carter" />
+        <PackageReference Include="FluentValidation" />
+        <PackageReference Include="Mapster" />
+        <PackageReference Include="MassTransit" />
+        <PackageReference Include="MediatR" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="Azure.Storage.Blobs" />
+        <PackageReference Include="AWSSDK.S3" />
+        <PackageReference Include="AWSSDK.Core" />
+        <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" />
+        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+        <PackageReference Include="Hangfire.AspNetCore" />
+        <PackageReference Include="Hangfire.PostgreSql" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
+        <ProjectReference Include="..\Attachment.Contracts\Attachment.Contracts.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="Resources\AttachmentResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>AttachmentResource.resx</DependentUpon>
+      </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Update="Resources\AttachmentResource.resx">
+        <Generator>PublicResXFileCodeGenerator</Generator>
+        <LastGenOutput>AttachmentResource.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+    </ItemGroup>
+
+</Project>

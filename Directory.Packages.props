@@ -1,0 +1,128 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup Label="Core Framework Packages">
+    <PackageVersion Include="Asp.Versioning.Abstractions" Version="8.1.0" />
+    <PackageVersion Include="Asp.Versioning.Http" Version="8.1.0" />
+    <PackageVersion Include="Asp.Versioning.Mvc" Version="8.1.0" />
+    <PackageVersion Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.1.0-preview.1.25616.3" />
+    <PackageVersion Include="Aspire.Seq" Version="13.1.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Publisher.Seq" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.UI" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.UI.InMemory.Storage" Version="9.0.0" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="9.0.0" />
+    <PackageVersion Include="Figgle" Version="0.5.1" />
+    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="4.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="4.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.11.0" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.8.11" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.15.0.120848" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerGen" Version="9.0.6" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.6" />
+  </ItemGroup>
+  <ItemGroup Label="Web API and Carter">
+    <PackageVersion Include="Carter" Version="8.2.0" />
+    <PackageVersion Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
+  </ItemGroup>
+  <ItemGroup Label="Validation">
+    <PackageVersion Include="FluentValidation" Version="12.0.0" />
+    <PackageVersion Include="FluentValidation.AspNetCore" Version="11.3.1" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
+    <PackageVersion Include="libphonenumber-csharp" Version="8.13.52" />
+  </ItemGroup>
+  <ItemGroup Label="Data Access and Entity Framework">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.9" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+  </ItemGroup>
+  <ItemGroup Label="Caching and Redis">
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.9" />
+  </ItemGroup>
+  <ItemGroup Label="Mapping and Utilities">
+    <PackageVersion Include="Mapster" Version="7.4.0" />
+    <PackageVersion Include="QuestPDF" Version="2026.6.0" />
+    <PackageVersion Include="Scrutor" Version="6.1.0" />
+  </ItemGroup>
+  <ItemGroup Label="Microsoft Extensions">
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.Localization" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.2.0" />
+  </ItemGroup>
+  <ItemGroup Label="Logging and Monitoring">
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Seq" Version="9.0.0" />
+  </ItemGroup>
+  <ItemGroup Label="OpenTelemetry">
+    <PackageVersion Include="Npgsql.OpenTelemetry" Version="9.0.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.13.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.13.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.13.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.13.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.13.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.13.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.13.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.13.1-beta.1" />
+    <PackageVersion Include="Grafana.OpenTelemetry" Version="1.3.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.13.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.13.1" />
+  </ItemGroup>
+  <ItemGroup Label="Resilience">
+    <PackageVersion Include="Polly" Version="8.6.5" />
+  </ItemGroup>
+  <ItemGroup Label="Messaging">
+    <PackageVersion Include="MassTransit" Version="8.5.7" />
+  </ItemGroup>
+  <ItemGroup Label="Identity and Security">
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Facebook" Version="9.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.9" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.1" />
+  </ItemGroup>
+  <ItemGroup Label="Storage and Image Processing">
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.19.1" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.18.1" />
+    <PackageVersion Include="AWSSDK.Core" Version="4.0.3.12" />
+    <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.3.22" />
+    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.9" />
+  </ItemGroup>
+  <ItemGroup Label="Background Jobs">
+    <PackageVersion Include="Hangfire.Core" Version="1.8.22" />
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.22" />
+    <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.13" />
+  </ItemGroup>
+  <ItemGroup Label="Email">
+    <PackageVersion Include="MailKit" Version="4.16.0" />
+    <PackageVersion Include="Fluid.Core" Version="2.31.0" />
+  </ItemGroup>
+  <ItemGroup Label="Aspire Hosting">
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.1.0" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.1.0" />
+    <PackageVersion Include="Aspire.Hosting.Seq" Version="13.1.0" />
+  </ItemGroup>
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="FluentAssertions" Version="7.0.0" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.9" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.3.0" />
+    <PackageVersion Include="Bogus" Version="35.7.1" />
+  </ItemGroup>
+</Project>

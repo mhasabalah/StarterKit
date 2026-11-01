@@ -1,0 +1,32 @@
+{% comment %}Variables: SubscriberName, PlanName, Amount, Currency, RefundType{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}طلب استرداد جديد{% else %}New Refund Request{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    قدّم المطوّر <strong style="color:#0f172a;">{{ SubscriberName }}</strong> طلب استرداد. يرجى المراجعة والبت في الطلب في أقرب وقت.
+  {% else %}
+    Subscriber <strong style="color:#0f172a;">{{ SubscriberName }}</strong> has submitted a refund request. Please review and take action promptly.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;">{% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}المبلغ{% else %}Amount{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ Amount }} {{ Currency }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}النوع{% else %}Type{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:#0f172a;">{{ RefundType }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الاسترداد' %}{% else %}{% assign card_title = 'Refund Details' %}{% endif %}
+{% include 'Components/Card' %}

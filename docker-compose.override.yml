@@ -1,0 +1,247 @@
+# ==============================================
+# StarterKit Docker Compose - Development Override
+# ==============================================
+# This file is automatically merged with docker-compose.yml
+# For production deployment, rename to docker-compose.dev.yml
+# ==============================================
+services:
+
+  # ==============================================
+  # PostgreSQL - Development Overrides
+  # ==============================================
+  postgres:
+    # Expose port to host for development tools
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    
+    # Override to use direct password (no secrets)
+    secrets: []
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: ""
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # Direct password
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: ${TZ:-UTC}
+    
+    # Development-friendly logging
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "log_statement=all"
+      - "-c"
+      - "log_duration=on"
+      - "-c"
+      - "log_min_duration_statement=0"
+      - "-c"
+      - "log_connections=on"
+      - "-c"
+      - "log_disconnections=on"
+
+
+  # ==============================================
+  # PgAdmin - Development Tool
+  # ==============================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ==============================================
+  # Redis - Development Overrides
+  # ==============================================
+  redis:
+    # Expose port to host
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    
+    # Override to use direct password (no secrets)
+    secrets: []
+    
+    # Simple command without secrets
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--maxmemory"
+      - "${REDIS_MAXMEMORY:-256mb}"
+      - "--maxmemory-policy"
+      - "${REDIS_MAXMEMORY_POLICY:-allkeys-lru}"
+      - "--appendonly"
+      - "yes"
+      - "--appendfsync"
+      - "everysec"
+      - "--loglevel"
+      - "debug"
+
+  # ==============================================
+  # Redis Commander - Development Tool
+  # ==============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    networks:
+      - backend
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ==============================================
+  # Seq - Development Overrides
+  # ==============================================
+  seq:
+    ports:
+      - "${SEQ_PORT:-5341}:80"
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORDHASH: ""
+      SEQ_FIRSTRUN_REQUIREAUTHENTICATIONFORHTTP: "false"
+      TZ: ${TZ:-UTC}
+
+  # ==============================================
+  # API - Development Overrides
+  # ==============================================
+  api:
+    # Use local build instead of registry image
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Debug
+    image: starterkit-api:dev
+    
+    # Expose port to host
+    ports:
+      - "${API_PORT:-5000}:80"
+    networks:
+      - backend
+      - database
+    # Override to use direct env vars (no secrets)
+    secrets: []
+    
+    environment:
+      # Development environment
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:80"
+      ASPNETCORE_DETAILEDERRORS: "true"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      
+      # Hot reload support
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+      DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "true"
+      
+      # Direct connection strings (no secrets)
+      # NOTE: Use internal Docker ports (5432, 6379) NOT the external mapped ports
+      ConnectionStrings__starterkit: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Include Error Detail=true"
+      ConnectionStrings__seq: "http://seq:80"
+
+      # Redis configuration (uses Options pattern)
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      
+      # Serilog
+      Serilog__WriteTo__1__Args__serverUrl: "http://seq:80"
+      Serilog__MinimumLevel__Default: "Debug"
+      Serilog__MinimumLevel__Override__Microsoft: "Information"
+      Serilog__MinimumLevel__Override__System: "Warning"
+      
+      # JWT (use env vars)
+      JwtSettings__SecretKey: ${JWT_SECRET_KEY}
+      JwtSettings__Issuer: ${JWT_ISSUER}
+      JwtSettings__Audience: ${JWT_AUDIENCE}
+      JwtSettings__AccessTokenExpirationMinutes: "30"
+      
+      # OpenTelemetry
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-starterkit-api}
+      OTEL_SERVICE_VERSION: ${OTEL_SERVICE_VERSION:-dev}
+      
+      # Application Settings
+      AppSettings__EnableSwagger: "true"
+      AppSettings__EnableDetailedErrors: "true"
+      AppSettings__UseDeveloperExceptionPage: "true"
+
+      # Email — route to Mailhog in development (no TLS, no auth)
+      Email__SmtpHost: "mailhog"
+      Email__SmtpPort: "1025"
+      Email__UseTls: "false"
+      Email__SmtpUsername: ""
+      Email__SmtpPassword: ""
+      Email__FromAddress: "noreply@example.local"
+      Email__FromName: "StarterKit Dev"
+    
+    volumes:
+      # User secrets for development
+      - ${APPDATA:-~/.microsoft}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      
+      # Uncomment for source code hot reload
+      # - ./src:/app/src:ro
+    
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2g
+
+  # ==============================================
+  # Mailhog - Email Testing (Dev Only)
+  # ==============================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1026}:1025"  # Development port (default 1026)
+      - "${MAILHOG_UI_PORT:-8026}:8025"    # Development port (default 8026)
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# ==============================================
+# Additional Volumes for Dev Tools
+# ==============================================
+volumes:
+  pgadmin-data:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_pgadmin_data

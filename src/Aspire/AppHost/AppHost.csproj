@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.1.0" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>2bb005a7-7c66-4118-8caf-2b4f2b21e80f</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.Docker" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+    <PackageReference Include="Aspire.Hosting.Seq"  />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Api\Api.csproj" />
+  </ItemGroup>
+
+</Project>

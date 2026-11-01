@@ -1,0 +1,83 @@
+using Subscriptions.Contracts.Subscriptions.DTOs;
+using Subscriptions.Contracts.Subscriptions.Queries;
+using Subscriptions.Domains.Subscriptions.Services;
+
+namespace Subscriptions.Domains.Subscriptions.Features.GetFeatureFlag;
+
+public class GetFeatureFlagHandler(
+    SubscriptionsDbContext dbContext,
+    IDistributedCache cache)
+    : IQueryHandler<GetFeatureFlagQuery, string?>
+{
+    private static readonly DistributedCacheEntryOptions _shortTtl =
+        new() { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1) };
+
+    private static readonly DistributedCacheEntryOptions _normalTtl =
+        new() { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) };
+
+    public async Task<string?> Handle(GetFeatureFlagQuery query, CancellationToken cancellationToken)
+    {
+        var features = await GetFeatures(query.SubscriberId, cancellationToken);
+        return features.TryGetValue(query.Key, out var value) ? value : null;
+    }
+
+    private async Task<Dictionary<string, string>> GetFeatures(Guid subscriberId, CancellationToken cancellationToken)
+    {
+        var cacheKey = SubscriptionCacheKeys.ForSubscriber(subscriberId);
+        var cached = await cache.GetStringAsync(cacheKey, cancellationToken);
+        if (cached is not null)
+        {
+            var cachedPayload = SubscriptionCacheSerializer.DeserializePayload(cached);
+            if (cachedPayload is not null)
+                return cachedPayload.Features;
+
+            return SubscriptionCacheSerializer.ExtractFeatures(cached);
+        }
+
+        var subscription = await dbContext.Subscriptions
+            .AsNoTracking()
+            .Where(x => x.SubscriberId == subscriberId &&
+                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue))
+            .OrderByDescending(x => x.UpdatedAt)
+            .Select(x => new
+            {
+                x.FeaturesJson,
+                x.MaxItems,
+                x.MaxStorageGb,
+                x.MaxUsers,
+                Status = x.Status.ToString(),
+                x.GracePeriodEndsAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (subscription is null)
+        {
+            await cache.SetStringAsync(
+                cacheKey,
+                SubscriptionCacheSerializer.SerializePayload(
+                    SubscriptionCacheSerializer.CreatePayload(
+                        new ActivePlanLimitsDto(null, null, null, "NoSubscription", null),
+                        [])),
+                _shortTtl,
+                cancellationToken);
+            return [];
+        }
+
+        var features = SubscriptionCacheSerializer.ExtractFeatures(subscription.FeaturesJson);
+        var payload = SubscriptionCacheSerializer.CreatePayload(
+            new ActivePlanLimitsDto(
+                subscription.MaxItems,
+                subscription.MaxStorageGb,
+                subscription.MaxUsers,
+                subscription.Status,
+                subscription.GracePeriodEndsAt),
+            features);
+
+        await cache.SetStringAsync(
+            cacheKey,
+            SubscriptionCacheSerializer.SerializePayload(payload),
+            _normalTtl,
+            cancellationToken);
+        return features;
+    }
+}

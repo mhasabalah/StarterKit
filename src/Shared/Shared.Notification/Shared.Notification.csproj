@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Carter" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.Core" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Fluid.Core" />
+    <PackageReference Include="MailKit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Core\Shared.Core.csproj" />
+    <ProjectReference Include="..\Shared.Contracts\Shared.Contracts.csproj" />
+    <ProjectReference Include="..\Shared.Email\Shared.Email.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Identity.Contracts\Identity.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\**\*.liquid" />
+  </ItemGroup>
+</Project>

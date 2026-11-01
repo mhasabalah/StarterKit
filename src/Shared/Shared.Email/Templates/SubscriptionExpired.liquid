@@ -1,0 +1,31 @@
+{% comment %}Variables: SubscriberName, PlanName, GracePeriodEndsAt, RenewalUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}انتهت صلاحية اشتراكك{% else %}Your Subscription Has Expired{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    عزيزي <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، انتهت صلاحية اشتراك خطة <strong>{{ PlanName }}</strong>.
+  {% else %}
+    Dear <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your <strong>{{ PlanName }}</strong> subscription has expired.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<p style="margin:0;font-size:14px;color:#64748b;">
+  {% if culture == 'ar' %}تنتهي فترة السماح في{% else %}Grace period ends on{% endif %}
+</p>
+<p style="margin:6px 0 0 0;font-size:17px;font-weight:700;color:#dc2626;">{{ GracePeriodEndsAt }}</p>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'فترة السماح' %}{% else %}{% assign card_title = 'Grace Period' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign alert_type = 'warning' %}
+{% assign alert_text_en = 'After the grace period your account will be locked. Renew now to avoid interruption.' %}
+{% assign alert_text_ar = 'بعد انتهاء فترة السماح سيتم تعليق حسابك. جدّد الآن لتفادي الانقطاع.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = RenewalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'تجديد الاشتراك الآن' %}{% else %}{% assign button_text = 'Renew Subscription Now' %}{% endif %}
+{% include 'Components/Button' %}

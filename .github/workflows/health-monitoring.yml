@@ -1,0 +1,278 @@
+name: Health Check & Monitoring
+
+on:
+  schedule:
+    # Run every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+env:
+  # ---- Deployment settings: override with GitHub repository *variables* (Settings > Secrets and variables > Actions > Variables)
+  APP_NAME: ${{ vars.APP_NAME || 'starterkit' }}                    # docker compose container prefix / pgBackRest stanza
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/starterkit' }}           # app directory on the VPS
+  PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}  # public base URL behind Nginx
+  POSTGRES_USER: ${{ vars.POSTGRES_USER || 'starterkit_user' }}
+  POSTGRES_DB: ${{ vars.POSTGRES_DB || 'starterkit' }}
+  BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'your-backup-bucket' }}
+
+jobs:
+  health-check:
+    name: Production Health Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🏥 Check API Health Endpoint
+        run: |
+          PRODUCTION_URL="${{ env.PUBLIC_API_URL }}"
+          HEALTH_URL="${PRODUCTION_URL}/health"
+
+          echo "=== Health Check ==="
+          echo "Checking: $HEALTH_URL"
+          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+
+          # Check /health endpoint
+          RESPONSE=$(curl -s -w "\n%{http_code}" $HEALTH_URL)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ API health endpoint is healthy"
+          else
+            echo "❌ API health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+      - name: 🔍 Check /alive Endpoint
+        run: |
+          PRODUCTION_URL="${{ env.PUBLIC_API_URL }}"
+          ALIVE_URL="${PRODUCTION_URL}/alive"
+
+          echo "=== Alive Check ==="
+          echo "Checking: $ALIVE_URL"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" $ALIVE_URL)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Alive endpoint responding"
+          else
+            echo "⚠️ Alive endpoint returned HTTP $HTTP_CODE (non-critical)"
+          fi
+
+      - name: 📊 Check Response Time
+        run: |
+          PRODUCTION_URL="${{ env.PUBLIC_API_URL }}"
+
+          echo "=== Response Time Check ==="
+
+          RESPONSE_TIME=$(curl -o /dev/null -s -w "%{time_total}" ${PRODUCTION_URL}/health)
+
+          echo "Response Time: ${RESPONSE_TIME}s"
+
+          # Warning if response time > 3 seconds
+          if (( $(echo "$RESPONSE_TIME > 3.0" | bc -l) )); then
+            echo "⚠️ WARNING: Slow response time (${RESPONSE_TIME}s)"
+          else
+            echo "✅ Response time is good"
+          fi
+
+      - name: 🔔 Notify on Failure
+        if: failure()
+        run: |
+          echo "🚨 PRODUCTION HEALTH CHECK FAILED"
+          echo "Time: $(date)"
+          echo "Check the Actions tab for diagnostics"
+          # Add Slack/Discord/Email notification
+
+      - name: 📊 Health Status Summary
+        run: |
+          echo "## 🏥 Health Check Results ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production URL**: ${{ env.PUBLIC_API_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ All systems operational" >> $GITHUB_STEP_SUMMARY
+          echo "- **Checked at**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Next check**: In 6 hours" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Endpoints Verified" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ /health - Operational" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ /alive - Operational" >> $GITHUB_STEP_SUMMARY
+
+  resource-monitoring:
+    name: Resource Monitoring
+    runs-on: [self-hosted, deploy-only]
+    needs: health-check
+    if: always()  # Run even if health-check fails to collect diagnostics
+
+    steps:
+      - name: 🔍 Verify Runner Environment
+        run: |
+          echo "=== Runner Information ==="
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"
+          echo "Working Directory: $(pwd)"
+          echo "Home: $HOME"
+          echo ""
+
+          echo "=== Checking ${{ env.DEPLOY_DIR }} access ==="
+          if [ -d "${{ env.DEPLOY_DIR }}" ]; then
+            echo "✅ ${{ env.DEPLOY_DIR }} exists"
+            ls -la ${{ env.DEPLOY_DIR }} | head -5
+          else
+            echo "❌ ${{ env.DEPLOY_DIR }} not found!"
+            exit 1
+          fi
+
+      - name: 📊 Check System Resources
+        run: |
+          echo "=== Memory Usage ==="
+          free -h
+
+          echo ""
+          echo "=== Disk Usage ==="
+          df -h /
+
+          echo ""
+          echo "=== Docker Container Stats ==="
+          docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"
+
+          echo ""
+          echo "=== Container Health ==="
+          if [ -d "${{ env.DEPLOY_DIR }}" ]; then
+            cd ${{ env.DEPLOY_DIR }}
+            docker compose -f docker-compose.yml --env-file .env.prod ps
+          else
+            echo "⚠️ Cannot access ${{ env.DEPLOY_DIR }}"
+          fi
+
+      - name: ⚠️ Check Resource Thresholds
+        run: |
+          set +e  # Don't exit on first error
+
+          WARNINGS=0
+
+          # Check disk usage
+          DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+          echo "Disk Usage: ${DISK_USAGE}%"
+          if [ $DISK_USAGE -gt 85 ]; then
+            echo "🚨 CRITICAL: Disk usage is at ${DISK_USAGE}%"
+            WARNINGS=$((WARNINGS + 1))
+          elif [ $DISK_USAGE -gt 75 ]; then
+            echo "⚠️ WARNING: Disk usage is at ${DISK_USAGE}%"
+            WARNINGS=$((WARNINGS + 1))
+          else
+            echo "✅ Disk usage is healthy"
+          fi
+
+          # Check available memory percentage
+          MEM_AVAILABLE=$(free | grep Mem | awk '{print ($7/$2) * 100}' | cut -d. -f1)
+          echo "Available Memory: ${MEM_AVAILABLE}%"
+          if [ $MEM_AVAILABLE -lt 5 ]; then
+            echo "🚨 CRITICAL: Available memory is very low (${MEM_AVAILABLE}%)"
+            WARNINGS=$((WARNINGS + 1))
+          elif [ $MEM_AVAILABLE -lt 15 ]; then
+            echo "⚠️ WARNING: Available memory is low (${MEM_AVAILABLE}%)"
+            WARNINGS=$((WARNINGS + 1))
+          else
+            echo "✅ Memory is healthy"
+          fi
+
+          # Check if containers are running
+          if [ -d "${{ env.DEPLOY_DIR }}" ]; then
+            cd ${{ env.DEPLOY_DIR }}
+            if ! docker compose -f docker-compose.yml --env-file .env.prod ps api | grep -q "Up"; then
+              echo "🚨 CRITICAL: API container is not running!"
+              WARNINGS=$((WARNINGS + 1))
+            else
+              echo "✅ API container is running"
+            fi
+          else
+            echo "⚠️ Cannot verify container status - ${{ env.DEPLOY_DIR }} not accessible"
+            WARNINGS=$((WARNINGS + 1))
+          fi
+
+          # Exit with error if warnings detected
+          if [ $WARNINGS -gt 0 ]; then
+            echo ""
+            echo "❌ $WARNINGS warning(s) detected"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All resource checks passed"
+
+      - name: 📊 Resource Summary
+        if: always()
+        run: |
+          DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+          MEM_TOTAL=$(free -h | grep Mem | awk '{print $2}')
+          MEM_USED=$(free -h | grep Mem | awk '{print $3}')
+          MEM_AVAILABLE=$(free -h | grep Mem | awk '{print $7}')
+
+          echo "## 📊 Resource Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Disk Usage:** ${DISK_USAGE}%" >> $GITHUB_STEP_SUMMARY
+          echo "**Memory:** ${MEM_USED} / ${MEM_TOTAL} (Available: ${MEM_AVAILABLE})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "**Status:** ✅ Resources healthy" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ⚠️ Resource warnings detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Review the logs above for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📊 Collect Diagnostics on Failure
+        if: failure() || needs.health-check.result == 'failure'
+        run: |
+          echo "=== Collecting Diagnostics ==="
+
+          if [ ! -d "${{ env.DEPLOY_DIR }}" ]; then
+            echo "❌ ERROR: ${{ env.DEPLOY_DIR }} not accessible"
+            echo "Runner: $(whoami)@$(hostname)"
+            echo "Working directory: $(pwd)"
+            echo "Cannot collect container diagnostics"
+          else
+            cd ${{ env.DEPLOY_DIR }}
+
+            echo ""
+            echo "=== Docker Container Status ==="
+            docker compose -f docker-compose.yml --env-file .env.prod ps
+
+            echo ""
+            echo "=== Recent API Logs (last 100 lines) ==="
+            docker compose -f docker-compose.yml --env-file .env.prod logs --tail=100 api
+
+            echo ""
+            echo "=== Container Resource Usage ==="
+            docker stats --no-stream
+          fi
+
+          echo ""
+          echo "=== Nginx Status ==="
+          sudo systemctl status nginx --no-pager || echo "Nginx status unavailable"
+
+          echo ""
+          echo "=== Recent Nginx Errors ==="
+          sudo tail -50 /var/log/nginx/${{ env.APP_NAME }}-https-error.log 2>/dev/null || echo "Nginx logs unavailable"
+
+      - name: 🔔 Notify on Issues
+        if: failure() || needs.health-check.result == 'failure'
+        run: |
+          if [ "${{ needs.health-check.result }}" == "failure" ]; then
+            echo "🚨 PRODUCTION HEALTH CHECK FAILED"
+            echo "The API health endpoint is not responding correctly"
+          fi
+
+          if [ "${{ job.status }}" == "failure" ]; then
+            echo "⚠️ HIGH RESOURCE USAGE DETECTED"
+          fi
+
+          echo ""
+          echo "Check GitHub Actions for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          # TODO: Add Slack/Discord/Email notification integration here

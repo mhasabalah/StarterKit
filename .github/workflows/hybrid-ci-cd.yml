@@ -1,0 +1,630 @@
+# ==============================================
+# Hybrid CI/CD Pipeline - Production
+# ==============================================
+# Architecture: GitHub-hosted builds + Self-hosted VPS deployment
+# Runner: Host-based on VPS (migrated 2026-02-02)
+# Deployment: Zero-downtime rolling updates with health checks
+# ==============================================
+
+name: Hybrid CI/CD
+
+on:
+  push:
+    branches: [master, develop]
+    paths-ignore: ['**.md', 'docs/**', 'wiki/**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [production, staging]
+        default: 'production'
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  # GHCR image: ghcr.io/<owner>/<repo>-api (docker/metadata-action lowercases it)
+  IMAGE_NAME: ${{ github.repository }}-api
+  DOTNET_VERSION: '9.0.x'
+  # ---- Deployment settings: override with GitHub repository *variables* (Settings > Secrets and variables > Actions > Variables)
+  APP_NAME: ${{ vars.APP_NAME || 'starterkit' }}                    # docker compose container prefix / pgBackRest stanza
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/starterkit' }}           # app directory on the VPS
+  PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}  # public base URL behind Nginx
+  POSTGRES_USER: ${{ vars.POSTGRES_USER || 'starterkit_user' }}
+  POSTGRES_DB: ${{ vars.POSTGRES_DB || 'starterkit' }}
+  BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'your-backup-bucket' }}
+
+jobs:
+  # ==============================================
+  # Build & Test (GitHub-hosted runner)
+  # ==============================================
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_tests
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore StarterKit.slnx
+
+      - name: Build
+        run: dotnet build StarterKit.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test StarterKit.slnx --configuration Release --no-build --verbosity normal
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/TestResults/**'
+          retention-days: 7
+
+  # ==============================================
+  # Docker Build & Push (GitHub-hosted runner)
+  # ==============================================
+  build-and-push:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: |
+      always() &&
+      (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
+      (github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./src/Api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: BUILD_CONFIGURATION=Release
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Image build summary
+        run: |
+          echo "### 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================
+  # Deploy (Self-hosted VPS runner - host-based)
+  # ==============================================
+  # Runner: ~/actions-runner/ on VPS
+  # Service: actions.runner.ubuntu-<hostname>.service
+  # Labels: [self-hosted, deploy-only]
+  # ==============================================
+  deploy:
+    name: Deploy to Production
+    runs-on: [self-hosted, deploy-only]
+    needs: build-and-push
+    if: |
+      always() &&
+      needs.build-and-push.result == 'success' &&
+      (github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch')
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}
+
+    steps:
+      - name: Checkout deployment config
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            deployment/
+            docker-compose.yml
+            .env.prod
+          sparse-checkout-cone-mode: false
+
+      - name: Verify deployment prerequisites
+        run: |
+          set -e
+
+          # Verify deployment structure
+          test -f ${{ env.DEPLOY_DIR }}/docker-compose.yml || { echo "❌ docker-compose.yml missing"; exit 1; }
+          test -f ${{ env.DEPLOY_DIR }}/.env.prod || { echo "❌ .env.prod missing"; exit 1; }
+          test -d ${{ env.DEPLOY_DIR }}/secrets || { echo "❌ secrets/ missing"; exit 1; }
+
+          # Verify Docker
+          docker --version
+          docker compose version
+
+          echo "✅ Prerequisites verified"
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Backup database
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+
+          if docker compose -f docker-compose.yml --env-file .env.prod ps postgres | grep -q "Up"; then
+            mkdir -p /backup
+            BACKUP_FILE="/backup/pre_deploy_$(date +%Y%m%d_%H%M%S).sql.gz"
+
+            docker exec ${{ env.APP_NAME }}-postgres pg_dump -U ${{ env.POSTGRES_USER }} ${{ env.POSTGRES_DB }} | gzip > "$BACKUP_FILE"
+
+            echo "✅ Backup: $BACKUP_FILE ($(du -h $BACKUP_FILE | cut -f1))"
+
+            # Keep last 5 backups
+            ls -t /backup/pre_deploy_*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm
+          else
+            echo "ℹ️  First deployment - skipping backup"
+          fi
+
+      - name: Pull latest image
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+
+          IMAGE=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" | tr '[:upper:]' '[:lower:]')
+          echo "Pulling: $IMAGE"
+          echo "Digest: ${{ needs.build-and-push.outputs.image-digest }}"
+
+          docker pull "$IMAGE"
+
+      - name: Deploy with zero-downtime
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+
+          # Use .env.prod explicitly (no override files)
+          export COMPOSE_FILE=docker-compose.yml
+          export COMPOSE_ENV_FILES=.env.prod
+
+          # Deploy
+          if ! docker compose ps postgres | grep -q "Up"; then
+            echo "🆕 First deployment"
+            docker compose -f docker-compose.yml --env-file .env.prod up -d
+            sleep 30
+          else
+            echo "🔄 Rolling update"
+            docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps api
+            sleep 15
+          fi
+
+          # Wait for health endpoint
+          echo "🏥 Waiting for /health endpoint..."
+          MAX_WAIT=120
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ Health endpoint responding"
+              break
+            fi
+
+            # Check container is still running
+            if ! docker compose -f docker-compose.yml --env-file .env.prod ps api | grep -q "Up"; then
+              echo "❌ Container stopped"
+              docker compose -f docker-compose.yml --env-file .env.prod logs --tail=50 api
+              exit 1
+            fi
+
+            [ $((ELAPSED % 10)) -eq 0 ] && echo "Waiting... ${ELAPSED}s/${MAX_WAIT}s"
+            sleep 2
+            ELAPSED=$((ELAPSED + 2))
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "❌ Health check timeout"
+            docker compose -f docker-compose.yml --env-file .env.prod logs --tail=50 api
+            exit 1
+          fi
+
+      - name: Update supporting services
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          docker compose -f docker-compose.yml --env-file .env.prod up -d
+          echo "✅ All services updated"
+
+      - name: Cleanup old images
+        run: docker image prune -f
+
+      - name: Final verification
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+
+          # Check services
+          echo "📊 Services:"
+          docker compose -f docker-compose.yml --env-file .env.prod ps
+
+          # Verify health endpoints
+          echo ""
+          echo "🏥 Health checks:"
+
+          # Localhost (tests container directly)
+          if curl -sf http://localhost:5000/health > /dev/null; then
+            echo "✅ localhost:5000/health"
+          else
+            echo "❌ localhost:5000/health failed"
+            docker compose -f docker-compose.yml --env-file .env.prod logs --tail=50 api
+            exit 1
+          fi
+
+          # Alive endpoint
+          if curl -sf http://localhost:5000/alive > /dev/null; then
+            echo "✅ localhost:5000/alive"
+          else
+            echo "⚠️  localhost:5000/alive not responding"
+          fi
+
+          # Public endpoint (tests Nginx + SSL + full stack)
+          if curl -sf ${{ env.PUBLIC_API_URL }}/health > /dev/null; then
+            echo "✅ ${{ env.PUBLIC_API_URL }}/health (Nginx + SSL)"
+          else
+            echo "⚠️  ${{ env.PUBLIC_API_URL }}/health not accessible yet"
+            echo "   (May take time for Nginx reload/DNS propagation)"
+          fi
+
+          # Container must be up
+          if ! docker compose -f docker-compose.yml --env-file .env.prod ps api | grep -q "Up"; then
+            echo "❌ Container not running"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ Deployment successful"
+          echo "   Container: Running"
+          echo "   Health: OK"
+          echo "   Public URL: ${{ env.PUBLIC_API_URL }}"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "### 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Production VPS (${{ env.PUBLIC_API_URL }})" >> $GITHUB_STEP_SUMMARY
+          echo "**Runner:** Host-based (native)" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ needs.build-and-push.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "**Status:** ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **URL:** ${{ env.PUBLIC_API_URL }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check logs above for details. Rollback may be required." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Gather deployment metrics
+        id: metrics
+        if: always()
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+
+          # Get container uptime
+          UPTIME=$(docker inspect ${{ env.APP_NAME }}-api --format='{{.State.StartedAt}}' 2>/dev/null || echo "N/A")
+          echo "container_started=$UPTIME" >> $GITHUB_OUTPUT
+
+          # Get image info
+          IMAGE_ID=$(docker inspect ${{ env.APP_NAME }}-api --format='{{.Image}}' 2>/dev/null | cut -c8-19 || echo "N/A")
+          echo "image_id=$IMAGE_ID" >> $GITHUB_OUTPUT
+
+          # Get container status
+          CONTAINER_STATUS=$(docker inspect ${{ env.APP_NAME }}-api --format='{{.State.Status}}' 2>/dev/null || echo "unknown")
+          echo "container_status=$CONTAINER_STATUS" >> $GITHUB_OUTPUT
+
+          # Get service stats
+          if docker compose -f docker-compose.yml --env-file .env.prod ps | grep -q "Up"; then
+            RUNNING_SERVICES=$(docker compose -f docker-compose.yml --env-file .env.prod ps --services --filter "status=running" | wc -l)
+          else
+            RUNNING_SERVICES=0
+          fi
+          echo "running_services=$RUNNING_SERVICES" >> $GITHUB_OUTPUT
+
+          # Timestamp
+          echo "timestamp=$(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+      - name: Send deployment start notification
+        id: notify_start
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+
+            # Function to send Telegram message
+            send_telegram() {
+              local msg="$1"
+              local silent="${2:-false}"
+              local encoded_msg=$(echo -e "$msg" | jq -sRr @uri)
+
+              RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+                -d "chat_id=${CHAT_ID}" \
+                -d "text=${encoded_msg}" \
+                -d "parse_mode=HTML" \
+                -d "disable_web_page_preview=true" \
+                -d "disable_notification=${silent}")
+
+              # Extract and return message_id
+              echo "$RESPONSE" | jq -r '.result.message_id' || echo "0"
+            }
+
+            # Initial deployment message
+            START_TIME=$(date '+%H:%M:%S UTC')
+
+            MSG="🚀 <b>Production Deploy</b>\n"
+            MSG="${MSG}━━━━━━━━━━━━━━━━━━━━\n\n"
+            MSG="${MSG}⏳ <b>DEPLOYMENT IN PROGRESS</b>\n\n"
+
+            MSG="${MSG}📦 <b>Release Info</b>\n"
+            MSG="${MSG}├ Branch: <code>${{ github.ref_name }}</code>\n"
+            MSG="${MSG}├ Commit: <code>${SHORT_SHA}</code>\n"
+            MSG="${MSG}└ By: <code>@${{ github.actor }}</code>\n\n"
+
+            MSG="${MSG}🏗 <b>Pipeline Status</b>\n"
+            MSG="${MSG}├ ✅ Build &amp; Test\n"
+            MSG="${MSG}├ ✅ Docker Image\n"
+            MSG="${MSG}├ ⏳ <b>Deploying to VPS...</b>\n"
+            MSG="${MSG}└ ⏸️ Health Check\n\n"
+
+            MSG="${MSG}━━━━━━━━━━━━━━━━━━━━\n"
+            MSG="${MSG}⏱ <i>Started: ${START_TIME}</i>"
+
+            MESSAGE_ID=$(send_telegram "$MSG" "false")
+            echo "message_id=$MESSAGE_ID" >> $GITHUB_OUTPUT
+            echo "$MESSAGE_ID" > /tmp/telegram_message_id.txt
+          fi
+
+      - name: Gather changed files info
+        id: changes
+        if: always()
+        run: |
+          # Get list of changed markdown files
+          DOCS_CHANGED=$(git diff --name-only HEAD~1 HEAD -- '*.md' 2>/dev/null | grep -E '\.(md)$' || echo "")
+
+          # Count files properly (only if not empty)
+          if [ -n "$DOCS_CHANGED" ]; then
+            DOCS_COUNT=$(echo "$DOCS_CHANGED" | wc -l)
+          else
+            DOCS_COUNT=0
+          fi
+
+          # Format for telegram (first 5 files) - escape special chars
+          if [ -n "$DOCS_CHANGED" ]; then
+            DOCS_LIST=$(echo "$DOCS_CHANGED" | head -5 | sed 's/^/• /' | tr '\n' '|' | sed 's/|$//')
+            # Replace | with newline placeholder for Telegram
+            DOCS_LIST=$(echo "$DOCS_LIST" | sed 's/|/%0A/g')
+          else
+            DOCS_LIST=""
+          fi
+
+          # Use multiline output format for GitHub Actions
+          {
+            echo "docs_count=$DOCS_COUNT"
+            echo "docs_changed<<EOF"
+            echo "$DOCS_LIST"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Update deployment progress
+        if: always()
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            MESSAGE_ID=$(cat /tmp/telegram_message_id.txt 2>/dev/null || echo "0")
+
+            if [ "$MESSAGE_ID" != "0" ]; then
+              SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+              BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+              CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+              START_TIME=$(date '+%H:%M:%S UTC')
+
+              # Function to edit Telegram message
+              edit_telegram() {
+                local message_id="$1"
+                local msg="$2"
+                local encoded_msg=$(echo -e "$msg" | jq -sRr @uri)
+
+                curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText" \
+                  -d "chat_id=${CHAT_ID}" \
+                  -d "message_id=${message_id}" \
+                  -d "text=${encoded_msg}" \
+                  -d "parse_mode=HTML" \
+                  -d "disable_web_page_preview=true" > /dev/null
+              }
+
+              # Determine status
+              if [ "${{ job.status }}" == "success" ]; then
+                STATUS="✅ <b>DEPLOYMENT SUCCESSFUL</b>"
+                DEPLOY_ICON="✅"
+                HEALTH_ICON="✅"
+              else
+                STATUS="❌ <b>DEPLOYMENT FAILED</b>"
+                DEPLOY_ICON="❌"
+                HEALTH_ICON="❌"
+              fi
+
+              # Update message with final status
+              MSG="🚀 <b>Production Deploy</b>\n"
+              MSG="${MSG}━━━━━━━━━━━━━━━━━━━━\n\n"
+              MSG="${MSG}${STATUS}\n\n"
+
+              MSG="${MSG}📦 <b>Release Info</b>\n"
+              MSG="${MSG}├ Branch: <code>${{ github.ref_name }}</code>\n"
+              MSG="${MSG}├ Commit: <code>${SHORT_SHA}</code>\n"
+              MSG="${MSG}├ Image: <code>${{ steps.metrics.outputs.image_id }}</code>\n"
+              MSG="${MSG}└ By: <code>@${{ github.actor }}</code>\n\n"
+
+              MSG="${MSG}🏗 <b>Pipeline Status</b>\n"
+              MSG="${MSG}├ ✅ Build &amp; Test\n"
+              MSG="${MSG}├ ✅ Docker Image\n"
+              MSG="${MSG}├ ${DEPLOY_ICON} Deploy to VPS\n"
+              MSG="${MSG}└ ${HEALTH_ICON} Health Check\n\n"
+
+              if [ "${{ job.status }}" == "success" ]; then
+                MSG="${MSG}🌐 <b>Access Points</b>\n"
+                MSG="${MSG}├ 🔗 <a href=\"${{ env.PUBLIC_API_URL }}\">Production</a>\n"
+                MSG="${MSG}├ 🏥 <a href=\"${{ env.PUBLIC_API_URL }}/health\">Health Check</a>\n"
+                MSG="${MSG}└ 📚 <a href=\"${{ env.PUBLIC_API_URL }}/swagger\">API Docs</a>\n\n"
+              fi
+
+              MSG="${MSG}━━━━━━━━━━━━━━━━━━━━\n"
+              MSG="${MSG}⏱ <i>${{ steps.metrics.outputs.timestamp }}</i>\n"
+              MSG="${MSG}<a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">📊 Workflow Details</a>"
+
+              edit_telegram "$MESSAGE_ID" "$MSG"
+            fi
+          fi
+
+      - name: Send documentation notification
+        if: always() && steps.changes.outputs.docs_count > 0
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+
+            # Function to send Telegram message
+            send_telegram() {
+              local msg="$1"
+              local silent="${2:-false}"
+              local encoded_msg=$(echo -e "$msg" | jq -sRr @uri)
+
+              curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+                -d "chat_id=${CHAT_ID}" \
+                -d "text=${encoded_msg}" \
+                -d "parse_mode=HTML" \
+                -d "disable_web_page_preview=true" \
+                -d "disable_notification=${silent}" > /dev/null
+            }
+
+            sleep 1
+
+            MSG_DOCS="📚 <b>Documentation Updated</b>\n"
+            MSG_DOCS="${MSG_DOCS}━━━━━━━━━━━━━━━━━━━━\n\n"
+            MSG_DOCS="${MSG_DOCS}📝 <b>Changed Files</b> (${{ steps.changes.outputs.docs_count }})\n"
+
+            if [ -n "${{ steps.changes.outputs.docs_changed }}" ]; then
+              MSG_DOCS="${MSG_DOCS}${{ steps.changes.outputs.docs_changed }}\n\n"
+            fi
+
+            MSG_DOCS="${MSG_DOCS}━━━━━━━━━━━━━━━━━━━━\n"
+            MSG_DOCS="${MSG_DOCS}📖 <i>For more documentation, visit the</i> <a href=\"https://github.com/${{ github.repository }}/wiki\">Wiki</a>\n\n"
+            MSG_DOCS="${MSG_DOCS}<a href=\"https://github.com/${{ github.repository }}/commit/${{ github.sha }}\">📄 View Commit</a>"
+
+            send_telegram "$MSG_DOCS" "true"
+          fi
+
+      - name: Send failure notification
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+
+            # Function to send Telegram message
+            send_telegram() {
+              local msg="$1"
+              local silent="${2:-false}"
+              local encoded_msg=$(echo -e "$msg" | jq -sRr @uri)
+
+              curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+                -d "chat_id=${CHAT_ID}" \
+                -d "text=${encoded_msg}" \
+                -d "parse_mode=HTML" \
+                -d "disable_web_page_preview=true" \
+                -d "disable_notification=${silent}" > /dev/null
+            }
+
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+            # Get error logs
+            ERROR_LOGS=$(cd ${{ env.DEPLOY_DIR }} && docker compose -f docker-compose.yml --env-file .env.prod logs --tail=10 api 2>&1 | grep -E "ERROR|FATAL|Exception" | head -5 | sed 's/"/\\"/g' | tr '\n' ' ' || echo "See workflow logs")
+            ERROR_LOGS=$(echo "$ERROR_LOGS" | cut -c1-300)
+            if [ ${#ERROR_LOGS} -eq 300 ]; then
+              ERROR_LOGS="${ERROR_LOGS}..."
+            fi
+
+            sleep 1
+
+            MSG="📋 <b>Error Details</b>\n"
+            MSG="${MSG}━━━━━━━━━━━━━━━━━━━━\n\n"
+
+            if [ -n "$ERROR_LOGS" ] && [ "$ERROR_LOGS" != "See workflow logs" ]; then
+              MSG="${MSG}<code>${ERROR_LOGS}</code>\n\n"
+            fi
+
+            MSG="${MSG}🛠 <b>Quick Actions</b>\n"
+            MSG="${MSG}<code>cd ${{ env.DEPLOY_DIR }}</code>\n"
+            MSG="${MSG}<code>docker compose logs api</code>\n"
+            MSG="${MSG}<code>docker compose restart api</code>\n\n"
+
+            MSG="${MSG}🔍 <b>Checklist</b>\n"
+            MSG="${MSG}• Container health\n"
+            MSG="${MSG}• Database connection\n"
+            MSG="${MSG}• Environment variables\n"
+            MSG="${MSG}• Disk space\n"
+            MSG="${MSG}• Recent changes\n\n"
+
+            MSG="${MSG}━━━━━━━━━━━━━━━━━━━━\n"
+            MSG="${MSG}<a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">🔗 Full Workflow Logs</a>"
+
+            send_telegram "$MSG" "false"
+          fi
+

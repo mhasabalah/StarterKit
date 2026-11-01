@@ -1,0 +1,40 @@
+{% comment %}Variables: SubscriberName, PlanName, RejectionReason, ResubmitUrl, SupportWhatsApp, SupportEmail{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#dc2626;line-height:1.35;">
+  {% if culture == 'ar' %}تم رفض إثبات الدفع{% else %}Payment Proof Rejected{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تعذّر قبول إثبات الدفع الذي أرسلته للخطة <strong>{{ PlanName }}</strong>. يُرجى مراجعة السبب ورفع إثبات صحيح.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, the payment proof you submitted for the <strong>{{ PlanName }}</strong> plan could not be accepted. Please review the reason and resubmit.
+  {% endif %}
+</p>
+
+{% if RejectionReason != '' %}
+{% capture card_content %}
+<p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">{{ RejectionReason }}</p>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'سبب الرفض' %}{% else %}{% assign card_title = 'Reason for Rejection' %}{% endif %}
+{% include 'Components/Card' %}
+{% endif %}
+
+{% assign alert_type = 'warning' %}
+{% assign alert_text_en = 'Please ensure your payment receipt is clear, shows the full amount, and matches the plan price.' %}
+{% assign alert_text_ar = 'تأكد من أن إيصال الدفع واضح ويُظهر المبلغ الكامل ويتطابق مع سعر الخطة.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = ResubmitUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'رفع إثبات جديد' %}{% else %}{% assign button_text = 'Resubmit Payment Proof' %}{% endif %}
+{% include 'Components/Button' %}
+
+{% include 'Components/Spacer' %}
+
+<p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+  {% if culture == 'ar' %}
+    للمساعدة تواصل معنا عبر واتساب: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% else %}
+    Need help? Contact us on WhatsApp: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> or email: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% endif %}
+</p>

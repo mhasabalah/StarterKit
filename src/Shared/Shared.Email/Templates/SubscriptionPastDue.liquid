@@ -1,0 +1,49 @@
+{% comment %}Variables: SubscriberName, PlanName, GraceDeadline, RenewalUrl, SupportWhatsApp, SupportEmail{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#b45309;line-height:1.35;">
+  {% if culture == 'ar' %}اشتراكك متأخر — يُرجى التجديد{% else %}Subscription Past Due — Action Required{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، انتهى اشتراكك وأنت الآن في فترة السماح. يُرجى التجديد قبل انتهاء هذه الفترة لتجنب تعليق حسابك.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your subscription has expired and you are currently in the grace period. Please renew before the deadline to avoid account suspension.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+      {% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}الموعد النهائي لفترة السماح{% else %}Grace Period Deadline{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:700;color:#dc2626;">{{ GraceDeadline }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الاشتراك' %}{% else %}{% assign card_title = 'Subscription Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign alert_type = 'warning' %}
+{% assign alert_text_en = 'After the grace period ends, your account will be suspended and listings will be hidden.' %}
+{% assign alert_text_ar = 'بعد انتهاء فترة السماح، سيتم تعليق حسابك وإخفاء إعلاناتك.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = RenewalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'تجديد الاشتراك الآن' %}{% else %}{% assign button_text = 'Renew Now' %}{% endif %}
+{% include 'Components/Button' %}
+
+{% include 'Components/Spacer' %}
+
+<p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+  {% if culture == 'ar' %}
+    للمساعدة تواصل معنا عبر واتساب: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% else %}
+    Need help? Contact us on WhatsApp: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> or email: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% endif %}
+</p>

@@ -1,0 +1,31 @@
+{% comment %}Variables: SubscriberName, PlanName, ExpiryDate, RenewalUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تذكير: اشتراكك على وشك الانتهاء{% else %}Subscription Expiry Reminder{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، اشتراك خطة <strong>{{ PlanName }}</strong> على وشك الانتهاء.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your <strong>{{ PlanName }}</strong> plan is expiring soon.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<p style="margin:0;font-size:14px;color:#64748b;">
+  {% if culture == 'ar' %}تاريخ انتهاء الاشتراك{% else %}Subscription expiry date{% endif %}
+</p>
+<p style="margin:6px 0 0 0;font-size:17px;font-weight:700;color:#d97706;">{{ ExpiryDate }}</p>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'موعد الانتهاء' %}{% else %}{% assign card_title = 'Expiry Date' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign alert_type = 'info' %}
+{% assign alert_text_en = 'Renew before the expiry date to keep uninterrupted access to all features.' %}
+{% assign alert_text_ar = 'جدّد قبل تاريخ الانتهاء للإبقاء على وصول متواصل لجميع الميزات.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = RenewalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'تجديد الاشتراك' %}{% else %}{% assign button_text = 'Renew Subscription' %}{% endif %}
+{% include 'Components/Button' %}
