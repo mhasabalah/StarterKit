@@ -1,0 +1,38 @@
+{% comment %}Variables: SubscriberName, PlanName, Reason, SupportWhatsApp, SupportEmail{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم رفض طلب الاسترداد{% else %}Refund Request Rejected{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، للأسف تم رفض طلب استرداد المبلغ.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, unfortunately your refund request has been rejected.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;">{% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}السبب{% else %}Reason{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:#dc2626;">{{ Reason }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الرفض' %}{% else %}{% assign card_title = 'Rejection Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% include 'Components/Spacer' %}
+
+<p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+  {% if culture == 'ar' %}
+    للاعتراض أو الاستفسار تواصل معنا عبر واتساب: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% else %}
+    To dispute or inquire, contact us on WhatsApp: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> or email: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% endif %}
+</p>

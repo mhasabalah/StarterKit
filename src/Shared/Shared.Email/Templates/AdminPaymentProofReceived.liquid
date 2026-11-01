@@ -1,0 +1,42 @@
+{% comment %}Variables: SubscriberName, ApplicantEmail, PlanName, ProofUploadedAt, AdminReviewUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}إثبات دفع جديد بانتظار المراجعة{% else %}New Payment Proof Awaiting Review{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    رفع المطوّر إثبات دفع جديداً وهو بانتظار مراجعتك وإجراء اللازم.
+  {% else %}
+    A subscriber has uploaded a new payment proof and it is awaiting your review.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:130px;white-space:nowrap;">
+      {% if culture == 'ar' %}الشركة{% else %}Company{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ SubscriberName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}البريد الإلكتروني{% else %}Email{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ ApplicantEmail }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}وقت الرفع{% else %}Uploaded At{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ ProofUploadedAt }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الدفع' %}{% else %}{% assign card_title = 'Payment Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign button_url = AdminReviewUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'مراجعة وإجراء اللازم' %}{% else %}{% assign button_text = 'Review & Take Action' %}{% endif %}
+{% include 'Components/Button' %}

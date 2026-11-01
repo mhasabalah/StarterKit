@@ -1,0 +1,164 @@
+name: Rollback Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_file:
+        description: 'Backup file to restore from (leave empty for latest)'
+        required: false
+        type: string
+      confirmation:
+        description: 'Type "ROLLBACK" to confirm'
+        required: true
+        type: string
+
+env:
+  # ---- Deployment settings: override with GitHub repository *variables* (Settings > Secrets and variables > Actions > Variables)
+  APP_NAME: ${{ vars.APP_NAME || 'starterkit' }}                    # docker compose container prefix / pgBackRest stanza
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/starterkit' }}           # app directory on the VPS
+  PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}  # public base URL behind Nginx
+  POSTGRES_USER: ${{ vars.POSTGRES_USER || 'starterkit_user' }}
+  POSTGRES_DB: ${{ vars.POSTGRES_DB || 'starterkit' }}
+  BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'your-backup-bucket' }}
+
+jobs:
+  rollback:
+    name: Rollback Production
+    runs-on: [self-hosted, deploy-only]
+    environment:
+      name: production
+
+    steps:
+      - name: ⚠️ Validate Confirmation
+        run: |
+          if [ "${{ inputs.confirmation }}" != "ROLLBACK" ]; then
+            echo "❌ Confirmation failed. You must type 'ROLLBACK' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation validated"
+          echo "⚠️ WARNING: This will rollback the production database!"
+
+      - name: 🔄 Execute Rollback
+        env:
+          BACKUP_FILE: ${{ inputs.backup_file }}
+        run: |
+          set -e
+
+          cd ${{ env.DEPLOY_DIR }}
+
+          # Determine backup file
+          if [ -z "$BACKUP_FILE" ]; then
+            echo "🔍 Finding latest pre-deployment backup..."
+            BACKUP=$(ls -t /backup/pre_deploy_*.sql.gz 2>/dev/null | head -1)
+          else
+            BACKUP="/backup/$BACKUP_FILE"
+          fi
+
+          if [ ! -f "$BACKUP" ]; then
+            echo "❌ Backup file not found: $BACKUP"
+            echo "Available backups:"
+            ls -lh /backup/*.sql.gz 2>/dev/null || echo "No backups found"
+            exit 1
+          fi
+
+          echo "📦 Using backup: $BACKUP"
+          echo "   Size: $(du -h "$BACKUP" | cut -f1)"
+          echo "   Date: $(stat -c '%y' "$BACKUP")"
+
+          # Create safety backup before rollback
+          echo "💾 Creating safety backup before rollback..."
+          mkdir -p /backup
+          SAFETY_BACKUP="/backup/rollback_safety_$(date +%Y%m%d_%H%M%S).sql.gz"
+          docker exec ${{ env.APP_NAME }}-postgres pg_dump -U ${{ env.POSTGRES_USER }} ${{ env.POSTGRES_DB }} | gzip > "$SAFETY_BACKUP"
+          echo "✅ Safety backup created: $SAFETY_BACKUP"
+
+          # Stop API container
+          echo "🛑 Stopping API container..."
+          docker compose -f docker-compose.yml --env-file .env.prod stop api
+
+          # Restore database
+          echo "🔄 Restoring database from backup..."
+          gunzip -c "$BACKUP" | docker exec -i ${{ env.APP_NAME }}-postgres psql -U ${{ env.POSTGRES_USER }} ${{ env.POSTGRES_DB }}
+
+          # Restart services
+          echo "🔄 Restarting services..."
+          docker compose -f docker-compose.yml --env-file .env.prod up -d
+
+          # Wait for services
+          echo "⏳ Waiting for services to start..."
+          sleep 20
+
+          echo "✅ Rollback completed"
+
+      - name: 🏥 Verify Health
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+
+          echo "🏥 Running health checks..."
+
+          MAX_WAIT=60
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ Health endpoint responding"
+              break
+            fi
+            [ $((ELAPSED % 10)) -eq 0 ] && echo "Waiting... ${ELAPSED}s"
+            sleep 2
+            ELAPSED=$((ELAPSED + 2))
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "❌ Health check timeout"
+            docker compose -f docker-compose.yml --env-file .env.prod logs --tail=50 api
+            exit 1
+          fi
+
+          # Public health check
+          if curl -sf ${{ env.PUBLIC_API_URL }}/health > /dev/null 2>&1; then
+            echo "✅ Public endpoint healthy"
+          else
+            echo "⚠️ Public endpoint not responding yet (may need time)"
+          fi
+
+          echo ""
+          echo "✅ Application is healthy after rollback"
+
+      - name: 📊 Rollback Summary
+        if: always()
+        run: |
+          echo "## ⚠️ Production Rollback Executed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Executed by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backup Used**: ${{ inputs.backup_file || 'Latest pre-deployment backup' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "- **Status**: ✅ Rollback Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ❌ Rollback Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Important Notes" >> $GITHUB_STEP_SUMMARY
+          echo "- 💾 A safety backup was created before rollback" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔍 Review the cause of the issue that required rollback" >> $GITHUB_STEP_SUMMARY
+          echo "- 📝 Document what went wrong and how to prevent it" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Production URL**: ${{ env.PUBLIC_API_URL }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🔔 Notify Team
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "⚠️ PRODUCTION ROLLBACK COMPLETED"
+            echo "Rolled back by: @${{ github.actor }}"
+            echo "Status: ✅ Healthy"
+            echo "URL: ${{ env.PUBLIC_API_URL }}"
+          else
+            echo "🚨 PRODUCTION ROLLBACK FAILED"
+            echo "Attempted by: @${{ github.actor }}"
+            echo "Status: ❌ Manual intervention required"
+          fi
+          # TODO: Add Slack/Discord/Email notification integration here

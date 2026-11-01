@@ -1,0 +1,36 @@
+{% comment %}Variables: SubscriberName, PlanName, RejectionReason, SupportWhatsApp, SupportEmail{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#dc2626;line-height:1.35;">
+  {% if culture == 'ar' %}تم رفض طلب الاشتراك{% else %}Subscription Request Rejected{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، نأسف لإبلاغك بأن طلب الاشتراك في خطة <strong>{{ PlanName }}</strong> قد تم رفضه.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, we're sorry to inform you that your subscription request for the <strong>{{ PlanName }}</strong> plan has been rejected.
+  {% endif %}
+</p>
+
+{% if RejectionReason != '' %}
+{% capture card_content %}
+<p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">{{ RejectionReason }}</p>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'سبب الرفض' %}{% else %}{% assign card_title = 'Reason for Rejection' %}{% endif %}
+{% include 'Components/Card' %}
+{% endif %}
+
+{% assign alert_type = 'warning' %}
+{% assign alert_text_en = 'If you believe this is an error or would like to appeal, please contact our support team.' %}
+{% assign alert_text_ar = 'إذا كنت تعتقد أن هذا خطأ أو تريد الاعتراض، يُرجى التواصل مع فريق الدعم.' %}
+{% include 'Components/Alert' %}
+
+{% include 'Components/Spacer' %}
+
+<p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+  {% if culture == 'ar' %}
+    للمساعدة تواصل معنا عبر واتساب: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% else %}
+    Contact us on WhatsApp: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> or email: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+  {% endif %}
+</p>

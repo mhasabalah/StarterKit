@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+      <UserSecretsId>dec35037-53d5-4807-8d1f-8c6c298b62b4</UserSecretsId>
+      <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+      <DockerfileContext>..\..</DockerfileContext>
+      <DockerComposeProjectPath>..\..\docker-compose.dcproj</DockerComposeProjectPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Seq" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
+        <PackageReference Include="Serilog.AspNetCore" />
+        <PackageReference Include="Serilog.Sinks.Seq" />
+        <PackageReference Include="Hangfire.AspNetCore" />
+        <PackageReference Include="Hangfire.PostgreSql" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Aspire\ServiceDefaults\ServiceDefaults.csproj" />
+      <ProjectReference Include="..\Modules\Identity\Identity\Identity.csproj" />
+      <ProjectReference Include="..\Modules\Attachment\Attachment\Attachment.csproj" />
+      <ProjectReference Include="..\Modules\Subscriptions\Subscriptions\Subscriptions.csproj" />
+      <ProjectReference Include="..\Modules\Catalog\Catalog\Catalog.csproj" />
+      <ProjectReference Include="..\Shared\Shared.Core\Shared.Core.csproj" />
+      <ProjectReference Include="..\Shared\Shared.Email\Shared.Email.csproj" />
+      <ProjectReference Include="..\Shared\Shared.Notification\Shared.Notification.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="uploads\" />
+    </ItemGroup>
+
+</Project>

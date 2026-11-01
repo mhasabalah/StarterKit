@@ -1,0 +1,33 @@
+{% comment %}
+  Card Component — Highlighted info / data box
+  ─────────────────────────────────────────────────────────
+  Required variables:
+    card_content  — HTML content built via {% capture card_content %}...{% endcapture %}
+  Optional variables:
+    card_title    — small uppercase label shown above content
+  ─────────────────────────────────────────────────────────
+{% endcomment %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
+       style="margin:20px 0;">
+  <tr>
+    <td style="background-color:#f8fafc;
+               border:1px solid #e2e8f0;
+               border-radius:8px;
+               padding:18px 22px;"
+        dir="{% if culture == 'ar' %}rtl{% else %}ltr{% endif %}">
+
+      {% if card_title %}
+      <p style="margin:0 0 12px 0;
+                font-size:11px;
+                font-weight:700;
+                color:#64748b;
+                text-transform:uppercase;
+                letter-spacing:0.08em;">{{ card_title }}</p>
+      {% endif %}
+
+      <div style="font-size:15px;color:#1e293b;line-height:1.7;">
+        {{ card_content }}
+      </div>
+    </td>
+  </tr>
+</table>

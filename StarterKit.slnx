@@ -1,0 +1,46 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Api.E2ETests/Api.E2ETests.csproj" />
+  </Folder>
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Aspire/">
+    <Project Path="src/Aspire/AppHost/AppHost.csproj" />
+    <Project Path="src/Aspire/ServiceDefaults/ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Attachment/">
+    <Project Path="src/Modules/Attachment/Attachment.Contracts/Attachment.Contracts.csproj" />
+    <Project Path="src/Modules/Attachment/Attachment/Attachment.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Catalog/">
+    <Project Path="src/Modules/Catalog/Catalog.Contracts/Catalog.Contracts.csproj" />
+    <Project Path="src/Modules/Catalog/Catalog/Catalog.csproj" />
+    <Project Path="src/Modules/Catalog/Catalog.Tests/Catalog.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/Identity/Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Subscriptions/">
+    <Project Path="src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj" />
+    <Project Path="src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj" />
+    <Project Path="src/Modules/Subscriptions/Subscriptions.Tests/Subscriptions.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/Shared.Contracts/Shared.Contracts.csproj" />
+    <Project Path="src/Shared/Shared.Core/Shared.Core.csproj" />
+    <Project Path="src/Shared/Shared.Email/Shared.Email.csproj" />
+    <Project Path="src/Shared/Shared.Notification/Shared.Notification.csproj" />
+    <Project Path="src/Shared/Shared.Messaging/Shared.Messaging.csproj" />
+  </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+</Solution>

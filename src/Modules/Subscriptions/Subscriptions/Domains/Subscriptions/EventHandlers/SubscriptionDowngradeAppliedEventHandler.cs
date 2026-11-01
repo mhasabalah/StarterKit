@@ -1,0 +1,34 @@
+namespace Subscriptions.Domains.Subscriptions.EventHandlers;
+
+public class SubscriptionDowngradeAppliedEventHandler(
+    INotificationSender notificationSender,
+    ISubscriberInfoProvider subscriberInfoProvider,
+    IConfiguration configuration,
+    SubscriptionsDbContext dbContext)
+    : INotificationHandler<SubscriptionDowngradeAppliedEvent>
+{
+    public async Task Handle(SubscriptionDowngradeAppliedEvent notification, CancellationToken cancellationToken)
+    {
+        var subscriptionInfo = await dbContext.Subscriptions
+            .AsNoTracking()
+            .Where(x => x.Id == notification.SubscriptionId)
+            .Select(x => new { x.PlanName, x.RenewalDate })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var subscriber = await subscriberInfoProvider.GetAsync(notification.SubscriberId, cancellationToken);
+
+        var frontendBaseUrl = configuration["Application:FrontendBaseUrl"] ?? "http://localhost:3000";
+        var model = new SubscriptionDowngradeAppliedModel
+        {
+            SubscriberName = subscriber?.DisplayName ?? string.Empty,
+            NewPlanName = subscriptionInfo?.PlanName ?? "New Plan",
+            NewRenewalDate = subscriptionInfo?.RenewalDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+            PortalUrl = $"{frontendBaseUrl}/subscription"
+        };
+
+        await notificationSender
+            .For(notification.SubscriberId)
+            .WithEmail(EmailTemplate.SubscriptionDowngradeApplied, model.ToDictionary())
+            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+    }
+}

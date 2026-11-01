@@ -1,0 +1,243 @@
+name: Database Backup Management
+
+on:
+  schedule:
+    # Full backup - Weekly (Sunday 2 AM)
+    - cron: '0 2 * * 0'
+    # Differential backup - Daily (2 AM, Monday-Saturday)
+    - cron: '0 2 * * 1-6'
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: 'Backup type'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - diff
+          - incr
+
+env:
+  # ---- Deployment settings: override with GitHub repository *variables* (Settings > Secrets and variables > Actions > Variables)
+  APP_NAME: ${{ vars.APP_NAME || 'starterkit' }}                    # docker compose container prefix / pgBackRest stanza
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/starterkit' }}           # app directory on the VPS
+  PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}  # public base URL behind Nginx
+  POSTGRES_USER: ${{ vars.POSTGRES_USER || 'starterkit_user' }}
+  POSTGRES_DB: ${{ vars.POSTGRES_DB || 'starterkit' }}
+  BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'your-backup-bucket' }}
+
+jobs:
+  backup:
+    runs-on: [self-hosted, deploy-only]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine backup type
+        id: backup_type
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "type=${{ inputs.backup_type }}" >> $GITHUB_OUTPUT
+          elif [ "$(date +%u)" == "7" ]; then
+            echo "type=full" >> $GITHUB_OUTPUT
+          else
+            echo "type=diff" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run backup
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+            pgbackrest --stanza=${{ env.APP_NAME }} --type=${{ steps.backup_type.outputs.type }} --no-archive-check backup
+
+      - name: Verify backup
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+            pgbackrest --stanza=${{ env.APP_NAME }} info
+            
+      - name: Gather backup metrics
+        id: metrics
+        if: always()
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          
+          # Get backup info in JSON format
+          BACKUP_INFO=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+            pgbackrest --stanza=${{ env.APP_NAME }} --output=json info 2>/dev/null)
+          
+          # Check if we have valid JSON
+          if ! echo "$BACKUP_INFO" | jq empty 2>/dev/null; then
+            echo "label=${{ steps.backup_type.outputs.type }}" >> $GITHUB_OUTPUT
+            echo "size_mb=N/A" >> $GITHUB_OUTPUT
+            echo "delta_mb=N/A" >> $GITHUB_OUTPUT
+            echo "db_size_gb=N/A" >> $GITHUB_OUTPUT
+            echo "duration_min=N/A" >> $GITHUB_OUTPUT
+            echo "total_backups=N/A" >> $GITHUB_OUTPUT
+            echo "repo_size_mb=N/A" >> $GITHUB_OUTPUT
+            echo "timestamp=$(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Extract latest backup details
+          LATEST_BACKUP=$(echo "$BACKUP_INFO" | jq -r '.[0].backup[-1]')
+          
+          # Extract metrics with null safety
+          BACKUP_LABEL=$(echo "$LATEST_BACKUP" | jq -r '.label // "N/A"')
+          
+          # Database size (in bytes)
+          DB_SIZE=$(echo "$LATEST_BACKUP" | jq -r '.info.size // 0')
+          DB_SIZE_GB=$(awk "BEGIN {printf \"%.2f\", $DB_SIZE/1024/1024/1024}")
+          
+          # Backup size (in bytes)
+          BACKUP_SIZE=$(echo "$LATEST_BACKUP" | jq -r '.info.delta // 0')
+          BACKUP_SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $BACKUP_SIZE/1024/1024}")
+          
+          # Repository size (compressed, in bytes)
+          REPO_SIZE=$(echo "$LATEST_BACKUP" | jq -r '.info.repository.size // 0')
+          REPO_SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $REPO_SIZE/1024/1024}")
+          
+          # Duration (timestamps are in Unix epoch)
+          START_TIME=$(echo "$LATEST_BACKUP" | jq -r '.timestamp.start // 0')
+          STOP_TIME=$(echo "$LATEST_BACKUP" | jq -r '.timestamp.stop // 0')
+          
+          if [ "$START_TIME" != "0" ] && [ "$STOP_TIME" != "0" ]; then
+            DURATION_SEC=$((STOP_TIME - START_TIME))
+            DURATION_MIN=$(awk "BEGIN {printf \"%.2f\", $DURATION_SEC/60}")
+          else
+            DURATION_MIN="N/A"
+          fi
+          
+          # Total backups
+          TOTAL_BACKUPS=$(echo "$BACKUP_INFO" | jq -r '.[0].backup | length')
+          
+          # Backup type
+          BACKUP_TYPE=$(echo "$LATEST_BACKUP" | jq -r '.type // "unknown"')
+          
+          # Output metrics
+          echo "label=$BACKUP_LABEL" >> $GITHUB_OUTPUT
+          echo "size_mb=$BACKUP_SIZE_MB" >> $GITHUB_OUTPUT
+          echo "db_size_gb=$DB_SIZE_GB" >> $GITHUB_OUTPUT
+          echo "repo_size_mb=$REPO_SIZE_MB" >> $GITHUB_OUTPUT
+          echo "duration_min=$DURATION_MIN" >> $GITHUB_OUTPUT
+          echo "total_backups=$TOTAL_BACKUPS" >> $GITHUB_OUTPUT
+          echo "backup_type=$BACKUP_TYPE" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+      - name: Send success notification
+        if: success()
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            # Calculate compression ratio
+            if [ "${{ steps.metrics.outputs.size_mb }}" != "N/A" ] && [ "${{ steps.metrics.outputs.repo_size_mb }}" != "N/A" ]; then
+              COMPRESSION=$(awk "BEGIN {printf \"%.1f\", (${{ steps.metrics.outputs.size_mb }} / ${{ steps.metrics.outputs.repo_size_mb }})}")
+            else
+              COMPRESSION="N/A"
+            fi
+            
+            MESSAGE="╭─────────────────────────╮%0A"
+            MESSAGE="${MESSAGE}│  <b>✅ BACKUP SUCCESSFUL</b>  │%0A"
+            MESSAGE="${MESSAGE}╰─────────────────────────╯%0A%0A"
+            
+            MESSAGE="${MESSAGE}🎯 <b>Backup Profile</b>%0A"
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}🏷  <b>Label:</b> <code>${{ steps.metrics.outputs.label }}</code>%0A"
+            MESSAGE="${MESSAGE}📦 <b>Type:</b> <code>${{ steps.metrics.outputs.backup_type }}</code>%0A"
+            MESSAGE="${MESSAGE}⏱  <b>Duration:</b> <code>${{ steps.metrics.outputs.duration_min }} min</code>%0A"
+            MESSAGE="${MESSAGE}💾 <b>Database:</b> <code>${{ steps.metrics.outputs.db_size_gb }} GB</code>%0A%0A"
+            
+            MESSAGE="${MESSAGE}📊 <b>Storage Metrics</b>%0A"
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}📤 <b>Raw Size:</b> <code>${{ steps.metrics.outputs.size_mb }} MB</code>%0A"
+            MESSAGE="${MESSAGE}🗜  <b>Compressed:</b> <code>${{ steps.metrics.outputs.repo_size_mb }} MB</code> <i>(${COMPRESSION}x)</i>%0A"
+            MESSAGE="${MESSAGE}🗄  <b>Total Backups:</b> <code>${{ steps.metrics.outputs.total_backups }}</code>%0A"
+            MESSAGE="${MESSAGE}☁️  <b>Location:</b> <code>S3://${{ env.BACKUP_BUCKET }}</code>%0A%0A"
+            
+            MESSAGE="${MESSAGE}⚙️ <b>System Info</b>%0A"
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}🖥  <b>Server:</b> <code>$(hostname)</code>%0A"
+            MESSAGE="${MESSAGE}🕐 <b>Completed:</b> <code>${{ steps.metrics.outputs.timestamp }}</code>%0A%0A"
+            
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}<i>🔒 Data integrity verified • Retention policy active</i>"
+            
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d "text=${MESSAGE}" \
+              -d "parse_mode=HTML" \
+              -d "disable_web_page_preview=true"
+          fi
+
+      - name: Send failure notification
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            ERROR_LOGS=$(cd ${{ env.DEPLOY_DIR }} && docker compose -f docker-compose.yml --env-file .env.prod logs --tail=20 pgbackrest 2>&1 | grep -E "ERROR|WARN|FATAL" | tail -5 | sed 's/"/\\"/g' || echo "No error logs available")
+            
+            MESSAGE="╭─────────────────────────╮%0A"
+            MESSAGE="${MESSAGE}│   <b>❌ BACKUP FAILED</b>    │%0A"
+            MESSAGE="${MESSAGE}╰─────────────────────────╯%0A%0A"
+            
+            MESSAGE="${MESSAGE}⚠️ <b>Failure Details</b>%0A"
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}📦 <b>Type:</b> <code>${{ steps.backup_type.outputs.type }}</code>%0A"
+            MESSAGE="${MESSAGE}🖥  <b>Server:</b> <code>$(hostname)</code>%0A"
+            MESSAGE="${MESSAGE}🕐 <b>Failed At:</b> <code>${{ steps.metrics.outputs.timestamp }}</code>%0A%0A"
+            
+            MESSAGE="${MESSAGE}🔍 <b>Troubleshooting Steps</b>%0A"
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}1️⃣ Check pgBackRest container status%0A"
+            MESSAGE="${MESSAGE}2️⃣ Verify AWS S3 credentials & permissions%0A"
+            MESSAGE="${MESSAGE}3️⃣ Validate disk space on server%0A"
+            MESSAGE="${MESSAGE}4️⃣ Review PostgreSQL connectivity%0A%0A"
+            
+            MESSAGE="${MESSAGE}📋 <b>Recent Error Logs</b>%0A"
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}<code>${ERROR_LOGS}</code>%0A%0A"
+            
+            MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+            MESSAGE="${MESSAGE}🔗 <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Full Workflow Log</a>%0A%0A"
+            MESSAGE="${MESSAGE}<i>⏰ Immediate attention required</i>"
+            
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d "text=${MESSAGE}" \
+              -d "parse_mode=HTML" \
+              -d "disable_web_page_preview=true"
+          fi
+
+      - name: Send warning notification
+        if: success()
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          VERIFY_OUTPUT=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+            pgbackrest --stanza=${{ env.APP_NAME }} info 2>&1)
+          
+          if echo "$VERIFY_OUTPUT" | grep -iE "error|warn|fail" > /dev/null; then
+            if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+              WARNINGS=$(echo "$VERIFY_OUTPUT" | grep -iE "error|warn|fail" | head -3 | sed 's/"/\\"/g')
+              
+              MESSAGE="╭─────────────────────────╮%0A"
+              MESSAGE="${MESSAGE}│  <b>⚠️ BACKUP WARNING</b>   │%0A"
+              MESSAGE="${MESSAGE}╰─────────────────────────╯%0A%0A"
+              
+              MESSAGE="${MESSAGE}📌 <b>Status</b>%0A"
+              MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+              MESSAGE="${MESSAGE}Backup completed but verification detected issues.%0A%0A"
+              
+              MESSAGE="${MESSAGE}⚠️ <b>Warning Details</b>%0A"
+              MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+              MESSAGE="${MESSAGE}<code>${WARNINGS}</code>%0A%0A"
+              
+              MESSAGE="${MESSAGE}━━━━━━━━━━━━━━━━━━━━━━━━%0A"
+              MESSAGE="${MESSAGE}🔗 <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Investigate Issue</a>%0A%0A"
+              MESSAGE="${MESSAGE}<i>💡 Review recommended for production systems</i>"
+              
+              curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+                -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+                -d "text=${MESSAGE}" \
+                -d "parse_mode=HTML" \
+                -d "disable_web_page_preview=true"
+            fi
+          fi

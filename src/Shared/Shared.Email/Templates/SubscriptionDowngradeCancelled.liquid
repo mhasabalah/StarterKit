@@ -1,0 +1,22 @@
+{% comment %}Variables: SubscriberName, PlanName, PortalUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم إلغاء جدولة التخفيض{% else %}Scheduled Downgrade Cancelled{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم إلغاء جدولة تخفيض اشتراكك. ستستمر على خطة {{ PlanName }}.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your scheduled downgrade has been cancelled. You will continue on the <strong>{{ PlanName }}</strong> plan.
+  {% endif %}
+</p>
+
+{% assign alert_type = 'info' %}
+{% assign alert_text_en = 'Your subscription will continue as normal.' %}
+{% assign alert_text_ar = 'سيستمر اشتراكك كالمعتاد.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = PortalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'عرض الاشتراك' %}{% else %}{% assign button_text = 'View Subscription' %}{% endif %}
+{% include 'Components/Button' %}

@@ -1,0 +1,415 @@
+# ==============================================
+# StarterKit Docker Compose - Core Services
+# ==============================================
+# Production configuration with VPS Nginx setup
+# For development, docker-compose.override.yml is automatically merged
+# ==============================================
+
+# ==============================================
+# Networks
+# ==============================================
+networks:
+  backend:
+    driver: bridge
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_backend
+  database:
+    driver: bridge
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_database
+    # internal: true
+
+# ==============================================
+# Volumes
+# ==============================================
+volumes:
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_postgres_data
+  postgres-wal:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_postgres_wal
+  postgres-socket:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_postgres_socket
+  pgbackrest-spool:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_pgbackrest_spool
+  pgbackrest-log:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_pgbackrest_log
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_redis_data
+  seq-data:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_seq_data
+
+# ==============================================
+# Secrets (Production)
+# ==============================================
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+
+# ==============================================
+# Services
+# ==============================================
+services:
+
+  # ==============================================
+  # PostgreSQL Database
+  # ==============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-postgres
+    restart: unless-stopped
+    secrets:
+      - postgres_password
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-wal:/var/lib/postgresql/wal_archive
+      - postgres-socket:/var/run/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${POSTGRES_CPUS:-1.0}'
+          memory: ${POSTGRES_MEMORY_LIMIT:-1g}
+        reservations:
+          memory: ${POSTGRES_MEMORY_RESERVATION:-512m}
+    command:
+      - "postgres"
+      # Connection Settings
+      - "-c"
+      - "max_connections=${POSTGRES_MAX_CONNECTIONS:-200}"
+
+      # Memory Settings
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "work_mem=4MB"
+
+      # WAL Settings (basic replication support)
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=3"
+      - "-c"
+      - "wal_keep_size=1GB"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "wal_buffers=16MB"
+
+      # WAL Archiving for pgBackRest
+      - "-c"
+      - "archive_mode=on"
+      - "-c"
+      - "archive_command=pgbackrest --stanza=starterkit archive-push %p"
+
+      # Checkpoint Settings
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+
+      # Query Tuning
+      - "-c"
+      - "default_statistics_target=100"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+
+      # Logging (for debugging)
+      - "-c"
+      - "log_checkpoints=on"
+      - "-c"
+      - "log_connections=on"
+      - "-c"
+      - "log_disconnections=on"
+      - "-c"
+      - "log_lock_waits=on"
+      - "-c"
+      - "log_line_prefix=%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h "
+
+  # ==============================================
+  # pgBackRest - PostgreSQL Backup & Restore
+  # ==============================================
+  pgbackrest:
+    image: woblerr/pgbackrest:2.53-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-pgbackrest
+    hostname: pgbackrest
+    restart: unless-stopped
+    secrets:
+      - postgres_password
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "# Generate pgbackrest.conf from template
+       if [ ! -f /tmp/pgbackrest.conf.template ]; then
+         echo \"✗ ERROR: pgbackrest.conf.template not found!\"
+         exit 1
+       fi
+
+       # Replace placeholders with environment variables
+       sed -e \"s|{{S3_BACKUP_BUCKET}}|$${S3_BACKUP_BUCKET}|g\" \\
+           -e \"s|{{AWS_DEFAULT_REGION}}|$${AWS_DEFAULT_REGION}|g\" \\
+           -e \"s|{{AWS_ACCESS_KEY_ID}}|$${AWS_ACCESS_KEY_ID}|g\" \\
+           -e \"s|{{AWS_SECRET_ACCESS_KEY}}|$${AWS_SECRET_ACCESS_KEY}|g\" \\
+           -e \"s|{{POSTGRES_USER}}|$${POSTGRES_USER}|g\" \\
+           -e \"s|{{POSTGRES_DB}}|$${POSTGRES_DB}|g\" \\
+           /tmp/pgbackrest.conf.template > /etc/pgbackrest/pgbackrest.conf
+
+       chmod 644 /etc/pgbackrest/pgbackrest.conf
+       echo \"✓ pgbackrest.conf generated from template\"
+
+       # Create .pgpass file from Docker secret
+       if [ -f /run/secrets/postgres_password ]; then
+         PASSWORD=$$(cat /run/secrets/postgres_password | tr -d '\\n')
+         echo \"postgres:5432:*:$${POSTGRES_USER}:$${PASSWORD}\" > /home/pgbackrest/.pgpass
+         chmod 600 /home/pgbackrest/.pgpass
+         chown pgbackrest:pgbackrest /home/pgbackrest/.pgpass
+         echo \"✓ .pgpass file created for pgbackrest user\"
+       else
+         echo \"✗ ERROR: /run/secrets/postgres_password not found!\"
+         exit 1
+       fi
+
+       echo \"✓ pgBackRest container ready\"
+       pgbackrest version
+
+       # Keep container running
+       tail -f /dev/null"
+    environment:
+      # S3 Configuration (for template substitution)
+      - S3_BACKUP_BUCKET=${S3_BACKUP_BUCKET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+
+      # PostgreSQL Configuration (for template substitution)
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+
+      # System
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      # pgBackRest configuration template (processed by entrypoint)
+      - ./deployment/postgres/config/pgbackrest.conf.template:/tmp/pgbackrest.conf.template:ro
+      # Data volumes
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-wal:/var/lib/postgresql/wal_archive
+      - postgres-socket:/var/run/postgresql
+      - pgbackrest-spool:/var/spool/pgbackrest
+      - pgbackrest-log:/var/log/pgbackrest
+    networks:
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${BACKUP_CPUS:-0.5}'
+          memory: ${BACKUP_MEMORY_LIMIT:-512m}
+        reservations:
+          memory: ${BACKUP_MEMORY_RESERVATION:-256m}
+
+  # ==============================================
+  # Redis Cache
+  # ==============================================
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-redis
+    restart: unless-stopped
+    secrets:
+      - redis_password
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${REDIS_CPUS:-0.5}'
+          memory: ${REDIS_MEMORY_LIMIT:-512m}
+        reservations:
+          memory: ${REDIS_MEMORY_RESERVATION:-256m}
+    command: >
+      sh -c '
+      REDIS_PASSWORD=$$(cat /run/secrets/redis_password)
+      redis-server
+      --requirepass "$$REDIS_PASSWORD"
+      --maxmemory ${REDIS_MAXMEMORY:-512mb}
+      --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru}
+      --appendonly yes
+      --appendfsync everysec
+      '
+
+  # ==============================================
+  # Seq - Structured Logging
+  # ==============================================
+  seq:
+    image: datalust/seq:2024.3
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-seq
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: ${SEQ_ACCEPT_EULA:-Y}
+      SEQ_FIRSTRUN_ADMINPASSWORDHASH: ${SEQ_ADMIN_PASSWORD_HASH}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${SEQ_PORT:-5341}:80"
+    volumes:
+      - seq-data:/data
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${SEQ_CPUS:-0.5}'
+          memory: ${SEQ_MEMORY_LIMIT:-1g}
+        reservations:
+          memory: ${SEQ_MEMORY_RESERVATION:-512m}
+
+  # ==============================================
+  # StarterKit API
+  # ==============================================
+  api:
+    image: ${DOCKER_IMAGE}:${DOCKER_IMAGE_TAG}
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-api
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    restart: unless-stopped
+    user: root  # Required to read Docker secrets from /run/secrets
+    secrets:
+      - postgres_password
+      - redis_password
+      - jwt_secret
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: "http://+:80"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      TZ: ${TZ:-UTC}
+
+      # Database configuration (secrets handled by entrypoint)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      SEQ_HOST: http://seq:80
+
+      # Serilog
+      Serilog__WriteTo__1__Args__serverUrl: "http://seq:80"
+
+      # JWT (Issuer/Audience only - secret handled by entrypoint)
+      JwtSettings__Issuer: ${JWT_ISSUER}
+      JwtSettings__Audience: ${JWT_AUDIENCE}
+      JwtSettings__AccessTokenExpirationMinutes: ${JWT_EXPIRATION_MINUTES:-15}
+      JwtSettings__RefreshTokenExpirationDays: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
+
+      # OpenTelemetry
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-starterkit-api}
+      OTEL_SERVICE_VERSION: ${OTEL_SERVICE_VERSION:-1.0.0}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+
+      # Application
+      AppSettings__EnableSwagger: "false"
+      AppSettings__EnableDetailedErrors: "false"
+      Hangfire__DashboardAuth__Username: ${HANGFIRE_DASHBOARD_USERNAME:-}
+      Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:-}
+
+    ports:
+      - "${API_PORT:-5000}:80"
+    networks:
+      - backend
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${API_CPUS:-2.0}'
+          memory: ${API_MEMORY_LIMIT:-2g}
+        reservations:
+          memory: ${API_MEMORY_RESERVATION:-1g}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s

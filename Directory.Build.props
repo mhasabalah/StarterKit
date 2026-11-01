@@ -1,0 +1,42 @@
+<Project>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!--<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AnalysisLevel>latest</AnalysisLevel>
+		<AnalysisMode>All</AnalysisMode>
+		<CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<WarningsAsErrors />
+		<WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
+		--><!-- Missing XML comment for publicly visible type or member --><!--
+
+		--><!-- SonarAnalyzer Configuration --><!--
+		<SonarQubeTestProject>false</SonarQubeTestProject>
+		<SonarQubeExclude>false</SonarQubeExclude>
+
+		--><!-- Documentation --><!--
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		--><!-- Missing XML comment warnings --><!--
+
+		--><!-- Performance and Security --><!--
+		<RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
+		<RunCodeAnalysis>true</RunCodeAnalysis>
+
+		--><!-- Additional Quality Settings --><!--
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>-->
+	</PropertyGroup>
+
+
+	<!--<ItemGroup Condition="'$(MSBuildProjectExtension)' != '.dcproj'">
+		<PackageReference Include="SonarAnalyzer.CSharp">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>-->
+
+</Project>

@@ -1,0 +1,154 @@
+using System.Linq.Expressions;
+using Humanizer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shared.Core.Data.Interceptors;
+using Shared.Core.Data.Seed;
+using Shared.Core.Extensions;
+
+namespace Shared.Core.Data;
+
+public static class Extensions
+{
+    public static IServiceCollection AddCustomDbContext<TContext>(
+        this IServiceCollection services, IConfiguration configuration, string? connectionName = "")
+        where TContext : DbContext, IDbContext
+    {
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+        // TryAdd — AddCustomDbContext is called once per module DbContext.
+        // We want exactly one instance per DI scope (per request),
+        // shared across all DbContext instances in the same request.
+        services.TryAddScoped<IDomainEventCollector, DomainEventCollector>();
+        services.TryAddScoped<AuditableEntityInterceptor>();
+        services.TryAddScoped<DispatchDomainEventsInterceptor>();
+
+        services.AddValidateOptions<PostgresOptions>();
+
+        services.AddDbContext<TContext>((sp, options) =>
+        {
+            var aspireConnectionString =
+                configuration.GetConnectionString(connectionName.Kebaberize());
+            var connectionString = aspireConnectionString ??
+                                   sp.GetRequiredService<PostgresOptions>().ConnectionString;
+
+            ArgumentException.ThrowIfNullOrEmpty(connectionString);
+
+            options.AddInterceptors(
+                sp.GetRequiredService<AuditableEntityInterceptor>(),
+                sp.GetRequiredService<DispatchDomainEventsInterceptor>());
+
+            options.UseNpgsql(
+                    connectionString,
+                    dbOptions =>
+                    {
+                        dbOptions.MigrationsAssembly(typeof(TContext).Assembly.GetName().Name);
+                    })
+                .UseSnakeCaseNamingConvention();
+
+            // Suppress warnings for pending model changes
+            options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+        });
+
+        services.AddScoped<IDbContext>(sp => sp.GetRequiredService<TContext>());
+
+        return services;
+    }
+
+    public static IApplicationBuilder UseMigration<TContext>(this IApplicationBuilder app)
+        where TContext : DbContext, IDbContext
+    {
+        MigrateAsync<TContext>(app.ApplicationServices).GetAwaiter().GetResult();
+        SeedDataAsync<TContext>(app.ApplicationServices).GetAwaiter().GetResult();
+
+        return app;
+    }
+
+    // ref: https://github.com/pdevito3/MessageBusTestingInMemHarness/blob/main/RecipeManagement/src/RecipeManagement/Databases/RecipesDbContext.cs
+    public static void FilterSoftDeletedProperties(this ModelBuilder modelBuilder)
+    {
+        Expression<Func<IAggregate, bool>> filterExpr = e => !e.IsDeleted;
+
+        foreach (var mutableEntityType in modelBuilder.Model.GetEntityTypes()
+                     .Where(m => m.ClrType.IsAssignableTo(typeof(IEntity))))
+        {
+            // modify expression to handle correct child type
+            var parameter = Expression.Parameter(mutableEntityType.ClrType);
+
+            var body = ReplacingExpressionVisitor
+                .Replace(filterExpr.Parameters.First(), parameter, filterExpr.Body);
+
+            var lambdaExpression = Expression.Lambda(body, parameter);
+
+            // set filter
+            mutableEntityType.SetQueryFilter(lambdaExpression);
+        }
+    }
+
+    // ref: https://andrewlock.net/customising-asp-net-core-identity-ef-core-naming-conventions-for-postgresql/
+    public static void ToSnakeCaseTables(this ModelBuilder modelBuilder)
+    {
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        {
+            // Replace table names
+            entity.SetTableName(entity.GetTableName()?.Underscore());
+
+            var tableObjectIdentifier =
+                StoreObjectIdentifier.Table(
+                    entity.GetTableName()?.Underscore()!,
+                    entity.GetSchema());
+
+            // Replace column names
+            foreach (var property in entity.GetProperties())
+            {
+                property.SetColumnName(property.GetColumnName(tableObjectIdentifier)?.Underscore());
+            }
+
+            foreach (var key in entity.GetKeys())
+            {
+                key.SetName(key.GetName()?.Underscore());
+            }
+
+            foreach (var key in entity.GetForeignKeys())
+            {
+                key.SetConstraintName(key.GetConstraintName()?.Underscore());
+            }
+        }
+    }
+
+    private static async Task MigrateAsync<TContext>(IServiceProvider serviceProvider)
+        where TContext : DbContext, IDbContext
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<TContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TContext>>();
+
+        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+
+        if (pendingMigrations.Any())
+        {
+            logger.LogInformation("Applying {Count} pending migrations...",
+                pendingMigrations.Count());
+
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Migrations applied successfully.");
+        }
+    }
+
+    private static async Task SeedDataAsync<TContext>(IServiceProvider serviceProvider)
+        where TContext : DbContext
+    {
+        using var scope = serviceProvider.CreateScope();
+
+        var seeders = scope.ServiceProvider.GetServices<IDataSeeder>()
+            .Where(seeder => seeder.DbContextType == typeof(TContext));
+
+        foreach (var seeder in seeders)
+        {
+            await seeder.SeedAllAsync();
+        }
+    }
+}

@@ -1,0 +1,42 @@
+{% comment %}Variables: SubscriberName, InvoiceNumber, InvoiceType, Amount, Currency, IssuedAt, PortalUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}فاتورتك جاهزة{% else %}Your Invoice Is Ready{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم إصدار فاتورتك وهي متاحة للتحميل من البوابة الإلكترونية.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your invoice has been issued and is available for download from the portal.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:140px;white-space:nowrap;">
+      {% if culture == 'ar' %}رقم الفاتورة{% else %}Invoice #{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ InvoiceNumber }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}النوع{% else %}Type{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:#0f172a;">{{ InvoiceType }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}المبلغ{% else %}Amount{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ Amount }} {{ Currency }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}تاريخ الإصدار{% else %}Issued{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:#0f172a;">{{ IssuedAt }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الفاتورة' %}{% else %}{% assign card_title = 'Invoice Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign button_url = PortalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'تحميل الفاتورة' %}{% else %}{% assign button_text = 'Download Invoice' %}{% endif %}
+{% include 'Components/Button' %}

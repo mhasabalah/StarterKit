@@ -1,0 +1,34 @@
+{% comment %}Variables: SubscriberName, PlanName, NewRenewalDate, DashboardUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم تجديد اشتراكك بنجاح{% else %}Subscription Renewed Successfully{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم تجديد اشتراكك بنجاح. يمكنك الاستمرار في الاستمتاع بجميع مميزات المنصة.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your subscription has been renewed successfully. Enjoy continued access to all platform features.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+      {% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}تاريخ التجديد القادم{% else %}Next Renewal Date{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#16a34a;">{{ NewRenewalDate }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل التجديد' %}{% else %}{% assign card_title = 'Renewal Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign button_url = DashboardUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'الذهاب إلى لوحة التحكم' %}{% else %}{% assign button_text = 'Go to Dashboard' %}{% endif %}
+{% include 'Components/Button' %}

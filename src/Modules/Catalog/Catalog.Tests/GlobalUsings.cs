@@ -1,0 +1,9 @@
+global using Catalog.Contracts.Products.Commands;
+global using Catalog.Data.Repository.Products;
+global using Catalog.Domains.Products.Events;
+global using Catalog.Domains.Products.Exceptions;
+global using Catalog.Domains.Products.Models;
+global using Catalog.Domains.Products.Services;
+global using FluentAssertions;
+global using Moq;
+global using Xunit;

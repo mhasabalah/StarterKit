@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Attachment.NotFound" xml:space="preserve">
+    <value>المرفق غير موجود.</value>
+  </data>
+  <data name="Attachment.InvalidFileType" xml:space="preserve">
+    <value>نوع الملف غير مدعوم.</value>
+  </data>
+  <data name="Attachment.FileTooLarge" xml:space="preserve">
+    <value>حجم الملف يتجاوز الحد المسموح به.</value>
+  </data>
+  <data name="Attachment.UploadFailed" xml:space="preserve">
+    <value>فشل رفع الملف. يرجى المحاولة مرة أخرى.</value>
+  </data>
+  <data name="Attachment.Unauthorized" xml:space="preserve">
+    <value>غير مصرح لك بالوصول إلى هذا المرفق.</value>
+  </data>
+  <data name="Attachment.Deleted" xml:space="preserve">
+    <value>تم حذف المرفق بنجاح.</value>
+  </data>
+
+  <!-- Shared validation -->
+  <data name="Validation.AttachmentId.Required" xml:space="preserve">
+    <value>معرف المرفق مطلوب.</value>
+  </data>
+  <data name="Validation.SessionId.Required" xml:space="preserve">
+    <value>معرف الجلسة مطلوب.</value>
+  </data>
+  <data name="Validation.EntityId.Required" xml:space="preserve">
+    <value>معرف الكيان مطلوب.</value>
+  </data>
+  <data name="Validation.UserId.Required" xml:space="preserve">
+    <value>معرف المستخدم مطلوب.</value>
+  </data>
+  <data name="Validation.PendingAttachmentId.Required" xml:space="preserve">
+    <value>معرف المرفق المؤقت مطلوب.</value>
+  </data>
+  <data name="Validation.OrderedIds.Required" xml:space="preserve">
+    <value>المعرفات المرتبة مطلوبة.</value>
+  </data>
+  <data name="Validation.OrderedIds.Unique" xml:space="preserve">
+    <value>يجب أن تكون المعرفات المرتبة فريدة.</value>
+  </data>
+  <data name="Validation.FileName.Required" xml:space="preserve">
+    <value>اسم الملف مطلوب.</value>
+  </data>
+  <data name="Validation.FileName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم الملف 500 حرف.</value>
+  </data>
+  <data name="Validation.ContentType.Required" xml:space="preserve">
+    <value>نوع المحتوى مطلوب.</value>
+  </data>
+  <data name="Validation.FileSize.Min" xml:space="preserve">
+    <value>يجب أن يكون حجم الملف أكبر من الصفر.</value>
+  </data>
+  <data name="Validation.FileStream.Required" xml:space="preserve">
+    <value>تدفق الملف مطلوب.</value>
+  </data>
+  <data name="Validation.DisplayOrder.Min" xml:space="preserve">
+    <value>لا يمكن أن يكون ترتيب العرض سالباً.</value>
+  </data>
+  <data name="Validation.IsPrimary.Required" xml:space="preserve">
+    <value>حقل IsPrimary مطلوب.</value>
+  </data>
+</root>

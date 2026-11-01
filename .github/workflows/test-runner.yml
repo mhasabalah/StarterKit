@@ -1,0 +1,227 @@
+name: Test Self-Hosted Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test Type'
+        required: true
+        type: choice
+        options:
+          - basic
+          - docker
+          - deployment-dry-run
+        default: 'basic'
+
+env:
+  # ---- Deployment settings: override with GitHub repository *variables* (Settings > Secrets and variables > Actions > Variables)
+  APP_NAME: ${{ vars.APP_NAME || 'starterkit' }}                    # docker compose container prefix / pgBackRest stanza
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/starterkit' }}           # app directory on the VPS
+  PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}  # public base URL behind Nginx
+  POSTGRES_USER: ${{ vars.POSTGRES_USER || 'starterkit_user' }}
+  POSTGRES_DB: ${{ vars.POSTGRES_DB || 'starterkit' }}
+  BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'your-backup-bucket' }}
+
+jobs:
+  # ==============================================
+  # Basic Runner Test
+  # ==============================================
+  test-runner-basic:
+    name: Basic Runner Test
+    runs-on: [self-hosted, deploy-only]
+    if: inputs.test_type == 'basic'
+    
+    steps:
+      - name: 🔍 Test runner environment
+        run: |
+          echo "=== Runner Information ==="
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"
+          echo "Working Directory: $(pwd)"
+          echo "Date: $(date)"
+          echo ""
+          
+          echo "=== System Information ==="
+          uname -a
+          echo ""
+          
+          echo "=== Disk Space ==="
+          df -h /
+          echo ""
+          
+          echo "=== Memory ==="
+          free -h
+          echo ""
+          
+          echo "✅ Basic test passed!"
+
+  # ==============================================
+  # Docker Access Test
+  # ==============================================
+  test-runner-docker:
+    name: Docker Access Test
+    runs-on: [self-hosted, deploy-only]
+    if: inputs.test_type == 'docker'
+    
+    steps:
+      - name: 🐳 Test Docker access
+        run: |
+          echo "=== Docker Version ==="
+          docker --version
+          docker compose version
+          echo ""
+          
+          echo "=== Docker Info ==="
+          docker info | head -20
+          echo ""
+          
+          echo "=== Running Containers ==="
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          echo ""
+          
+          echo "=== Docker Images ==="
+          docker images | head -10
+          echo ""
+          
+          echo "✅ Docker access test passed!"
+
+      - name: 🔍 Test workspace access
+        run: |
+          echo "=== Workspace Directory ==="
+          ls -la /workspace || echo "⚠️  Workspace not mounted"
+          echo ""
+          
+          echo "=== StarterKit Directory ==="
+          if [ -d "${{ env.DEPLOY_DIR }}" ]; then
+            ls -la ${{ env.DEPLOY_DIR }}
+            echo "✅ StarterKit directory accessible"
+          else
+            echo "❌ StarterKit directory not found"
+            exit 1
+          fi
+
+  # ==============================================
+  # Deployment Dry Run Test
+  # ==============================================
+  test-deployment-dry-run:
+    name: Deployment Dry Run Test
+    runs-on: [self-hosted, deploy-only]
+    if: inputs.test_type == 'deployment-dry-run'
+    
+    steps:
+      - name: 📥 Checkout deployment scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            deployment/
+            docker-compose.yml
+          sparse-checkout-cone-mode: false
+
+      - name: 🔍 Verify deployment files
+        run: |
+          echo "=== Checking deployment files ==="
+          
+          if [ -f "docker-compose.yml" ]; then
+            echo "✅ docker-compose.yml found"
+          else
+            echo "❌ docker-compose.yml not found"
+            exit 1
+          fi
+          
+          if [ -d "deployment" ]; then
+            echo "✅ deployment directory found"
+            ls -la deployment/
+          else
+            echo "❌ deployment directory not found"
+            exit 1
+          fi
+
+      - name: 🐳 Test Docker commands
+        run: |
+          echo "=== Testing Docker Compose config ==="
+          cd ${{ env.DEPLOY_DIR }}
+          docker compose config --services
+          echo ""
+          
+          echo "=== Current container status ==="
+          docker compose ps
+          echo ""
+          
+          echo "✅ Docker Compose configuration valid"
+
+      - name: 🔑 Test registry login
+        run: |
+          echo "=== Testing GitHub Container Registry login ==="
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "✅ Registry login successful"
+
+      - name: 🏥 Test health endpoint
+        run: |
+          echo "=== Testing API health endpoint ==="
+          
+          # Try localhost first
+          if curl -sf http://localhost:5000/health > /dev/null; then
+            echo "✅ API health endpoint responding (localhost:5000)"
+          else
+            echo "⚠️  API health endpoint not responding on localhost:5000"
+            echo "This is OK if services are not running"
+          fi
+
+      - name: 📊 Test summary
+        run: |
+          echo "=== Deployment Dry Run Summary ===" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All deployment prerequisites verified" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Verified:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner connectivity" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker access" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker Compose configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Container Registry authentication" >> $GITHUB_STEP_SUMMARY
+          echo "- StarterKit directory access" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Ready for production deployments!** 🚀" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================
+  # Summary Job
+  # ==============================================
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-runner-basic, test-runner-docker, test-deployment-dry-run]
+    if: always()
+    
+    steps:
+      - name: 📊 Generate summary
+        run: |
+          echo "### Self-Hosted Runner Test Results 🧪" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.test-runner-basic.result }}" == "success" ]; then
+            echo "- ✅ Basic Test: Passed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-runner-basic.result }}" == "skipped" ]; then
+            echo "- ⏭️  Basic Test: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Basic Test: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.test-runner-docker.result }}" == "success" ]; then
+            echo "- ✅ Docker Test: Passed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-runner-docker.result }}" == "skipped" ]; then
+            echo "- ⏭️  Docker Test: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Docker Test: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.test-deployment-dry-run.result }}" == "success" ]; then
+            echo "- ✅ Deployment Dry Run: Passed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-deployment-dry-run.result }}" == "skipped" ]; then
+            echo "- ⏭️  Deployment Dry Run: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Deployment Dry Run: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Type**: ${{ inputs.test_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

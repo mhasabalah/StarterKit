@@ -1,0 +1,13 @@
+{% comment %}
+  Spacer Component — Vertical whitespace block
+  ─────────────────────────────────────────────────────────
+  Optional variables:
+    spacer_size  — height in px (default: 24)
+  ─────────────────────────────────────────────────────────
+{% endcomment %}
+{% unless spacer_size %}{% assign spacer_size = 24 %}{% endunless %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="height:{{ spacer_size }}px;font-size:0;line-height:0;">&nbsp;</td>
+  </tr>
+</table>

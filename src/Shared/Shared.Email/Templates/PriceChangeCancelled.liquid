@@ -1,0 +1,44 @@
+{% comment %}Variables: SubscriberName, PlanName, CurrentPrice, Currency, PortalUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم إلغاء تغيير سعر الاشتراك{% else %}Scheduled Price Change Cancelled{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، نودّ إعلامكم بأنه تم <strong>إلغاء</strong> تغيير السعر المجدول لخطة <strong>{{ PlanName }}</strong>.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, we're writing to let you know that the scheduled price change for the <strong>{{ PlanName }}</strong> plan has been <strong>cancelled</strong>.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+      {% if culture == 'ar' %}سعرك الحالي{% else %}Your Current Price{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:700;color:#16a34a;">{{ CurrentPrice }} {{ Currency }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}الحالة{% else %}Status{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:#0f172a;">
+      {% if culture == 'ar' %}لا يوجد تغيير مجدول{% else %}No scheduled change{% endif %}
+    </td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الاشتراك' %}{% else %}{% assign card_title = 'Subscription Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+<p style="margin:16px 0;font-size:14px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    سيستمر اشتراكك بالسعر الحالي دون أي تغيير. لا يلزم اتخاذ أي إجراء من جانبك.
+  {% else %}
+    Your subscription will continue at the current price with no changes. No action is required on your part.
+  {% endif %}
+</p>
+
+{% assign button_url = PortalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'إدارة الاشتراك' %}{% else %}{% assign button_text = 'Manage Subscription' %}{% endif %}
+{% include 'Components/Button' %}

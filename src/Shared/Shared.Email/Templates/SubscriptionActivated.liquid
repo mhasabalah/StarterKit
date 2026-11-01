@@ -1,0 +1,39 @@
+{% comment %}Variables: SubscriberName, PlanName, RenewalDate, DashboardUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم تفعيل اشتراكك بنجاح{% else %}Your Subscription Is Now Active{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، يسعدنا إخبارك بأن اشتراكك قد تم تفعيله. يمكنك الآن الوصول إلى جميع مميزات المنصة.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, great news — your subscription has been activated. You now have full access to all platform features.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:130px;white-space:nowrap;">
+      {% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}تاريخ التجديد{% else %}Renewal Date{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#16a34a;">{{ RenewalDate }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الاشتراك' %}{% else %}{% assign card_title = 'Subscription Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign alert_type = 'info' %}
+{% assign alert_text_en = 'Your subscription will automatically renew on the date above. You will receive a reminder 7 days before.' %}
+{% assign alert_text_ar = 'سيتم تجديد اشتراكك تلقائياً في التاريخ المذكور أعلاه. ستتلقى تذكيراً قبل 7 أيام.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = DashboardUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'الذهاب إلى لوحة التحكم' %}{% else %}{% assign button_text = 'Go to Dashboard' %}{% endif %}
+{% include 'Components/Button' %}

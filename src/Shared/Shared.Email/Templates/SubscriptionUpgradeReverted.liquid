@@ -1,0 +1,22 @@
+{% comment %}Variables: SubscriberName, PlanName, Reason, PortalUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم إلغاء ترقية الاشتراك{% else %}Subscription Upgrade Reverted{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم إلغاء ترقية اشتراكك والعودة إلى خطة {{ PlanName }}.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your subscription upgrade has been reverted back to the <strong>{{ PlanName }}</strong> plan.
+  {% endif %}
+</p>
+
+{% assign alert_type = 'warning' %}
+{% assign alert_text_en = Reason %}
+{% assign alert_text_ar = Reason %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = PortalUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'عرض الاشتراك' %}{% else %}{% assign button_text = 'View Subscription' %}{% endif %}
+{% include 'Components/Button' %}
