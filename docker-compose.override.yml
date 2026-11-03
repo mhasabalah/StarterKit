@@ -160,7 +160,6 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: "http://+:80"
       ASPNETCORE_DETAILEDERRORS: "true"
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       
       # Hot reload support
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
@@ -176,11 +175,11 @@ services:
       REDIS_PORT: "6379"
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       
-      # Serilog
-      Serilog__WriteTo__1__Args__serverUrl: "http://seq:80"
-      Serilog__MinimumLevel__Default: "Debug"
-      Serilog__MinimumLevel__Override__Microsoft: "Information"
-      Serilog__MinimumLevel__Override__System: "Warning"
+      # Logging (Microsoft.Extensions.Logging; exported to Seq over OTLP via ConnectionStrings:seq)
+      ConnectionStrings__seq: "http://seq:80"
+      Logging__LogLevel__Default: "Debug"
+      Logging__LogLevel__Microsoft: "Information"
+      Logging__LogLevel__System: "Warning"
       
       # JWT (use env vars)
       JwtSettings__SecretKey: ${JWT_SECRET_KEY}

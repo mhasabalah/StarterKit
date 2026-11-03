@@ -30,13 +30,6 @@ datasources:
     editable: false
     uid: jaeger-uid  
       
-  - name: Zipkin
-    type: zipkin
-    access: proxy
-    url: http://zipkin:9411
-    editable: false
-    uid: zipkin-uid
-
   # https://github.com/grafana/tempo/blob/main/example/docker-compose/shared/grafana-datasources.yaml
   - name: Tempo
     type: tempo
@@ -71,18 +64,3 @@ datasources:
           matcherRegex: "^.*?traceI[d|D]=(\\w+).*$"
           name: traceId
           url: '$${__value.raw}'
-          
-  - name: Kibana 
-    type: elasticsearch
-    url: http://elasticsearch:9200
-    access: proxy
-    isDefault: false
-    uid: kibana-uid
-    jsonData:
-      esVersion: 7
-      timeField: "@timestamp"
-      maxConcurrentShardRequests: 256
-      interval: Daily
-      logMessageField: "message" # Optional: Field for log messages
-      logLevelField: "level" # Optional: Field for log levels
-    editable: true     

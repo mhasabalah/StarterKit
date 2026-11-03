@@ -46,6 +46,8 @@ secrets:
     file: ./secrets/redis_password.txt
   jwt_secret:
     file: ./secrets/jwt_secret.txt
+  identity_otp_hmac_key:
+    file: ./secrets/identity_otp_hmac_key.txt
 
 # ==============================================
 # Services
@@ -340,10 +342,12 @@ services:
       - postgres_password
       - redis_password
       - jwt_secret
+      - identity_otp_hmac_key
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: "http://+:80"
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      # Client IP: forwarded headers are trusted only from ForwardedHeaders:KnownProxies/KnownNetworks
+      # (appsettings.Docker.json trusts private networks = the nginx container). Never set ASPNETCORE_FORWARDEDHEADERS_ENABLED.
       TZ: ${TZ:-UTC}
 
       # Database configuration (secrets handled by entrypoint)
@@ -353,10 +357,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      SEQ_HOST: http://seq:80
 
-      # Serilog
-      Serilog__WriteTo__1__Args__serverUrl: "http://seq:80"
+      # Logs/traces to Seq over OTLP (Aspire.Seq, ConnectionStrings:seq)
+      ConnectionStrings__seq: "http://seq:80"
 
       # JWT (Issuer/Audience only - secret handled by entrypoint)
       JwtSettings__Issuer: ${JWT_ISSUER}
@@ -374,6 +377,16 @@ services:
       AppSettings__EnableDetailedErrors: "false"
       Hangfire__DashboardAuth__Username: ${HANGFIRE_DASHBOARD_USERNAME:-}
       Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:-}
+      # Multi-tenancy (see wiki/MultiTenancy/Overview.md). Disabled = single tenant.
+      MultiTenancy__Enabled: ${MULTITENANCY_ENABLED:-false}
+      MultiTenancy__DefaultIsolation: ${MULTITENANCY_DEFAULT_ISOLATION:-Shared}
+      MultiTenancy__Resolution__RootDomain: ${MULTITENANCY_ROOT_DOMAIN:-}
+      MultiTenancy__Database__EnableRowLevelSecurity: ${MULTITENANCY_RLS_ENABLED:-true}
+      MultiTenancy__Cors__FrontendRootDomain: ${MULTITENANCY_FRONTEND_ROOT_DOMAIN:-}
+      MultiTenancy__Impersonation__Enabled: ${MULTITENANCY_IMPERSONATION_ENABLED:-true}
+      RateLimiting__Tenant__PermitLimit: ${RATE_LIMIT_TENANT_PERMITS:-0}
+      # Messaging transport: InMemory | PostgreSql | RabbitMq (RabbitMq: add docker-compose.rabbitmq.yml)
+      Messaging__Transport: ${MESSAGING_TRANSPORT:-InMemory}
 
     ports:
       - "${API_PORT:-5000}:80"

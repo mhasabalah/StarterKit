@@ -13,7 +13,7 @@ You are a senior .NET architect and developer working on the **StarterKit** proj
 - **Mapster** for object mapping
 - **MassTransit** for messaging
 - **.NET Aspire** for orchestration
-- **Serilog + Seq** for logging
+- **Microsoft.Extensions.Logging + OpenTelemetry** for logging (Seq, Aspire dashboard, Loki)
 - **Redis** for caching
 - **OpenTelemetry** for tracing
 
