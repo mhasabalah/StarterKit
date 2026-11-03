@@ -1,0 +1,17 @@
+{
+  "name": "starterkit",
+  "owner": { "name": "StarterKit maintainers" },
+  "metadata": {
+    "description": "Repo-local marketplace for the StarterKit modular-monolith template.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "starterkit",
+      "source": "./tools/claude/starterkit-plugin",
+      "description": "Skills, a guardrail reviewer agent and safety hooks for building features on the StarterKit ASP.NET Core 10 modular monolith.",
+      "version": "1.0.0",
+      "category": "development"
+    }
+  ]
+}

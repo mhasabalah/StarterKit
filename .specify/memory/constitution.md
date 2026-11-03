@@ -1,50 +1,108 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# StarterKit Constitution
+
+This file lists the non-negotiable principles for every spec, plan and task produced with Spec Kit in this
+repository. The detailed rules live in `CLAUDE.md`; the executable ones are the architecture tests in
+`src/Api.Tests/Architecture/`. When this file and the code disagree, the architecture tests win, and this file gets
+fixed.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Modular monolith with hard boundaries
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Every business capability is a module under `src/Modules/<Module>` with its own `DbContext`, its own Postgres
+schema and a `.Contracts` project.
+- Modules talk to each other only through `ISender` plus the other module's `.Contracts`, or through integration
+  events.
+- Never reference another module's implementation, models or DbContext.
+- Users are reached only through `UserDirectory.Contracts`.
+- Shared projects hold no business state.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+*Enforced by `ModuleBoundaryTests`.*
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Vertical slices, explicit over clever
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+One use case is one folder (`Domains/<Aggregate>/Features/<Feature>/`) with the validator and handler in one file
+and a Carter endpoint.
+- Command handlers go through repositories and aggregate methods.
+- Query handlers project from the DbContext with pagination.
+- Business rules live in entities (factories, private setters, domain events).
+- Prefer plain, readable code over abstractions; add an abstraction only for a second real use.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+*Enforced by `NamingConventionTests`.*
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Tenant isolation by default (NON-NEGOTIABLE)
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Business data lives in `ITenantDataContext`s.
+- Every entity is `IMustHaveTenant`.
+- Every query filter is named.
+- Unique indexes start with `tenant_id`.
+- Every tenant table has Postgres row-level security.
+- Code never sets `TenantId`, and never calls the parameterless `IgnoreQueryFilters()`.
+- Cross-tenant work is explicit (`TenantScope.BeginHostScope()`).
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+*Enforced by `TenantIsolationArchitectureTests`.*
+
+### IV. Reliable messaging
+
+Facts other modules react to are integration events, raised on the aggregate and delivered through the
+transactional outbox (at-least-once).
+- Consumers are idempotent and order-independent.
+- A reaction that must succeed for the command to succeed is a synchronous `ISender` call, not an event.
+- Jobs, hosted services and consumers publish their domain events through `IUnitOfWorkRunner` or
+  `IDomainEventDispatcher`.
+
+*Enforced by `MessagingArchitectureTests` and `BackgroundJobEventDispatchTests`.*
+
+### V. Tested at every level (NON-NEGOTIABLE)
+
+Every feature ships with:
+- unit tests (domain, handlers, validators)
+- integration tests on real Postgres (Testcontainers) for SQL, concurrency and tenancy behaviour
+- HTTP E2E tests for auth and cross-module flows
+
+Every failure mode has a test: not found, forbidden, conflict, validation, stale version, cross-tenant access. The
+architecture tests must stay green.
+
+### VI. Secure by default
+
+- Every endpoint declares its authorization explicitly (architecture test); Carter endpoints are deny-by-default.
+- Platform features use fine-grained permissions; tenant features use membership permissions.
+- Destructive actions refuse impersonation.
+- Privileged roles require 2FA.
+- No real credentials, hosts or IPs in the repository. Use `CHANGE_ME`, `api.example.com`, `YOUR_SERVER_IP`.
+
+*Enforced by `AdminEndpointAuthorizationTests`.*
+
+### VII. Correctness under concurrency and time
+
+- Critical updates use optimistic concurrency (`long? Version`, `ExpectVersion`, `Version` in the DTO). A stale
+  version returns 409.
+- Nobody sets `Version` by hand.
+- New code takes time from `TimeProvider`.
+- Errors are typed exceptions mapped in one place (`GlobalExceptionHandler`) to the `ApiResponse` error envelope.
+
+## Technology Constraints
+
+- .NET 10, ASP.NET Core minimal APIs with Carter, MediatR, FluentValidation, Mapster, EF Core 10 + Npgsql
+  (snake_case), PostgreSQL 16, Redis, MassTransit (InMemory / PostgreSql / RabbitMq), Hangfire, OpenTelemetry, .NET
+  Aspire.
+- All package versions are in `Directory.Packages.props`. Introducing a new library needs a reason and an ADR in
+  `wiki/Decisions/`.
+- User-facing text is localized (en + ar resx).
+
+## Development Workflow
+
+1. **Spec, then plan, then tasks, then implement.** Use the `/starterkit:*` skills for each kind of change: module,
+   feature, aggregate, migration, event, job, permission, email, tests.
+2. Run `dotnet build StarterKit.slnx`. It must pass, as must the relevant tests and `dotnet test src/Api.Tests`.
+3. Update the documentation in the same change (`wiki/`, `README.md`, `CLAUDE.md`) when behaviour or structure
+   changes.
+4. **Agents never commit or push.** The user reviews the diff and commits.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes ad-hoc conventions. Any change to it, or to the rules in `CLAUDE.md`, needs an ADR in
+`wiki/Decisions/` and an update to the matching architecture test where one exists. Plans must contain a
+Constitution Check, and any deviation needs a written justification.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-03
