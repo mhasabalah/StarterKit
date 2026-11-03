@@ -79,10 +79,18 @@ CREATE TABLE catalog.products (
     id UUID PRIMARY KEY,
     arabic_name VARCHAR(200) NOT NULL,
     english_name VARCHAR(200) NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ
 );
 ```
+
+### Timestamps (UTC only)
+Npgsql runs in its default (non-legacy) mode: `DateTime` and `DateTimeOffset` map to `timestamptz`.
+- Write `DateTime` values with `Kind=Utc` (`TimeProvider.GetUtcNow().UtcDateTime`, `DateTime.UtcNow`,
+  `new DateTime(..., DateTimeKind.Utc)`). `Kind=Local`/`Unspecified` throws on save.
+- Write `DateTimeOffset` values with offset 0: normalize client input with `ToUniversalTime()` before storing or
+  using it as a query parameter.
+- Never turn on `Npgsql.EnableLegacyTimestampBehavior`.
 
 ### Foreign Keys
 ```csharp
@@ -376,23 +384,22 @@ var products = await context.Products
 
 ### Global Filters
 ```csharp
-public class CatalogDbContext : DbContext
+// Every filter is NAMED (EF Core 10) so one can be switched off without dropping the others.
+public class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
+    : AppDbContextBase(options), ITenantDataContext
 {
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        // Soft delete filter
-        modelBuilder.Entity<Product>()
-            .HasQueryFilter(a => !a.IsDeleted);
-        
-        // Tenant filter (if multi-tenant)
-        modelBuilder.Entity<Product>()
-            .HasQueryFilter(a => a.TenantId == _currentTenant.Id);
+        builder.FilterSoftDeletedProperties();   // "SoftDelete" on every IEntity
+        // module-specific: builder.Entity<X>().HasQueryFilter(QueryFilterNames.Lifecycle, x => ...);
+        ApplyTenantFilters(builder);             // "Tenant" (+ "Branch") - see wiki/MultiTenancy
     }
 }
 
-// Ignore filter when needed
+// Admin/restore/purge paths: ignore soft delete & lifecycle, KEEP tenant isolation.
+// The parameterless IgnoreQueryFilters() is forbidden (architecture test) - it would drop the tenant filter too.
 var deletedProducts = await context.Products
-    .IgnoreQueryFilters()
+    .IgnoreNonIsolationFilters()
     .Where(a => a.IsDeleted)
     .ToListAsync();
 ```

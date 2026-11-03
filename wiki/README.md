@@ -1,6 +1,6 @@
 # StarterKit Wiki
 
-Developer documentation for **StarterKit**, a production-ready ASP.NET Core 9 modular monolith template
+Developer documentation for **StarterKit**, a production-ready ASP.NET Core 10 modular monolith template
 (vertical slices, CQRS with MediatR, Carter endpoints, EF Core + PostgreSQL, Redis, MassTransit, Hangfire, .NET Aspire).
 
 The full document list is in **[INDEX.md](INDEX.md)**. Agent/assistant guidance lives in the repo-root `CLAUDE.md` and `AGENTS.md`.
@@ -25,7 +25,8 @@ The full document list is in **[INDEX.md](INDEX.md)**. Agent/assistant guidance 
 | Subscriptions | Subscribers, plans, subscriptions, payment methods | [Subscriptions/](Subscriptions/PaymentMethods-Frontend-Integration.md) |
 | Catalog | Sample module (Product aggregate) - the reference vertical slice | [Modules/Catalog.md](Modules/Catalog.md) |
 
-Shared libraries: `Shared.Contracts`, `Shared.Core`, `Shared.Messaging`, `Shared.Email`, `Shared.Notification` - see [Shared/README.md](Shared/README.md).
+Shared libraries: `Shared.Contracts`, `Shared.Core`, `Shared.Messaging` - see [Shared/README.md](Shared/README.md).
+Email and WhatsApp delivery is the [Notification module](Modules/Notification.md).
 
 ## Conventions for this wiki
 

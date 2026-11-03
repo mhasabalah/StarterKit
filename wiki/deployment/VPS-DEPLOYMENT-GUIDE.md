@@ -83,7 +83,7 @@ Internet
    ↓
 [Docker Network: backend]
    ↓
-   ├─ [API Container :5000] ← .NET 9 Web API
+   ├─ [API Container :5000] ← .NET 10 Web API
    ├─ [API Container :5001] ← Second instance (load balanced)
    ├─ [PostgreSQL :5432]    ← Database (internal only)
    ├─ [Redis :6379]         ← Cache (internal only)

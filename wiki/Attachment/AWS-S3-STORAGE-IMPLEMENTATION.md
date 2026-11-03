@@ -1,5 +1,7 @@
 # AWS S3 Storage Implementation - Production Grade
 
+> **Updated:** objects are private and read through presigned GET URLs (`Attachment:Download:ReadUrlTtlMinutes`, default 5 min). Empty `AccessKeyId`/`SecretAccessKey` = default AWS credential chain (IAM role). `UsePublicAccess`, `CloudFrontDomain` and `PresignedUrlExpirationMinutes` are ignored; do not use `--acl public-read`. See [Security.md](Security.md).
+
 ## Overview
 Implemented a **production-ready AWS S3 storage service** with server-side copy, batch operations, CDN support, encryption, and multiple storage classes.
 

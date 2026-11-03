@@ -1,6 +1,6 @@
 # StarterKit
 
-A production-ready **ASP.NET Core 9 modular monolith starter template**. Clone it, rename it, delete the sample
+A production-ready **ASP.NET Core 10 modular monolith starter template**. Clone it, rename it, delete the sample
 module, and start building features on top of auth, files, subscriptions, notifications, observability and a
 complete Docker / Nginx / GitHub Actions deployment pipeline.
 
@@ -12,18 +12,18 @@ complete Docker / Nginx / GitHub Actions deployment pipeline.
 - **Subscriptions** - subscribers, plans, subscriptions, payment methods and instructions
 - **Catalog (sample)** - a minimal Product aggregate showing the full CRUD slice: validator + handler, Carter endpoint, repository, projection query, optimistic concurrency, tests
 - **Shared** - CQRS abstractions, pipeline behaviors (validation, logging, concurrency → 409), pagination, enum lookup, Email (SMTP + logs), Notifications (WhatsApp/Email)
-- **Infrastructure** - PostgreSQL (EF Core, snake_case), Redis, MassTransit, Hangfire, rate limiting, CORS, Serilog + Seq, OpenTelemetry (Prometheus, Grafana, Tempo, Loki, Jaeger)
+- **Infrastructure** - PostgreSQL (EF Core, snake_case), Redis, MassTransit, Hangfire, rate limiting, CORS, structured logging (OpenTelemetry → Seq / Aspire dashboard / Loki), OpenTelemetry (Prometheus, Grafana, Tempo, Loki, Jaeger)
 - **Ops** - .NET Aspire AppHost, Docker Compose (dev override + observability), Nginx configs, Docker secrets, pgBackRest backups, zero-downtime deploy + rollback scripts, GitHub Actions CI/CD to GHCR + self-hosted runner
 
 ## Tech Stack
 
-.NET 9 · ASP.NET Core minimal APIs (Carter) · MediatR · FluentValidation · Mapster · EF Core 9 + Npgsql · PostgreSQL 16 · Redis 7 · MassTransit · Hangfire · Serilog/Seq · OpenTelemetry · .NET Aspire · Docker · Nginx · GitHub Actions
+.NET 10 · ASP.NET Core minimal APIs (Carter) · MediatR · FluentValidation · Mapster · EF Core 10 + Npgsql · PostgreSQL 16 · Redis 7 · MassTransit · Hangfire · Seq · OpenTelemetry · .NET Aspire · Docker · Nginx · GitHub Actions
 
 ## Quick Start
 
 ### Option 1 - .NET Aspire (recommended for development)
 
-Requires the .NET 9 SDK and Docker.
+Requires the .NET 10 SDK and Docker.
 
 ```bash
 cd src/Aspire/AppHost
@@ -74,8 +74,9 @@ src/
 │   ├── Identity/             # Identity + Identity.Contracts
 │   ├── Attachment/           # Attachment + Attachment.Contracts
 │   ├── Subscriptions/        # Subscriptions + .Contracts + .Tests
+│   ├── Notification/         # Email + WhatsApp delivery (OTP issued by Identity): Notification + .Contracts + .Tests
 │   └── Catalog/              # Sample module: Catalog + .Contracts + .Tests
-└── Shared/                   # Shared.Contracts, Shared.Core, Shared.Messaging, Shared.Email, Shared.Notification
+└── Shared/                   # Shared.Contracts, Shared.Core, Shared.Messaging
 tests/                        # Shared / e2e tests
 infra/                        # Nginx, observability, pgAdmin configs
 deployment/                   # deploy / rollback / backup scripts, production Nginx, .env.production.example

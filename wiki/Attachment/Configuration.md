@@ -1,5 +1,7 @@
 # Attachment Module - Configuration Guide
 
+> **Updated:** new keys `Download:*` (ReadUrlTtlMinutes, PublicBaseUrl, InlineContentTypes, SigningKey), `Validation:MaxImageMegapixels`; provider settings are validated at startup with no fallback to Local; S3 keys may be empty (IAM role); list options replace (not extend) their defaults; several keys are obsolete. See [Security.md](Security.md) section 8.
+
 Complete configuration guide for the Attachment module using the ASP.NET Core Options Pattern.
 
 ---

@@ -15,9 +15,16 @@ wiki/
 │   ├── DesignPatterns.md
 │   ├── CodingStandards.md
 │   ├── DatabaseConventions.md
-│   └── ApiGuidelines.md
+│   ├── ApiGuidelines.md
+│   └── Messaging.md                  # Domain vs integration events, outbox, transports
 ├── Modules/
 │   └── Catalog.md                    # Sample module + "how to add a new module" checklist
+├── MultiTenancy/                     # Optional SaaS multi-tenancy (tenants, branches, isolation)
+│   ├── Overview.md                   # Requirements, architecture, NFRs, threat model
+│   ├── Isolation-and-Dedicated-Databases.md
+│   ├── Branches-and-Scoping.md
+│   ├── Adding-a-Tenant-Aware-Module.md
+│   └── Operations.md                 # Enabling, provisioning, purge, runbooks, config reference
 ├── Identity/                         # Auth, users, admins, JWT
 │   ├── README.md
 │   ├── AdminManagement.md
@@ -40,13 +47,11 @@ wiki/
 │   └── AWS-S3-STORAGE-IMPLEMENTATION.md
 ├── Subscriptions/
 │   └── PaymentMethods-Frontend-Integration.md
-├── Shared/                           # Shared.Core / Email / Notification
+├── Shared/                           # Shared.Core
 │   ├── README.md
-│   ├── Examples.md
-│   ├── Email-Module-Usage.md
-│   ├── Email-Enums-Usage.md
-│   └── Notification-Module-Usage.md
+│   └── Examples.md
 ├── Infrastructure/
+│   ├── Aspire.md
 │   └── Redis.md
 ├── Reference/
 │   ├── README.md
@@ -73,12 +78,14 @@ wiki/
 - [Design Patterns](Architecture/DesignPatterns.md)
 - [Database Conventions](Architecture/DatabaseConventions.md)
 - [API Guidelines](Architecture/ApiGuidelines.md)
+- [Messaging: domain vs integration events, outbox, transports](Architecture/Messaging.md)
 - [EF Core Migrations](Reference/Migrations.md)
 
 ### Modules
 
 #### Identity (authentication and authorization)
 - [Overview](Identity/README.md)
+- [Permissions, admin 2FA and admin audit](Identity/Permissions-2FA-and-Admin-Audit.md)
 - [JWT technical guide](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) | [JWT frontend guide](Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md) | [Token refresh strategies](Identity/jwt/TokenRefreshStrategies.md)
 - [Admin Management](Identity/AdminManagement.md) | [Admin API](Identity/AdminManagementAPI.md) | [Admin implementation](Identity/AdminManagementImplementation.md)
 - [User Management API](Identity/UserManagementAPI.md) | [User implementation](Identity/UserManagementImplementation.md) | [Summary](Identity/AdminUserManagementSummary.md)
@@ -88,8 +95,10 @@ wiki/
 - [Configuration](Attachment/Configuration.md) | [Implementation](Attachment/Implementation.md)
 - [Pending (anonymous) uploads API](Attachment/PENDING-ATTACHMENTS-API-GUIDE.md) | [Implementation](Attachment/PENDING-ATTACHMENTS-IMPLEMENTATION.md)
 - [Storage providers comparison](Attachment/STORAGE-PROVIDERS-COMPARISON.md) | [AWS S3 storage](Attachment/AWS-S3-STORAGE-IMPLEMENTATION.md)
+- [Security](Attachment/Security.md) | [Reliability](Attachment/Reliability.md) — two-phase upload, async deletion, reconciliation sweeper
 
 #### Subscriptions (subscribers, plans, subscriptions, payments)
+- [Billing rules](Subscriptions/Billing.md) — tax, proration, refunds, invoices and credit notes, renewal orchestrator
 - [Payment Methods - frontend integration](Subscriptions/PaymentMethods-Frontend-Integration.md)
 
 #### Catalog (sample module)
@@ -97,9 +106,10 @@ wiki/
 
 ### Shared Services
 - [HttpContext Service](Shared/README.md) and [Examples](Shared/Examples.md)
-- [Email module usage](Shared/Email-Module-Usage.md) | [Email enums](Shared/Email-Enums-Usage.md)
-- [Notification module usage](Shared/Notification-Module-Usage.md)
+- [Notification module (email, WhatsApp, OTP)](Modules/Notification.md)
+- [Replacing the identity provider (Keycloak, ...)](Identity/Replacing-the-Identity-Provider.md)
 - [Redis caching](Infrastructure/Redis.md)
+- [.NET Aspire local development (AppHost, dashboard, observability stack)](Infrastructure/Aspire.md)
 
 ### Deployment and Operations
 - **[Deployment docs index](deployment/INDEX.md)**
@@ -121,13 +131,16 @@ wiki/
 |--------------|------|
 | Add a new module | [Modules/Catalog.md](Modules/Catalog.md) |
 | Add a feature to an aggregate | [Architecture/CodingStandards.md](Architecture/CodingStandards.md) |
+| Publish / consume an event across modules | [Architecture/Messaging.md](Architecture/Messaging.md) |
 | Add an EF migration | [Reference/Migrations.md](Reference/Migrations.md) |
 | Configure JWT / auth | [Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) |
 | Upload files | [Attachment/Implementation.md](Attachment/Implementation.md) |
 | Cache with Redis | [Infrastructure/Redis.md](Infrastructure/Redis.md) |
+| Run locally with Aspire | [Infrastructure/Aspire.md](Infrastructure/Aspire.md) |
 | Deploy to a VPS | [deployment/Production-Deployment.md](deployment/Production-Deployment.md) |
 | Manage secrets | [deployment/README.secrets.md](deployment/README.secrets.md) |
 
 ## Template Maintenance
 
 - [Template Backlog](Reference/Template-Backlog.md) — prioritized fixes/upgrades for the StarterKit template itself
+

@@ -1,6 +1,9 @@
 # Attachment Module
 
-The **Attachment** module provides production-ready file upload, storage, and management capabilities for the StarterKit platform.
+File upload, storage (Local / Azure Blob / S3) and access control for StarterKit.
+
+**Start with [Security.md](Security.md)**: it is the reference for entity access policies, server-issued
+pending sessions, upload validation, signed read URLs, the download endpoint and storage consistency.
 
 ## Quick Start
 
@@ -9,20 +12,24 @@ The **Attachment** module provides production-ready file upload, storage, and ma
 {
   "Attachment": {
     "Storage": { "Provider": "Local", "Local": { "UploadPath": "uploads" } },
-    "Validation": { "MaxImageSizeBytes": 10485760 },
+    "Validation": { "MaxImageSizeBytes": 10485760, "MaxImageMegapixels": 40 },
+    "Download": { "ReadUrlTtlMinutes": 5 },
     "Image": { "EnableThumbnailGeneration": true }
   }
 }
 ```
 
-### 2. Upload a File
+### 2. Upload a file
 ```bash
-curl -X POST "/api/attachments/upload" \
+curl -X POST "/api/v1/attachments/upload" \
   -H "Authorization: Bearer {token}" \
-  -F "file=@image.jpg" \
-  -F "entityType=Property" \
-  -F "entityId={guid}"
+  -F "file=@avatar.jpg" \
+  -F "entityType=User" \
+  -F "entityId={your-user-id}"
 ```
+
+The server detects the real type from the content; the stored extension and content type are its decision.
+Attaching to an entity requires that entity type's access policy to allow you (built-in: `User` = yourself).
 
 ### 3. Response
 ```json
@@ -30,150 +37,50 @@ curl -X POST "/api/attachments/upload" \
   "isSuccess": true,
   "data": {
     "id": "guid",
-    "fileUrl": "/uploads/2024/01/file.jpg",
-    "thumbnailUrl": "/uploads/2024/01/file_thumb.jpg"
-  }
-}
-```
-
-## Features
-
-✅ **Multi-storage support**: Local, Azure Blob Storage  
-✅ **Automatic thumbnails**: For images with configurable dimensions  
-✅ **Type detection**: Smart MIME type and category detection  
-✅ **Security**: Content verification, blocked extensions, size limits  
-✅ **Validation**: Multi-layer validation (endpoint, command, service)  
-✅ **Authorization**: User context via `IHttpContextService`  
-✅ **Options Pattern**: Strongly-typed, validated configuration  
-
-## Technology Stack
-
-- **Azure Blob Storage**: Cloud file storage (production)
-- **ImageSharp**: Image processing and thumbnail generation
-- **MediatR**: CQRS pattern for commands
-- **Carter**: Minimal API endpoints
-- **FluentValidation**: Multi-layer validation
-
-## Domain Model
-
-### AttachmentFile Entity
-```csharp
-public class AttachmentFile : BaseEntity
-{
-    public string FileName { get; private set; }
-    public string OriginalFileName { get; private set; }
-    public string ContentType { get; private set; }
-    public long FileSize { get; private set; }
-    public string StoragePath { get; private set; }
-    public string? ThumbnailPath { get; private set; }
-    
-    public AttachmentType Type { get; private set; }
-    public AttachmentCategory Category { get; private set; }
-    
-    public Guid UploadedBy { get; private set; }
-    public EntityType? EntityType { get; private set; }
-    public Guid? EntityId { get; private set; }
-    public bool IsPublic { get; private set; }
-    
-    // Factory method
-    public static AttachmentFile Create(
-        Guid id, string fileName, string contentType, 
-        long fileSize, string storagePath, AttachmentType type, Guid uploadedBy)
-    {
-        var attachment = new AttachmentFile { /* ... */ };
-        attachment.AddDomainEvent(new AttachmentUploadedEvent(attachment));
-        return attachment;
-    }
-    
-    // Domain methods
-    public void LinkToEntity(EntityType entityType, Guid entityId) { /* ... */ }
-    public void SetThumbnail(string thumbnailPath, int width, int height) { /* ... */ }
-}
-```
-
-### Enumerations
-```csharp
-public enum AttachmentType { Image, Document, Video, Audio, Other }
-public enum AttachmentCategory { PropertyImage, PropertyDocument, UserAvatar, ProductImage, CompanyLogo, ServicePlaceLogo, AgentPhoto, General }
-public enum EntityType { Property, User, Product, Company, ServicePlace, Agent }
-```
-
-## API Endpoints
-
-### Upload File
-**POST** `/api/attachments/upload`
-
-**Request**: `multipart/form-data`
-- `file` (required): File binary
-- `entityType`: Property, User, Product, etc.
-- `entityId`: GUID
-- `description`: Optional description
-- `isPublic`: true/false
-- `generateThumbnail`: true/false (default: true)
-
-**Response**:
-```json
-{
-  "isSuccess": true,
-  "data": {
-    "id": "guid",
-    "fileName": "image.jpg",
-    "fileUrl": "/uploads/2024/01/image.jpg",
-    "thumbnailUrl": "/uploads/2024/01/image_thumb.jpg",
-    "fileSize": 2048576,
+    "fileName": "{id}.jpg",
+    "fileUrl": "/api/v1/attachments/{id}/download",
+    "thumbnailUrl": null,
+    "fileSize": 20480,
     "contentType": "image/jpeg"
   }
 }
 ```
 
-### Get Attachment by ID
-**GET** `/api/attachments/{id}`
+Thumbnails are generated in the background after the upload; read the attachment
+(`GET /api/v1/attachments/{id}`) for its `thumbnailUrl` once it is there. The attachment DTO also carries
+`contentHash` (SHA-256 of the file).
 
-### Download File
-**GET** `/api/attachments/{id}/download`
+`fileUrl` is stable: every request is access-checked and then redirected to a short-lived signed URL
+(S3/Azure) or streamed (Local). Do not store provider URLs.
 
-### Delete Attachment
-**DELETE** `/api/attachments/{id}`
+## API Endpoints
 
-### Get Attachments by Entity
-**GET** `/api/attachments/entity/{entityType}/{entityId}`
+| Method | Route | Auth | Notes |
+|--------|-------|------|-------|
+| POST | `/api/v1/attachments/upload` | user | entity policy enforced; body limit = max configured size |
+| GET | `/api/v1/attachments/{id}` | user | metadata (public / owner / admin / entity policy) |
+| GET | `/api/v1/attachments/{id}/download[?thumbnail=true]` | anonymous for public files | 302 to signed URL or stream |
+| DELETE | `/api/v1/attachments/{id}` | user | admin, entity policy, or uploader of an unlinked file; hidden at once, files removed in the background |
+| GET | `/api/v1/attachments/entity/{entityType}/{entityId}[?pageNumber=&pageSize=]` | user | all files if policy allows read, else public + own; newest first; `X-Total-Count` header |
+| POST | `/api/v1/attachments/pending/sessions` | anonymous | issues an owner-bound session id |
+| POST | `/api/v1/attachments/pending/upload` | anonymous | omit `sessionId` to get a new session |
+| GET | `/api/v1/attachments/pending/session/{sessionId}` | session owner | signed preview URLs |
+| DELETE | `/api/v1/attachments/pending/{id}?sessionId=` | session owner | |
+| POST | `/api/v1/attachments/pending/associate` | user | session owner + entity policy |
 
-## Configuration
+## For other modules
 
-See [Configuration.md](Configuration.md) for complete configuration options.
-
-**Quick config**:
-```json
-{
-  "Attachment": {
-    "Storage": { "Provider": "Local" },
-    "Validation": { "MaxImageSizeBytes": 10485760 },
-    "Image": { "ThumbnailWidth": 200, "ThumbnailHeight": 200 }
-  }
-}
-```
-
-## Implementation Guide
-
-See [Implementation.md](Implementation.md) for:
-- Upload endpoint details
-- Multi-layer validation
-- Using IHttpContextService
-- Smart type/category detection
-- API usage examples
-- Testing strategies
-
-## Security
-
-✅ **Authorization required**: All endpoints require authentication  
-✅ **Content verification**: Validates file content matches extension  
-✅ **Blocked extensions**: `.exe`, `.dll`, `.bat`, `.cmd`, `.sh`, `.ps1`, etc.  
-✅ **Size limits**: Configurable per file type  
-✅ **MIME validation**: Type-specific allowed lists  
-✅ **User context**: Tracks uploader via `IHttpContextService`
+- Register an access policy for your entity type: `services.AddAttachmentEntityPolicy<TPolicy>(EntityType.X)`.
+- Upload / associate / delete via `ISender` with the commands in `Attachment.Contracts` (trusted calls: you
+  authorize the entity yourself).
+- Need to hand a private file to a client after your own checks? Send `GetAttachmentReadUrlQuery` and
+  redirect to the returned URL (see Subscriptions `GetPaymentProof` / `GetInvoicePdf`).
 
 ## Related Documentation
 
-- [Configuration Guide](Configuration.md) - Complete configuration options
-- [Implementation Guide](Implementation.md) - Upload endpoint and API usage
-- [HttpContext Service](../Shared/HttpContextService-Summary.md) - User context handling
+- [Security.md](Security.md) - access model, validation, downloads, consistency, config keys, tests
+- [Reliability.md](Reliability.md) - upload/delete lifecycle, background deletion, reconciliation sweeper, schema
+- [Configuration.md](Configuration.md) - option reference (see Security.md section 8 for new keys)
+- [PENDING-ATTACHMENTS-API-GUIDE.md](PENDING-ATTACHMENTS-API-GUIDE.md) - pending upload flow for frontends
+- [Implementation.md](Implementation.md) - endpoint internals (historical; Security.md wins on conflicts)
+- [STORAGE-PROVIDERS-COMPARISON.md](STORAGE-PROVIDERS-COMPARISON.md), [AWS-S3-STORAGE-IMPLEMENTATION.md](AWS-S3-STORAGE-IMPLEMENTATION.md)

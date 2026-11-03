@@ -1,6 +1,25 @@
 # Pending Attachments API Quick Reference
 
+> **Changed (security hardening, see [Security.md](Security.md) section 2):**
+> - Session ids are **issued by the server** and bound to the caller (user, or anonymous IP + User-Agent).
+>   Get one with `POST /api/v1/attachments/pending/sessions`, or omit `sessionId` on the first upload and
+>   reuse the `sessionId` from the response. A client-generated GUID (`crypto.randomUUID()`) is rejected (403).
+> - Upload / list / delete must come from the same client (or the same logged-in user) that owns the session.
+> - `fileUrl` / `thumbnailUrl` of pending files are short-lived signed preview URLs, not `/uploads/...` paths.
+>   After association, use the stable `/api/v1/attachments/{id}/download` URLs.
+> - Over the limit: 400; duplicate `displayOrder`: 409; foreign/forged session: 403.
+> - Associating requires the entity type's access policy to allow you (deny by default).
+>
+> Examples below that show `/uploads/...` URLs or a client-generated session id are outdated in those details.
+
 ## API Endpoints
+
+### 0. Create an Upload Session (Anonymous)
+
+```bash
+curl -X POST http://localhost:5000/api/v1/attachments/pending/sessions
+# { "isSuccess": true, "data": { "sessionId": "..." } }
+```
 
 ### 1. Upload File to Session (Anonymous)
 
@@ -184,10 +203,11 @@ curl -X DELETE "http://localhost:5000/api/v1/attachments/pending/550e8400-e29b-4
 
 ## Frontend Integration Example (JavaScript)
 
-### Generate Session ID
+### Get a Session ID (server-issued)
 ```javascript
-// Generate once at the start of property creation flow
-const sessionId = crypto.randomUUID();
+// Once at the start of the creation flow. Client-generated GUIDs are rejected.
+const res = await fetch('/api/v1/attachments/pending/sessions', { method: 'POST' });
+const { data: { sessionId } } = await res.json();
 localStorage.setItem('propertyUploadSession', sessionId);
 ```
 

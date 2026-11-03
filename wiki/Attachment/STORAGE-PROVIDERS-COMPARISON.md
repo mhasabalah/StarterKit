@@ -1,5 +1,7 @@
 # Storage Providers Comparison Guide
 
+> **Updated:** all providers are private; reads go through `GET /attachments/{id}/download` (S3 presigned GET, Azure SAS, Local stream / signed route). Public ACLs, CloudFront URLs and static `/uploads` serving are no longer used. See [Security.md](Security.md) sections 4-5.
+
 ## Quick Comparison
 
 | Feature | Local Storage | Azure Blob | AWS S3 |
