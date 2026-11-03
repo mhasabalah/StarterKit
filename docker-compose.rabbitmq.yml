@@ -1,0 +1,84 @@
+# ==============================================
+# StarterKit RabbitMQ Overlay (optional)
+# ==============================================
+# Adds a RabbitMQ broker and switches the API to the RabbitMq MassTransit transport.
+# Requires secrets/rabbitmq_password.txt (created by deployment/secrets-setup.sh).
+#   dev:  docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.rabbitmq.yml up -d
+#   prod: docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml up -d
+#
+# Password: in production the API reads the Docker secret (rabbitmq_password -> Messaging:RabbitMq:Password),
+# which is added after environment variables and therefore wins. In Development the API skips Docker
+# secrets and uses RABBITMQ_PASSWORD from .env; when that is set the broker uses it as well.
+# In production leave RABBITMQ_PASSWORD empty so broker and API both use the secret.
+# ==============================================
+
+volumes:
+  rabbitmq-data:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_rabbitmq_data
+
+secrets:
+  rabbitmq_password:
+    file: ./secrets/rabbitmq_password.txt
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-rabbitmq
+    restart: unless-stopped
+    secrets:
+      - rabbitmq_password
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-starterkit}
+      RABBITMQ_ENV_PASSWORD: ${RABBITMQ_PASSWORD:-}
+      TZ: ${TZ:-UTC}
+    # RABBITMQ_DEFAULT_PASS_FILE is not reliably supported, so export the password before starting the broker.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ -n "$$RABBITMQ_ENV_PASSWORD" ]; then
+          export RABBITMQ_DEFAULT_PASS="$$RABBITMQ_ENV_PASSWORD"
+        else
+          export RABBITMQ_DEFAULT_PASS="$$(cat /run/secrets/rabbitmq_password)"
+        fi
+        unset RABBITMQ_ENV_PASSWORD
+        exec docker-entrypoint.sh rabbitmq-server
+    ports:
+      # Loopback only: never expose the broker / management UI publicly (use an SSH tunnel in production).
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${RABBITMQ_CPUS:-1.0}'
+          memory: ${RABBITMQ_MEMORY_LIMIT:-1g}
+
+  api:
+    secrets:
+      - rabbitmq_password
+    environment:
+      Messaging__Transport: RabbitMq
+      Messaging__RabbitMq__Host: rabbitmq
+      Messaging__RabbitMq__Username: ${RABBITMQ_USER:-starterkit}
+      # Dev only: in Docker env the secret file overrides this value.
+      Messaging__RabbitMq__Password: ${RABBITMQ_PASSWORD:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

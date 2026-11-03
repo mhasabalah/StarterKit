@@ -1,0 +1,32 @@
+# ==============================================
+# StarterKit Data Protection Key Encryption Overlay (recommended for production)
+# ==============================================
+# Encrypts the ASP.NET Data Protection key ring (identity.data_protection_keys) at rest with an X.509 certificate
+# and makes the API refuse to start without it (Identity:DataProtection:RequireKeyEncryption=true).
+# Requires (created by deployment/secrets-setup.sh):
+#   secrets/dataprotection_cert.pfx            - certificate + private key (PKCS#12)
+#   secrets/dataprotection_cert_password.txt   - its password
+#   prod: docker compose -f docker-compose.yml -f docker-compose.dataprotection.yml up -d
+#
+# The PFX is read by path; the password arrives through the dataprotection_cert_password Docker secret
+# (-> Identity:DataProtection:Certificate:Password, see DockerSecretsConfigurationProvider.KnownMappings).
+# Back the PFX up with the database backups: without it, encrypted keys - and so every authenticator (TOTP) key -
+# are unreadable. Rotation: wiki/Identity/Permissions-2FA-and-Admin-Audit.md ("Data Protection key ring").
+# ==============================================
+
+secrets:
+  dataprotection_cert:
+    file: ./secrets/dataprotection_cert.pfx
+  dataprotection_cert_password:
+    file: ./secrets/dataprotection_cert_password.txt
+
+services:
+
+  api:
+    secrets:
+      - source: dataprotection_cert
+        target: dataprotection_cert.pfx
+      - dataprotection_cert_password
+    environment:
+      Identity__DataProtection__Certificate__Path: /run/secrets/dataprotection_cert.pfx
+      Identity__DataProtection__RequireKeyEncryption: "true"

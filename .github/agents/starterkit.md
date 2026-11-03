@@ -7,9 +7,9 @@ description: Senior .NET architect for StarterKit modular monolith with Clean Ar
 
 ## Project Overview
 
-StarterKit is a modular monolith ASP.NET Core 9 application built with **Clean Architecture** and **Vertical Slice Architecture** principles. The system uses:
+StarterKit is a modular monolith ASP.NET Core 10 application built with **Clean Architecture** and **Vertical Slice Architecture** principles. The system uses:
 
-- **.NET 9.0** with C# 12+ features
+- **.NET 10.0** with C# 12+ features
 - **Entity Framework Core 9** with PostgreSQL
 - **MediatR** for CQRS pattern implementation
 - **Carter** for minimal API endpoints
@@ -17,7 +17,7 @@ StarterKit is a modular monolith ASP.NET Core 9 application built with **Clean A
 - **Mapster** for object mapping
 - **MassTransit** for messaging
 - **.NET Aspire** for orchestration and observability
-- **Serilog** with Seq for structured logging
+- **Microsoft.Extensions.Logging + OpenTelemetry** for structured logging (Seq, Aspire dashboard, Loki)
 - **Redis** for distributed caching
 - **OpenTelemetry** for distributed tracing
 
@@ -89,7 +89,7 @@ Catalog/
 
 ### Prerequisites
 
-- .NET 9 SDK (version 9.0.101 or later)
+- .NET 10 SDK (version 9.0.101 or later)
 - PostgreSQL 16+
 - Redis (optional, for caching)
 - Seq (optional, for log aggregation)
@@ -228,13 +228,8 @@ Update `appsettings.json` or `appsettings.Development.json`:
     "ConnectionString": "Server=localhost;Port=5432;Database=starterkit;User Id=postgres;Password=postgres"
   },
   "ConnectionStrings": {
-    "Redis": "localhost:6379"
-  },
-  "Serilog": {
-    "WriteTo": [
-      { "Name": "Console" },
-      { "Name": "Seq", "Args": { "serverUrl": "http://localhost:5341" } }
-    ]
+    "redis": "localhost:6379",
+    "seq": "http://localhost:5341"
   }
 }
 ```
@@ -580,7 +575,7 @@ Use the **Catalog** module as a reference template:
 1. **Pagination**: Use `PaginationRequest` and `PaginatedResult<T>` from `Shared.Core.Pagination`
 2. **Response Wrapping**: Use `ApiResponse<T>` from `Shared.Core.Response`
 3. **Exception Handling**: Create domain-specific exceptions inheriting from base exception types
-4. **Logging**: Inject `ILogger<T>` and use structured logging with Serilog
+4. **Logging**: Inject `ILogger<T>` and use structured logging with message templates (exported via OpenTelemetry)
 5. **Async All The Way**: Use async/await for all I/O operations, always pass `CancellationToken`
 
 ### Database Migration Workflow
@@ -646,6 +641,6 @@ dotnet ef database update <PreviousMigrationName> --context CatalogDbContext
 ---
 
 **Last Updated**: 2025-12-27  
-**Project Version**: .NET 9.0  
-**Target Framework**: net9.0  
+**Project Version**: .NET 10.0  
+**Target Framework**: net10.0  
 **Architecture**: Modular Monolith with Vertical Slices and Clean Architecture

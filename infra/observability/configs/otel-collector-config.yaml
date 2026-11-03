@@ -68,21 +68,9 @@ exporters:
       #    tls:
       #      insecure: true
   
-  debug:
-
-  # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter
-  # using `elasticsearch` from `opentelemetry-collector-contrib` components because it doesn't exist in `opentelemetry-collector`
-  elasticsearch:
-    endpoint: "http://elasticsearch:9200"
-  
-  zipkin:
-    # Changed from zipkin-all-in-one to zipkin to match Aspire container base name
-    endpoint: "http://zipkin:9411/api/v2/spans"
-    format: proto
-
   # export collected telemetry traces to jaeger OTLP grpc port, we can send data to other available endpoints and ports on jaeger as well
   otlp/jaeger:
-    # Changed from jaeger-all-in-one to jaeger to match Aspire container base name
+    # Host name = compose service name = Aspire resource name (both put containers on one network).
     endpoint: "http://jaeger:4317"
     tls:
       insecure: true
@@ -114,6 +102,16 @@ extensions:
 service:
   # The `service.extensions` subsection determines which of the configured extensions will be enabled
   extensions: [pprof, zpages, health_check]
+  # The collector's own metrics. Recent versions bind them to localhost:8888 by default, which the Prometheus
+  # scrape job ('otel-collector:8888') cannot reach - listen on all interfaces inside the container instead.
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
   # The `service.pipeline` Each pipeline starts with one or more receivers collecting data, which is then processed sequentially by processors (applying transformations, filtering, or sampling). 
   # The processed data is finally sent to all configured exporters, ensuring each receives a copy. Components must be pre-configured in their respective sections before being used in a pipeline.
   # pipeline activate predefined components, defined components are disabled by default
@@ -122,12 +120,12 @@ service:
       receivers: [otlp]
       processors: [batch]
       # https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#exporter-selection
-      exporters: [debug, zipkin, otlp/jaeger, otlp/tempo]
+      exporters: [otlp/jaeger, otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, prometheusremotewrite, prometheus]
+      exporters: [prometheusremotewrite, prometheus]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp/loki, elasticsearch]
+      exporters: [otlphttp/loki]

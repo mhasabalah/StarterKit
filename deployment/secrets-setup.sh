@@ -48,6 +48,11 @@ if [ -f "$SECRETS_DIR/redis_password.txt" ]; then
     EXISTING_SECRETS=1
 fi
 
+if [ -f "$SECRETS_DIR/rabbitmq_password.txt" ]; then
+    echo "⚠️  WARNING: rabbitmq_password.txt already exists!"
+    EXISTING_SECRETS=1
+fi
+
 if [ -f "$SECRETS_DIR/jwt_secret.txt" ]; then
     echo "⚠️  WARNING: jwt_secret.txt already exists!"
     EXISTING_SECRETS=1
@@ -94,12 +99,44 @@ chmod 600 "$SECRETS_DIR/redis_password.txt"
 REDIS_PASS_LEN=$(wc -c < "$SECRETS_DIR/redis_password.txt")
 echo "  ✅ redis_password.txt ($REDIS_PASS_LEN chars)"
 
+# RabbitMQ password (only used with docker-compose.rabbitmq.yml; harmless if unused)
+echo "  Generating rabbitmq_password..."
+openssl rand -base64 24 | tr -d '\n' > "$SECRETS_DIR/rabbitmq_password.txt"
+chmod 600 "$SECRETS_DIR/rabbitmq_password.txt"
+RABBITMQ_PASS_LEN=$(wc -c < "$SECRETS_DIR/rabbitmq_password.txt")
+echo "  ✅ rabbitmq_password.txt ($RABBITMQ_PASS_LEN chars)"
+
 # JWT secret (48 bytes = 64 base64 chars)
 echo "  Generating jwt_secret..."
 openssl rand -base64 48 | tr -d '\n' > "$SECRETS_DIR/jwt_secret.txt"
 chmod 600 "$SECRETS_DIR/jwt_secret.txt"
 JWT_SECRET_LEN=$(wc -c < "$SECRETS_DIR/jwt_secret.txt")
 echo "  ✅ jwt_secret.txt ($JWT_SECRET_LEN chars)"
+
+# HMAC key used to hash every one-time code at rest (Identity's unified OTP service)
+for KEY in identity_otp_hmac_key; do
+    echo "  Generating $KEY..."
+    openssl rand -base64 48 | tr -d '\n' > "$SECRETS_DIR/$KEY.txt"
+    chmod 600 "$SECRETS_DIR/$KEY.txt"
+    echo "  ✅ $KEY.txt"
+done
+
+# Data Protection key-ring encryption certificate (used by docker-compose.dataprotection.yml).
+# NEVER regenerated when it already exists: the key ring in the database is encrypted with it, and replacing it
+# would make every authenticator (TOTP) key unreadable. Rotate deliberately (see the wiki), not through this script.
+if [ -f "$SECRETS_DIR/dataprotection_cert.pfx" ]; then
+    echo "  ⏭️  dataprotection_cert.pfx exists - kept (rotation is a manual, documented step)"
+else
+    echo "  Generating dataprotection_cert.pfx (self-signed RSA 3072, 10 years)..."
+    openssl rand -base64 32 | tr -d '\n' > "$SECRETS_DIR/dataprotection_cert_password.txt"
+    chmod 600 "$SECRETS_DIR/dataprotection_cert_password.txt"
+    DP_TMP="$(mktemp -d)"
+    openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 -nodes -subj "/CN=StarterKit Data Protection" -keyout "$DP_TMP/key.pem" -out "$DP_TMP/cert.pem" 2>/dev/null
+    openssl pkcs12 -export -out "$SECRETS_DIR/dataprotection_cert.pfx" -inkey "$DP_TMP/key.pem" -in "$DP_TMP/cert.pem" -passout "file:$SECRETS_DIR/dataprotection_cert_password.txt"
+    rm -rf "$DP_TMP"
+    chmod 600 "$SECRETS_DIR/dataprotection_cert.pfx"
+    echo "  ✅ dataprotection_cert.pfx + dataprotection_cert_password.txt (back both up with the database)"
+fi
 
 # WhatsApp access token (placeholder to be replaced with real Meta token)
 echo "  Creating whatsapp_access_token placeholder..."
