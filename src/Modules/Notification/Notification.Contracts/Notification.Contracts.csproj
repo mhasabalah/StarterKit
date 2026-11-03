@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      The ONLY Notification surface other modules may reference (enforced by Api.Tests/Architecture/ModuleBoundaryTests):
+      the fluent sender, template enums + email models, the recipient-resolver extension point and OTP verification.
+      Rendering, transports, dispatch, logs and options are internal to the Notification module.
+    -->
+    <ItemGroup>
+        <!-- Thin contract: Shared.Contracts only (no Shared.Core / infrastructure; architecture test). -->
+        <ProjectReference Include="..\..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
+    </ItemGroup>
+
+</Project>

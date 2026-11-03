@@ -1,0 +1,48 @@
+{% comment %}Variables: PendingProofs, StaleProofs, StaleThresholdHours, OldestPendingAge, PastDueCount, PartiallyPaidCount, GeneratedAt, AdminDashboardUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}ملخص الفوترة اليومي{% else %}Daily Billing Digest{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    هذه حالة طابور مراجعة المدفوعات والاشتراكات المتأخرة.
+  {% else %}
+    This is the state of the payment review queue and past-due subscriptions.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:200px;">{% if culture == 'ar' %}إثباتات بانتظار المراجعة{% else %}Proofs awaiting review{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PendingProofs }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}أقدم من {{ StaleThresholdHours }} ساعة{% else %}Older than {{ StaleThresholdHours }} h{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ StaleProofs }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}عمر أقدم إثبات{% else %}Oldest proof age{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ OldestPendingAge }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}اشتراكات متأخرة السداد{% else %}Past-due subscriptions{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PastDueCount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}مدفوعات جزئية{% else %}Partially paid payments{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PartiallyPaidCount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}وقت الإنشاء{% else %}Generated at{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ GeneratedAt }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'الملخص' %}{% else %}{% assign card_title = 'Summary' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign button_url = AdminDashboardUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'فتح لوحة الفوترة' %}{% else %}{% assign button_text = 'Open Billing Dashboard' %}{% endif %}
+{% include 'Components/Button' %}

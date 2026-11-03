@@ -1,0 +1,28 @@
+{% comment %}Variables: InviterName, TenantName, AcceptUrl, ExpiresInDays{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}دعوة للانضمام إلى {{ TenantName }}{% else %}Join {{ TenantName }} on {{ brandName }}{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    دعاك <strong style="color:#0f172a;">{{ InviterName }}</strong> للانضمام إلى <strong style="color:#0f172a;">{{ TenantName }}</strong>. سجّل الدخول (أو أنشئ حساباً) بهذا البريد الإلكتروني ثم اقبل الدعوة.
+  {% else %}
+    <strong style="color:#0f172a;">{{ InviterName }}</strong> invited you to join <strong style="color:#0f172a;">{{ TenantName }}</strong>. Sign in (or create an account) with this e-mail address, then accept the invitation.
+  {% endif %}
+</p>
+
+{% assign button_url = AcceptUrl %}
+{% assign button_variant = 'primary' %}
+{% if culture == 'ar' %}{% assign button_text = 'قبول الدعوة' %}{% else %}{% assign button_text = 'Accept invitation' %}{% endif %}
+{% include 'Components/Button' %}
+
+{% assign alert_type = 'info' %}
+{% if culture == 'ar' %}
+  {% assign alert_text_ar = 'تنتهي صلاحية هذه الدعوة خلال ' | append: ExpiresInDays | append: ' يوم. إذا لم تكن تتوقعها فتجاهل هذه الرسالة.' %}
+  {% assign alert_text_en = alert_text_ar %}
+{% else %}
+  {% assign alert_text_en = 'This invitation expires in ' | append: ExpiresInDays | append: ' days. If you were not expecting it, you can safely ignore this email.' %}
+  {% assign alert_text_ar = alert_text_en %}
+{% endif %}
+{% include 'Components/Alert' %}
