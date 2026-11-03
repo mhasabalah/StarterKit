@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Reflection;
 using Carter;
 using Identity.Authorization;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +5,6 @@ using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Shared.Core.Authorization;
 
 namespace Api.Tests.Architecture;
@@ -66,6 +63,51 @@ public sealed class AdminEndpointAuthorizationTests
             "admin routes must use .RequirePermission(Permissions.X) (preferred) or AdminOnly/SuperAdminOnly");
     }
 
+    /// <summary>
+    /// Authorization is explicit: every endpoint declares it (<c>RequireAuthorization</c> / <c>RequirePermission</c> /
+    /// <c>RequireTenantPermission</c> / ... or an explicit <c>AllowAnonymous</c>). The fallback policy (authenticated
+    /// user) is only a safety net - relying on it hides intent and makes public endpoints impossible to audit.
+    /// </summary>
+    [Fact]
+    public void Every_endpoint_declares_authorization_explicitly()
+    {
+        var violations = Endpoints.Value
+            .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is null &&
+                        !e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any() &&
+                        !e.Metadata.GetOrderedMetadata<AuthorizationPolicy>().Any())
+            .Select(DisplayName)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+
+        string.Join(Environment.NewLine, violations).Should().BeEmpty(
+            "every endpoint must call .RequireAuthorization(...)/.RequirePermission(...)/.RequireTenantPermission(...) " +
+            "or an explicit .AllowAnonymous() - see CLAUDE.md > Auth is explicit");
+    }
+
+    /// <summary>The runtime safety net: an endpoint that declares nothing still requires an authenticated user.</summary>
+    [Fact]
+    public void Carter_group_requires_authorization_by_default_but_keeps_explicit_choices()
+    {
+        var builder = new CapturingEndpointRouteBuilder(Services.Value);
+        var group = builder.MapGroup(string.Empty).RequireAuthorizationByDefault();
+        group.MapGet("/undeclared", () => "x");
+        group.MapGet("/public", () => "x").AllowAnonymous();
+        group.MapGet("/permission", () => "x").RequirePermission(Permissions.UsersRead);
+
+        var endpoints = builder.DataSources.SelectMany(d => d.Endpoints).OfType<RouteEndpoint>()
+            .ToDictionary(e => e.RoutePattern.RawText!.TrimStart('/'));
+
+        endpoints["undeclared"].Metadata.GetOrderedMetadata<IAuthorizeData>().Should().ContainSingle();
+        endpoints["public"].Metadata.GetOrderedMetadata<IAuthorizeData>().Should().BeEmpty();
+        endpoints["public"].Metadata.GetMetadata<IAllowAnonymous>().Should().NotBeNull();
+        endpoints["permission"].Metadata.GetOrderedMetadata<IAuthorizeData>()
+            .Should().ContainSingle(a => a.Policy == Permissions.PolicyName(Permissions.UsersRead));
+    }
+
+    private static string DisplayName(RouteEndpoint endpoint) =>
+        $"{string.Join(",", endpoint.Metadata.GetOrderedMetadata<IHttpMethodMetadata>().SelectMany(m => m.HttpMethods))} " +
+        endpoint.RoutePattern.RawText;
+
     [Fact]
     public async Task Every_permission_policy_used_by_an_endpoint_is_registered()
     {
@@ -113,9 +155,9 @@ public sealed class AdminEndpointAuthorizationTests
              roles.AllowedRoles.All(role => role is RoleConstants.Admin or RoleConstants.SuperAdmin)));
     }
 
-    // ── Real app container + endpoints, without a database ───────────────────────────────────────────────
+    // ── Real app container + endpoints, without a database (see RealHost) ─────────────────────────────
 
-    private static readonly Lazy<IServiceProvider> Services = new(BuildServices);
+    private static readonly Lazy<IServiceProvider> Services = new(() => RealHost.Services);
 
     private static IReadOnlyList<RouteEndpoint> LoadEndpoints()
     {
@@ -123,85 +165,6 @@ public sealed class AdminEndpointAuthorizationTests
         builder.MapCarter();
 
         return builder.DataSources.SelectMany(d => d.Endpoints).OfType<RouteEndpoint>().ToList();
-    }
-
-    /// <summary>Runs Program's top-level statements until the host is built, then stops them (no DB, no server).</summary>
-    private static IServiceProvider BuildServices()
-    {
-        var captured = new TaskCompletionSource<IServiceProvider>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var subscription = DiagnosticListener.AllListeners.Subscribe(new HostCapture(captured));
-
-        var entryPoint = typeof(Program).Assembly.EntryPoint!;
-        string[] args =
-        [
-            "--environment=Testing",
-            "--ConnectionStrings:starterkit=Host=localhost;Database=never-opened;Username=x;Password=x",
-            "--Redis:Enabled=false",
-            "--JwtSettings:SecretKey=architecture-tests-signing-key-0123456789",
-            "--JwtSettings:Issuer=tests",
-            "--JwtSettings:Audience=tests"
-        ];
-
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                entryPoint.Invoke(null, [args]);
-                captured.TrySetException(new InvalidOperationException("Program finished without building a host."));
-            }
-            catch (Exception ex) when (Unwrap(ex) is StopTheHostException)
-            {
-                // Expected: stopped right after Build().
-            }
-            catch (Exception ex)
-            {
-                captured.TrySetException(Unwrap(ex));
-            }
-        });
-        thread.Start();
-
-        if (!captured.Task.Wait(TimeSpan.FromMinutes(2)))
-        {
-            throw new TimeoutException("Program did not build its host within 2 minutes.");
-        }
-
-        return captured.Task.Result;
-    }
-
-    private static Exception Unwrap(Exception ex) =>
-        ex is TargetInvocationException { InnerException: { } inner } ? Unwrap(inner)
-        : ex is AggregateException { InnerException: { } aggregateInner } ? Unwrap(aggregateInner)
-        : ex;
-
-    private sealed class StopTheHostException : Exception;
-
-    private sealed class HostCapture(TaskCompletionSource<IServiceProvider> captured)
-        : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>>
-    {
-        public void OnNext(DiagnosticListener listener)
-        {
-            if (listener.Name == "Microsoft.Extensions.Hosting")
-            {
-                listener.Subscribe(this);
-            }
-        }
-
-        public void OnNext(KeyValuePair<string, object?> value)
-        {
-            if (value.Key == "HostBuilt" && value.Value is IHost host && !captured.Task.IsCompleted)
-            {
-                captured.TrySetResult(host.Services);
-                throw new StopTheHostException();
-            }
-        }
-
-        public void OnCompleted()
-        {
-        }
-
-        public void OnError(Exception error)
-        {
-        }
     }
 
     private sealed class CapturingEndpointRouteBuilder(IServiceProvider services) : IEndpointRouteBuilder

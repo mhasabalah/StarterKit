@@ -20,6 +20,8 @@ public class ExternalLoginEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Authentication")
             .Produces<ExternalLoginResult>(200)
+            .AllowAnonymous() // login flow: the caller is not authenticated yet
+            .RequireRateLimiting("auth")
             .HasApiVersion(1.0);
 
         // Challenge endpoint that triggers the external authentication
@@ -27,14 +29,16 @@ public class ExternalLoginEndPoint : ICarterModule
             (string provider, string? returnUrl, HttpContext context) =>
             {
                 var redirectUrl = $"/api/identity/auth/external-callback?returnUrl={returnUrl}";
-                var properties = new AuthenticationProperties 
-                { 
-                    RedirectUri = redirectUrl 
+                var properties = new AuthenticationProperties
+                {
+                    RedirectUri = redirectUrl
                 };
                 return Results.Challenge(properties, [provider]);
             })
             .WithName("ExternalLoginChallenge")
             .WithTags("Authentication")
+            .AllowAnonymous() // login flow: redirects to the external provider
+            .RequireRateLimiting("auth")
             .ExcludeFromDescription();
 
         // Callback from external provider
@@ -50,6 +54,7 @@ public class ExternalLoginEndPoint : ICarterModule
             .WithTags("Authentication")
             .Produces<ExternalLoginCallbackResult>(200)
             .ProducesProblem(400)
+            .AllowAnonymous() // login flow: returning from the external provider
             .RequireRateLimiting("auth")
             .HasApiVersion(1.0);
     }

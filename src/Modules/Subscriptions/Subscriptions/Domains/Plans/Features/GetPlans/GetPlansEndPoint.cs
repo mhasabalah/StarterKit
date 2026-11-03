@@ -12,6 +12,7 @@ public class GetPlansEndPoint : ICarterModule
                 var result = await sender.Send(new GetPlansQuery(), ct);
                 return Results.Ok(ApiResponseExtensions.Success(result));
             })
+            .AllowAnonymous() // public pricing page: active plans only
             .RequireRateLimiting("search")
             .WithName("GetPlans")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())

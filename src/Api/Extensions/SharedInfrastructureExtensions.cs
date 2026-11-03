@@ -104,7 +104,8 @@ public static class SharedInfrastructureExtensions
         var appOptions = app.Configuration.GetOptions<AppOptions>(nameof(AppOptions));
 
         // The marker filter flags endpoints that already return an ApiResponse envelope (see ResponseWrapperMiddleware).
-        app.WithApiResponseMarker().MapCarter();
+        // Deny by default: a Carter endpoint that declares no authorization requires an authenticated user.
+        app.WithApiResponseMarker().RequireAuthorizationByDefault().MapCarter();
 
         // Map health check endpoints
         app.UseServiceDefaults();
