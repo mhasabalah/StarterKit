@@ -75,7 +75,6 @@ public class EnumsEndpoint : ICarterModule
 
                 **Cache:** Results are cached for 24 hours for optimal performance.
                 """)
-            .WithOpenApi()
             .AllowAnonymous()
             .HasApiVersion(1.0);
 
@@ -120,7 +119,6 @@ public class EnumsEndpoint : ICarterModule
                 }
                 ```
                 """)
-            .WithOpenApi()
             .AllowAnonymous()
             .HasApiVersion(1.0);
     }

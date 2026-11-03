@@ -1,7 +1,8 @@
+# syntax=docker/dockerfile:1
 # See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 # USER $APP_UID  # Commented out to allow reading Docker secrets from /run/secrets
 WORKDIR /app
 EXPOSE 8080
@@ -18,35 +19,47 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 
 # This stage is used to build the service project
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Directory.Packages.props", "."]
-COPY ["Directory.Build.props", "."]
+# Restore layer: only the build inputs that affect restore, so it is cached until a package or project
+# reference changes. Keep this list = the ProjectReference closure of src/Api/Api.csproj (a new module adds its
+# project + .Contracts here; a missing entry only costs cache, the later "COPY . ." still builds).
+COPY ["global.json", "nuget.config", "Directory.Build.props", "Directory.Packages.props", "./"]
 COPY ["src/Api/Api.csproj", "src/Api/"]
 COPY ["src/Aspire/ServiceDefaults/ServiceDefaults.csproj", "src/Aspire/ServiceDefaults/"]
-COPY ["src/Modules/Identity/Identity/Identity.csproj", "src/Modules/Identity/Identity/"]
-COPY ["src/Shared/Shared.Messaging/Shared.Messaging.csproj", "src/Shared/Shared.Messaging/"]
-COPY ["src/Shared/Shared.Core/Shared.Core.csproj", "src/Shared/Shared.Core/"]
 COPY ["src/Shared/Shared.Contracts/Shared.Contracts.csproj", "src/Shared/Shared.Contracts/"]
+COPY ["src/Shared/Shared.Core/Shared.Core.csproj", "src/Shared/Shared.Core/"]
+COPY ["src/Shared/Shared.Messaging/Shared.Messaging.csproj", "src/Shared/Shared.Messaging/"]
+COPY ["src/Modules/Identity/Identity/Identity.csproj", "src/Modules/Identity/Identity/"]
 COPY ["src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj", "src/Modules/Identity/Identity.Contracts/"]
+COPY ["src/Modules/Identity/UserDirectory.Contracts/UserDirectory.Contracts.csproj", "src/Modules/Identity/UserDirectory.Contracts/"]
+COPY ["src/Modules/Tenancy/Tenancy/Tenancy.csproj", "src/Modules/Tenancy/Tenancy/"]
+COPY ["src/Modules/Tenancy/Tenancy.Contracts/Tenancy.Contracts.csproj", "src/Modules/Tenancy/Tenancy.Contracts/"]
 COPY ["src/Modules/Attachment/Attachment/Attachment.csproj", "src/Modules/Attachment/Attachment/"]
 COPY ["src/Modules/Attachment/Attachment.Contracts/Attachment.Contracts.csproj", "src/Modules/Attachment/Attachment.Contracts/"]
-COPY ["src/Modules/Properties/Properties/Properties.csproj", "src/Modules/Properties/Properties/"]
-COPY ["src/Modules/Properties/Properties.Contracts/Properties.Contracts.csproj", "src/Modules/Properties/Properties.Contracts/"]
-COPY ["src/Modules/Agents/Agents/Agents.csproj", "src/Modules/Agents/Agents/"]
-COPY ["src/Modules/Agents/Agents.Contracts/Agents.Contracts.csproj", "src/Modules/Agents/Agents.Contracts/"]
-COPY ["src/Modules/Developers/Developers/Developers.csproj", "src/Modules/Developers/Developers/"]
-COPY ["src/Modules/Developers/Developers.Contracts/Developers.Contracts.csproj", "src/Modules/Developers/Developers.Contracts/"]
+COPY ["src/Modules/Catalog/Catalog/Catalog.csproj", "src/Modules/Catalog/Catalog/"]
+COPY ["src/Modules/Catalog/Catalog.Contracts/Catalog.Contracts.csproj", "src/Modules/Catalog/Catalog.Contracts/"]
+COPY ["src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj", "src/Modules/Subscriptions/Subscriptions/"]
+COPY ["src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj", "src/Modules/Subscriptions/Subscriptions.Contracts/"]
+COPY ["src/Modules/Notification/Notification/Notification.csproj", "src/Modules/Notification/Notification/"]
+COPY ["src/Modules/Notification/Notification.Contracts/Notification.Contracts.csproj", "src/Modules/Notification/Notification.Contracts/"]
 RUN dotnet restore "./src/Api/Api.csproj"
 COPY . .
 WORKDIR "/src/src/Api"
-RUN dotnet build "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
+# SixLabors.ImageSharp 3.2+ validates a license key at Release build time (Six Labors Split License). Pass the key as a
+# BuildKit secret so it never lands in an image layer or the build history:
+#   docker build --secret id=sixlabors_license,env=SIXLABORS_LICENSE_KEY -f src/Api/Dockerfile .
+RUN --mount=type=secret,id=sixlabors_license,required=false \
+    dotnet build "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/build \
+      "-p:SixLaborsLicenseKey=$(cat /run/secrets/sixlabors_license 2>/dev/null)"
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN --mount=type=secret,id=sixlabors_license,required=false \
+    dotnet publish "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false \
+      "-p:SixLaborsLicenseKey=$(cat /run/secrets/sixlabors_license 2>/dev/null)"
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final

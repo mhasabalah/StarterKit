@@ -3,238 +3,154 @@ using Microsoft.Extensions.Configuration;
 namespace Api.Infrastructure;
 
 /// <summary>
-/// Configuration provider that reads Docker secrets from /run/secrets/
-/// and makes them available as configuration values.
+/// Reads Docker secrets (files under <c>/run/secrets</c>) into configuration.
+/// <list type="number">
+/// <item><b>Generic (every file).</b> File name → config key, with <c>__</c> as the section separator
+/// (same convention as KeyPerFile / environment variables). Example: <c>Email__SmtpPassword</c> →
+/// <c>Email:SmtpPassword</c>. The raw file name is also exposed as a key. Adding a secret therefore needs
+/// no code change.</item>
+/// <item><b>Well-known mappings</b> for legacy secret names, see <see cref="KnownMappings"/>. They also build the
+/// Postgres and Redis connection strings from their passwords.</item>
+/// </list>
+/// Secret VALUES are never written to the console or logs; only key names are.
+/// Skipped in Development (docker-compose.override.yml uses plain environment variables).
 /// </summary>
-public class DockerSecretsConfigurationProvider : ConfigurationProvider
+public class DockerSecretsConfigurationProvider(string secretsPath, string? environmentName) : ConfigurationProvider
 {
-    private const string SecretsPath = "/run/secrets";
-    private readonly ILogger<DockerSecretsConfigurationProvider>? _logger;
+    public const string DefaultSecretsPath = "/run/secrets";
 
-    public DockerSecretsConfigurationProvider(ILogger<DockerSecretsConfigurationProvider>? logger = null)
-    {
-        _logger = logger;
-    }
+    /// <summary>Legacy or short secret file names → configuration keys.</summary>
+    public static readonly IReadOnlyDictionary<string, string[]> KnownMappings =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["jwt_secret"] = ["JWT_SECRET", "JwtSettings:SecretKey"],
+            ["postgres_password"] = ["POSTGRES_PASSWORD"],
+            ["redis_password"] = ["REDIS_PASSWORD"],
+            ["identity_otp_hmac_key"] = ["Identity:OtpHmacKey"],
+            ["hangfire_dashboard_password"] = ["Hangfire:Dashboard:Password"],
+            ["smtp_password"] = ["Email:SmtpPassword"],
+            ["rabbitmq_password"] = ["Messaging:RabbitMq:Password"],
+            // Data Protection key-ring encryption (docker-compose.dataprotection.yml). The PFX itself is mounted as
+            // /run/secrets/dataprotection_cert.pfx and referenced by Identity:DataProtection:Certificate:Path.
+            ["dataprotection_cert_password"] = ["Identity:DataProtection:Certificate:Password"],
+        };
+
+    /// <summary>Secret files that are binary (e.g. a PFX) and must not be loaded as configuration values.</summary>
+    public static readonly IReadOnlySet<string> BinarySecretExtensions =
+        new HashSet<string>([".pfx", ".p12"], StringComparer.OrdinalIgnoreCase);
 
     public override void Load()
     {
-        // Console output (always visible in Docker logs)
-        Console.WriteLine("════════════════════════════════════════════════════════");
-        Console.WriteLine("  Docker Secrets Configuration Provider");
-        Console.WriteLine("════════════════════════════════════════════════════════");
-        Console.WriteLine();
-
-        // Also log to Serilog if available
-        _logger?.LogInformation("════════════════════════════════════════════════════════");
-        _logger?.LogInformation("  Docker Secrets Configuration Provider");
-        _logger?.LogInformation("════════════════════════════════════════════════════════");
-        _logger?.LogInformation("");
-
-        // Check environment - only use secrets in Docker/Production, not Development
-        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-        if (environment == "Development")
+        if (string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase))
         {
-            Console.WriteLine($"ℹ️  Running in Development environment - skipping Docker secrets");
-            Console.WriteLine("ℹ️  Using environment variables from docker-compose.override.yml");
-            Console.WriteLine("════════════════════════════════════════════════════════");
-            Console.WriteLine();
-
-            _logger?.LogInformation("ℹ️  Running in Development environment - skipping Docker secrets");
+            Console.WriteLine("[secrets] Development environment - Docker secrets skipped.");
             return;
         }
 
-        // Check if running in Docker with secrets
-        if (!Directory.Exists(SecretsPath))
+        if (!Directory.Exists(secretsPath))
         {
-            Console.WriteLine($"ℹ️  {SecretsPath} not found - not running with Docker secrets");
-            Console.WriteLine("ℹ️  Using environment variables or appsettings.json instead");
-            Console.WriteLine("════════════════════════════════════════════════════════");
-            Console.WriteLine();
-
-            _logger?.LogInformation("ℹ️  {SecretsPath} not found - not running with Docker secrets", SecretsPath);
-            _logger?.LogInformation("ℹ️  Using environment variables or appsettings.json instead");
+            Console.WriteLine($"[secrets] {secretsPath} not found - using environment variables / appsettings.");
             return;
         }
 
-        Console.WriteLine($"🔐 Reading Docker secrets from {SecretsPath}...");
-        Console.WriteLine();
-
-        _logger?.LogInformation("🔐 Reading Docker secrets from {SecretsPath}...", SecretsPath);
-        _logger?.LogInformation("");
-
-        var secretsLoaded = 0;
-
-        // Read PostgreSQL password
-        var postgresPassword = ReadSecret("postgres_password");
-        if (!string.IsNullOrEmpty(postgresPassword))
+        var loaded = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(secretsPath).OrderBy(f => f, StringComparer.Ordinal))
         {
-            secretsLoaded++;
-            Data["POSTGRES_PASSWORD"] = postgresPassword;
-            Console.WriteLine($"  ✅ Loaded postgres_password ({postgresPassword.Length} chars)");
-            _logger?.LogInformation("  ✅ Loaded postgres_password ({Length} chars)", postgresPassword.Length);
+            var name = Path.GetFileName(file);
+            if (name.StartsWith('.'))
+            {
+                continue; // ignore hidden files (e.g. Kubernetes ..data symlinks)
+            }
 
-            // Build connection string
+            if (BinarySecretExtensions.Contains(Path.GetExtension(name)))
+            {
+                continue; // binary secrets (certificates) are read by path, never as configuration text
+            }
+
+            var value = ReadSecret(file);
+            if (value is null)
+            {
+                continue;
+            }
+
+            Data[name] = value;
+            Data[name.Replace("__", ConfigurationPath.KeyDelimiter, StringComparison.Ordinal)] = value;
+
+            if (KnownMappings.TryGetValue(name, out var keys))
+            {
+                foreach (var key in keys)
+                {
+                    Data[key] = value;
+                }
+            }
+
+            loaded.Add(name);
+        }
+
+        BuildConnectionStrings();
+
+        Console.WriteLine(loaded.Count == 0
+            ? $"[secrets] No secrets found in {secretsPath}."
+            : $"[secrets] Loaded {loaded.Count} secret(s): {string.Join(", ", loaded)}");
+
+        if (Data.TryGetValue("JwtSettings:SecretKey", out var jwt) && jwt is { Length: < 32 })
+        {
+            Console.WriteLine("[secrets] WARNING: jwt_secret is shorter than 32 characters.");
+        }
+    }
+
+    private void BuildConnectionStrings()
+    {
+        if (Data.TryGetValue("POSTGRES_PASSWORD", out var pg) && !string.IsNullOrEmpty(pg))
+        {
             var host = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "postgres";
             var port = Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432";
             var database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "starterkit";
             var username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
-
-            var connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={postgresPassword};Include Error Detail=false";
-            Data["ConnectionStrings:starterkit"] = connectionString;
-
-            Console.WriteLine("  ✅ Built ConnectionStrings:starterkit");
-            Console.WriteLine($"     Host: {host}:{port}");
-            Console.WriteLine($"     Database: {database}");
-            Console.WriteLine($"     Username: {username}");
-
-            _logger?.LogInformation("  ✅ Built ConnectionStrings:starterkit");
-            _logger?.LogInformation("     Host: {Host}:{Port}", host, port);
-            _logger?.LogInformation("     Database: {Database}", database);
-            _logger?.LogInformation("     Username: {Username}", username);
+            Data["ConnectionStrings:starterkit"] =
+                $"Host={host};Port={port};Database={database};Username={username};Password={pg};Include Error Detail=false";
         }
-        else
+
+        if (Data.TryGetValue("REDIS_PASSWORD", out var redis) && !string.IsNullOrEmpty(redis))
         {
-            Console.WriteLine("  ⚠️  postgres_password not found");
-            _logger?.LogWarning("  ⚠️  postgres_password not found");
+            var host = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "redis";
+            var port = Environment.GetEnvironmentVariable("REDIS_PORT") ?? "6379";
+            Data["ConnectionStrings:Redis"] = $"{host}:{port},password={redis},ssl=false,abortConnect=false";
         }
-
-        Console.WriteLine();
-        _logger?.LogInformation("");
-
-        // Read Redis password
-        var redisPassword = ReadSecret("redis_password");
-        if (!string.IsNullOrEmpty(redisPassword))
-        {
-            secretsLoaded++;
-            Data["REDIS_PASSWORD"] = redisPassword;
-            Console.WriteLine($"  ✅ Loaded redis_password ({redisPassword.Length} chars)");
-            _logger?.LogInformation("  ✅ Loaded redis_password ({Length} chars)", redisPassword.Length);
-
-            // Build connection string
-            var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "redis";
-            var redisPort = Environment.GetEnvironmentVariable("REDIS_PORT") ?? "6379";
-
-            var redisConnectionString = $"{redisHost}:{redisPort},password={redisPassword},ssl=false,abortConnect=false";
-            Data["ConnectionStrings:Redis"] = redisConnectionString;
-
-            Console.WriteLine("  ✅ Built ConnectionStrings:Redis");
-            Console.WriteLine($"     Host: {redisHost}:{redisPort}");
-
-            _logger?.LogInformation("  ✅ Built ConnectionStrings:Redis");
-            _logger?.LogInformation("     Host: {Host}:{Port}", redisHost, redisPort);
-        }
-        else
-        {
-            Console.WriteLine("  ⚠️  redis_password not found");
-            _logger?.LogWarning("  ⚠️  redis_password not found");
-        }
-
-        Console.WriteLine();
-        _logger?.LogInformation("");
-
-        // Read JWT secret
-        var jwtSecret = ReadSecret("jwt_secret");
-        if (!string.IsNullOrEmpty(jwtSecret))
-        {
-            secretsLoaded++;
-            Data["JWT_SECRET"] = jwtSecret;
-            Data["JwtSettings:SecretKey"] = jwtSecret;
-            Console.WriteLine($"  ✅ Loaded jwt_secret ({jwtSecret.Length} chars)");
-            Console.WriteLine("  ✅ Set JwtSettings:SecretKey");
-
-            _logger?.LogInformation("  ✅ Loaded jwt_secret ({Length} chars)", jwtSecret.Length);
-            _logger?.LogInformation("  ✅ Set JwtSettings:SecretKey");
-
-            // Validate secret strength
-            if (jwtSecret.Length < 32)
-            {
-                Console.WriteLine("  ⚠️  WARNING: JWT secret is weak (< 32 chars)");
-                _logger?.LogWarning("  ⚠️  WARNING: JWT secret is weak (< 32 chars)");
-            }
-        }
-        else
-        {
-            Console.WriteLine("  ⚠️  jwt_secret not found");
-            _logger?.LogWarning("  ⚠️  jwt_secret not found");
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("════════════════════════════════════════════════════════");
-        if (secretsLoaded > 0)
-        {
-            Console.WriteLine($"  ✅ Docker Secrets Loaded Successfully ({secretsLoaded}/3)");
-            _logger?.LogInformation("  ✅ Docker Secrets Loaded Successfully ({Count}/3)", secretsLoaded);
-        }
-        else
-        {
-            Console.WriteLine("  ℹ️  No Docker secrets found");
-            Console.WriteLine("  ℹ️  Using environment variables or appsettings.json instead");
-            _logger?.LogInformation("  ℹ️  No Docker secrets found");
-            _logger?.LogInformation("  ℹ️  Using environment variables or appsettings.json instead");
-        }
-        Console.WriteLine("════════════════════════════════════════════════════════");
-        Console.WriteLine();
-
-        _logger?.LogInformation("");
-        _logger?.LogInformation("════════════════════════════════════════════════════════");
-        _logger?.LogInformation("");
     }
 
-    private string? ReadSecret(string secretName)
+    private static string? ReadSecret(string path)
     {
-        var secretPath = Path.Combine(SecretsPath, secretName);
-
-        if (!File.Exists(secretPath))
-        {
-            return null;
-        }
-
         try
         {
-            // Read secret and trim whitespace/newlines
-            var secret = File.ReadAllText(secretPath).Trim();
+            var secret = File.ReadAllText(path).Trim();
             return string.IsNullOrWhiteSpace(secret) ? null : secret;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Console.WriteLine($"❌ Error reading secret: {secretName} - {ex.Message}");
-            _logger?.LogError(ex, "❌ Error reading secret: {SecretName}", secretName);
+            Console.WriteLine($"[secrets] ERROR reading {Path.GetFileName(path)}: {ex.GetType().Name}");
             return null;
         }
     }
 }
 
-/// <summary>
-/// Configuration source for Docker secrets.
-/// </summary>
-public class DockerSecretsConfigurationSource : IConfigurationSource
+/// <summary>Configuration source for Docker secrets.</summary>
+public class DockerSecretsConfigurationSource(string secretsPath, string? environmentName) : IConfigurationSource
 {
-    private readonly ILogger<DockerSecretsConfigurationProvider>? _logger;
-
-    public DockerSecretsConfigurationSource(ILogger<DockerSecretsConfigurationProvider>? logger = null)
-    {
-        _logger = logger;
-    }
-
-    public IConfigurationProvider Build(IConfigurationBuilder builder)
-    {
-        return new DockerSecretsConfigurationProvider(_logger);
-    }
+    public IConfigurationProvider Build(IConfigurationBuilder builder) =>
+        new DockerSecretsConfigurationProvider(secretsPath, environmentName);
 }
 
-/// <summary>
-/// Extension methods for adding Docker secrets configuration.
-/// </summary>
 public static class DockerSecretsConfigurationExtensions
 {
-    /// <summary>
-    /// Adds Docker secrets from /run/secrets/ to configuration.
-    /// </summary>
+    /// <summary>Adds Docker secrets from <paramref name="secretsPath"/> (default <c>/run/secrets</c>).</summary>
     public static IConfigurationBuilder AddDockerSecrets(
         this IConfigurationBuilder builder,
-        ILogger<DockerSecretsConfigurationProvider>? logger = null)
+        string secretsPath = DockerSecretsConfigurationProvider.DefaultSecretsPath,
+        string? environmentName = null)
     {
-        builder.Add(new DockerSecretsConfigurationSource(logger));
+        environmentName ??= Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        builder.Add(new DockerSecretsConfigurationSource(secretsPath, environmentName));
         return builder;
     }
 }
