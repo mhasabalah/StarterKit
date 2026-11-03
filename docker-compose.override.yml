@@ -228,8 +228,8 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-mailhog
     restart: unless-stopped
     ports:
-      - "${MAILHOG_SMTP_PORT:-1026}:1025"  # Development port (default 1026)
-      - "${MAILHOG_UI_PORT:-8026}:8025"    # Development port (default 8026)
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"  # standard Mailhog SMTP port (same default as .env.example)
+      - "${MAILHOG_UI_PORT:-8025}:8025"    # standard Mailhog UI port (same default as .env.example)
     networks:
       - backend
     logging:
