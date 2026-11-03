@@ -1,5 +1,7 @@
 # Attachment Module - Implementation Guide
 
+> **Historical.** Upload validation, authorization (entity access policies), the download endpoint and storage consistency changed - [Security.md](Security.md) is authoritative where this page differs.
+
 Complete implementation guide for file upload functionality with best practices.
 
 ---

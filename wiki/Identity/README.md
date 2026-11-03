@@ -4,6 +4,9 @@
 
 The **Identity** module handles authentication, authorization, user management, and security for the StarterKit platform.
 
+> Admin governance (roles → permissions, `perm:*` policies, admin TOTP 2FA, the admin audit log):
+> see [Permissions-2FA-and-Admin-Audit.md](Permissions-2FA-and-Admin-Audit.md).
+
 ## Responsibilities
 
 - User authentication (login, logout, token management)
@@ -185,13 +188,60 @@ public class RefreshToken : BaseEntity
 ```
 
 #### Forgot Password
-- **Endpoint**: `POST /api/identity/auth/forgot-password`
-- **Request**:
-```json
-{
-  "email": "user@example.com"
-}
-```
+- **Endpoint**: `POST /api/auth/forgot-password`
+- **Request**: `{ "identifier": "user@example.com" }` (email or E.164 phone)
+- Sends ONLY to a **confirmed** email or a **verified** phone; the response is identical in every case.
+
+### One-time codes (OTP)
+
+Identity owns the application's ONE one-time-code system: `IOtpCodeService` (`Services/Otp`), stored in
+`identity.otp_codes` (one row per user and `OtpPurpose`). Notification only delivers codes.
+
+| Purpose | Used by | Delivery |
+|---|---|---|
+| `PhoneVerification` | `POST /api/identity/phone/send-verification` + verify; `/notifications/verification/*` (PhoneVerification) | SMS (`ISmsService`) / WhatsApp |
+| `PasswordReset` | `forgot-password` (phone) + `verify-reset-otp` | SMS (`ISmsService`) |
+| `OnboardingPhoneVerification` | onboarding register / resend-otp / verify-phone, `OnboardingOtpRetryJob` | WhatsApp (`IOtpSender` → Notification `IOtpDeliveryService`) |
+| `EmailVerification`, `TwoFactorLogin` | `/notifications/verification/*` | Notification (email has no OTP template yet) |
+
+Guarantees:
+- Codes from a CSPRNG; stored only as HMAC-SHA256(`Identity:OtpHmacKey` / secret `identity_otp_hmac_key`,
+  `purpose:user:code`), so a code never verifies another user or purpose. Constant-time compare.
+- **Issue** is one conditional `UPDATE` (or the first `INSERT`): the resend cooldown
+  (`PhoneVerification:ResendCooldownSeconds`) and the send cap (`PhoneVerification:MaxSendsPerDay`, rolling 24h) are
+  checked atomically, so parallel requests cannot both pass. A new code replaces (invalidates) the previous one and
+  resets its attempts. Refusals throw `OtpRateLimitedException` (429, `Reason` = `Cooldown` / `SendCapReached`).
+- **Verify** reserves an attempt atomically BEFORE comparing (`attempts < max_attempts`), so parallel guesses never
+  exceed `MaxVerificationAttempts` (`PasswordReset:MaxOtpAttempts` for resets); a correct code is consumed by a
+  compare-and-set, so parallel correct submissions succeed exactly once. The row is kept (cooldown + cap survive a
+  successful verify).
+- `ReleaseAsync` (delivery failed: invalidate that code, lift the cooldown, keep the cap) and `InvalidateAsync`
+  (onboarding timeout). `IOtpSender` = issue + Notification delivery + release on failure, as a result (no throw).
+
+### Email Confirmation
+
+Email accounts start with `EmailConfirmed = false`. Forgot-password by email needs a confirmed email, so confirmation is
+part of onboarding.
+
+| Step | Endpoint | Auth |
+|------|----------|------|
+| Link sent automatically | on `POST /api/auth/register` (email) and when `complete-profile` adds an email to a phone account | – |
+| Resend | `POST /api/auth/email/send-confirmation` (no body; always the caller) | signed in, `otp` rate limit |
+| Confirm | `POST /api/auth/email/confirm` `{ "userId": "...", "token": "..." }` | anonymous, `auth` rate limit |
+
+**Link and frontend:**
+- The email links to `{EmailConfirmation:FrontendBaseUrl}/confirm-email?userId=..&token=..`.
+- The frontend page posts both values to `/api/auth/email/confirm`.
+
+**Tokens:**
+- Tokens come from their own provider (`EmailConfirmationTokenProvider`), with their own Data Protection purpose and lifetime: `EmailConfirmation:TokenExpiryHours` (default 24h). Password-reset tokens stay short.
+- Tokens are bound to the security stamp, so changing the email or password invalidates older links.
+- Unknown user, wrong token and expired token all return the same 400.
+
+**Other behaviour:**
+- The automatic send is best effort; registration never fails because mail is down. Turn it off with `EmailConfirmation:SendOnRegister=false`.
+- The `email_verified` claim in existing access tokens updates at the next refresh.
+- Phone accounts carry a non-routable placeholder email. They get no confirmation mail until they add a real email.
 
 #### Reset Password
 - **Endpoint**: `POST /api/identity/auth/reset-password`

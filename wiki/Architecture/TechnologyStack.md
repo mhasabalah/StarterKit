@@ -2,8 +2,8 @@
 
 ## Core Framework
 
-### .NET 9.0
-- **Version**: .NET 9.0 (LTS)
+### .NET 10.0
+- **Version**: .NET 10.0 (LTS)
 - **Language**: C# 12+
 - **Features Used**:
   - File-scoped namespaces
@@ -104,16 +104,13 @@
 
 ## Logging & Observability
 
-### Serilog
-- **Purpose**: Structured logging
-- **Sinks**:
-  - Console
-  - Seq
-  - File
-- **Enrichers**:
-  - Request/Response logging
-  - User context
-  - Correlation IDs
+### Logging (Microsoft.Extensions.Logging + OpenTelemetry)
+- **Purpose**: Structured logging with message templates (`ILogger<T>`); no third-party logging framework
+- **Exported via OpenTelemetry** (`Shared.Core/OpenTelemetryCollector`, `OtlpExporterPlan`) to:
+  - the Aspire dashboard (local dev) or the OTel collector → Loki (compose), via the standard `OTEL_EXPORTER_OTLP_*` settings
+  - Seq (`AddSeqEndpoint("seq")`, `ConnectionStrings:seq`)
+- **Correlation**: correlation id in the logging scope (`UseCorrelationId`) + trace/span ids on every record
+- **Levels**: the `Logging:LogLevel` section (EF Core and `System` at Warning by default)
 
 ### Seq
 - **Purpose**: Log aggregation and analysis
@@ -190,7 +187,7 @@
 
 ### Rider / Visual Studio 2022
 - **Purpose**: Primary IDEs
-- **Features**: .NET 9 support, debugging, refactoring
+- **Features**: .NET 10 support, debugging, refactoring
 
 ### Docker Desktop
 - **Purpose**: Local container orchestration
@@ -219,7 +216,7 @@
 | FluentValidation | Latest |
 | Mapster | Latest |
 | MassTransit | Latest |
-| Serilog | Latest |
+| OpenTelemetry | 1.20 |
 | Redis | 7+ |
 
 ## Next Steps

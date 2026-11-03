@@ -4,11 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**StarterKit** is a generic, production-ready **modular monolith starter template** built with ASP.NET Core 9.
+**StarterKit** is a generic, production-ready **modular monolith starter template** built with ASP.NET Core 10.
 It ships the plumbing every new backend needs - identity (JWT + refresh tokens, roles, admin management), file
 attachments (Local / Azure Blob / S3), subscriptions (subscribers, plans, payments), email + WhatsApp notifications,
 Redis caching, Hangfire jobs, MassTransit messaging, OpenTelemetry observability, Docker/Nginx/GitHub Actions
 deployment - plus a small **Catalog** sample module that is the reference vertical slice for new modules.
+**Optional multi-tenancy** (`MultiTenancy:Enabled`, off by default): tenants (companies) with branch trees, global users
+with per-tenant memberships/roles, shared (tenant_id + EF filters + Postgres RLS) or dedicated databases per tenant -
+see `wiki/MultiTenancy/Overview.md`.
 
 The public host is configured per deployment (`api.example.com` in templates / `DOMAIN` env var).
 
@@ -18,8 +21,10 @@ The public host is configured per deployment (`api.example.com` in templates / `
 # Build all projects (always pass the solution file - the root may contain more than one solution file)
 dotnet build StarterKit.slnx
 
-# Run with .NET Aspire (recommended for development - orchestrates API + all infra)
+# Run with .NET Aspire (recommended for development - orchestrates API + infra; wiki/Infrastructure/Aspire.md)
 cd src/Aspire/AppHost && dotnet run
+# + Grafana/Tempo/Loki/Jaeger/Prometheus stack
+cd src/Aspire/AppHost && dotnet run -- Observability:FullStack=true
 
 # Run with Docker Compose (development - auto-merges override with dev tools)
 cp .env.example .env
@@ -59,9 +64,10 @@ dotnet ef migrations add <MigrationName> \
 dotnet ef database update --context <ModuleDbContext> --project src/Modules/<Module>/<Module> --startup-project src/Api
 ```
 
-Shared.Email / Shared.Notification: use `--project src/Shared/Shared.Email` / `src/Shared/Shared.Notification`.
+Contexts: `ApplicationIdentityDbContext`, `AttachmentDbContext`, `SubscriptionsDbContext`, `CatalogDbContext`, `TenancyDbContext`, `NotificationDbContext`
 
-Contexts: `ApplicationIdentityDbContext`, `AttachmentDbContext`, `SubscriptionsDbContext`, `CatalogDbContext`, `EmailDbContext`, `NotificationDbContext`
+Tenant-data contexts (`ITenantDataContext`: Catalog, Attachment) need `migrationBuilder.EnableTenantRowLevelSecurity(schema, table)`
+for every new table (see `wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md`).
 
 All contexts share one database; the connection string name is `starterkit` (`ConnectionStrings:starterkit`).
 
@@ -87,9 +93,9 @@ The solution (`StarterKit.slnx`) contains independent modules under `src/Modules
 - A `<Module>Module.cs` registration class (`Add<Module>Module` / `Use<Module>Module`) called from `src/Api/Program.cs`
 - Optionally a `<Module>.Tests` project
 
-Current modules: **Identity**, **Attachment**, **Subscriptions** (Subscriber / Plan / Subscription), **Catalog** (sample - Product aggregate)
+Current modules: **Identity**, **Tenancy** (Tenant / Branch / Membership / TenantRole / Invitation / audit - control plane), **Attachment**, **Subscriptions** (Subscriber / Plan / Subscription), **Catalog** (sample - Product aggregate), **Notification** (every email + WhatsApp delivery incl. OTP codes issued by Identity, delivery log - `wiki/Modules/Notification.md`)
 
-Shared cross-cutting concerns live in `src/Shared/`: `Shared.Contracts` (CQRS interfaces, pagination, enums), `Shared.Core` (base classes, pipeline behaviors, EF/Redis/web helpers), `Shared.Messaging` (MassTransit config), `Shared.Email` (email sending + `EmailDbContext`), `Shared.Notification` (WhatsApp/Email notifications + `NotificationDbContext`).
+Shared cross-cutting concerns live in `src/Shared/`: `Shared.Contracts` (CQRS interfaces, pagination, enums, `IDomainEvent`, `IIntegrationEvent`, `[LocalizedDescription]` - the only dependency module `.Contracts` may have), `Shared.Core` (base classes, pipeline behaviors, EF/Redis/web helpers), `Shared.Messaging` (MassTransit bus + transport selection). Shared projects hold NO business state - anything with its own schema, jobs or endpoints is a module.
 
 ### Feature Folder Structure (Vertical Slice)
 
@@ -114,7 +120,7 @@ Domains/<Aggregate>/
 
 ### Key Patterns
 
-**Entities** use static factory methods and raise domain events. Private setters enforce invariants.
+**Entities** use static factory methods and raise domain events (`AddDomainEvent`) and, for cross-module facts, integration events (`AddIntegrationEvent`). Private setters enforce invariants.
 
 **Command handlers** contain a `*Validator : AbstractValidator<TCommand>` in the same file, before the handler class. Handlers use `ICommandHandler<TCommand, TResult>` / `IQueryHandler<TQuery, TResult>` from `Shared.Contracts`.
 
@@ -128,7 +134,7 @@ Domains/<Aggregate>/
 
 ### Startup Order (src/Api/Program.cs)
 
-Docker secrets → Shared infrastructure → Hangfire → Rate limiting → CORS → Seq → MassTransit (module assemblies) → Enum lookup (enum assemblies) → Module registration (Identity → Attachment → Subscriptions → Catalog → Email infrastructure → Notification infrastructure) → Hangfire dashboard → Middleware pipeline (`Use<Module>Module()` in the same order)
+Docker secrets → Shared infrastructure → **Multi-tenancy kernel** (`AddMultiTenancy`) → Hangfire → Rate limiting → CORS → Seq → MassTransit (module assemblies) → Enum lookup (enum assemblies) → Module registration (Identity → Tenancy → Attachment → Catalog → Subscriptions → Email infrastructure → Notification infrastructure) → Hangfire dashboard → Middleware pipeline: `UseIdentityModule(a => a.UseMultiTenancy())` = authentication → **tenant resolution** → authorization, then `UseTenancyModule()` before the other `Use<Module>Module()` calls
 
 ## Strict Naming Conventions
 
@@ -142,23 +148,68 @@ Docker secrets → Shared infrastructure → Hangfire → Rate limiting → CORS
 | Result | `Create<X>Result`, `Get<X>sResult` |
 | Request/Response | `Create<X>Request`, `Create<X>Response` |
 | Events | `<X>CreatedEvent`, `<X>UpdatedEvent` |
+| Integration events | `<X>PublishedIntegrationEvent` + `[MessageUrn("<module>.<x>-published.v1")]` |
+| Consumers | `<X>Consumer` (`IConsumer<T>`) |
 | Exceptions | `<X>NotFoundException`, `Invalid<X>Exception` |
 | Repository | `I<X>Repository` / `<X>Repository` |
 
 ## Hard-won Patterns
 
 - **Entity `CreatedAt`**: the base `Aggregate<Guid>` has `CreatedAt DateTime?`. When an aggregate needs a non-nullable creation date, shadow it with `public new DateTime CreatedAt { get; private set; }`.
-- **Domain events**: raise with `AddDomainEvent(...)` inside the entity. `DispatchDomainEventsInterceptor` dispatches them on `SaveChanges` via MediatR `Publish`.
-- **Contracts events** (events other modules consume) live in `<Module>.Contracts` and implement `IDomainEvent` (which extends `INotification`).
-- **One event, many handlers**: the same domain event may be handled by several modules (e.g. one module updates a role, another creates a profile). That is valid and preferred over direct calls.
+- **Domain events**: raise with `AddDomainEvent(...)` inside the entity. `DispatchDomainEventsInterceptor` collects them on `SaveChanges`; only events of COMMITTED saves are kept (failed saves, rolled-back/uncommitted transactions and failed units of work discard theirs). `IDomainEventDispatcher.DispatchPendingAsync` publishes them via MediatR once the outermost unit of work completes - `DispatchDomainEventsBehavior` does this for MediatR commands.
+- **Jobs / hosted services / orchestrators run OUTSIDE MediatR - nothing publishes their events unless you do.** Do DB work through `IUnitOfWorkRunner.RunAsync((services, ct) => ..., ct)` (`Shared.Core.Data`): a fresh scope per call, events published after success, discarded on failure. Use one call per item in batch jobs. A Hangfire job whose scoped deps Hangfire injected may instead take `IDomainEventDispatcher` and call `DispatchPendingAsync` after `SaveChanges`. Never hand-roll `IServiceScopeFactory` scopes for DB work. Enforced by `Api.Tests/Architecture/BackgroundJobEventDispatchTests`.
+- **Concurrency exceptions are translated in ONE place**: DbContexts throw EF's `DbUpdateConcurrencyException` unchanged; `ConcurrencyHandlingBehavior` (MediatR) turns it into `ConcurrencyConflictException`; `ExceptionStatusMapper` maps both to 409. In jobs, log-and-skip the item with `catch (Exception ex) when (ex.IsConcurrencyConflict())` - never let one conflict abort the batch. (`SubscriptionsDbContext` separately maps Postgres 23505 to `ConflictException`.)
+- **Time**: inject `TimeProvider` (registered as `TimeProvider.System`) instead of `DateTime.UtcNow` in new code; `AuditableEntityInterceptor` uses it.
+- **Events other modules consume**: by default an **integration event** (`<Module>.Contracts/.../IntegrationEvents/`, outbox, async) - see *Messaging* below. A `.Contracts` `IDomainEvent` (in-process MediatR) is only for a reaction that must succeed inside the same unit of work (e.g. `ImpersonationStartedEvent` → audit).
+- **One event, many handlers**: the same event may be handled/consumed by several modules (e.g. one module updates a role, another creates a profile). That is valid and preferred over direct calls.
 - **Cross-module data access**: only via `ISender` + the other module's `.Contracts` commands/queries. Never reference another module's implementation project, models or DbContext.
+- **Users from other modules**: only through `UserDirectory.Contracts` (`GetUserSummariesQuery`, `GetUserProfileQuery`, `GetUserContactInfoQuery`, `GetUsersInRoleQuery`, ...). `Identity.Contracts` is private to Identity and the host (architecture test) so the identity provider stays replaceable - see `wiki/Identity/Replacing-the-Identity-Provider.md`.
+- **Sending email / WhatsApp**: inject `INotificationSender` (`Notification.Contracts`): `.For(userId)` or `.ToEmail(address)` → `.WithEmail(EmailTemplate.X, model.ToDictionary())` → `.SendAsync(...)`. Force `NotificationChannel.Email` for security mail. There is no direct email API.
 - **`IHttpContextService`** lives in `Shared.Core.Web` and is not in every module's GlobalUsings - add `using Shared.Core.Web;` explicitly when needed.
 - **Avoid `[FromServices]`**: it needs `Microsoft.AspNetCore.Mvc`, and Carter/minimal APIs resolve services from parameters automatically.
-- **Roles**: `RoleConstants` exists in both `Identity` (`Domains/Roles/Constants/RoleConstants.cs`, names + seeded ids) and `Shared.Core.Authorization` (names only). Keep them in sync. Seeded role ids: User `11111111-1111-1111-1111-111111111111`, Admin `33333333-3333-3333-3333-333333333333`, SuperAdmin `44444444-4444-4444-4444-444444444444`.
+- **Roles**: `RoleConstants` exists in both `Identity` (`Domains/Roles/Constants/RoleConstants.cs`, names + seeded ids) and `Shared.Core.Authorization` (names only). Keep them in sync. Tokens carry ROLES only: `PermissionClaimsTransformation` derives `permission` claims per request from `Shared.Core.Authorization.RolePermissionMap` (never add permission claims at token issue). Seeded role ids: User `11111111-1111-1111-1111-111111111111`, Admin `33333333-3333-3333-3333-333333333333`, SuperAdmin `44444444-4444-4444-4444-444444444444`, Finance `66666666-…`, Support `77777777-…`. Admin features use fine-grained permissions (`Shared.Core/Authorization/Permissions.cs` + `.RequirePermission(...)`); privileged roles need 2FA (see `wiki/Identity/Permissions-2FA-and-Admin-Audit.md`).
 - **DbContext schema**: `builder.HasDefaultSchema("<module>")` + `builder.ToSnakeCaseTables()` (+ `builder.ConfigureVersionConcurrencyTokens()`).
 - **Soft delete**: do not call `FilterSoftDeletedProperties()` unless the aggregate actually needs soft delete.
-- **Module registration**: a new module must be added to `AddMassTransitWithAssemblies(...)` and, if it defines enums exposed through the enum lookup endpoint, to `AddEnumLookup(...)` - not just `Add<Module>Module(...)` / `Use<Module>Module()`.
+- **Module registration**: a new module must be added to `AddMassTransitWithAssemblies(configuration, ...)` (its consumers) and, if it defines enums exposed through the enum lookup endpoint, to `AddEnumLookup(...)` - not just `Add<Module>Module(...)` / `Use<Module>Module()`.
+- **Multi-tenancy** (`Shared.Core.MultiTenancy`, `wiki/MultiTenancy/*`):
+  - Business data lives in `ITenantDataContext`s; every entity there is `IMustHaveTenant` (children too), unique indexes start with `TenantId`, `ApplyTenantFilters(builder)` is the LAST line of `OnModelCreating`. Never set `TenantId` by hand - `TenantEntityInterceptor` stamps it and blocks cross-tenant writes.
+  - All query filters are NAMED (`QueryFilterNames`). Never call the parameterless `IgnoreQueryFilters()` (it drops tenant isolation; architecture test) - use `IgnoreNonIsolationFilters()` / `IgnoreBranchScope()`.
+  - The ambient tenant is `ITenantContext` (AsyncLocal `TenantScope`). Cross-tenant/platform work: `using (TenantScope.BeginHostScope())`, small and explicit. Recurring jobs on tenant data: `ITenantJobRunner.ForEachTenantScopeAsync`. Hangfire jobs and MassTransit messages carry the tenant automatically.
+  - Tenant authorization: `.RequireTenantPermission(TenantPermissions.X)` / `.RequireTenantMember()` (membership-based, NOT JWT claims). Platform admin endpoints: `.HostOnly().RequirePermission(Permissions.TenantsManage)`. Endpoints of tenant-data modules require a tenant automatically. Destructive/owner endpoints: also `.DisallowImpersonation()` (support impersonation tokens carry `act`).
+  - Tenant moves/exports/purges are generic over every `IMustHaveTenant` table (needs `tenant_id`); a `Migrating` tenant is read-only (writes 503, jobs/messages deferred).
+  - Tenant data in caches: `ITenantCacheKeys.For(key)`. Blobs: `StoragePaths.TenantRoot(tenantId)`.
+  - Single-tenant mode = the Default tenant (`TenantDefaults.DefaultTenantId`) everywhere; per-tenant seed ids via `TenantSeedIds.For`.
+  - In tests use `TenantContext.SingleTenant` / `TenantScope.Begin(...)`; `MultiTenantE2EFixture` boots a multi-tenant host.
 - **Workflow**: make file changes only - **never commit**. The user reviews the diff and commits.
+
+## Messaging: domain events vs integration events (outbox)
+
+Full guide: `wiki/Architecture/Messaging.md`. Sync cross-module calls = `ISender` + `.Contracts` (no gRPC inside the monolith).
+
+**Which one?** An **integration event** is a fact OTHER modules react to *eventually*; the publisher must never fail or
+roll back because of the reaction. If the reaction must succeed for the command to succeed, it is a synchronous
+`ISender` call (or, exceptionally, an in-process `.Contracts` `IDomainEvent`). Same-module reactions = domain events.
+
+| Flow | Kind |
+|---|---|
+| Catalog `ProductPublishedIntegrationEvent` → any | Integration |
+| Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy suspend/reactivate (`TenantBillingStatusConsumer`) | Integration |
+| Attachment `UserAvatarChangedIntegrationEvent` → Identity `ProfilePictureUrl` (`UserAvatarChangedConsumer`) | Integration |
+| `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
+| `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job orchestration step) | In-process |
+
+**Adding an integration event:**
+1. Class in `<Module>.Contracts/<Area>/IntegrationEvents/`: `[MessageUrn("<module>.<event-name>.v1")] public sealed class XIntegrationEvent : IntegrationEvent` - ids + minimal projection, no entities, no `TenantId` (it travels as a header).
+2. Raise it in the aggregate: `AddIntegrationEvent(new XIntegrationEvent { ... })` (next to the domain event).
+3. Context owns an outbox: `builder.AddOutbox()` (host context) / `builder.AddTenantOutbox()` (tenant-data context, before `ApplyTenantFilters`), migration `AddOutbox` (+ `EnableTenantRowLevelSecurity("<schema>", "outbox_messages")` for tenant contexts), and `services.AddOutbox<TContext>()` in `<Module>Module.cs`.
+4. Consumer `XConsumer : IConsumer<XIntegrationEvent>` in the reacting module (assembly passed to `AddMassTransitWithAssemblies`). It must be **idempotent** and **order-independent** (treat the event as a trigger, re-read current state via `ISender`), and - running outside MediatR - dispatch domain events of what it saves (`IDomainEventDispatcher.DispatchPendingAsync` / `IUnitOfWorkRunner`). Throw to retry; return for "nothing to do".
+
+**Rules:**
+- Never `IPublishEndpoint.Publish` cross-module facts from feature code: it bypasses the outbox (lost on crash, sent on rollback).
+- Never change a `[MessageUrn]`; evolve by adding optional properties; breaking change = new type with `.v2` urn.
+- Delivery is at-least-once (`MessageId` = `EventId`), ordering best-effort; failed rows retry with back-off and are dead-lettered after `Messaging:Outbox:MaxAttempts` (`outbox_messages.dead_lettered_at` - requeue SQL in the wiki).
+- Transport: `Messaging:Transport` = `InMemory` (default; dev/tests, NOT durable) | `PostgreSql` (durable, queues in the existing DB) | `RabbitMq` (`ConnectionStrings:rabbitmq` or `Messaging:RabbitMq:*`; password via secret `rabbitmq_password`). Production should not run `InMemory`.
+- Enforced by `Api.Tests/Architecture/MessagingArchitectureTests` (events in `.Contracts`, unique urns, thin contracts, consumers in modules).
 
 ## Key Documentation (wiki/)
 
@@ -168,14 +219,19 @@ When working on a specific area, consult the relevant wiki file before making ch
 |------|-----------|
 | Understanding patterns & conventions | `wiki/Architecture/CodingStandards.md`, `wiki/Architecture/DesignPatterns.md` |
 | Adding a new module / sample module | `wiki/Modules/Catalog.md` |
+| Multi-tenancy (tenants, branches, isolation, ops) | `wiki/MultiTenancy/Overview.md`, `wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md` |
 | EF Core / database conventions | `wiki/Architecture/DatabaseConventions.md` |
 | API endpoint design | `wiki/Architecture/ApiGuidelines.md` |
 | Adding EF migrations | `wiki/Reference/Migrations.md` |
 | Template known issues / roadmap | `wiki/Reference/Template-Backlog.md` |
 | Identity / JWT / auth | `wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md` |
 | File uploads / attachments | `wiki/Attachment/Implementation.md` |
-| Email / notifications | `wiki/Shared/Email-Module-Usage.md`, `wiki/Shared/Notification-Module-Usage.md` |
+| Email / notifications | `wiki/Modules/Notification.md` |
+| One-time codes (OTP: issue, verify, limits) | `wiki/Identity/README.md#one-time-codes-otp` (Identity `IOtpCodeService`) |
+| Domain vs integration events, outbox, transports | `wiki/Architecture/Messaging.md` |
+| Swapping the identity provider (Keycloak, ...) | `wiki/Identity/Replacing-the-Identity-Provider.md` |
 | Redis caching | `wiki/Infrastructure/Redis.md` |
+| Local dev with Aspire (AppHost, dashboard, observability stack) | `wiki/Infrastructure/Aspire.md` |
 | Deployment / production | `wiki/deployment/Production-Deployment.md` |
 | CI/CD pipeline | `wiki/deployment/GitHub-Actions-CI-CD.md` |
 | Secrets management | `wiki/deployment/README.secrets.md` |
@@ -239,19 +295,22 @@ Every entity inherits `long Version` from `Entity<T>` automatically - no action 
 
 **For new critical update commands** (where concurrent edits are a real risk - e.g., profile updates, financial config, status transitions):
 - Add `long? Version = null` (nullable/optional) to the command record - keeps existing frontend clients working.
-- In the handler, set OriginalValue before calling SaveChangesAsync:
+- In the handler, after loading the tracked entity and before SaveChangesAsync, call the shared helper
+  (`Shared.Core.Data.DbContextVersioningExtensions`). It handles `null` by keeping the loaded version:
   ```csharp
-  if (command.Version.HasValue)
-  {
-      dbContext.Entry(entity).Property(e => e.Version).OriginalValue = command.Version.Value;
-  }
+  dbContext.ExpectVersion(entity, command.Version);
   ```
 - Add `long Version` to the corresponding read DTO so clients can round-trip it.
 
 See `UpdateProductCommand` / `ProductDto` in the Catalog sample.
 
+**How it works.** EF emits `UPDATE … WHERE version = @OriginalValue`. `ExpectVersion` puts the client's version into
+`OriginalValue`. `AuditableEntityInterceptor` then sets `CurrentValue = OriginalValue + 1` and must never overwrite `OriginalValue`.
+An older version of the interceptor did overwrite it, which silently disabled stale-version detection. That is now guarded by
+`Shared.Core.Tests/Concurrency/*` (Testcontainers Postgres).
+
 **Rules:**
-- Do NOT increment `Version` in entity methods or handlers - `AuditableEntityInterceptor` does it centrally on `Modified`.
+- Do NOT set `Version` or `OriginalValue` by hand. Do NOT increment `Version` in entity methods or handlers: `AuditableEntityInterceptor` does it centrally on `Modified`, and also when only an owned entity changed.
 - New entities start at `Version = 0` (C# default); first save leaves it at 0 (interceptor skips `Added` state).
 - Delete commands: never need a version field.
 - Non-critical admin-only updates (status toggles, lookup table edits): version optional - add only if there's genuine concurrency risk.
@@ -262,7 +321,7 @@ See `UpdateProductCommand` / `ProductDto` in the Catalog sample.
 - **Secrets**: Production secrets in `./secrets/*.txt` (git-ignored, see `secrets/README.md`), mounted at `/run/secrets/` by Docker. `appsettings*.json` contain placeholders only.
 - **CI/CD**: GitHub Actions (`.github/workflows/hybrid-ci-cd.yml`) - push to `master` triggers build/test → Docker image to GHCR (`ghcr.io/<owner>/<repo>-api`) → manual approval (GitHub `production` environment protection) → deploy on a self-hosted VPS runner with health check; `rollback.yml` restores the previous image/backup. Host, paths and names come from repository variables (`APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_USER`, `POSTGRES_DB`, `BACKUP_BUCKET`).
 - **Deployment scripts**: `deployment/deploy.sh` (zero-downtime), `deployment/rollback.sh`, `deployment/secrets-setup.sh`; production Nginx site config in `deployment/nginx/conf.d/app-production.conf`.
-- **Centralized packages**: All NuGet versions in `Directory.Packages.props`; global .NET 9 settings in `Directory.Build.props`.
+- **Centralized packages**: All NuGet versions in `Directory.Packages.props`; global .NET 10 settings in `Directory.Build.props`.
 
 ## Starting a New Project from StarterKit
 

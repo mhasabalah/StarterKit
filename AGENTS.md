@@ -4,7 +4,7 @@ Repo-specific context for AI coding agents (OpenCode, Codex, Copilot, etc.). It 
 
 ## Project Overview
 
-**StarterKit** is a generic modular monolith starter template built with ASP.NET Core 9. Modules: `Identity`, `Attachment`, `Subscriptions`, and the `Catalog` sample module (Product aggregate) that serves as the reference vertical slice. The public host is configured per deployment (`api.example.com` in templates).
+**StarterKit** is a generic modular monolith starter template built with ASP.NET Core 10. Modules: `Identity`, `Attachment`, `Subscriptions`, and the `Catalog` sample module (Product aggregate) that serves as the reference vertical slice. The public host is configured per deployment (`api.example.com` in templates).
 
 ## Commands
 
@@ -17,8 +17,10 @@ dotnet restore StarterKit.slnx
 dotnet build StarterKit.slnx --configuration Release --no-restore
 dotnet test StarterKit.slnx --configuration Release --no-build --verbosity normal
 
-# Run with .NET Aspire (recommended for development; orchestrates API + infra)
+# Run with .NET Aspire (recommended for development; orchestrates API + infra; wiki/Infrastructure/Aspire.md)
 cd src/Aspire/AppHost && dotnet run
+# + Grafana/Tempo/Loki/Jaeger/Prometheus stack
+cd src/Aspire/AppHost && dotnet run -- Observability:FullStack=true
 
 # Run with Docker Compose dev tools; docker-compose.override.yml is auto-merged
 cp .env.example .env
@@ -44,14 +46,14 @@ After completing code changes, always run `dotnet build StarterKit.slnx` from th
 
 - Solution file: `StarterKit.slnx`; package versions centralized in `Directory.Packages.props`; global .NET settings in `Directory.Build.props`.
 - `src/Api/Api.csproj` is the API entrypoint; `src/Api/Program.cs` wires shared infrastructure and module registration.
-- Modules under `src/Modules/`: `Identity`, `Attachment`, `Subscriptions`, `Catalog` (sample).
-- Each module has a main implementation project plus a `.Contracts` project for commands, queries, DTOs and integration events; optionally a `.Tests` project.
-- Shared projects in `src/Shared/`: `Shared.Contracts`, `Shared.Core`, `Shared.Email`, `Shared.Notification`, `Shared.Messaging`.
+- Modules under `src/Modules/`: `Identity` (+ `UserDirectory.Contracts`, the only user API other modules may use), `Tenancy`, `Attachment`, `Subscriptions`, `Notification` (email/WhatsApp delivery, incl. OTP codes issued by Identity), `Catalog` (sample).
+- Each module has a main implementation project plus a thin `.Contracts` project (references only `Shared.Contracts`) for commands, queries, DTOs and integration events; optionally a `.Tests` project.
+- Shared projects in `src/Shared/`: `Shared.Contracts`, `Shared.Core`, `Shared.Messaging`.
 
 ## Architecture Patterns
 
 - Vertical slices under `Domains/<Aggregate>/Features/<Action>/`.
-- Entities use static factory methods, private setters, and raise domain events via `AddDomainEvent()` (dispatched on SaveChanges by `DispatchDomainEventsInterceptor`).
+- Entities use static factory methods, private setters, and raise domain events via `AddDomainEvent()` (dispatched on SaveChanges by `DispatchDomainEventsInterceptor`) and cross-module integration events via `AddIntegrationEvent()` (transactional outbox).
 - Command handlers use repositories and implement `ICommandHandler<TCommand, TResult>` from `Shared.Contracts`.
 - Query handlers receive the module `*DbContext` directly for LINQ projection; queries paginate with `PaginatedResult<T>`.
 - Put the `*Validator : AbstractValidator<TCommand>` in the same file as the handler, before the handler class.
@@ -60,6 +62,18 @@ After completing code changes, always run `dotnet build StarterKit.slnx` from th
 - Repositories: `I<Aggregate>Repository` / `<Aggregate>Repository`, one per aggregate root.
 - Cross-module access only through `ISender` + the other module's `.Contracts` - never reference another module's implementation.
 - `RoleConstants` exists in Identity and `Shared.Core.Authorization`; keep them in sync.
+
+## Messaging (domain vs integration events)
+
+Full guide: `wiki/Architecture/Messaging.md` (mirrors the *Messaging* section of `CLAUDE.md`).
+
+- Sync cross-module calls: `ISender` + `.Contracts` (no gRPC inside the monolith).
+- **Integration event** = a fact other modules react to eventually; the publisher must never fail because of the reaction. If the reaction must succeed for the command to succeed, call synchronously instead. Same-module reactions = domain events.
+- Add one: class in `<Module>.Contracts/<Area>/IntegrationEvents/` deriving `IntegrationEvent` with `[MessageUrn("<module>.<event-name>.v1")]` (ids + minimal projection, no `TenantId`) → raise in the aggregate with `AddIntegrationEvent(...)` → the context maps an outbox (`builder.AddOutbox()` / `builder.AddTenantOutbox()` before `ApplyTenantFilters`, migration `AddOutbox` + `EnableTenantRowLevelSecurity("<schema>", "outbox_messages")` for tenant contexts, `services.AddOutbox<TContext>()`) → `XConsumer : IConsumer<T>` in the reacting module.
+- Consumers are idempotent and order-independent (re-read current state via `ISender`), and dispatch domain events of what they save (`IDomainEventDispatcher` / `IUnitOfWorkRunner`).
+- Never `IPublishEndpoint.Publish` cross-module facts from feature code; never change a `[MessageUrn]` (breaking change = new `.v2` type).
+- Kept in-process on purpose: `ImpersonationStartedEvent` → audit (must fail the command), `TenantDataPurgeRequestedEvent` (purge-job step).
+- `Messaging:Transport` = `InMemory` (dev/tests, not durable) | `PostgreSql` | `RabbitMq`. Module `.Contracts` reference only `Shared.Contracts` (Tenancy.Contracts excepted). Enforced by `Api.Tests/Architecture/MessagingArchitectureTests`.
 
 ## Feature Folder Template
 
@@ -109,7 +123,11 @@ dotnet ef migrations add <MigrationName> \
 dotnet ef database update --context <ModuleDbContext>
 ```
 
-Contexts: `ApplicationIdentityDbContext`, `AttachmentDbContext`, `SubscriptionsDbContext`, `CatalogDbContext`, `EmailDbContext`, `NotificationDbContext`.
+Contexts: `ApplicationIdentityDbContext`, `AttachmentDbContext`, `SubscriptionsDbContext`, `CatalogDbContext`, `TenancyDbContext`, `NotificationDbContext`.
+
+Multi-tenancy (optional, `MultiTenancy:Enabled`): business data lives in `ITenantDataContext`s with `IMustHaveTenant`
+entities, named query filters and Postgres RLS; never call the parameterless `IgnoreQueryFilters()`. Read
+`wiki/MultiTenancy/Overview.md` and `wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md` before touching data access.
 
 ## Local Services
 
@@ -135,7 +153,7 @@ Contexts: `ApplicationIdentityDbContext`, `AttachmentDbContext`, `SubscriptionsD
 - EF/database: `wiki/Architecture/DatabaseConventions.md`; migrations: `wiki/Reference/Migrations.md`.
 - API endpoints: `wiki/Architecture/ApiGuidelines.md`.
 - Identity/JWT: `wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md`; attachments: `wiki/Attachment/Implementation.md`.
-- Redis: `wiki/Infrastructure/Redis.md`; deployment: `wiki/deployment/Production-Deployment.md`; CI/CD: `wiki/deployment/GitHub-Actions-CI-CD.md`; secrets: `wiki/deployment/README.secrets.md`.
+- Redis: `wiki/Infrastructure/Redis.md`; local dev with Aspire: `wiki/Infrastructure/Aspire.md`; deployment: `wiki/deployment/Production-Deployment.md`; CI/CD: `wiki/deployment/GitHub-Actions-CI-CD.md`; secrets: `wiki/deployment/README.secrets.md`.
 - Do not add markdown files to the repo root (only `README.md`, `CLAUDE.md`, `AGENTS.md`). Durable developer reference docs go in `wiki/`; session notes, flow diagrams and investigation writeups go in your own notes vault (`<your notes vault>/projects/<project>/`).
 
 ## Code Review Workflow

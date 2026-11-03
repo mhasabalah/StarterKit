@@ -11,16 +11,16 @@ StarterKit/
 │   │   ├── AppHost/                         # .NET Aspire orchestration (Postgres, Redis, Seq, observability)
 │   │   └── ServiceDefaults/                 # Shared OpenTelemetry / health defaults
 │   ├── Modules/
-│   │   ├── Identity/                        # Auth, users, roles, JWT
+│   │   ├── Identity/                        # Auth, users, roles, JWT (+ UserDirectory.Contracts port)
+│   │   ├── Tenancy/                         # Tenants, branches, memberships (multi-tenancy control plane)
+│   │   ├── Notification/                    # Email + WhatsApp delivery (incl. OTP), delivery log
 │   │   ├── Attachment/                      # File uploads and storage providers
 │   │   ├── Subscriptions/                   # Subscribers, plans, subscriptions, payments
 │   │   └── Catalog/                         # Sample vertical-slice module (Product)
 │   └── Shared/
 │       ├── Shared.Contracts/                # CQRS interfaces, pagination, enums
 │       ├── Shared.Core/                     # Base classes, behaviors, EF/Redis/web helpers
-│       ├── Shared.Messaging/                # MassTransit configuration
-│       ├── Shared.Email/                    # Email sending + EmailDbContext
-│       └── Shared.Notification/             # WhatsApp/Email notifications + NotificationDbContext
+│       └── Shared.Messaging/                # MassTransit configuration
 ├── tests/                                   # Cross-cutting test projects (Shared, e2e)
 ├── infra/                                   # Nginx, observability, pgAdmin configs
 ├── deployment/                              # VPS deploy/rollback/backup scripts, prod Nginx

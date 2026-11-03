@@ -81,13 +81,13 @@ public static Product Create(Guid id, string name, Guid profileId)
 
 | Aspect | Technology | Reason |
 |--------|-----------|--------|
-| Framework | .NET 9.0 | Latest features, performance |
+| Framework | .NET 10.0 | Latest features, performance |
 | Database | PostgreSQL | ACID compliance, JSON support |
-| ORM | EF Core 9 | Code-first, migrations |
+| ORM | EF Core 10 | Code-first, migrations |
 | API | Carter (Minimal APIs) | Lightweight, fast |
 | Messaging | MassTransit | Reliable, patterns support |
 | Caching | Redis | Distributed caching |
-| Logging | Serilog + Seq | Structured logging |
+| Logging | Microsoft.Extensions.Logging + OpenTelemetry → Seq / Aspire / Loki | Structured logging |
 | Orchestration | .NET Aspire | Dev/prod consistency |
 
 ## Module Independence

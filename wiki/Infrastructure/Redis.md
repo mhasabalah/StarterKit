@@ -228,21 +228,22 @@ services:
       # Password comes from Docker secret, NOT env var
 ```
 
-**Override Logic (Single Source of Truth):**
+**Resolution (single source of truth: `Shared.Core.Extensions.RedisConnectionConfiguration`, unit-tested):**
 
-1. **Host & Port:**
-   - Read from `appsettings.json`
-   - Overridden by `REDIS_HOST` and `REDIS_PORT` env vars (in non-Development)
-   - Handled in `RedisExtensions.OverrideFromEnvironment()`
+1. **`ConnectionStrings:redis` wins** when set - endpoint, password and TLS come from it. .NET Aspire injects it
+   (`WithReference(redis)`; Aspire's Redis uses TLS), and the Docker secrets provider builds it from the
+   `redis_password` secret.
+2. **Otherwise Host & Port** from the `Redis` section, overridden by `REDIS_HOST` / `REDIS_PORT` outside Development.
+3. **Password (only without a connection string):**
+   - **Production** (or no environment set): Docker secret file at `Redis:PasswordSecretPath` (default
+     `/run/secrets/redis_password`) - required, startup fails fast if missing or empty.
+   - **Other environments:** `REDIS_PASSWORD` → fallback to `Redis:Password`.
+4. **Client behaviour** (`AbortOnConnectFail`, `ConnectTimeout`, `SyncTimeout`) always comes from the `Redis`
+   section, whatever the source of the endpoint.
 
-2. **Password:**
-   - **Development:** `REDIS_PASSWORD` env var (from `.env`) → fallback to `appsettings.json`
-   - **Production:** Docker secret file at `/run/secrets/redis_password`
-   - Handled in `RedisOptions.GetPassword()` (single source of truth)
-
-3. **Other Settings:**
-   - Read from `appsettings.json` only
-   - No environment variable overrides
+**One connection per process.** `AddRedisCache` registers a singleton `IConnectionMultiplexer` that the cache
+(`RedisCacheOptions.ConnectionMultiplexerFactory`), the `redis` readiness health check (`/health`) and other Redis
+consumers (Identity TOTP replay guard, OTP store) share. Inject `IConnectionMultiplexer`; never `Connect` your own.
 
 **Why this design?**
 - ✅ Clear separation of concerns

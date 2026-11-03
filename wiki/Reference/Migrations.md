@@ -9,8 +9,7 @@ All contexts share one database (connection string name `starterkit`).
 | Attachment | `AttachmentDbContext` | `attachment` | `src/Modules/Attachment/Attachment/Data/Migrations` |
 | Subscriptions | `SubscriptionsDbContext` | `subscriptions` | `src/Modules/Subscriptions/Subscriptions/Data/Migrations` |
 | Catalog | `CatalogDbContext` | `catalog` | `src/Modules/Catalog/Catalog/Data/Migrations` |
-| Shared.Email | `EmailDbContext` | `shared` | `src/Shared/Shared.Email` (see project) |
-| Shared.Notification | `NotificationDbContext` | `notification` | `src/Shared/Shared.Notification` (see project) |
+| Notification | `NotificationDbContext` | `notification` | `src/Modules/Notification/Notification/Data/Migrations` |
 
 > Check each `DbContext.OnModelCreating` for the exact `HasDefaultSchema(...)` value.
 
@@ -42,7 +41,6 @@ dotnet ef migrations add AddProductSku \
   --output-dir Data/Migrations
 ```
 
-Shared.Email / Shared.Notification contexts use `--project src/Shared/Shared.Email` (or `Shared.Notification`).
 For every other `dotnet ef` command below, add the same `--project <module> --startup-project src/Api` pair.
 
 ## Apply migrations

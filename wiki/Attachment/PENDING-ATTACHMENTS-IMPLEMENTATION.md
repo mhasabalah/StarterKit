@@ -1,5 +1,7 @@
 # Session-Based Anonymous Upload Implementation - Complete
 
+> **Updated:** sessions are server-issued and owner-bound, uploads to one session are serialized (advisory lock), associate requires the session owner and moves files back on failure, cleanup loops batches and keeps rows whose files could not be deleted. See [Security.md](Security.md) sections 2 and 6.
+
 ## Implementation Summary
 
 Successfully implemented a production-grade session-based anonymous upload system for StarterKit property photos. This feature allows users to upload photos before property entity creation, solving the chicken-and-egg problem.
@@ -11,7 +13,7 @@ Successfully implemented a production-grade session-based anonymous upload syste
 **NuGet Packages Added:**
 - Hangfire.AspNetCore 1.8.22
 - Hangfire.PostgreSql 1.20.13
-- Rate limiting (built into ASP.NET Core 9)
+- Rate limiting (built into ASP.NET Core 10)
 
 **Configuration Added (appsettings.json):**
 ```json

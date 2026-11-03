@@ -223,8 +223,7 @@ All methods return nullable values - always check for null in background operati
 ## Related Documentation
 
 - [Examples](Examples.md) - Real-world usage examples and tests
-- [Email Module Usage](Email-Module-Usage.md) - End-to-end guide for scheduling, templates, retries, and admin APIs
-- [Email Enums Usage](Email-Enums-Usage.md) - How to use `EmailDeliveryStatus` and `EmailCulture` in `Shared.Email`
+- [Notification module](../Modules/Notification.md) - email + WhatsApp delivery, templates, retries, OTP and admin APIs
 - Source: `src/Shared/Shared.Core/Web/IHttpContextService.cs`
 - Implementation: `src/Shared/Shared.Core/Web/HttpContextService.cs`
 - Extensions: `src/Shared/Shared.Core/Web/HttpContextServiceExtensions.cs`
