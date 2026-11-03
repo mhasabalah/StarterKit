@@ -15,11 +15,16 @@ public static class HangfireConfiguration
         services.Configure<HangfireDashboardAuthOptions>(
             configuration.GetSection(HangfireDashboardAuthOptions.SectionName));
 
-        services.AddHangfire(config =>
+        services.AddSingleton<TenantJobFilter>();
+
+        services.AddHangfire((sp, config) =>
         {
             config.UsePostgreSqlStorage(options =>
                 options.UseNpgsqlConnection(connectionString));
             config.UseRecommendedSerializerSettings();
+
+            // Tenant propagation: the enqueuing flow's tenant is restored while the job runs.
+            config.UseFilter(sp.GetRequiredService<TenantJobFilter>());
         });
 
         services.AddHangfireServer(options =>
@@ -29,17 +34,11 @@ public static class HangfireConfiguration
             options.ServerName = "main-server";
         });
 
-        services.AddHangfireServer(options =>
-        {
-            options.Queues = ["email"];
-            options.WorkerCount = 2;
-            options.ServerName = "email-server";
-        });
-
+        // Every notification (all email included) goes through NotificationDispatchJob on this queue.
         services.AddHangfireServer(options =>
         {
             options.Queues = ["notification"];
-            options.WorkerCount = 2;
+            options.WorkerCount = 4;
             options.ServerName = "notification-server";
         });
 

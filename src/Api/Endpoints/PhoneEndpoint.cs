@@ -57,7 +57,6 @@ public class PhoneEndpoint : ICarterModule
                 }
                 ```
                 """)
-            .WithOpenApi()
             .AllowAnonymous()
             .HasApiVersion(1.0);
 
@@ -74,7 +73,6 @@ public class PhoneEndpoint : ICarterModule
             .ProducesValidationProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Validate Phone Number (GET)")
             .WithDescription("GET variant of phone validation. Query params: phoneNumber, countryCode.")
-            .WithOpenApi()
             .AllowAnonymous()
             .HasApiVersion(1.0);
     }
