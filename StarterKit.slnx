@@ -6,38 +6,55 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Api.E2ETests/Api.E2ETests.csproj" />
+    <Project Path="src/Api.Tests/Api.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Api/">
     <Project Path="src/Api/Api.csproj" />
   </Folder>
   <Folder Name="/src/Aspire/">
     <Project Path="src/Aspire/AppHost/AppHost.csproj" />
+    <Project Path="src/Aspire/AppHost.Tests/AppHost.Tests.csproj" />
     <Project Path="src/Aspire/ServiceDefaults/ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Attachment/">
     <Project Path="src/Modules/Attachment/Attachment.Contracts/Attachment.Contracts.csproj" />
     <Project Path="src/Modules/Attachment/Attachment/Attachment.csproj" />
+    <Project Path="src/Modules/Attachment/Attachment.Tests/Attachment.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tenancy/">
+    <Project Path="src/Modules/Tenancy/Tenancy.Contracts/Tenancy.Contracts.csproj" />
+    <Project Path="src/Modules/Tenancy/Tenancy/Tenancy.csproj" />
+    <Project Path="src/Modules/Tenancy/Tenancy.Tests/Tenancy.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Catalog/">
     <Project Path="src/Modules/Catalog/Catalog.Contracts/Catalog.Contracts.csproj" />
     <Project Path="src/Modules/Catalog/Catalog/Catalog.csproj" />
     <Project Path="src/Modules/Catalog/Catalog.Tests/Catalog.Tests.csproj" />
+    <Project Path="src/Modules/Catalog/Catalog.IntegrationTests/Catalog.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/UserDirectory.Contracts/UserDirectory.Contracts.csproj" />
     <Project Path="src/Modules/Identity/Identity/Identity.csproj" />
+    <Project Path="src/Modules/Identity/Identity.Tests/Identity.Tests.csproj" />
+    <Project Path="src/Modules/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notification/">
+    <Project Path="src/Modules/Notification/Notification.Contracts/Notification.Contracts.csproj" />
+    <Project Path="src/Modules/Notification/Notification/Notification.csproj" />
+    <Project Path="src/Modules/Notification/Notification.Tests/Notification.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Subscriptions/">
     <Project Path="src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj" />
     <Project Path="src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj" />
     <Project Path="src/Modules/Subscriptions/Subscriptions.Tests/Subscriptions.Tests.csproj" />
+    <Project Path="src/Modules/Subscriptions/Subscriptions.IntegrationTests/Subscriptions.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/Shared.Contracts/Shared.Contracts.csproj" />
     <Project Path="src/Shared/Shared.Core/Shared.Core.csproj" />
-    <Project Path="src/Shared/Shared.Email/Shared.Email.csproj" />
-    <Project Path="src/Shared/Shared.Notification/Shared.Notification.csproj" />
+    <Project Path="src/Shared/Shared.Core.Tests/Shared.Core.Tests.csproj" />
     <Project Path="src/Shared/Shared.Messaging/Shared.Messaging.csproj" />
   </Folder>
   <Project Path="docker-compose.dcproj">
