@@ -37,6 +37,9 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
             domain.ToTable("tenant_domains");
             domain.WithOwner().HasForeignKey("TenantId");
             domain.HasKey(d => d.Id);
+            // Ids are assigned in the domain (Guid.CreateVersion7). Without ValueGeneratedNever EF treats a NEW domain
+            // found in the collection as existing (generated key already set) and issues an UPDATE that hits 0 rows.
+            domain.Property(d => d.Id).ValueGeneratedNever();
             domain.Property(d => d.Host).IsRequired().HasMaxLength(TenantDomain.HostMaxLength);
             domain.Property(d => d.VerificationToken).IsRequired().HasMaxLength(64);
             // A host maps to at most one tenant, platform-wide.

@@ -6,6 +6,9 @@ public class PlanFeatureConfiguration : IEntityTypeConfiguration<PlanFeature>
     {
         builder.ToTable("plan_features");
         builder.HasKey(x => x.Id);
+        // Id assigned in the domain (PlanFeature.Create): never store-generated, so a feature added through the plan's
+        // collection is tracked as Added (not as an existing row) - enforced by ClientGeneratedKeyTests.
+        builder.Property(x => x.Id).ValueGeneratedNever();
 
         builder.Property(x => x.PlanId).IsRequired();
 
