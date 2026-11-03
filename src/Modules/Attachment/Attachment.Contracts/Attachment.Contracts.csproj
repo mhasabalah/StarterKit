@@ -1,14 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- Thin contract: Shared.Contracts only (no Shared.Core / infrastructure; architecture test). -->
         <ProjectReference Include="..\..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
-        <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
     </ItemGroup>
 
 </Project>

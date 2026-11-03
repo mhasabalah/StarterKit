@@ -1,139 +1,60 @@
+using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Configuration;
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Attachment.Infrastructure.Storage;
 
-public class LocalFileStorageService : IStorageService
+/// <summary>
+/// Stores files on the local file system under <c>Attachment:Storage:Local:UploadPath</c>.
+/// Works the same on Windows and Linux: storage paths are '/'-separated keys, and every path goes through
+/// <see cref="ResolveFullPath"/>, which rejects anything that would escape the upload root.
+/// Files are never served as static files; reads go through the download endpoint or a signed URL.
+/// </summary>
+public sealed class LocalFileStorageService : IStorageService, IStorageListing
 {
-    private readonly IWebHostEnvironment _environment;
-    private readonly IOptions<AttachmentOptions> _options;
+    private readonly ILocalReadUrlSigner _signer;
     private readonly ILogger<LocalFileStorageService> _logger;
-    private string UploadPath => Path.Combine(_environment.ContentRootPath, _options.Value.Storage.Local.UploadPath);
+    private readonly string _root;
+    private readonly StringComparison _pathComparison =
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
     public LocalFileStorageService(
-        IWebHostEnvironment environment,
+        IHostEnvironment environment,
         IOptions<AttachmentOptions> options,
+        ILocalReadUrlSigner signer,
         ILogger<LocalFileStorageService> logger)
     {
-        _environment = environment;
-        _options = options;
+        _signer = signer;
         _logger = logger;
+
+        var configured = options.Value.Storage.Local.UploadPath;
+        var root = Path.IsPathRooted(configured)
+            ? configured
+            : Path.Combine(environment.ContentRootPath, configured);
+        _root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar;
     }
 
-    public async Task<StorageResult> UploadAsync(
-        Stream fileStream,
-        string fileName,
-        string contentType,
-        CancellationToken cancellationToken = default)
+    /// <summary>Absolute upload root, always ending with a directory separator.</summary>
+    public string UploadRoot => _root;
+
+    public bool ServesThroughApplication => true;
+
+    /// <summary>
+    /// Maps a '/'-separated storage key to an absolute path inside the upload root.
+    /// Throws <see cref="InvalidStoragePathException"/> for traversal attempts or malformed keys.
+    /// </summary>
+    public string ResolveFullPath(string storagePath)
     {
-        try
-        {
-            // Create directory structure: uploads/yyyy/MM/dd
-            var now = DateTime.UtcNow;
-            var relativePath = Path.Combine(
-                now.Year.ToString(),
-                now.Month.ToString("D2"),
-                now.Day.ToString("D2"));
+        var segments = StoragePaths.ValidateAndSplit(storagePath);
+        var fullPath = Path.GetFullPath(Path.Combine([_root, .. segments]));
 
-            var fullDirectoryPath = Path.Combine(UploadPath, relativePath);
-            Directory.CreateDirectory(fullDirectoryPath);
+        if (!fullPath.StartsWith(_root, _pathComparison) || fullPath.Length == _root.Length)
+            throw new InvalidStoragePathException(storagePath);
 
-            // Generate unique filename
-            var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
-            var fullFilePath = Path.Combine(fullDirectoryPath, uniqueFileName);
-
-            // Save file
-            await using var fileStreamDest = new FileStream(fullFilePath, FileMode.Create, FileAccess.Write);
-            await fileStream.CopyToAsync(fileStreamDest, cancellationToken);
-
-            var fileInfo = new FileInfo(fullFilePath);
-            var storagePath = Path.Combine(relativePath, uniqueFileName).Replace("\\", "/");
-            
-            // Use configured base URL or default
-            var baseUrl = _options.Value.Storage.Local.BaseUrl ?? $"/{_options.Value.Storage.Local.UploadPath}";
-            var publicUrl = $"{baseUrl}/{storagePath}";
-
-            _logger.LogInformation(
-                "File uploaded to local storage: {StoragePath}, Size: {FileSize} bytes",
-                storagePath,
-                fileInfo.Length);
-
-            return new StorageResult(storagePath, publicUrl, fileInfo.Length);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading file to local storage: {FileName}", fileName);
-            throw new InvalidOperationException($"Failed to upload file: {fileName}", ex);
-        }
-    }
-
-    public async Task<Stream> DownloadAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var fullFilePath = Path.Combine(UploadPath, storagePath.Replace("/", "\\"));
-
-            if (!File.Exists(fullFilePath))
-            {
-                throw new FileNotFoundException($"File not found: {storagePath}");
-            }
-
-            var memory = new MemoryStream();
-            await using var fileStream = new FileStream(fullFilePath, FileMode.Open, FileAccess.Read);
-            await fileStream.CopyToAsync(memory, cancellationToken);
-            memory.Position = 0;
-
-            _logger.LogInformation("File downloaded from local storage: {StoragePath}", storagePath);
-
-            return memory;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error downloading file from local storage: {StoragePath}", storagePath);
-            throw;
-        }
-    }
-
-    public Task DeleteAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var fullFilePath = Path.Combine(UploadPath, storagePath.Replace("/", "\\"));
-
-            if (File.Exists(fullFilePath))
-            {
-                File.Delete(fullFilePath);
-                _logger.LogInformation("File deleted from local storage: {StoragePath}", storagePath);
-            }
-
-            return Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting file from local storage: {StoragePath}", storagePath);
-            throw;
-        }
-    }
-
-    public Task<string> GetPublicUrlAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        var publicUrl = $"/uploads/{storagePath}";
-        return Task.FromResult(publicUrl);
-    }
-
-    public Task<bool> ExistsAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        var fullFilePath = Path.Combine(UploadPath, storagePath.Replace("/", "\\"));
-        return Task.FromResult(File.Exists(fullFilePath));
+        return fullPath;
     }
 
     public async Task<StorageResult> UploadToPathAsync(
@@ -142,132 +63,207 @@ public class LocalFileStorageService : IStorageService
         string contentType,
         CancellationToken cancellationToken = default)
     {
+        var fullPath = ResolveFullPath(storagePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+
+        // Write to a temp file and rename, so a crashed upload never leaves a half-written file at the key.
+        var tempPath = $"{fullPath}.{Guid.NewGuid():N}.tmp";
         try
         {
-            var fullFilePath = Path.Combine(UploadPath, storagePath.Replace("/", "\\"));
-            var directory = Path.GetDirectoryName(fullFilePath);
-
-            if (!string.IsNullOrEmpty(directory))
+            await using (var destination = new FileStream(
+                             tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
             {
-                Directory.CreateDirectory(directory);
+                await fileStream.CopyToAsync(destination, cancellationToken);
             }
 
-            await using var fileStreamDest = new FileStream(fullFilePath, FileMode.Create, FileAccess.Write);
-            await fileStream.CopyToAsync(fileStreamDest, cancellationToken);
-
-            var fileInfo = new FileInfo(fullFilePath);
-            var baseUrl = _options.Value.Storage.Local.BaseUrl ?? $"/{_options.Value.Storage.Local.UploadPath}";
-            var publicUrl = $"{baseUrl}/{storagePath}";
-
-            _logger.LogInformation(
-                "File uploaded to specific path in local storage: {StoragePath}, Size: {FileSize} bytes",
-                storagePath,
-                fileInfo.Length);
-
-            return new StorageResult(storagePath, publicUrl, fileInfo.Length);
+            File.Move(tempPath, fullPath, overwrite: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogError(ex, "Error uploading file to path in local storage: {StoragePath}", storagePath);
-            throw new InvalidOperationException($"Failed to upload file to path: {storagePath}", ex);
+            TryDeleteFile(tempPath);
+            _logger.LogError(ex, "Error writing file to local storage: {StoragePath}", storagePath);
+            throw new FileStorageException("Failed to store the file.", ex);
         }
-    }
-
-    public async Task<StorageResult> CopyAsync(
-        string sourceStoragePath,
-        string destinationStoragePath,
-        CancellationToken cancellationToken = default)
-    {
-        try
+        catch
         {
-            var sourceFullPath = Path.Combine(UploadPath, sourceStoragePath.Replace("/", "\\"));
-            var destinationFullPath = Path.Combine(UploadPath, destinationStoragePath.Replace("/", "\\"));
-
-            if (!File.Exists(sourceFullPath))
-            {
-                throw new FileNotFoundException($"Source file not found: {sourceStoragePath}");
-            }
-
-            var directory = Path.GetDirectoryName(destinationFullPath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.Copy(sourceFullPath, destinationFullPath, overwrite: true);
-
-            var fileInfo = new FileInfo(destinationFullPath);
-            var baseUrl = _options.Value.Storage.Local.BaseUrl ?? $"/{_options.Value.Storage.Local.UploadPath}";
-            var publicUrl = $"{baseUrl}/{destinationStoragePath}";
-
-            _logger.LogInformation(
-                "File copied in local storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-
-            return await Task.FromResult(new StorageResult(destinationStoragePath, publicUrl, fileInfo.Length));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Error copying file in local storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
+            TryDeleteFile(tempPath);
             throw;
         }
+
+        var size = new FileInfo(fullPath).Length;
+        _logger.LogDebug("File stored locally: {StoragePath} ({Size} bytes)", storagePath, size);
+        return new StorageResult(storagePath, size);
     }
 
-    public async Task<StorageResult> MoveAsync(
-        string sourceStoragePath,
-        string destinationStoragePath,
-        CancellationToken cancellationToken = default)
+    public Task<Stream> OpenReadAsync(string storagePath, CancellationToken cancellationToken = default)
     {
+        var fullPath = ResolveFullPath(storagePath);
+        if (!File.Exists(fullPath))
+            throw new StoredFileNotFoundException(storagePath);
+
+        Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        return Task.FromResult(stream);
+    }
+
+    public Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        var fullPath = ResolveFullPath(storagePath);
         try
         {
-            var result = await CopyAsync(sourceStoragePath, destinationStoragePath, cancellationToken);
-            await DeleteAsync(sourceStoragePath, cancellationToken);
-
-            _logger.LogInformation(
-                "File moved in local storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-
-            return result;
+            File.Delete(fullPath); // no-op when missing
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogError(
-                ex,
-                "Error moving file in local storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-            throw;
+            _logger.LogError(ex, "Error deleting file from local storage: {StoragePath}", storagePath);
+            throw new FileStorageException("Failed to delete the file.", ex);
         }
+
+        return Task.CompletedTask;
     }
 
-    public Task DeleteBatchAsync(
+    public async Task<BatchDeleteResult> DeleteBatchAsync(
         IEnumerable<string> storagePaths,
         CancellationToken cancellationToken = default)
     {
+        var failed = new List<string>();
+        foreach (var path in storagePaths.Distinct())
+        {
+            try
+            {
+                await DeleteAsync(path, cancellationToken);
+            }
+            catch (Exception ex) when (ex is FileStorageException or InvalidStoragePathException)
+            {
+                _logger.LogWarning(ex, "Could not delete {StoragePath} from local storage", path);
+                failed.Add(path);
+            }
+        }
+
+        return failed.Count == 0 ? BatchDeleteResult.Success : new BatchDeleteResult(failed);
+    }
+
+    public Task<bool> ExistsAsync(string storagePath, CancellationToken cancellationToken = default) =>
+        Task.FromResult(File.Exists(ResolveFullPath(storagePath)));
+
+    public Task<StorageResult> CopyAsync(
+        string sourceStoragePath,
+        string destinationStoragePath,
+        CancellationToken cancellationToken = default)
+    {
+        var source = ResolveFullPath(sourceStoragePath);
+        var destination = ResolveFullPath(destinationStoragePath);
+
+        if (!File.Exists(source))
+            throw new StoredFileNotFoundException(sourceStoragePath);
+
         try
         {
-            foreach (var storagePath in storagePaths)
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(source, destination, overwrite: true);
+            TouchForOrphanScan(destination);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(ex, "Error copying {Source} to {Destination}", sourceStoragePath, destinationStoragePath);
+            throw new FileStorageException("Failed to copy the file.", ex);
+        }
+
+        return Task.FromResult(new StorageResult(destinationStoragePath, new FileInfo(destination).Length));
+    }
+
+    public Task<StorageResult> MoveAsync(
+        string sourceStoragePath,
+        string destinationStoragePath,
+        CancellationToken cancellationToken = default)
+    {
+        var source = ResolveFullPath(sourceStoragePath);
+        var destination = ResolveFullPath(destinationStoragePath);
+
+        if (!File.Exists(source))
+            throw new StoredFileNotFoundException(sourceStoragePath);
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Move(source, destination, overwrite: true);
+            TouchForOrphanScan(destination);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(ex, "Error moving {Source} to {Destination}", sourceStoragePath, destinationStoragePath);
+            throw new FileStorageException("Failed to move the file.", ex);
+        }
+
+        return Task.FromResult(new StorageResult(destinationStoragePath, new FileInfo(destination).Length));
+    }
+
+    public Task<string> GetReadUrlAsync(
+        string storagePath,
+        TimeSpan ttl,
+        ReadUrlOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        StoragePaths.Validate(storagePath);
+        return Task.FromResult(_signer.CreateUrl(storagePath, DateTimeOffset.UtcNow.Add(ttl), options));
+    }
+
+    public async IAsyncEnumerable<StoredObjectInfo> ListAsync(string? prefix = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Prefixes used by the app are folders (tenant roots end with '/'): list that folder only.
+        var start = string.IsNullOrEmpty(prefix)
+            ? _root
+            : Path.Combine(_root, StoragePaths.Validate(prefix.TrimEnd('/')).Replace('/', Path.DirectorySeparatorChar));
+
+        if (!Directory.Exists(start))
+            yield break;
+
+        foreach (var fullPath in Directory.EnumerateFiles(start, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var relative = Path.GetRelativePath(_root, fullPath).Replace(Path.DirectorySeparatorChar, '/');
+            DateTime lastWrite;
+            try
             {
-                var fullFilePath = Path.Combine(UploadPath, storagePath.Replace("/", "\\"));
-                if (File.Exists(fullFilePath))
-                {
-                    File.Delete(fullFilePath);
-                }
+                lastWrite = File.GetLastWriteTimeUtc(fullPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue; // deleted while enumerating
             }
 
-            _logger.LogInformation("Batch deleted {Count} files from local storage", storagePaths.Count());
-            return Task.CompletedTask;
+            yield return new StoredObjectInfo(relative, new DateTimeOffset(lastWrite, TimeSpan.Zero));
         }
-        catch (Exception ex)
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// File.Move/Copy keep the source's modification time. A moved file is new at its destination (its row is
+    /// saved right after), so reset the time: the orphan scan's safety window must protect it.
+    /// </summary>
+    private void TouchForOrphanScan(string fullPath)
+    {
+        try
         {
-            _logger.LogError(ex, "Error batch deleting files from local storage");
-            throw;
+            File.SetLastWriteTimeUtc(fullPath, DateTime.UtcNow);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not update the modification time of {Path}", fullPath);
+        }
+    }
+
+    private void TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not delete temp file {Path}", path);
         }
     }
 }

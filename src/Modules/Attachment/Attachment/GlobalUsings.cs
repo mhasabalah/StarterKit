@@ -13,6 +13,7 @@ global using Microsoft.Extensions.Logging;
 global using Shared.Core.Data;
 global using Shared.Core.Data.Seed;
 global using Shared.Core.DDD;
+global using Shared.Contracts.Events;
 global using Shared.Core.Exceptions;
 global using Shared.Core.Web;
 global using Shared.Contracts.CQRS;

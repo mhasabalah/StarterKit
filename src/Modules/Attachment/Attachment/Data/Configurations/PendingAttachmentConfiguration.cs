@@ -26,6 +26,10 @@ public class PendingAttachmentConfiguration : IEntityTypeConfiguration<PendingAt
         builder.Property(p => p.FileSize)
             .IsRequired();
 
+        builder.Property(p => p.ContentHash)
+            .HasMaxLength(AttachmentFile.ContentHashLength)
+            .IsFixedLength();
+
         builder.Property(p => p.StoragePath)
             .IsRequired()
             .HasMaxLength(1000);
@@ -80,8 +84,8 @@ public class PendingAttachmentConfiguration : IEntityTypeConfiguration<PendingAt
         builder.HasIndex(p => new { p.ExpiresAt, p.IsAssociated })
             .HasDatabaseName("IX_PendingAttachments_ExpiresAt_IsAssociated");
 
-        // Unique constraint on SessionId + DisplayOrder (excludes soft-deleted records)
-        builder.HasIndex(p => new { p.SessionId, p.DisplayOrder })
+        // Unique constraint on SessionId + DisplayOrder per tenant (excludes soft-deleted records)
+        builder.HasIndex(p => new { p.TenantId, p.SessionId, p.DisplayOrder })
             .IsUnique()
             .HasFilter("is_deleted = false")
             .HasDatabaseName("IX_PendingAttachments_SessionId_DisplayOrder_Unique");

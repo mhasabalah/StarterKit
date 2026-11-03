@@ -1,4 +1,4 @@
-using Shared.Core.Attributes;
+using Shared.Contracts.Attributes;
 
 namespace Attachment.Contracts.Attachments.Dtos;
 
@@ -40,8 +40,10 @@ public enum AttachmentCategory
 
 /// <summary>
 /// The kind of entity an attachment belongs to. Add a member here when a new module
-/// needs to own attachments, then map it in <c>AttachmentCategoryHelper</c> and
-/// <c>AttachmentAuthorizationService</c>.
+/// needs to own attachments, map it in <c>AttachmentCategoryHelper</c>, and register an
+/// <c>IAttachmentEntityAccessPolicy</c> for it from the owning module
+/// (<c>services.AddAttachmentEntityPolicy&lt;TPolicy&gt;(EntityType.X)</c>).
+/// Without a policy the public Attachment endpoints deny attaching files to that entity type.
 /// </summary>
 public enum EntityType
 {

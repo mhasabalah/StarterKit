@@ -1,90 +1,128 @@
-using Attachment.Data.Repository.Attachments;
 using Attachment.Infrastructure.ImageProcessing;
 using Attachment.Infrastructure.Storage;
 using Hangfire;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Attachment.Infrastructure.BackgroundJobs;
 
-public class GenerateThumbnailJob
+/// <summary>
+/// Creates image thumbnails outside the upload request, for pending uploads (<see cref="ExecuteAsync"/>) and for
+/// Ready attachments of the direct upload path (<see cref="ExecuteForAttachmentAsync"/>).
+/// <para>
+/// Each run is one unit of work (<see cref="IUnitOfWorkRunner"/>): the thumbnail event of the committed save is
+/// published, nothing is published when the save fails. Rows that are gone, not Ready (uploading / pending
+/// deletion), deleted, expired or already associated are skipped. If saving the thumbnail fails, the
+/// just-written thumbnail blob is deleted again; a concurrent change of the row (it was deleted or associated
+/// meanwhile: version conflict) ends the job quietly, anything else is rethrown so Hangfire retries.
+/// </para>
+/// </summary>
+public class GenerateThumbnailJob(
+    IUnitOfWorkRunner runner,
+    IImageProcessingService imageProcessing,
+    IAttachmentUrls urls,
+    ILogger<GenerateThumbnailJob> logger)
 {
-    private readonly IPendingAttachmentRepository _repository;
-    private readonly IStorageService _storageService;
-    private readonly IImageProcessingService _imageProcessing;
-    private readonly ILogger<GenerateThumbnailJob> _logger;
+    /// <summary>Thumbnail of a pending (pre-entity) upload. Signature kept for jobs already enqueued.</summary>
+    [AutomaticRetry(Attempts = 2)]
+    public Task ExecuteAsync(Guid pendingAttachmentId) =>
+        runner.RunAsync(async (services, ct) =>
+        {
+            var repository = services.GetRequiredService<IPendingAttachmentRepository>();
+            var storage = services.GetRequiredService<IStorageService>();
 
-    public GenerateThumbnailJob(
-        IPendingAttachmentRepository repository,
-        IStorageService storageService,
-        IImageProcessingService imageProcessing,
-        ILogger<GenerateThumbnailJob> logger)
+            var pending = await repository.GetByIdAsync(pendingAttachmentId, ct);
+            if (pending is null || pending.IsDeleted || pending.IsAssociated || pending.IsExpired())
+            {
+                logger.LogInformation("Pending attachment {Id} is gone or associated; thumbnail skipped", pendingAttachmentId);
+                return;
+            }
+
+            if (pending.Type != AttachmentType.Image || !string.IsNullOrEmpty(pending.ThumbnailPath))
+                return;
+
+            var thumbnailPath = StoragePaths.ForPendingThumbnail(pending.TenantId, pending.SessionId, pending.Id);
+            var thumbnail = await TryWriteThumbnailAsync(storage, pending.StoragePath, thumbnailPath, pendingAttachmentId, ct);
+            if (thumbnail is not { } size)
+                return;
+
+            await SaveOrDeleteBlobAsync(storage, thumbnailPath, pendingAttachmentId, ct, () =>
+            {
+                pending.SetThumbnail(thumbnailPath, $"pending-thumb:{pending.Id:N}", size.Width, size.Height);
+                return repository.SaveChangesAsync(ct);
+            });
+        });
+
+    /// <summary>Thumbnail of a Ready attachment (direct upload path). Keeps the original image dimensions.</summary>
+    [AutomaticRetry(Attempts = 2)]
+    public Task ExecuteForAttachmentAsync(Guid attachmentId) =>
+        runner.RunAsync(async (services, ct) =>
+        {
+            var repository = services.GetRequiredService<IAttachmentRepository>();
+            var storage = services.GetRequiredService<IStorageService>();
+
+            // Read filter: only Ready, not-deleted rows are found.
+            var attachment = await repository.GetByIdAsync(attachmentId, ct);
+            if (attachment is null)
+            {
+                logger.LogInformation("Attachment {Id} is not Ready (gone, uploading or deleted); thumbnail skipped", attachmentId);
+                return;
+            }
+
+            if (attachment.Type != AttachmentType.Image || !string.IsNullOrEmpty(attachment.ThumbnailPath))
+                return;
+
+            var thumbnailPath = StoragePaths.ThumbnailBeside(attachment.StoragePath, attachment.Id);
+            var thumbnail = await TryWriteThumbnailAsync(storage, attachment.StoragePath, thumbnailPath, attachmentId, ct);
+            if (thumbnail is not { } size)
+                return;
+
+            await SaveOrDeleteBlobAsync(storage, thumbnailPath, attachmentId, ct, () =>
+            {
+                attachment.SetThumbnail(thumbnailPath, urls.Thumbnail(attachment.Id),
+                    attachment.Width ?? size.Width, attachment.Height ?? size.Height);
+                return repository.SaveChangesAsync(ct);
+            });
+        });
+
+    /// <summary>Decodes the source (provider stream, forward reads only) and stores the JPEG thumbnail.</summary>
+    private async Task<(int Width, int Height)?> TryWriteThumbnailAsync(
+        IStorageService storage, string sourcePath, string thumbnailPath, Guid id, CancellationToken ct)
     {
-        _repository = repository;
-        _storageService = storageService;
-        _imageProcessing = imageProcessing;
-        _logger = logger;
+        if (!await storage.ExistsAsync(sourcePath, ct))
+        {
+            logger.LogInformation("File of {Id} no longer exists; thumbnail skipped", id);
+            return null;
+        }
+
+        ThumbnailResult thumbnail;
+        await using (var source = await storage.OpenReadAsync(sourcePath, ct))
+        {
+            thumbnail = await imageProcessing.GenerateThumbnailAsync(source, ct);
+        }
+
+        await using var thumbStream = thumbnail.ThumbnailStream;
+        await storage.UploadToPathAsync(thumbStream, thumbnailPath, "image/jpeg", ct);
+        return (thumbnail.Width, thumbnail.Height);
     }
 
-    [AutomaticRetry(Attempts = 2)]
-    public async Task ExecuteAsync(Guid pendingAttachmentId)
+    private async Task SaveOrDeleteBlobAsync(
+        IStorageService storage, string thumbnailPath, Guid id, CancellationToken ct, Func<Task> save)
     {
-        _logger.LogInformation(
-            "Starting thumbnail generation for pending attachment {PendingAttachmentId}",
-            pendingAttachmentId);
-
         try
         {
-            var pending = await _repository.GetByIdAsync(pendingAttachmentId);
-
-            if (pending == null)
-            {
-                _logger.LogWarning(
-                    "Pending attachment {PendingAttachmentId} not found, skipping thumbnail generation",
-                    pendingAttachmentId);
-                return;
-            }
-
-            if (pending.Type != Attachment.Contracts.Attachments.Dtos.AttachmentType.Image)
-            {
-                _logger.LogInformation(
-                    "Pending attachment {PendingAttachmentId} is not an image, skipping thumbnail generation",
-                    pendingAttachmentId);
-                return;
-            }
-
-            // Download original image
-            using var imageStream = await _storageService.DownloadAsync(pending.StoragePath);
-
-            // Generate thumbnail
-            var thumbResult = await _imageProcessing.GenerateThumbnailAsync(imageStream);
-
-            // Upload thumbnail to temp location
-            var thumbExtension = ".jpg";
-            var thumbPath = $"temp/{pending.SessionId}/thumb_{pending.Id}{thumbExtension}";
-
-            var storageResult = await _storageService.UploadToPathAsync(
-                thumbResult.ThumbnailStream,
-                thumbPath,
-                "image/jpeg");
-
-            // Update pending attachment with thumbnail info
-            pending.SetThumbnail(
-                storageResult.StoragePath,
-                storageResult.PublicUrl,
-                thumbResult.Width,
-                thumbResult.Height);
-
-            await _repository.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "Thumbnail generated successfully for pending attachment {PendingAttachmentId}",
-                pendingAttachmentId);
+            await save();
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "Error generating thumbnail for pending attachment {PendingAttachmentId}",
-                pendingAttachmentId);
+            await storage.DeleteBatchAsync([thumbnailPath], CancellationToken.None);
+
+            if (ex.IsConcurrencyConflict())
+            {
+                logger.LogInformation("{Id} changed while its thumbnail was generated (deleted/associated); thumbnail discarded", id);
+                return;
+            }
+
+            logger.LogWarning(ex, "Could not save the thumbnail of {Id}; thumbnail blob deleted", id);
             throw;
         }
     }

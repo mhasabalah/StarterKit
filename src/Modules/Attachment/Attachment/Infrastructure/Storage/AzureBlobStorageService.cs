@@ -1,173 +1,27 @@
+using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Configuration;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Sas;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Attachment.Infrastructure.Storage;
 
-public class AzureBlobStorageService : IStorageService
+/// <summary>
+/// Azure Blob storage. The container is private; reads use short-lived read-only SAS URLs
+/// (account-key SAS when the client has a shared key, otherwise a user-delegation SAS).
+/// The container is created once per process at startup (<see cref="AzureBlobContainerInitializer"/>), not per upload.
+/// </summary>
+public sealed class AzureBlobStorageService(
+    BlobServiceClient blobServiceClient,
+    AzureBlobContainerGate containerGate,
+    ILogger<AzureBlobStorageService> logger) : IStorageService, IStorageListing
 {
-    private readonly BlobServiceClient _blobServiceClient;
-    private readonly IOptions<AttachmentOptions> _options;
-    private readonly ILogger<AzureBlobStorageService> _logger;
+    public bool ServesThroughApplication => false;
 
-    public AzureBlobStorageService(
-        BlobServiceClient blobServiceClient,
-        IOptions<AttachmentOptions> options,
-        ILogger<AzureBlobStorageService> logger)
-    {
-        _blobServiceClient = blobServiceClient;
-        _options = options;
-        _logger = logger;
-    }
-
-    public async Task<StorageResult> UploadAsync(
-        Stream fileStream,
-        string fileName,
-        string contentType,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            
-            // Get or create container
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
-            
-            var publicAccessType = azureOptions.UsePublicAccess 
-                ? PublicAccessType.Blob 
-                : PublicAccessType.None;
-                
-            await containerClient.CreateIfNotExistsAsync(
-                publicAccessType, 
-                cancellationToken: cancellationToken);
-
-            // Create blob path: yyyy/MM/dd/guid_filename
-            var now = DateTime.UtcNow;
-            var blobPath = $"{now:yyyy}/{now:MM}/{now:dd}/{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
-
-            // Get blob client
-            var blobClient = containerClient.GetBlobClient(blobPath);
-
-            // Set content type
-            var blobHttpHeaders = new BlobHttpHeaders
-            {
-                ContentType = contentType
-            };
-
-            // Upload blob
-            await blobClient.UploadAsync(
-                fileStream,
-                new BlobUploadOptions
-                {
-                    HttpHeaders = blobHttpHeaders
-                },
-                cancellationToken);
-
-            // Get properties for file size
-            var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-
-            // Generate public URL
-            var publicUrl = blobClient.Uri.ToString();
-
-            _logger.LogInformation(
-                "File uploaded to Azure Blob Storage: Container={Container}, Path={BlobPath}, Size={FileSize} bytes",
-                azureOptions.ContainerName,
-                blobPath,
-                properties.Value.ContentLength);
-
-            return new StorageResult(blobPath, publicUrl, properties.Value.ContentLength);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading file to Azure Blob Storage: {FileName}", fileName);
-            throw new InvalidOperationException($"Failed to upload file to Azure Blob Storage: {fileName}", ex);
-        }
-    }
-
-    public async Task<Stream> DownloadAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
-            var blobClient = containerClient.GetBlobClient(storagePath);
-
-            if (!await blobClient.ExistsAsync(cancellationToken))
-            {
-                throw new FileNotFoundException($"Blob not found: {storagePath}");
-            }
-
-            var downloadResponse = await blobClient.DownloadAsync(cancellationToken);
-            
-            var memoryStream = new MemoryStream();
-            await downloadResponse.Value.Content.CopyToAsync(memoryStream, cancellationToken);
-            memoryStream.Position = 0;
-
-            _logger.LogInformation("File downloaded from Azure Blob Storage: {BlobPath}", storagePath);
-
-            return memoryStream;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error downloading file from Azure Blob Storage: {StoragePath}", storagePath);
-            throw;
-        }
-    }
-
-    public async Task DeleteAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
-            var blobClient = containerClient.GetBlobClient(storagePath);
-
-            await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
-
-            _logger.LogInformation("File deleted from Azure Blob Storage: {BlobPath}", storagePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting file from Azure Blob Storage: {StoragePath}", storagePath);
-            throw;
-        }
-    }
-
-    public Task<string> GetPublicUrlAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        var azureOptions = _options.Value.Storage.AzureBlob;
-        var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
-        var blobClient = containerClient.GetBlobClient(storagePath);
-        
-        var publicUrl = blobClient.Uri.ToString();
-        return Task.FromResult(publicUrl);
-    }
-
-    public async Task<bool> ExistsAsync(
-        string storagePath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
-            var blobClient = containerClient.GetBlobClient(storagePath);
-
-            return await blobClient.ExistsAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking if file exists in Azure Blob Storage: {StoragePath}", storagePath);
-            return false;
-        }
-    }
+    private BlobContainerClient Container => containerGate.Container;
 
     public async Task<StorageResult> UploadToPathAsync(
         Stream fileStream,
@@ -175,49 +29,88 @@ public class AzureBlobStorageService : IStorageService
         string contentType,
         CancellationToken cancellationToken = default)
     {
+        StoragePaths.Validate(storagePath);
+        var knownLength = StorageStreams.RemainingLength(fileStream);
         try
         {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
-
-            var publicAccessType = azureOptions.UsePublicAccess
-                ? PublicAccessType.Blob
-                : PublicAccessType.None;
-
-            await containerClient.CreateIfNotExistsAsync(
-                publicAccessType,
-                cancellationToken: cancellationToken);
-
-            var blobClient = containerClient.GetBlobClient(storagePath);
-
-            var blobHttpHeaders = new BlobHttpHeaders
+            await containerGate.EnsureCreatedAsync(cancellationToken); // no-op after the first success
+            var blob = Container.GetBlobClient(storagePath);
+            await blob.UploadAsync(fileStream, new BlobUploadOptions
             {
-                ContentType = contentType
-            };
+                HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
+            }, cancellationToken);
 
-            await blobClient.UploadAsync(
-                fileStream,
-                new BlobUploadOptions
-                {
-                    HttpHeaders = blobHttpHeaders
-                },
-                cancellationToken);
+            // The upload length is known for seekable streams (every upload path): no extra properties request.
+            if (knownLength is { } length)
+                return new StorageResult(storagePath, length);
 
-            var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-            var publicUrl = blobClient.Uri.ToString();
-
-            _logger.LogInformation(
-                "File uploaded to specific path in Azure Blob Storage: Path={BlobPath}, Size={FileSize} bytes",
-                storagePath,
-                properties.Value.ContentLength);
-
-            return new StorageResult(storagePath, publicUrl, properties.Value.ContentLength);
+            var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
+            return new StorageResult(storagePath, properties.Value.ContentLength);
         }
-        catch (Exception ex)
+        catch (RequestFailedException ex)
         {
-            _logger.LogError(ex, "Error uploading file to path in Azure Blob Storage: {StoragePath}", storagePath);
-            throw new InvalidOperationException($"Failed to upload file to path: {storagePath}", ex);
+            logger.LogError(ex, "Azure error uploading {Path} ({ErrorCode})", storagePath, ex.ErrorCode);
+            throw new FileStorageException("Failed to store the file.", ex);
         }
+    }
+
+    public async Task<Stream> OpenReadAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        StoragePaths.Validate(storagePath);
+        try
+        {
+            return await Container.GetBlobClient(storagePath).OpenReadAsync(cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            throw new StoredFileNotFoundException(storagePath);
+        }
+        catch (RequestFailedException ex)
+        {
+            logger.LogError(ex, "Azure error reading {Path} ({ErrorCode})", storagePath, ex.ErrorCode);
+            throw new FileStorageException("Failed to read the file.", ex);
+        }
+    }
+
+    public async Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        StoragePaths.Validate(storagePath);
+        try
+        {
+            await Container.GetBlobClient(storagePath).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex)
+        {
+            logger.LogError(ex, "Azure error deleting {Path} ({ErrorCode})", storagePath, ex.ErrorCode);
+            throw new FileStorageException("Failed to delete the file.", ex);
+        }
+    }
+
+    public async Task<BatchDeleteResult> DeleteBatchAsync(
+        IEnumerable<string> storagePaths,
+        CancellationToken cancellationToken = default)
+    {
+        var results = await Task.WhenAll(storagePaths.Distinct().Select(async path =>
+        {
+            try
+            {
+                await DeleteAsync(path, cancellationToken);
+                return null;
+            }
+            catch (Exception ex) when (ex is FileStorageException or InvalidStoragePathException)
+            {
+                return path;
+            }
+        }));
+
+        var failed = results.Where(p => p is not null).Select(p => p!).ToList();
+        return failed.Count == 0 ? BatchDeleteResult.Success : new BatchDeleteResult(failed);
+    }
+
+    public async Task<bool> ExistsAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        StoragePaths.Validate(storagePath);
+        return await Container.GetBlobClient(storagePath).ExistsAsync(cancellationToken);
     }
 
     public async Task<StorageResult> CopyAsync(
@@ -225,45 +118,29 @@ public class AzureBlobStorageService : IStorageService
         string destinationStoragePath,
         CancellationToken cancellationToken = default)
     {
+        StoragePaths.Validate(sourceStoragePath);
+        StoragePaths.Validate(destinationStoragePath);
         try
         {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
+            var source = Container.GetBlobClient(sourceStoragePath);
+            var destination = Container.GetBlobClient(destinationStoragePath);
 
-            var sourceBlobClient = containerClient.GetBlobClient(sourceStoragePath);
-            var destinationBlobClient = containerClient.GetBlobClient(destinationStoragePath);
+            // The container is private, so the copy source must carry a short read SAS.
+            var sourceUri = await CreateReadSasUriAsync(source, TimeSpan.FromMinutes(15), null, cancellationToken);
+            var operation = await destination.StartCopyFromUriAsync(sourceUri, cancellationToken: cancellationToken);
+            await operation.WaitForCompletionAsync(cancellationToken);
 
-            if (!await sourceBlobClient.ExistsAsync(cancellationToken))
-            {
-                throw new FileNotFoundException($"Source blob not found: {sourceStoragePath}");
-            }
-
-            // Server-side copy using Azure SDK
-            var copyOperation = await destinationBlobClient.StartCopyFromUriAsync(
-                sourceBlobClient.Uri,
-                cancellationToken: cancellationToken);
-
-            // Wait for copy to complete
-            await copyOperation.WaitForCompletionAsync(cancellationToken);
-
-            var properties = await destinationBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
-            var publicUrl = destinationBlobClient.Uri.ToString();
-
-            _logger.LogInformation(
-                "File copied in Azure Blob Storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-
-            return new StorageResult(destinationStoragePath, publicUrl, properties.Value.ContentLength);
+            var properties = await destination.GetPropertiesAsync(cancellationToken: cancellationToken);
+            return new StorageResult(destinationStoragePath, properties.Value.ContentLength);
         }
-        catch (Exception ex)
+        catch (RequestFailedException ex) when (ex.Status == 404)
         {
-            _logger.LogError(
-                ex,
-                "Error copying file in Azure Blob Storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-            throw;
+            throw new StoredFileNotFoundException(sourceStoragePath);
+        }
+        catch (RequestFailedException ex)
+        {
+            logger.LogError(ex, "Azure error copying {Source} to {Destination}", sourceStoragePath, destinationStoragePath);
+            throw new FileStorageException("Failed to copy the file.", ex);
         }
     }
 
@@ -272,52 +149,123 @@ public class AzureBlobStorageService : IStorageService
         string destinationStoragePath,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            // Copy the file
-            var result = await CopyAsync(sourceStoragePath, destinationStoragePath, cancellationToken);
-
-            // Delete the source
-            await DeleteAsync(sourceStoragePath, cancellationToken);
-
-            _logger.LogInformation(
-                "File moved in Azure Blob Storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Error moving file in Azure Blob Storage: Source={Source}, Destination={Destination}",
-                sourceStoragePath,
-                destinationStoragePath);
-            throw;
-        }
+        var result = await CopyAsync(sourceStoragePath, destinationStoragePath, cancellationToken);
+        await DeleteAsync(sourceStoragePath, cancellationToken);
+        return result;
     }
 
-    public async Task DeleteBatchAsync(
-        IEnumerable<string> storagePaths,
+    public async Task<string> GetReadUrlAsync(
+        string storagePath,
+        TimeSpan ttl,
+        ReadUrlOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        try
+        StoragePaths.Validate(storagePath);
+        var uri = await CreateReadSasUriAsync(Container.GetBlobClient(storagePath), ttl, options, cancellationToken);
+        return uri.ToString();
+    }
+
+    private async Task<Uri> CreateReadSasUriAsync(
+        BlobClient blob, TimeSpan ttl, ReadUrlOptions? options, CancellationToken cancellationToken)
+    {
+        var startsOn = DateTimeOffset.UtcNow.AddMinutes(-5); // clock skew
+        var expiresOn = DateTimeOffset.UtcNow.Add(ttl);
+
+        var sas = new BlobSasBuilder
         {
-            var azureOptions = _options.Value.Storage.AzureBlob;
-            var containerClient = _blobServiceClient.GetBlobContainerClient(azureOptions.ContainerName);
+            BlobContainerName = blob.BlobContainerName,
+            BlobName = blob.Name,
+            Resource = "b",
+            StartsOn = startsOn,
+            ExpiresOn = expiresOn,
+            Protocol = SasProtocol.Https,
+            ContentDisposition = FileResponseHeaders.ContentDisposition(options?.FileName, options?.Inline == true)
+        };
 
-            var deleteTasks = storagePaths
-                .Select(path => containerClient.GetBlobClient(path).DeleteIfExistsAsync(cancellationToken: cancellationToken));
+        if (!string.IsNullOrEmpty(options?.ContentType))
+            sas.ContentType = options.ContentType;
 
-            await Task.WhenAll(deleteTasks);
+        sas.SetPermissions(BlobSasPermissions.Read);
 
-            _logger.LogInformation("Batch deleted {Count} files from Azure Blob Storage", storagePaths.Count());
-        }
-        catch (Exception ex)
+        if (blob.CanGenerateSasUri)
+            return blob.GenerateSasUri(sas);
+
+        // Token credential (managed identity): sign with a user delegation key.
+        var key = await blobServiceClient.GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken);
+        return new BlobUriBuilder(blob.Uri)
         {
-            _logger.LogError(ex, "Error batch deleting files from Azure Blob Storage");
-            throw;
+            Sas = sas.ToSasQueryParameters(key.Value, blobServiceClient.AccountName)
+        }.ToUri();
+    }
+
+    public async IAsyncEnumerable<StoredObjectInfo> ListAsync(string? prefix = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in Container.GetBlobsAsync(Azure.Storage.Blobs.Models.BlobTraits.None, Azure.Storage.Blobs.Models.BlobStates.None, prefix, cancellationToken))
+        {
+            // Unknown time = treat as brand new, so the orphan scan never deletes it.
+            yield return new StoredObjectInfo(item.Name, item.Properties.LastModified ?? DateTimeOffset.UtcNow);
         }
     }
+}
+
+/// <summary>
+/// Process-wide (singleton) owner of the container client. <see cref="EnsureCreatedAsync"/> creates the private
+/// container once; afterwards it is a no-op without any network call.
+/// </summary>
+public sealed class AzureBlobContainerGate(BlobServiceClient blobServiceClient, IOptions<AttachmentOptions> options)
+{
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private volatile bool _ensured;
+
+    public BlobContainerClient Container { get; } =
+        blobServiceClient.GetBlobContainerClient(options.Value.Storage.AzureBlob.ContainerName);
+
+    public bool IsEnsured => _ensured;
+
+    public async Task EnsureCreatedAsync(CancellationToken cancellationToken)
+    {
+        if (_ensured) return;
+
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_ensured) return;
+            await Container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
+            _ensured = true;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+}
+
+/// <summary>
+/// Creates the Azure container at startup (only when Azure is the selected provider). A failure is logged, not
+/// fatal: the first upload tries again through <see cref="AzureBlobContainerGate"/>.
+/// </summary>
+public sealed class AzureBlobContainerInitializer(
+    IServiceProvider services,
+    IOptions<AttachmentOptions> options,
+    ILogger<AzureBlobContainerInitializer> logger) : Microsoft.Extensions.Hosting.IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (options.Value.Storage.Provider != StorageProvider.AzureBlob)
+            return;
+
+        try
+        {
+            await services.GetRequiredService<AzureBlobContainerGate>().EnsureCreatedAsync(cancellationToken);
+            logger.LogInformation("Azure attachment container {Container} is ready",
+                options.Value.Storage.AzureBlob.ContainerName);
+        }
+        catch (Exception ex) when (ex is RequestFailedException or HttpRequestException)
+        {
+            logger.LogWarning(ex, "Could not create the Azure attachment container at startup; the first upload retries");
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

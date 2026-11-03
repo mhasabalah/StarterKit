@@ -1,3 +1,4 @@
+using Shared.Core.MultiTenancy;
 using Attachment.Domains.Attachments.Events;
 
 namespace Attachment.Domains.Attachments.Models;
@@ -6,8 +7,11 @@ namespace Attachment.Domains.Attachments.Models;
 /// Represents a temporary attachment uploaded before entity creation.
 /// Used for session-based anonymous uploads that will later be associated with an entity.
 /// </summary>
-public class PendingAttachment : Aggregate<Guid>
+public class PendingAttachment : Aggregate<Guid>, IMustHaveTenant
 {
+    /// <summary>Owning tenant (stamped on insert by TenantEntityInterceptor; immutable).</summary>
+    public Guid TenantId { get; set; }
+
     // Session Information
     public Guid SessionId { get; private set; }
 
@@ -16,6 +20,9 @@ public class PendingAttachment : Aggregate<Guid>
     public string OriginalFileName { get; private set; } = default!;
     public string ContentType { get; private set; } = default!;
     public long FileSize { get; private set; }
+
+    /// <summary>Lowercase hex SHA-256 of the uploaded bytes; carried to the attachment on association.</summary>
+    public string? ContentHash { get; private set; }
 
     // Storage Paths (temporary location)
     public string StoragePath { get; private set; } = default!;
@@ -63,7 +70,8 @@ public class PendingAttachment : Aggregate<Guid>
         AttachmentCategory intendedCategory,
         int displayOrder,
         bool isPrimary,
-        int expirationHours)
+        int expirationHours,
+        string? contentHash = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(fileName);
         ArgumentException.ThrowIfNullOrEmpty(originalFileName);
@@ -94,6 +102,7 @@ public class PendingAttachment : Aggregate<Guid>
             OriginalFileName = originalFileName,
             ContentType = contentType,
             FileSize = fileSize,
+            ContentHash = contentHash,
             StoragePath = storagePath,
             FileUrl = fileUrl,
             Type = type,
@@ -133,12 +142,12 @@ public class PendingAttachment : Aggregate<Guid>
     {
         if (IsAssociated)
         {
-            throw new InvalidOperationException("Pending attachment is already associated.");
+            throw new ConflictException("Pending attachment is already associated.");
         }
 
         if (IsExpired())
         {
-            throw new InvalidOperationException("Cannot associate expired pending attachment.");
+            throw new BadRequestException("Cannot associate an expired pending attachment.");
         }
 
         IsAssociated = true;
@@ -151,7 +160,7 @@ public class PendingAttachment : Aggregate<Guid>
     {
         if (IsAssociated)
         {
-            throw new InvalidOperationException("Cannot delete associated pending attachment.");
+            throw new ConflictException("Cannot delete an associated pending attachment.");
         }
 
         IsDeleted = true;

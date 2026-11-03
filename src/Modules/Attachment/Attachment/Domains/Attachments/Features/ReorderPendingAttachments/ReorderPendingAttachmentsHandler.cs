@@ -1,6 +1,6 @@
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Data.Repository.Attachments;
 using Attachment.Domains.Attachments.Exceptions;
+using Attachment.Infrastructure.Security;
 using Attachment.Resources;
 using Microsoft.Extensions.Localization;
 
@@ -22,46 +22,30 @@ public class ReorderPendingAttachmentsCommandValidator : AbstractValidator<Reord
 
 public class ReorderPendingAttachmentsHandler(
     IPendingAttachmentRepository repository,
+    IPendingSessionService sessionService,
     ILogger<ReorderPendingAttachmentsHandler> logger)
     : ICommandHandler<ReorderPendingAttachmentsCommand, bool>
 {
-    public async Task<bool> Handle(
-        ReorderPendingAttachmentsCommand command,
-        CancellationToken cancellationToken)
+    public async Task<bool> Handle(ReorderPendingAttachmentsCommand command, CancellationToken cancellationToken)
     {
-        var pendingAttachments = await repository.GetBySessionIdAsync(
-            command.SessionId,
-            cancellationToken);
+        if (!sessionService.IsOwnedByCurrentCaller(command.SessionId))
+            throw new PendingSessionAccessDeniedException();
 
-        if (!pendingAttachments.Any())
-        {
-            throw new PendingAttachmentNotFoundException(Guid.Empty);
-        }
+        var pending = await repository.GetBySessionIdAsync(command.SessionId, cancellationToken);
+        var byId = pending.ToDictionary(p => p.Id);
 
-        // Verify all IDs belong to this session
-        var sessionIds = pendingAttachments.Select(p => p.Id).ToHashSet();
-        var invalidIds = command.OrderedIds.Where(id => !sessionIds.Contains(id)).ToList();
+        var invalidIds = command.OrderedIds.Where(id => !byId.ContainsKey(id)).ToList();
+        if (invalidIds.Count > 0)
+            throw new BadRequestException(
+                $"The following IDs do not belong to the session: {string.Join(", ", invalidIds)}");
 
-        if (invalidIds.Any())
-        {
-            throw new InvalidOperationException(
-                $"The following IDs do not belong to session {command.SessionId}: {string.Join(", ", invalidIds)}");
-        }
-
-        // Update display order
-        for (int i = 0; i < command.OrderedIds.Count; i++)
-        {
-            var attachment = pendingAttachments.First(p => p.Id == command.OrderedIds[i]);
-            attachment.UpdateDisplayOrder(i);
-        }
+        for (var i = 0; i < command.OrderedIds.Count; i++)
+            byId[command.OrderedIds[i]].UpdateDisplayOrder(i);
 
         await repository.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Reordered {Count} pending attachments for session {SessionId}",
-            command.OrderedIds.Count,
-            command.SessionId);
-
+        logger.LogInformation("Reordered {Count} pending attachments of session {SessionId}",
+            command.OrderedIds.Count, command.SessionId);
         return true;
     }
 }

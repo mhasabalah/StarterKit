@@ -1,13 +1,22 @@
-using Attachment.Contracts.Events;
 using Attachment.Domains.Attachments.Events;
-using Attachment.Infrastructure.Storage;
+using Attachment.Infrastructure.BackgroundJobs;
 
 namespace Attachment.Domains.Attachments.EventHandlers;
 
+/// <summary>
+/// A new user avatar (raised when the upload became Ready) replaces the previous ones: they are hidden at once
+/// (<c>PendingDeletion</c>, SAVED here) and <c>DeleteAttachmentFilesJob</c> deletes their files and rows.
+/// (Identity learns about the new avatar from <c>UserAvatarChangedIntegrationEvent</c>, raised by the aggregate into
+/// the outbox in the same transaction as the upload - not from here.)
+/// <para>
+/// Only reachable for avatars the uploader was allowed to attach (User entity policy: self or admin) or that
+/// trusted module code uploaded.
+/// </para>
+/// </summary>
 public class AttachmentUploadedEventHandler(
     IAttachmentRepository repository,
-    IStorageService storageService,
-    IPublisher publisher,
+    IAttachmentBackgroundJobs backgroundJobs,
+    TimeProvider time,
     ILogger<AttachmentUploadedEventHandler> logger)
     : INotificationHandler<AttachmentUploadedEvent>
 {
@@ -20,40 +29,20 @@ public class AttachmentUploadedEventHandler(
 
         var userId = attachment.EntityId.Value;
 
-        // Delete all previous avatars for this user now that the new one is saved
-        var existing = await repository.GetByEntityAsync(EntityType.User, userId, cancellationToken);
-        var oldAvatars = existing
+        var oldAvatars = (await repository.GetByEntityAsync(EntityType.User, userId, cancellationToken))
             .Where(a => a.Category == AttachmentCategory.UserAvatar && a.Id != attachment.Id)
             .ToList();
 
         if (oldAvatars.Count > 0)
         {
-            var storagePaths = oldAvatars
-                .SelectMany(a => new[] { a.StoragePath, a.ThumbnailPath })
-                .Where(p => p is not null)
-                .Select(p => p!)
-                .ToList();
-
-            try
-            {
-                await storageService.DeleteBatchAsync(storagePaths, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail the upload — orphaned files can be cleaned by a background job
-                logger.LogWarning(ex,
-                    "Failed to delete old avatar storage files for user {UserId}. Paths: {Paths}",
-                    userId, string.Join(", ", storagePaths));
-            }
-
+            var now = time.GetUtcNow().UtcDateTime;
             foreach (var old in oldAvatars)
-                await repository.DeleteAsync(old.Id, cancellationToken);
+                old.RequestDeletion(now);
 
-            logger.LogInformation(
-                "Deleted {Count} old avatar(s) for user {UserId}", oldAvatars.Count, userId);
+            await repository.SaveChangesAsync(cancellationToken);
+            backgroundJobs.EnqueueFileDeletion(oldAvatars.Select(a => a.Id).ToList());
+
+            logger.LogInformation("{Count} old avatar(s) of user {UserId} replaced", oldAvatars.Count, userId);
         }
-
-        // Notify Identity to sync ApplicationUser.ProfilePictureUrl
-        await publisher.Publish(new UserAvatarUploadedEvent(userId, attachment.FileUrl), cancellationToken);
     }
 }
