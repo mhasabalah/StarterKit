@@ -1,0 +1,14 @@
+# Architecture Decision Records
+
+Short records of the significant decisions behind StarterKit. Add one whenever you change a rule in `CLAUDE.md`, swap
+a core library, or change an architecture test. Copy [0000-template.md](0000-template.md), take the next number, and
+link it here.
+
+| # | Decision | Status |
+|---|---|---|
+| [0001](0001-modular-monolith-schema-per-module.md) | Modular monolith, one schema and DbContext per module | Accepted |
+| [0002](0002-carter-minimal-apis.md) | Carter minimal APIs instead of controllers | Accepted |
+| [0003](0003-exceptions-not-result-type.md) | Typed exceptions mapped centrally, no Result type | Accepted |
+| [0004](0004-outbox-and-messaging-transports.md) | Transactional outbox, pluggable MassTransit transport | Accepted |
+| [0005](0005-tenant-isolation-model.md) | Tenant isolation: named filters + RLS, shared or dedicated DBs | Accepted |
+| [0006](0006-identity-behind-userdirectory-port.md) | Users only through the UserDirectory port | Accepted |

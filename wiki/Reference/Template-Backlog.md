@@ -286,8 +286,33 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 ## P2 — Ops
 
 18. **CI variables.** The workflows read `vars.APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_*` and `BACKUP_BUCKET`.
-    Document the required repo variables and secrets in `wiki/deployment/GITHUB-SECRETS-SETUP.md`, and fail fast when they are missing.
+    They are now documented in `wiki/deployment/CI-CD.md#github-setup`. Still open: fail fast when they are missing.
 19. **Health / readiness.** Split `/health/live` and `/health/ready` (DB, Redis, Seq) for compose and K8s, and wire them into the deploy health check.
 20. **Nginx admin allow-list.** `deployment/nginx/conf.d/app-production.conf` allows only `127.0.0.1` for admin paths. Set it per deployment.
 21. **Observability stack** is heavy (otel-collector, prometheus, grafana, tempo, loki, jaeger, exporters). Consider an
     "observability-lite" compose profile.
+
+## P2 — Found during the docs/tooling overhaul (2026-11-04)
+
+22. ✅ **MediatR tracing** (2026-11-04): the buggy, unregistered `ObservabilityPipelineBehavior` + `CoreDiagnostics/*`
+    (per-request assembly scans, swapped command/query, `Elapsed.Seconds`, disposing `Activity.Current`) were replaced by
+    `RequestTelemetryBehavior` (one span + `mediatr.request.duration` histogram per request, outermost, host-only).
+    The same `Activity.Current` disposal bug was fixed in `CustomeDiagnosticsProvider.ExecuteActivityAsync`.
+23. ✅ **Deny-by-default authorization** (2026-11-04): `RequireAuthorizationByDefault()` on the Carter group (an endpoint
+    without auth metadata requires an authenticated user) + `Every_endpoint_declares_authorization_explicitly`
+    architecture test. Not a global `FallbackPolicy`, which would also block middleware paths (Hangfire dashboard Basic
+    auth, Swagger UI) and framework endpoints (health, OpenAPI, Scalar).
+24. ✅ **Ports** (2026-11-04): `.env.example` `API_PORT` 8888 → 5000 (8888 clashed with the OTel collector); Mailhog is
+    8025/1025 everywhere. Postgres/Redis/Seq keep deliberate dev offsets in `.env.example` (documented).
+25. ✅ **Integration coverage** (2026-11-04): new `Tenancy.IntegrationTests` (real Postgres + migrations + module);
+    `TenantRowLevelSecurityCoverageTests` (every tenant table of every tenant-data module has forced RLS);
+    `ClientGeneratedKeyTests`. They found and fixed: **adding a tenant custom domain always failed with 409** (owned
+    `TenantDomain` key not `ValueGeneratedNever`), and the same latent trap on `PlanFeature`. Also fixed: the committed
+    AppHost `Messaging:Transport=RabbitMq` broke two `AppHost.Tests` (default restored to `InMemory`).
+26. ✅ **Notification + Attachment real-database coverage** (2026-11-04):
+    - `Notification.Tests/Persistence/NotificationDispatchPostgresTests`: the dispatch job on real Postgres. Covers no
+      re-send after delivery, transient attempts counted across runs, fallback, admin re-enqueue, stored channel order.
+    - `Attachment.Tests/Integration/AttachmentTenantIsolationTests`: two tenants, real migrations, a non-superuser
+      connection so RLS is enforced. Covers no cross-tenant read, list or delete; tenant-rooted blobs.
+    Both stay inside each module's existing `.Tests` project (that module's convention) rather than adding new projects.
+27. ✅ **License** (2026-11-04): MIT (`LICENSE`).
