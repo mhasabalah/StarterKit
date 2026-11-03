@@ -1,0 +1,32 @@
+name: Feature / improvement
+description: Propose a feature, module or template improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today, or what is harder than it should be? Who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: |
+        The behaviour you want. Mention the affected modules, and whether it needs a new module, endpoint, integration event,
+        job, permission or migration.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: architecture
+    attributes:
+      label: Architecture impact
+      options:
+        - label: Changes a rule in CLAUDE.md or an architecture test (needs an ADR in wiki/Decisions)
+        - label: Touches tenant isolation, authorization or money/ledger code (needs extra review)
+        - label: Adds a dependency (needs a reason; versions go in Directory.Packages.props)

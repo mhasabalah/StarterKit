@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/mhasabalah/StarterKit/blob/master/wiki/INDEX.md
+    about: Architecture, modules, deployment and how-to guides
+  - name: Report a security vulnerability
+    url: https://github.com/mhasabalah/StarterKit/security/advisories/new
+    about: Please report vulnerabilities privately, never in a public issue
