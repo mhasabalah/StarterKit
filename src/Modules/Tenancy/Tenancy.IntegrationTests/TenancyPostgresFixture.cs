@@ -1,0 +1,145 @@
+using System.Security.Claims;
+using Hangfire;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using Shared.Core.Authorization;
+using Shared.Core.Data.Seed;
+using Shared.Core.MultiTenancy;
+using Shared.Core.Web;
+using Tenancy.Data;
+using Testcontainers.PostgreSql;
+
+namespace Tenancy.IntegrationTests;
+
+/// <summary>
+/// One real PostgreSQL (Testcontainers, postgres:16-alpine) per collection, wired with the REAL registrations:
+/// <c>AddMultiTenancy</c> (enabled) + <c>AddTenancyModule</c> - real TenancyDbContext and interceptors, real MediatR
+/// pipeline (validation, concurrency, domain-event dispatch), real handlers, the tenant store and membership resolver.
+/// The schema comes from the module's MIGRATIONS (unique indexes with the names the handlers translate on).
+/// <para>
+/// Faked boundaries only: the HTTP user (<see cref="FakeHttpContextService"/>) and Hangfire
+/// (<see cref="Jobs"/>, provisioning is enqueued after tenant creation). Caches are in-memory.
+/// Tests share the database; each test uses fresh identifiers / users so they stay independent.
+/// </para>
+/// </summary>
+public sealed class TenancyPostgresFixture : IAsyncLifetime
+{
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private ServiceProvider _provider = default!;
+
+    public FakeHttpContextService Http { get; } = new();
+    public Mock<IBackgroundJobClient> Jobs { get; } = new();
+
+    public async Task InitializeAsync()
+    {
+        await _container.StartAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:starterkit"] = _container.GetConnectionString(),
+                ["MultiTenancy:Enabled"] = "true",
+                ["AppOptions:Name"] = "StarterKit Tests"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddLogging();
+        services.AddLocalization();
+        services.AddMemoryCache();
+        services.AddDistributedMemoryCache();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IHttpContextService>(Http);
+        services.AddSingleton(Jobs.Object);
+        services.AddMultiTenancy(configuration);
+        services.AddTenancyModule(configuration);
+
+        _provider = services.BuildServiceProvider();
+
+        await using var scope = _provider.CreateAsyncScope();
+        using (TenantScope.BeginHostScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<TenancyDbContext>().Database.MigrateAsync();
+        }
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (_provider is not null)
+            await _provider.DisposeAsync();
+        await _container.DisposeAsync();
+    }
+
+    /// <summary>Sends a request through the real pipeline in a fresh scope (= one HTTP request) as <paramref name="userId"/>.</summary>
+    public async Task<TResponse> SendAs<TResponse>(Guid userId, IRequest<TResponse> request)
+    {
+        Http.SetUser(userId);
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ISender>().Send(request);
+    }
+
+    /// <summary>Same, inside the given tenant's ambient scope (what tenant resolution does for an HTTP request).</summary>
+    public async Task<TResponse> SendInTenant<TResponse>(Guid tenantId, Guid userId, IRequest<TResponse> request)
+    {
+        using (TenantScope.Begin(new TenantInfo(tenantId, $"t-{tenantId:N}"[..12], "Tenant")))
+        {
+            return await SendAs(userId, request);
+        }
+    }
+
+    /// <summary>Direct DB access in a fresh scope, as host (sees every tenant).</summary>
+    public async Task<T> WithDb<T>(Func<TenancyDbContext, Task<T>> work)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        using (TenantScope.BeginHostScope())
+        {
+            return await work(scope.ServiceProvider.GetRequiredService<TenancyDbContext>());
+        }
+    }
+
+    public async Task WithServices(Func<IServiceProvider, Task> work)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        await work(scope.ServiceProvider);
+    }
+}
+
+[CollectionDefinition(Name)]
+public sealed class TenancyPostgresCollection : ICollectionFixture<TenancyPostgresFixture>
+{
+    public const string Name = "tenancy-postgres";
+}
+
+/// <summary>Mutable "current request user". Not a platform admin (self-service paths).</summary>
+public sealed class FakeHttpContextService : IHttpContextService
+{
+    private Guid? _userId;
+
+    public void SetUser(Guid? userId) => _userId = userId;
+
+    public string? GetUserId() => _userId?.ToString();
+    public long? GetUserIdAsLong() => null;
+    public Guid? GetUserIdAsGuid() => _userId;
+    public string? GetUserName() => _userId?.ToString();
+    public string? GetEmail() => null;
+    public IEnumerable<string> GetRoles() => _userId is null ? [] : [RoleConstants.User];
+    public bool IsAuthenticated() => _userId is not null;
+    public string? GetClaimValue(string claimType) => null;
+    public IEnumerable<string> GetClaimValues(string claimType) => [];
+    public IEnumerable<Claim> GetAllClaims() => [];
+    public bool HasClaim(string claimType, string? claimValue = null) => false;
+    public string? GetIpAddress() => "127.0.0.1";
+    public string? GetUserAgent() => "tests";
+    public string? GetRequestPath() => null;
+    public string? GetRequestMethod() => null;
+    public string? GetCorrelationId() => null;
+    public string? GetHeaderValue(string headerKey) => null;
+    public string? GetHost() => null;
+    public string? GetScheme() => null;
+    public string? GetRequestUrl() => null;
+    public string? GetTenantId() => null;
+}
