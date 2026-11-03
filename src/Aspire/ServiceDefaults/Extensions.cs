@@ -14,7 +14,7 @@ public static class Extensions
 {
     public static IHostApplicationBuilder AddServiceDefaults(this WebApplicationBuilder builder)
     {
-        builder.Services.AddCustomHealthCheck();
+        builder.Services.AddCustomHealthCheck(builder.Configuration);
         builder.AddCustomObservability();
         builder.Services.AddServiceDiscovery();
 
