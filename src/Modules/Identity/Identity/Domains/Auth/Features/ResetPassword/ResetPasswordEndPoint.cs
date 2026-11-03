@@ -22,9 +22,10 @@ public class ResetPasswordEndPoint : ICarterModule
             .WithDescription(
                 "Sets a new password using email + token from the set-password/reset link, " +
                 "or userId + token from POST /api/auth/verify-reset-otp. " +
-                "The token is single-use and expires after 1 hour.")
-            .WithOpenApi()
+                "The token is single-use and expires after PasswordReset:TokenExpiryHours. " +
+                "All existing sessions of the account are signed out.")
             .AllowAnonymous()
-            .HasApiVersion(1.0);
+            .RequireRateLimiting("auth")
+        .HasApiVersion(1.0);
     }
 }

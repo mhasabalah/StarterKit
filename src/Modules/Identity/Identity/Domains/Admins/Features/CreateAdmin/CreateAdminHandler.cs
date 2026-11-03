@@ -1,9 +1,10 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Admins.Commands;
 using Identity.Domains.Admins.Events;
-using Identity.Domains.Roles.Constants;
-using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Auth.Validation;
+using Identity.Domains.Users.Services;
+using Identity.Services.Phone;
 using Shared.Core.Phone;
 
 namespace Identity.Domains.Admins.Features.CreateAdmin;
@@ -23,10 +24,7 @@ public class CreateAdminCommandValidator : AbstractValidator<CreateAdminCommand>
             .EmailAddress()
             .WithMessage("Valid email address is required");
 
-        RuleFor(x => x.Password)
-            .NotEmpty()
-            .MinimumLength(8)
-            .WithMessage("Password must be at least 8 characters");
+        RuleFor(x => x.Password).ApplyPasswordRules();
 
         RuleFor(x => x.CreatedByAdminId)
             .NotEmpty()
@@ -38,83 +36,60 @@ public class CreateAdminCommandValidator : AbstractValidator<CreateAdminCommand>
     }
 }
 
+/// <summary>Creating Admin/SuperAdmin accounts is a SuperAdmin-only operation (same rule as PromoteToAdmin).</summary>
 public class CreateAdminHandler(
     UserManager<ApplicationUser> userManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    IPhoneNumberNormalizer phoneNormalizer,
     IPublisher publisher,
+    IIdentityAuditWriter audit,
     ILogger<CreateAdminHandler> logger)
     : ICommandHandler<CreateAdminCommand, CreateAdminResult>
 {
-    public async Task<CreateAdminResult> Handle(
-        CreateAdminCommand command,
-        CancellationToken cancellationToken)
+    public async Task<CreateAdminResult> Handle(CreateAdminCommand command, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Creating new admin: {UserName} by {CreatedBy}",
-            command.UserName, command.CreatedByAdminId);
+        await roleHierarchyGuard.EnsureIsSuperAdminAsync(command.CreatedByAdminId, cancellationToken);
 
-        // Verify creator exists and has sufficient privileges
-        var creator = await userManager.FindByIdAsync(command.CreatedByAdminId.ToString())
-            ?? throw new UserNotFoundException(command.CreatedByAdminId);
-
-        var creatorRoles = await userManager.GetRolesAsync(creator);
-        // Creating a SuperAdmin account requires the caller to be a SuperAdmin
-        if (command.IsSuperAdmin && !creatorRoles.Contains(RoleConstants.SuperAdmin))
+        if (await userManager.FindByNameAsync(command.UserName) is not null)
         {
-            throw new InvalidUserOperationException(
-                "Only SuperAdmin can create SuperAdmin accounts.");
+            return Failure($"Username '{command.UserName}' is already taken");
         }
 
-        // Check if username already exists
-        var existingUser = await userManager.FindByNameAsync(command.UserName);
-        if (existingUser != null)
+        if (await userManager.FindByEmailAsync(command.Email) is not null)
         {
-            logger.LogWarning("Username already exists: {UserName}", command.UserName);
-            return new CreateAdminResult(
-                false,
-                $"Username '{command.UserName}' is already taken",
-                null,
-                Array.Empty<string>());
+            return Failure("Email is already registered");
         }
 
-        // Check if email already exists
-        existingUser = await userManager.FindByEmailAsync(command.Email);
-        if (existingUser != null)
+        var phoneNumber = phoneNormalizer.Normalize(command.PhoneNumber);
+        if (phoneNumber is not null && await userManager.FindByPhoneAsync(phoneNumber, cancellationToken) is not null)
         {
-            logger.LogWarning("Email already exists: {Email}", command.Email);
-            return new CreateAdminResult(
-                false,
-                $"Email '{command.Email}' is already registered",
-                null,
-                Array.Empty<string>());
+            return Failure("Phone number is already registered");
         }
 
-        // Create new admin user
         var newAdmin = new ApplicationUser
         {
             Id = Guid.NewGuid(),
             UserName = command.UserName,
             Email = command.Email,
-            EmailConfirmed = true, // Auto-confirm for admin accounts
+            EmailConfirmed = true,
             FirstName = command.FirstName,
             LastName = command.LastName,
-            PhoneNumber = command.PhoneNumber,
-            PhoneNumberConfirmed = !string.IsNullOrEmpty(command.PhoneNumber),
+            PhoneNumber = phoneNumber,
+            PhoneNumberConfirmed = phoneNumber is not null,
             IsActive = true,
             IsProfileComplete = true,
             ProfileCompletedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
 
-        // Create user with password
         var createResult = await userManager.CreateAsync(newAdmin, command.Password);
         if (!createResult.Succeeded)
         {
             var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
             logger.LogError("Failed to create admin: {Errors}", errors);
-            return new CreateAdminResult(false, $"Failed to create admin: {errors}", null, Array.Empty<string>());
+            return Failure($"Failed to create admin: {errors}");
         }
 
-        // Assign roles
         var rolesToAssign = command.IsSuperAdmin
             ? new[] { RoleConstants.User, RoleConstants.Admin, RoleConstants.SuperAdmin }
             : new[] { RoleConstants.User, RoleConstants.Admin };
@@ -128,7 +103,11 @@ public class CreateAdminHandler(
             }
         }
 
-        // Raise domain event
+        // The password is never audited: the snapshot has no credential fields.
+        audit.Record(IdentityAuditActions.AdminCreated, newAdmin.Id,
+            after: UserAuditSnapshot.Of(newAdmin, await userManager.GetRolesAsync(newAdmin)),
+            actorId: command.CreatedByAdminId);
+
         await publisher.Publish(new AdminCreatedEvent
         {
             AdminId = newAdmin.Id,
@@ -138,8 +117,8 @@ public class CreateAdminHandler(
         }, cancellationToken);
 
         logger.LogInformation(
-            "Admin created successfully: {AdminId} with roles: {Roles}",
-            newAdmin.Id, string.Join(", ", rolesToAssign));
+            "Admin {AdminId} created by {CreatedBy} with roles {Roles}",
+            newAdmin.Id, command.CreatedByAdminId, string.Join(", ", rolesToAssign));
 
         return new CreateAdminResult(
             true,
@@ -147,4 +126,6 @@ public class CreateAdminHandler(
             newAdmin.Id,
             rolesToAssign.ToList());
     }
+
+    private static CreateAdminResult Failure(string message) => new(false, message, null, Array.Empty<string>());
 }

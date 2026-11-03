@@ -1,4 +1,5 @@
 using Identity.Contracts.Onboarding.Events;
+using Identity.Services.Otp;
 
 namespace Identity.Domains.Onboarding.EventHandlers;
 
@@ -9,20 +10,22 @@ namespace Identity.Domains.Onboarding.EventHandlers;
 /// VerifyPhoneHandler.GetActiveByUserIdAsync returns null → the user receives
 /// "Onboarding has expired" rather than being able to submit a stale OTP.
 ///
-/// OTP codes age out on their own TTL via IVerificationService (no explicit invalidation
-/// API is exposed). Any new registration attempt creates a fresh onboarding process.
+/// The outstanding onboarding code is invalidated explicitly (IOtpCodeService.InvalidateAsync) so it cannot be
+/// used even before its own expiry. Any new registration attempt creates a fresh onboarding process.
 /// </summary>
 public class OnboardingTimedOutEventHandler(
+    IOtpCodeService otpCodeService,
     ILogger<OnboardingTimedOutEventHandler> logger)
     : INotificationHandler<OnboardingTimedOutEvent>
 {
-    public Task Handle(OnboardingTimedOutEvent notification, CancellationToken cancellationToken)
+    public async Task Handle(OnboardingTimedOutEvent notification, CancellationToken cancellationToken)
     {
+        await otpCodeService.InvalidateAsync(
+            notification.UserId, OtpPurpose.OnboardingPhoneVerification, cancellationToken);
+
         logger.LogInformation(
             "Onboarding timed out for user {UserId}. " +
             "Process is in terminal TimedOut state; further verification attempts are blocked.",
             notification.UserId);
-
-        return Task.CompletedTask;
     }
 }

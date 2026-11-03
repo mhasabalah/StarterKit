@@ -24,10 +24,11 @@ public class RefreshTokenEndPoint : ICarterModule
         .WithTags("Authentication")
         .Produces<ApiResponse<RefreshTokenResult>>()
         .Produces<ApiResponse<object>>(StatusCodes.Status401Unauthorized)
+        .AllowAnonymous()
         .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
         .WithSummary("Refresh access token")
         .WithDescription("Exchange a refresh token for a new access token and refresh token (token rotation)")
-        .WithOpenApi()
+        .RequireRateLimiting("auth")
         .HasApiVersion(1.0);
     }
 }

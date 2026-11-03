@@ -1,8 +1,10 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Users.Commands;
 using Identity.Domains.Users.Events;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 
 namespace Identity.Domains.Users.Features.UpdateUserStatus;
 
@@ -13,7 +15,7 @@ public class UpdateUserStatusCommandValidator : AbstractValidator<UpdateUserStat
         RuleFor(x => x.UserId)
             .NotEmpty()
             .WithMessage("User ID is required");
-            
+
         RuleFor(x => x.UpdatedByAdminId)
             .NotEmpty()
             .WithMessage("Admin ID is required");
@@ -22,7 +24,10 @@ public class UpdateUserStatusCommandValidator : AbstractValidator<UpdateUserStat
 
 public class UpdateUserStatusHandler(
     UserManager<ApplicationUser> userManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    ISessionRevoker sessionRevoker,
     IPublisher publisher,
+    IIdentityAuditWriter audit,
     ILogger<UpdateUserStatusHandler> logger)
     : ICommandHandler<UpdateUserStatusCommand, UpdateUserStatusResult>
 {
@@ -30,41 +35,32 @@ public class UpdateUserStatusHandler(
         UpdateUserStatusCommand command,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Updating user {UserId} status to {IsActive} by admin {AdminId}",
-            command.UserId, command.IsActive, command.UpdatedByAdminId);
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new UserNotFoundException(command.UserId);
 
-        // Validate user exists
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-        if (user == null)
-        {
-            logger.LogWarning("User not found: {UserId}", command.UserId);
-            throw new UserNotFoundException(command.UserId);
-        }
+        await roleHierarchyGuard.EnsureCanManageAsync(command.UpdatedByAdminId, user, cancellationToken);
 
-        // Check if status is already set
         if (user.IsActive == command.IsActive)
         {
-            logger.LogWarning(
-                "User {UserId} already has status IsActive={IsActive}",
-                command.UserId, command.IsActive);
             throw new InvalidUserOperationException(
                 $"User is already {(command.IsActive ? "active" : "inactive")}");
         }
 
-        // Validate admin exists
-        var admin = await userManager.FindByIdAsync(command.UpdatedByAdminId.ToString());
-        if (admin == null)
-        {
-            throw new UserNotFoundException(command.UpdatedByAdminId);
-        }
+        var roles = await userManager.GetRolesAsync(user);
+        var before = UserAuditSnapshot.Of(user, roles);
 
-        // Update status
         user.IsActive = command.IsActive;
         user.UpdatedAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
 
-        // Raise domain event
+        if (!command.IsActive)
+        {
+            await sessionRevoker.RevokeAllAsync(user.Id, "Account deactivated by admin", cancellationToken);
+        }
+
+        audit.Record(IdentityAuditActions.UserStatusChanged, user.Id, reason: command.Reason,
+            before: before, after: UserAuditSnapshot.Of(user, roles), actorId: command.UpdatedByAdminId);
+
         await publisher.Publish(new UserStatusUpdatedEvent
         {
             UserId = user.Id,
@@ -74,13 +70,13 @@ public class UpdateUserStatusHandler(
         }, cancellationToken);
 
         logger.LogInformation(
-            "User {UserId} status updated successfully to {IsActive}",
-            command.UserId, command.IsActive);
+            "User {UserId} status set to IsActive={IsActive} by admin {AdminId}",
+            user.Id, command.IsActive, command.UpdatedByAdminId);
 
         var message = command.IsActive
             ? "User account activated successfully"
             : "User account deactivated successfully";
-            
+
         if (!string.IsNullOrEmpty(command.Reason))
         {
             message += $". Reason: {command.Reason}";

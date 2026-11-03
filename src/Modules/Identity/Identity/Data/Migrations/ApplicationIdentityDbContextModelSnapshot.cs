@@ -18,10 +18,86 @@ namespace Identity.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("identity")
-                .HasAnnotation("ProductVersion", "9.0.9")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Identity.Domains.Audit.Models.AdminActionAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<string>("AfterJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("after_json");
+
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("before_json");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("target_type");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("user_agent");
+
+                    b.HasKey("Id")
+                        .HasName("pk_admin_action_audit_logs");
+
+                    b.HasIndex("Action")
+                        .HasDatabaseName("ix_admin_action_audit_logs_action");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("ix_admin_action_audit_logs_occurred_at");
+
+                    b.HasIndex("AdminId", "OccurredAt")
+                        .HasDatabaseName("ix_admin_action_audit_logs_admin_id");
+
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("ix_admin_action_audit_logs_target");
+
+                    b.ToTable("admin_action_audit_logs", "identity");
+                });
 
             modelBuilder.Entity("Identity.Domains.Onboarding.Models.OnboardingProcess", b =>
                 {
@@ -31,11 +107,11 @@ namespace Identity.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("CreatedBy")
@@ -47,7 +123,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("is_deleted");
 
                     b.Property<DateTime?>("LastModified")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_modified");
 
                     b.Property<string>("LastModifiedBy")
@@ -55,11 +131,11 @@ namespace Identity.Data.Migrations
                         .HasColumnName("last_modified_by");
 
                     b.Property<DateTime?>("OtpSentAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("otp_sent_at");
 
                     b.Property<DateTime?>("PhoneVerifiedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("phone_verified_at");
 
                     b.Property<int>("ResendCount")
@@ -69,7 +145,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("resend_count");
 
                     b.Property<DateTime>("StartedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
 
                     b.Property<int>("Status")
@@ -77,7 +153,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("status");
 
                     b.Property<DateTime?>("TimedOutAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("timed_out_at");
 
                     b.Property<string>("TimeoutHangfireJobId")
@@ -118,7 +194,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("concurrency_stamp");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("Description")
@@ -162,7 +238,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("concurrency_stamp");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("Email")
@@ -190,8 +266,12 @@ namespace Identity.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_profile_complete");
 
+                    b.Property<Guid?>("LastActiveTenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("last_active_tenant_id");
+
                     b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at");
 
                     b.Property<string>("LastName")
@@ -240,16 +320,8 @@ namespace Identity.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("phone_number_confirmed");
 
-                    b.Property<string>("PhoneVerificationCode")
-                        .HasColumnType("text")
-                        .HasColumnName("phone_verification_code");
-
-                    b.Property<DateTime?>("PhoneVerificationCodeExpiry")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("phone_verification_code_expiry");
-
                     b.Property<DateTime?>("ProfileCompletedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("profile_completed_at");
 
                     b.Property<string>("ProfilePictureUrl")
@@ -265,7 +337,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("two_factor_enabled");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
                     b.Property<string>("UserName")
@@ -283,7 +355,83 @@ namespace Identity.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_phone_number")
+                        .HasFilter("\"phone_number\" IS NOT NULL");
+
                     b.ToTable("users", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Infrastructure.DataProtection.DataProtectionKeyEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FriendlyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("friendly_name");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("xml");
+
+                    b.HasKey("Id")
+                        .HasName("pk_data_protection_keys");
+
+                    b.ToTable("data_protection_keys", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Models.OtpCode", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer")
+                        .HasColumnName("purpose");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(88)
+                        .HasColumnType("character varying(88)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime>("LastSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_sent_at");
+
+                    b.Property<int>("MaxAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_attempts");
+
+                    b.Property<int>("SendCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("send_count");
+
+                    b.Property<DateTime>("WindowStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("window_started_at");
+
+                    b.HasKey("UserId", "Purpose")
+                        .HasName("pk_otp_codes");
+
+                    b.ToTable("otp_codes", "identity");
                 });
 
             modelBuilder.Entity("Identity.Models.RefreshToken", b =>
@@ -294,7 +442,7 @@ namespace Identity.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("CreatedByIp")
@@ -304,11 +452,23 @@ namespace Identity.Data.Migrations
                         .HasColumnName("created_by_ip");
 
                     b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("family_id");
+
+                    b.Property<bool>("MultiFactor")
+                        .HasColumnType("boolean")
+                        .HasColumnName("multi_factor");
+
+                    b.Property<Guid?>("ReplacedByTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaced_by_token_id");
+
                     b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at");
 
                     b.Property<string>("RevokedByIp")
@@ -320,6 +480,16 @@ namespace Identity.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("revoked_reason");
+
+                    b.Property<string>("SecurityStampHash")
+                        .IsRequired()
+                        .HasMaxLength(88)
+                        .HasColumnType("character varying(88)")
+                        .HasColumnName("security_stamp_hash");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -336,6 +506,9 @@ namespace Identity.Data.Migrations
 
                     b.HasIndex("ExpiresAt")
                         .HasDatabaseName("ix_refresh_tokens_expires_at");
+
+                    b.HasIndex("FamilyId")
+                        .HasDatabaseName("ix_refresh_tokens_family_id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
@@ -488,6 +661,16 @@ namespace Identity.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_onboarding_processes_users_user_id");
+                });
+
+            modelBuilder.Entity("Identity.Models.OtpCode", b =>
+                {
+                    b.HasOne("Identity.Domains.Users.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_otp_codes_users_user_id");
                 });
 
             modelBuilder.Entity("Identity.Models.RefreshToken", b =>

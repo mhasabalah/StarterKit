@@ -1,9 +1,11 @@
+using Identity.Contracts.Audit;
+
 namespace Identity.Contracts.Users.Commands;
 
 /// <summary>
 /// Command to lock/suspend a user account
 /// </summary>
-public record LockUserCommand : ICommand<LockUserResult>
+public record LockUserCommand : ICommand<LockUserResult>, IAuditedCommand
 {
     public Guid UserId { get; init; }
     public string Reason { get; init; } = default!;

@@ -14,7 +14,7 @@ public class GetUsersEndPoint : ICarterModule
                     var result = await sender.Send(query);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.UsersRead)
             .WithName("GetUsers")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("User Management")
@@ -23,7 +23,6 @@ public class GetUsersEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
             .WithSummary("Get Users")
             .WithDescription("Retrieve paginated list of users with filtering and sorting. Admin only.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

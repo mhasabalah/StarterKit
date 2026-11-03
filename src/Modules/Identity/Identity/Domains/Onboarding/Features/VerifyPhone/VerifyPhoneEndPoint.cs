@@ -18,9 +18,8 @@ public class VerifyPhoneEndPoint : ICarterModule
             .Produces<VerifyOnboardingPhoneResult>(200)
             .ProducesProblem(400)
             .ProducesProblem(404)
-            .WithOpenApi()
             .AllowAnonymous()
-            .RequireRateLimiting("create")
+            .RequireRateLimiting("auth")
             .HasApiVersion(1.0);
     }
 }

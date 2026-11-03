@@ -1,8 +1,10 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Users.Commands;
 using Identity.Contracts.Users.Dtos;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 using Shared.Core.Phone;
 using Shared.Core.Web;
 
@@ -28,41 +30,26 @@ public class EditUserCommandValidator : AbstractValidator<EditUserCommand>
 public class EditUserHandler(
     UserManager<ApplicationUser> userManager,
     IHttpContextService httpContextService,
-    IPhoneValidationService phoneService,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    IUserContactService contactService,
+    ISessionRevoker sessionRevoker,
+    IIdentityAuditWriter audit,
     ILogger<EditUserHandler> logger)
     : ICommandHandler<EditUserCommand, UserDto>
 {
     public async Task<UserDto> Handle(EditUserCommand command, CancellationToken cancellationToken)
     {
-        var callerId = httpContextService.GetUserIdAsGuid();
+        var callerId = httpContextService.GetUserIdAsGuid()
+                       ?? throw new UnauthorizedException("Not authenticated");
 
-        logger.LogInformation("Admin {CallerId} editing user {UserId}", callerId, command.UserId);
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new UserNotFoundException(command.UserId);
 
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-        if (user is null)
-        {
-            logger.LogWarning("User not found: {UserId}", command.UserId);
-            throw new UserNotFoundException(command.UserId);
-        }
+        await roleHierarchyGuard.EnsureCanManageAsync(callerId, user, cancellationToken);
 
-        if (!string.Equals(user.Email, command.Email, StringComparison.OrdinalIgnoreCase))
-        {
-            var existingUser = await userManager.FindByEmailAsync(command.Email);
-            if (existingUser is not null && existingUser.Id != user.Id)
-                throw new InvalidOperationException($"Email '{command.Email}' is already in use.");
+        var before = UserAuditSnapshot.Of(user, await userManager.GetRolesAsync(user));
 
-            await userManager.SetEmailAsync(user, command.Email);
-        }
-
-        // Normalize to E.164 before persisting
-        var normalizedPhone = command.PhoneNumber is not null
-            ? phoneService.ToE164(command.PhoneNumber, "ZZ") ?? command.PhoneNumber
-            : null;
-
-        var currentPhone = user.PhoneNumber ?? string.Empty;
-        var newPhone = normalizedPhone ?? string.Empty;
-        if (!string.Equals(currentPhone, newPhone, StringComparison.Ordinal))
-            await userManager.SetPhoneNumberAsync(user, normalizedPhone);
+        var contactChange = await contactService.ApplyAsync(user, command.Email, command.PhoneNumber, cancellationToken);
 
         user.FirstName = command.FirstName;
         user.LastName = command.LastName;
@@ -72,13 +59,22 @@ public class EditUserHandler(
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            logger.LogError("Failed to update user {UserId}: {Errors}", command.UserId, errors);
-            throw new InvalidOperationException($"Failed to update user: {errors}");
+            throw new InvalidUserOperationException($"Failed to update user: {errors}");
         }
 
-        logger.LogInformation("User {UserId} updated successfully by admin {CallerId}", command.UserId, callerId);
+        if (contactChange.Any)
+        {
+            // New, unverified contact details: whoever is signed in must prove ownership again.
+            await sessionRevoker.RevokeAllAsync(user.Id, "Contact details changed by admin", cancellationToken);
+        }
+
+        logger.LogInformation("User {UserId} updated by admin {CallerId}", user.Id, callerId);
 
         var roles = await userManager.GetRolesAsync(user);
+
+        audit.Record(IdentityAuditActions.UserEdited, user.Id,
+            before: before, after: UserAuditSnapshot.Of(user, roles), actorId: callerId);
+
         var isLocked = await userManager.IsLockedOutAsync(user);
         var lockoutEnd = await userManager.GetLockoutEndDateAsync(user);
 

@@ -21,7 +21,7 @@ public class GetAdminByIdEndPoint : ICarterModule
                 var response = ApiResponse.Success(result);
                 return Results.Ok(response);
             })
-            .RequireAuthorization(PolicyConstants.SuperAdminOnly)
+            .RequirePermission(Permissions.AdminsManage)
             .WithName("GetAdminById")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
@@ -32,7 +32,6 @@ public class GetAdminByIdEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

@@ -1,9 +1,11 @@
+using Identity.Contracts.Audit;
+
 namespace Identity.Contracts.Admins.Commands;
 
 /// <summary>
 /// Command to revoke a role from a user
 /// </summary>
-public record RevokeRoleCommand : ICommand<RevokeRoleResult>
+public record RevokeRoleCommand : ICommand<RevokeRoleResult>, IAuditedCommand
 {
     public Guid UserId { get; init; }
     public string RoleName { get; init; } = default!;

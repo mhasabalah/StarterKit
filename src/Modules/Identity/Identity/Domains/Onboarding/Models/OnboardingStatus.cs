@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Shared.Core.Attributes;
+using Shared.Contracts.Attributes;
 
 namespace Identity.Domains.Onboarding.Models;
 

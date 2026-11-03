@@ -28,19 +28,18 @@ public class UpdateAdminEndPoint : ICarterModule
                 var result = await sender.Send(command, cancellationToken);
                 return Results.Ok(ApiResponse.Success(result));
             })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.AdminsManage)
             .WithName("UpdateAdmin")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
             .WithSummary("Update admin profile")
             .WithDescription(
-                "Update an admin's profile details. Admin or SuperAdmin. Admins cannot edit SuperAdmin accounts.")
+                "Update an admin profile. SuperAdmin only. Changing email or phone resets its verification and signs the admin out everywhere.")
             .Produces<ApiResponse<AdminDto>>(StatusCodes.Status200OK)
             .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

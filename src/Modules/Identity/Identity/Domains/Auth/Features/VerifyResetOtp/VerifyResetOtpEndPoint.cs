@@ -22,10 +22,9 @@ public class VerifyResetOtpEndPoint : ICarterModule
             .WithDescription(
                 "Validates the 6-digit OTP sent via SMS. " +
                 "On success, returns a userId and resetToken to use with POST /api/auth/reset-password. " +
-                "Allows up to 3 wrong attempts before the OTP is invalidated.")
-            .WithOpenApi()
+                "The number of wrong attempts is limited (PasswordReset:MaxOtpAttempts); then a new code must be requested.")
             .AllowAnonymous()
-            .RequireRateLimiting("create")
+            .RequireRateLimiting("auth")
             .HasApiVersion(1.0);
     }
 }

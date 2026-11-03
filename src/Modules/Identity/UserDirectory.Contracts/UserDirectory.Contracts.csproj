@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      The user-directory PORT: the only Identity surface other modules may depend on (enforced by
+      Api.Tests/Architecture/ModuleBoundaryTests). Provider-neutral on purpose - the Identity module implements it
+      today; a Keycloak (or other IdP) adapter module can implement the same queries/events tomorrow.
+      Keep it small: display/contact data of users, nothing about credentials, sessions or admin workflows.
+    -->
+    <ItemGroup>
+        <!-- Thin contract: Shared.Contracts only (no Shared.Core / infrastructure; architecture test). -->
+        <ProjectReference Include="..\..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
+    </ItemGroup>
+
+</Project>

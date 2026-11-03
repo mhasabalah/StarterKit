@@ -5,8 +5,7 @@ using Identity.Domains.Onboarding.Jobs;
 using Identity.Domains.Onboarding.Models;
 using Identity.Options;
 using Microsoft.Extensions.Options;
-using Shared.Notification.Contracts;
-using Shared.Notification.Enums;
+using Identity.Services.Otp;
 
 namespace Identity.Domains.Onboarding.Features.ResendOtp;
 
@@ -21,7 +20,7 @@ public class ResendOnboardingOtpCommandValidator : AbstractValidator<ResendOnboa
 
 public class ResendOnboardingOtpHandler(
     IOnboardingProcessRepository repository,
-    IVerificationService verificationService,
+    IOtpSender otpSender,
     IBackgroundJobClient backgroundJobClient,
     IOptions<OnboardingOptions> options,
     ILogger<ResendOnboardingOtpHandler> logger)
@@ -48,9 +47,9 @@ public class ResendOnboardingOtpHandler(
 
         if (process.Status == OnboardingStatus.Registered)
         {
-            var initialSendResult = await verificationService.SendCodeAsync(
+            var initialSendResult = await otpSender.SendAsync(
                 command.UserId,
-                VerificationPurpose.PhoneVerification,
+                OtpPurpose.OnboardingPhoneVerification,
                 NotificationCulture.En,
                 cancellationToken);
 
@@ -84,9 +83,9 @@ public class ResendOnboardingOtpHandler(
         // IncrementResendCount enforces the limit internally — no duplicate check needed here.
         process.IncrementResendCount(maxResends);
 
-        var sendResult = await verificationService.SendCodeAsync(
+        var sendResult = await otpSender.SendAsync(
             command.UserId,
-            VerificationPurpose.PhoneVerification,
+            OtpPurpose.OnboardingPhoneVerification,
             NotificationCulture.En,
             cancellationToken);
 

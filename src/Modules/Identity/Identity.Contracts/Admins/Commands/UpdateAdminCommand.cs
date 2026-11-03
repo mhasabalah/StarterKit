@@ -1,8 +1,9 @@
+using Identity.Contracts.Audit;
 using Identity.Contracts.Admins.Dtos;
 
 namespace Identity.Contracts.Admins.Commands;
 
-public record UpdateAdminCommand : ICommand<AdminDto>
+public record UpdateAdminCommand : ICommand<AdminDto>, IAuditedCommand
 {
     public Guid AdminId { get; init; }
     public string Email { get; init; } = default!;

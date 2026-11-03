@@ -4,14 +4,13 @@ using Identity.Data.Repository.Onboarding;
 using Identity.Domains.Onboarding.Jobs;
 using Identity.Options;
 using Microsoft.Extensions.Options;
-using Shared.Notification.Contracts;
-using Shared.Notification.Enums;
+using Identity.Services.Otp;
 
 namespace Identity.Domains.Onboarding.EventHandlers;
 
 public class UserRegisteredEventHandler(
     IOnboardingProcessRepository repository,
-    IVerificationService verificationService,
+    IOtpSender otpSender,
     IBackgroundJobClient backgroundJobClient,
     IOptions<OnboardingOptions> options,
     ILogger<UserRegisteredEventHandler> logger)
@@ -27,9 +26,9 @@ public class UserRegisteredEventHandler(
             return;
         }
 
-        var sendResult = await verificationService.SendCodeAsync(
+        var sendResult = await otpSender.SendAsync(
             notification.UserId,
-            VerificationPurpose.PhoneVerification,
+            OtpPurpose.OnboardingPhoneVerification,
             NotificationCulture.En,
             cancellationToken);
 

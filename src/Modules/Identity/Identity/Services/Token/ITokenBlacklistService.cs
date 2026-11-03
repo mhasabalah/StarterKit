@@ -1,55 +1,23 @@
 namespace Identity.Services.Token;
 
 /// <summary>
-/// Service for managing blacklisted/revoked JWT tokens
+/// Redis-backed revocation of access tokens (JWTs are stateless, so revocation needs a lookup).
+/// Refresh tokens are revoked in the database (<see cref="Data.Repository.RefreshTokens.IRefreshTokenRepository"/>).
 /// </summary>
 public interface ITokenBlacklistService
 {
-    /// <summary>
-    /// Add an access token to the blacklist (revoke it)
-    /// </summary>
-    /// <param name="token">JWT access token to blacklist</param>
-    /// <param name="expiresAt">When the token expires (for cleanup)</param>
+    /// <summary>Revoke one access token (logout) until it expires.</summary>
     Task BlacklistTokenAsync(string token, DateTime expiresAt);
 
-    /// <summary>
-    /// Add a refresh token to the blacklist (revoke it)
-    /// </summary>
-    /// <param name="refreshToken">Refresh token to blacklist</param>
-    /// <param name="expiresAt">When the token expires (for cleanup)</param>
-    Task BlacklistRefreshTokenAsync(string refreshToken, DateTime expiresAt);
-
-    /// <summary>
-    /// Check if an access token is blacklisted
-    /// </summary>
-    /// <param name="token">JWT access token to check</param>
-    /// <returns>True if token is blacklisted, false otherwise</returns>
     Task<bool> IsTokenBlacklistedAsync(string token);
 
     /// <summary>
-    /// Check if a refresh token is blacklisted
+    /// Revoke every access token of a user that was issued before the user's security stamp changed to
+    /// <paramref name="currentSecurityStampHash"/>. Tokens issued afterwards (with the new stamp) stay valid,
+    /// so the user can sign in again immediately (e.g. after a password reset).
     /// </summary>
-    /// <param name="refreshToken">Refresh token to check</param>
-    /// <returns>True if token is blacklisted, false otherwise</returns>
-    Task<bool> IsRefreshTokenBlacklistedAsync(string refreshToken);
+    Task BlacklistUserAsync(Guid userId, string currentSecurityStampHash, TimeSpan duration);
 
-    /// <summary>
-    /// Remove expired tokens from blacklist (cleanup)
-    /// </summary>
-    Task CleanupExpiredTokensAsync();
-
-    /// <summary>
-    /// Blacklist all tokens for a user (e.g., on account lock)
-    /// </summary>
-    Task BlacklistUserAsync(Guid userId, TimeSpan duration);
-
-    /// <summary>
-    /// Check if a user is blacklisted at the user level
-    /// </summary>
-    Task<bool> IsUserBlacklistedAsync(Guid userId);
-
-    /// <summary>
-    /// Remove the user-level blacklist entry (e.g., on account unlock)
-    /// </summary>
-    Task RemoveUserBlacklistAsync(Guid userId);
+    /// <summary>True when the user's tokens were revoked and this token carries an older security stamp.</summary>
+    Task<bool> IsUserTokenRevokedAsync(Guid userId, string? tokenSecurityStampHash);
 }

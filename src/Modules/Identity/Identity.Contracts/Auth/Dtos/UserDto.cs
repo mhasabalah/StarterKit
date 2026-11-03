@@ -11,4 +11,10 @@ public record UserDto
     public bool IsPhoneVerified { get; init; }
     public bool IsProfileComplete { get; init; }
     public List<string> Roles { get; init; } = new();
+
+    /// <summary>
+    /// Platform permissions derived from <see cref="Roles"/> (the access token carries roles only). Use these to
+    /// show/hide UI; the server re-checks every request. Tenant permissions come from the Tenancy <c>GetMyMembership</c> endpoint.
+    /// </summary>
+    public List<string> Permissions { get; init; } = new();
 }

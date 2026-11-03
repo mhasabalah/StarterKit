@@ -1,78 +1,59 @@
 namespace Identity.Models;
 
 /// <summary>
-/// Refresh token entity for secure token management
-/// Implements token rotation and revocation tracking
+/// Refresh token row. Only the SHA-256 hash of the token is stored.
+/// Tokens are rotated on every refresh; all tokens descending from one login share a <see cref="FamilyId"/>,
+/// so re-use of an already rotated token can revoke the whole family (stolen-token detection).
 /// </summary>
 public class RefreshToken
 {
-    /// <summary>
-    /// Unique identifier for this refresh token
-    /// </summary>
+    public const string RotatedReason = "Rotated";
+
     public Guid Id { get; set; }
 
-    /// <summary>
-    /// User who owns this refresh token
-    /// </summary>
     public Guid UserId { get; set; }
 
-    /// <summary>
-    /// SHA256 hash of the refresh token
-    /// Never store raw tokens in database
-    /// </summary>
+    /// <summary>Base64 SHA-256 of the raw token. Never store raw tokens.</summary>
     public string TokenHash { get; set; } = string.Empty;
 
+    /// <summary>All tokens issued from one login (and their rotations) share this id.</summary>
+    public Guid FamilyId { get; set; }
+
+    /// <summary>Set when this token was rotated: the id of the token that replaced it.</summary>
+    public Guid? ReplacedByTokenId { get; set; }
+
+    /// <summary>Hash of the user's security stamp when the token was issued. A stamp change invalidates the token.</summary>
+    public string SecurityStampHash { get; set; } = string.Empty;
+
     /// <summary>
-    /// When this token expires (typically 7-30 days)
+    /// The login that started this family passed a second factor (2FA). Copied on rotation so refreshed access
+    /// tokens keep their <c>amr=mfa</c> claim.
     /// </summary>
+    public bool MultiFactor { get; set; }
+
+    /// <summary>
+    /// Active tenant of the session (multi-tenancy). Copied on rotation; a refresh re-validates the membership and
+    /// drops the tenant (tenant-less session) when the user is no longer a member.
+    /// </summary>
+    public Guid? TenantId { get; set; }
+
     public DateTime ExpiresAt { get; set; }
 
-    /// <summary>
-    /// When this token was created
-    /// </summary>
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>
-    /// IP address where token was created (for audit trail)
-    /// </summary>
     public string CreatedByIp { get; set; } = string.Empty;
 
-    /// <summary>
-    /// When this token was revoked (null if still active)
-    /// </summary>
     public DateTime? RevokedAt { get; set; }
 
-    /// <summary>
-    /// IP address that revoked the token
-    /// </summary>
     public string? RevokedByIp { get; set; }
 
-    /// <summary>
-    /// Reason for revocation (logout, replaced, security, etc.)
-    /// </summary>
     public string? RevokedReason { get; set; }
 
-    // Computed properties
-
-    /// <summary>
-    /// Check if token is expired
-    /// </summary>
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
 
-    /// <summary>
-    /// Check if token is revoked
-    /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
 
-    /// <summary>
-    /// Check if token is still valid (not expired and not revoked)
-    /// </summary>
     public bool IsActive => !IsRevoked && !IsExpired;
 
-    // Navigation properties
-
-    /// <summary>
-    /// User who owns this token
-    /// </summary>
     public ApplicationUser User { get; set; } = null!;
 }

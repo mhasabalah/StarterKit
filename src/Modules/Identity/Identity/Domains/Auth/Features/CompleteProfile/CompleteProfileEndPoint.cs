@@ -19,7 +19,6 @@ public class CompleteProfileEndPoint : ICarterModule
             .Produces<CompleteProfileResult>(200)
             .ProducesProblem(400)
             .ProducesProblem(404)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

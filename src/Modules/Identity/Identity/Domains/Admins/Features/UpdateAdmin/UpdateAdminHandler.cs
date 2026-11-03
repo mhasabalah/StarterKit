@@ -1,10 +1,11 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Admins.Commands;
 using Identity.Contracts.Admins.Dtos;
 using Identity.Domains.Admins.Exceptions;
-using Identity.Domains.Roles.Constants;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 using Shared.Core.Phone;
 using Shared.Core.Web;
 
@@ -25,48 +26,57 @@ public class UpdateAdminCommandValidator : AbstractValidator<UpdateAdminCommand>
 public class UpdateAdminHandler(
     UserManager<ApplicationUser> userManager,
     IHttpContextService httpContextService,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    IUserContactService contactService,
+    ISessionRevoker sessionRevoker,
+    IIdentityAuditWriter audit,
     ILogger<UpdateAdminHandler> logger)
     : ICommandHandler<UpdateAdminCommand, AdminDto>
 {
-    public async Task<AdminDto> Handle(
-        UpdateAdminCommand command,
-        CancellationToken cancellationToken)
+    public async Task<AdminDto> Handle(UpdateAdminCommand command, CancellationToken cancellationToken)
     {
-        var callerId = httpContextService.GetUserIdAsGuid();
+        var callerId = httpContextService.GetUserIdAsGuid()
+                       ?? throw new UnauthorizedException("Not authenticated");
 
         var admin = await userManager.FindByIdAsync(command.AdminId.ToString())
-            ?? throw new AdminNotFoundException(command.AdminId);
+                    ?? throw new AdminNotFoundException(command.AdminId);
 
-        var targetRoles = await userManager.GetRolesAsync(admin);
-        if (!targetRoles.Contains(RoleConstants.Admin) && !targetRoles.Contains(RoleConstants.SuperAdmin))
-            throw new AdminNotFoundException(command.AdminId);
-
-        // Admin cannot edit a SuperAdmin account — only SuperAdmin can
-        var callerRoles = httpContextService.GetRoles().ToList();
-        if (targetRoles.Contains(RoleConstants.SuperAdmin) && !callerRoles.Contains(RoleConstants.SuperAdmin))
-            throw new InvalidUserOperationException("Admins cannot edit SuperAdmin accounts.");
-
-        // Check email uniqueness if changed
-        if (!string.Equals(admin.Email, command.Email, StringComparison.OrdinalIgnoreCase))
+        if (!RoleHierarchy.IsAdminOrAbove(await userManager.GetRolesAsync(admin)))
         {
-            var existingByEmail = await userManager.FindByEmailAsync(command.Email);
-            if (existingByEmail != null && existingByEmail.Id != admin.Id)
-                throw new InvalidUserOperationException($"Email '{command.Email}' is already in use.");
-            await userManager.SetEmailAsync(admin, command.Email);
+            throw new AdminNotFoundException(command.AdminId);
         }
+
+        await roleHierarchyGuard.EnsureCanManageAsync(callerId, admin, cancellationToken);
+
+        var before = UserAuditSnapshot.Of(admin, await userManager.GetRolesAsync(admin));
+
+        var contactChange = await contactService.ApplyAsync(admin, command.Email, command.PhoneNumber, cancellationToken);
 
         admin.FirstName = command.FirstName;
         admin.LastName = command.LastName;
-        admin.PhoneNumber = command.PhoneNumber;
         admin.UpdatedAt = DateTime.UtcNow;
 
-        await userManager.UpdateAsync(admin);
+        var result = await userManager.UpdateAsync(admin);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new InvalidUserOperationException($"Failed to update admin: {errors}");
+        }
+
+        if (contactChange.Any)
+        {
+            await sessionRevoker.RevokeAllAsync(admin.Id, "Contact details changed by SuperAdmin", cancellationToken);
+        }
 
         var roles = await userManager.GetRolesAsync(admin);
+
+        audit.Record(IdentityAuditActions.AdminUpdated, admin.Id,
+            before: before, after: UserAuditSnapshot.Of(admin, roles), actorId: callerId);
+
         var isLocked = await userManager.IsLockedOutAsync(admin);
         var lockoutEnd = await userManager.GetLockoutEndDateAsync(admin);
 
-        logger.LogInformation("Admin {AdminId} updated by {CallerId}", command.AdminId, callerId);
+        logger.LogInformation("Admin {AdminId} updated by {CallerId}", admin.Id, callerId);
 
         return new AdminDto
         {

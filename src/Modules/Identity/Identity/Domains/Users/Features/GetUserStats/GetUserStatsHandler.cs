@@ -1,5 +1,4 @@
-using Identity.Contracts.Users.Dtos;
-using Identity.Contracts.Users.Queries;
+using UserDirectory.Contracts.Queries;
 
 namespace Identity.Domains.Users.Features.GetUserStats;
 

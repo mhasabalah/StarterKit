@@ -1,13 +1,6 @@
 using Identity.Contracts.Auth.Commands;
-using Identity.Contracts.Auth.Dtos;
-using Identity.Data;
-using Identity.Services.Token;
-using Identity.Options;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Options;
-using System.Security.Cryptography;
-using System.Text;
+using Identity.Domains.Auth.Services;
+using Identity.Services.Phone;
 
 namespace Identity.Domains.Auth.Features.Login;
 
@@ -22,175 +15,78 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
     }
 }
 
+/// <summary>
+/// Password login. When the account has 2FA enabled the password alone never yields a session: the result carries
+/// <c>RequiresTwoFactor</c> + a challenge token for <c>POST /api/auth/2fa/verify</c>.
+/// </summary>
 public class LoginHandler(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
-    IJwtTokenGenerator tokenGenerator,
-    ApplicationIdentityDbContext dbContext,
-    IHttpContextAccessor httpContextAccessor,
-    IDistributedCache cache,
-    IOptions<LoginPolicyOptions> loginPolicyOptions,
-    IOptions<JwtOptions> jwtOptions,
+    ILoginCompletionService loginCompletion,
+    IPhoneNumberNormalizer phoneNormalizer,
     ILogger<LoginHandler> logger)
     : ICommandHandler<LoginCommand, LoginResult>
 {
-    private readonly LoginPolicyOptions _loginPolicy = loginPolicyOptions.Value;
-    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    /// <summary>Same message for unknown user and wrong password (no account enumeration).</summary>
+    public const string InvalidCredentialsMessage = "Invalid credentials";
+
+    private static readonly ApplicationUser DummyUser = new();
+    private static string? _dummyPasswordHash;
 
     public async Task<LoginResult> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
-        var user = await FindUserByIdentifier(command.Identifier);
+        var user = await FindUserByIdentifierAsync(command.Identifier, cancellationToken);
 
-        if (user == null)
+        if (user is null)
         {
-            logger.LogWarning("Login attempt failed: User not found for identifier {Identifier}",
-                command.Identifier);
-            throw new UnauthorizedException("Invalid credentials");
+            // Spend the same time as a real password check so response timing does not reveal the account.
+            RunDummyPasswordCheck(command.Password);
+            logger.LogWarning("Login failed: unknown identifier");
+            throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
-        var result = await signInManager.CheckPasswordSignInAsync(
-            user,
-            command.Password,
-            true);
+        var result = await signInManager.CheckPasswordSignInAsync(user, command.Password, lockoutOnFailure: true);
+
+        if (result.IsLockedOut)
+        {
+            logger.LogWarning("Login failed: user {UserId} is locked out", user.Id);
+            throw new UnauthorizedException("Account is locked out. Please try again later.");
+        }
 
         if (!result.Succeeded)
         {
-            if (result.IsLockedOut)
-            {
-                logger.LogWarning("Login attempt failed: Account locked out for {Identifier}",
-                    command.Identifier);
-                throw new UnauthorizedException("Account is locked out. Please try again later.");
-            }
-
-            logger.LogWarning("Login attempt failed: Invalid password for {Identifier}",
-                command.Identifier);
-            throw new UnauthorizedException("Invalid credentials");
+            logger.LogWarning("Login failed: invalid password for user {UserId}", user.Id);
+            throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
-        var roles = await userManager.GetRolesAsync(user);
-        var userDto = CreateUserDto(user, roles);
-
-        var (shouldBlockLogin, blockReason) = CheckVerificationRequirements(user);
-
-        if (shouldBlockLogin && _loginPolicy.AllowPartialLogin)
+        if (!user.IsActive)
         {
-            logger.LogWarning("User {UserId} logged in but {Reason}", user.Id, blockReason);
-
-            return new LoginResult(
-                null,
-                null,
-                null,
-                userDto,
-                blockReason
-            );
+            logger.LogWarning("Login failed: user {UserId} is deactivated", user.Id);
+            throw new UnauthorizedException("Account is disabled.");
         }
 
-        // Generate tokens
-        var accessToken = await tokenGenerator.GenerateTokenAsync(user);
-        var refreshTokenString = tokenGenerator.GenerateRefreshToken();
-        var refreshTokenHash = ComputeTokenHash(refreshTokenString);
-        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes);
-
-        // Get IP address for audit trail
-        var ipAddress = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString()
-            ?? "unknown";
-
-        // Store refresh token in database
-        var refreshToken = new Models.RefreshToken
+        if (await userManager.GetTwoFactorEnabledAsync(user))
         {
-            Id = Guid.NewGuid(),
-            UserId = user.Id,
-            TokenHash = refreshTokenHash,
-            ExpiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenExpirationDays),
-            CreatedAt = DateTime.UtcNow,
-            CreatedByIp = ipAddress
-        };
+            return await loginCompletion.ChallengeAsync(user, cancellationToken);
+        }
 
-        dbContext.RefreshTokens.Add(refreshToken);
-
-        // Update last login
-        user.LastLoginAt = DateTime.UtcNow;
-        await userManager.UpdateAsync(user);
-
-        // Save changes
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        var message = shouldBlockLogin
-            ? $"Login successful. {blockReason}"
-            : "Login successful";
-
-        logger.LogInformation(
-            "User {UserId} ({Identifier}) logged in successfully from IP {IpAddress}",
-            user.Id,
-            command.Identifier,
-            ipAddress);
-
-        return new LoginResult(
-            accessToken,
-            refreshTokenString,  // Return raw token to client (not hash)
-            expiresAt,
-            userDto,
-            message
-        );
+        return await loginCompletion.CompleteAsync(user, multiFactor: false, cancellationToken);
     }
 
-    private (bool ShouldBlock, string? Reason) CheckVerificationRequirements(ApplicationUser user)
+    private void RunDummyPasswordCheck(string password)
     {
-        if (_loginPolicy.RequireEmailVerification && !user.EmailConfirmed)
-        {
-            return (true, "Please verify your email address to access all features.");
-        }
-
-        if (_loginPolicy.RequirePhoneVerification && !user.IsPhoneNumberVerified)
-        {
-            return (true, "Please verify your phone number to access all features.");
-        }
-
-        if (_loginPolicy.RequireProfileCompletion && !user.IsProfileComplete)
-        {
-            return (true, "Please complete your profile to access all features.");
-        }
-
-        return (false, null);
+        _dummyPasswordHash ??= userManager.PasswordHasher.HashPassword(DummyUser, Guid.NewGuid().ToString("N"));
+        userManager.PasswordHasher.VerifyHashedPassword(DummyUser, _dummyPasswordHash, password);
     }
 
-    private static UserDto CreateUserDto(ApplicationUser user, IList<string> roles)
+    private async Task<ApplicationUser?> FindUserByIdentifierAsync(string identifier, CancellationToken ct)
     {
-        return new UserDto
+        if (identifier.Contains('@'))
         {
-            Id = user.Id,
-            Email = user.Email,
-            PhoneNumber = user.PhoneNumber,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            IsEmailVerified = user.EmailConfirmed,
-            IsPhoneVerified = user.IsPhoneNumberVerified,
-            IsProfileComplete = user.IsProfileComplete,
-            Roles = roles.ToList()
-        };
-    }
-
-    private async Task<ApplicationUser?> FindUserByIdentifier(string identifier)
-    {
-        var user = await userManager.FindByEmailAsync(identifier);
-        if (user != null)
-        {
-            return user;
+            return await userManager.FindByEmailAsync(identifier.Trim());
         }
 
-        user = await userManager.Users
-            .FirstOrDefaultAsync(u => u.PhoneNumber == identifier);
-
-        return user;
-    }
-
-    /// <summary>
-    /// Compute SHA256 hash of token for secure storage
-    /// </summary>
-    private static string ComputeTokenHash(string token)
-    {
-        using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
-        return Convert.ToBase64String(hashBytes);
+        var phone = phoneNormalizer.Normalize(identifier);
+        return phone is null ? null : await userManager.FindByPhoneAsync(phone, ct);
     }
 }

@@ -21,4 +21,12 @@ public record ExternalLoginCallbackResult(
     string? RefreshToken,
     DateTime? ExpiresAt,
     string Message
-);
+)
+{
+    /// <summary>The account has 2FA enabled: no tokens; finish with POST /api/auth/2fa/verify.</summary>
+    public bool RequiresTwoFactor { get; init; }
+
+    public string? TwoFactorChallengeToken { get; init; }
+
+    public DateTime? TwoFactorChallengeExpiresAt { get; init; }
+}

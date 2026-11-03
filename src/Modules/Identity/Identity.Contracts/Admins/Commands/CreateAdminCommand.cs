@@ -1,9 +1,11 @@
+using Identity.Contracts.Audit;
+
 namespace Identity.Contracts.Admins.Commands;
 
 /// <summary>
 /// Command to create a new admin account
 /// </summary>
-public record CreateAdminCommand : ICommand<CreateAdminResult>
+public record CreateAdminCommand : ICommand<CreateAdminResult>, IAuditedCommand
 {
     public string UserName { get; init; } = default!;
     public string Email { get; init; } = default!;

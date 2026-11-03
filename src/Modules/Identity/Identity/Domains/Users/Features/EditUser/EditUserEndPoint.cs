@@ -29,7 +29,7 @@ public class EditUserEndPoint : ICarterModule
                 var response = ApiResponse.Success(result, "User updated successfully");
                 return Results.Ok(response);
             })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.UsersManage)
             .WithName("EditUser")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("User Management")
@@ -40,7 +40,6 @@ public class EditUserEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

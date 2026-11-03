@@ -1,41 +1,44 @@
 using Hangfire;
-using Identity.Contracts.Auth.Dtos;
 using Identity.Contracts.Onboarding.Commands;
-using Identity.Models;
+using Identity.Domains.Auth.Mappings;
 using Identity.Options;
-using Identity.Services.Token;
+using Identity.Services.Otp;
+using Identity.Services.Sessions;
 using Microsoft.Extensions.Options;
-using System.Security.Cryptography;
+using Shared.Core.Web;
 
 namespace Identity.Domains.Onboarding.Features.VerifyPhone;
 
 public class VerifyOnboardingPhoneCommandValidator : AbstractValidator<VerifyOnboardingPhoneCommand>
 {
-    public VerifyOnboardingPhoneCommandValidator()
+    public VerifyOnboardingPhoneCommandValidator(IOptions<PhoneVerificationOptions> phoneOptions)
     {
+        var codeLength = phoneOptions.Value.CodeLength;
+
         RuleFor(x => x.UserId)
             .NotEmpty().WithMessage("UserId is required");
 
         RuleFor(x => x.Code)
             .NotEmpty().WithMessage("Verification code is required")
-            .Length(6).WithMessage("Verification code must be 6 characters.");
+            .Length(codeLength).WithMessage($"Verification code must be {codeLength} characters.");
     }
 }
 
+/// <summary>
+/// Onboarding is the one documented flow that signs the user in after a phone code: the code is checked by the
+/// unified <see cref="IOtpCodeService"/> (purpose OnboardingPhoneVerification: attempt limit, expiry, single use) and the session is issued by
+/// <see cref="IAuthSessionService"/> (persisted, rotating refresh token).
+/// </summary>
 public class VerifyOnboardingPhoneHandler(
     IOnboardingProcessRepository repository,
     UserManager<ApplicationUser> userManager,
-    IVerificationService verificationService,
-    IJwtTokenGenerator tokenGenerator,
-    ApplicationIdentityDbContext dbContext,
-    IHttpContextAccessor httpContextAccessor,
-    IOptions<JwtOptions> jwtOptions,
+    IOtpCodeService otpCodeService,
+    IAuthSessionService sessionService,
+    IHttpContextService httpContextService,
     IBackgroundJobClient backgroundJobClient,
     ILogger<VerifyOnboardingPhoneHandler> logger)
     : ICommandHandler<VerifyOnboardingPhoneCommand, VerifyOnboardingPhoneResult>
 {
-    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
-
     public async Task<VerifyOnboardingPhoneResult> Handle(
         VerifyOnboardingPhoneCommand command,
         CancellationToken cancellationToken)
@@ -57,33 +60,26 @@ public class VerifyOnboardingPhoneHandler(
         if (process.Status != OnboardingStatus.OtpSent)
             throw new BadRequestException("Phone verification is not available in current state.");
 
-        var verificationResult = await verificationService.ValidateCodeAsync(
+        var verification = await otpCodeService.VerifyAsync(
             command.UserId,
+            OtpPurpose.OnboardingPhoneVerification,
             command.Code,
-            VerificationPurpose.PhoneVerification,
             cancellationToken);
 
-        switch (verificationResult)
+        switch (verification.Status)
         {
-            case VerificationResult.NotFound:
-            case VerificationResult.Mismatch:
-                throw new BadRequestException("Invalid verification code.");
-            case VerificationResult.Expired:
-                throw new BadRequestException("Verification code has expired. Please request a new one.");
-            case VerificationResult.AlreadyUsed:
-                throw new BadRequestException("Verification code has already been used.");
-            case VerificationResult.MaxAttemptsReached:
-                throw new BadRequestException("Too many failed attempts. Please request a new code.");
-            case VerificationResult.Success:
+            case OtpVerificationStatus.Success:
                 break;
+            case OtpVerificationStatus.Expired:
+                throw new BadRequestException("Verification code has expired. Please request a new one.");
+            case OtpVerificationStatus.Locked:
+                throw new BadRequestException("Too many failed attempts. Please request a new code.");
             default:
                 throw new BadRequestException("Invalid verification code.");
         }
 
-        // Step 1: Commit phone-verified status first — this is where the race with the
-        // timeout job is decided via optimistic concurrency (xmin).
-        // If the timeout job committed first, xmin has changed and DbUpdateConcurrencyException
-        // is thrown here, before we touch the user entity or issue any tokens.
+        // Step 1: commit phone-verified status first. The race with the timeout job is decided here via
+        // optimistic concurrency: if the timeout committed first, no user change and no tokens.
         process.MarkPhoneVerified();
         try
         {
@@ -94,8 +90,7 @@ public class VerifyOnboardingPhoneHandler(
             throw new BadRequestException("Onboarding has expired. Please register again.");
         }
 
-        // Step 2: Mark the user's phone as verified. The process save above already
-        // committed, so userManager.UpdateAsync only writes the user row.
+        // Step 2: mark the user's phone as verified.
         user.IsPhoneNumberVerified = true;
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdateProfileCompletion();
@@ -107,63 +102,19 @@ public class VerifyOnboardingPhoneHandler(
             throw new BadRequestException($"Failed to update user verification status: {errors}");
         }
 
-        // Step 3: Issue tokens and persist the refresh token.
-        var accessToken = await tokenGenerator.GenerateTokenAsync(user);
-        var refreshTokenString = tokenGenerator.GenerateRefreshToken();
-        var refreshTokenHash = ComputeTokenHash(refreshTokenString);
-        var ipAddress = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        // Step 3: issue the session (the refresh token is persisted by the session service).
+        var session = await sessionService.IssueAsync(user, httpContextService.GetIpAddress(), cancellationToken);
 
-        var refreshToken = new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            UserId = user.Id,
-            TokenHash = refreshTokenHash,
-            ExpiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenExpirationDays),
-            CreatedAt = DateTime.UtcNow,
-            CreatedByIp = ipAddress
-        };
-
-        dbContext.RefreshTokens.Add(refreshToken);
-        await repository.SaveChangesAsync(cancellationToken);
-
-        // Step 4: Cancel the timeout job only after all DB writes have succeeded.
-        // Cancelling before the saves risked deleting the job while leaving the process
-        // in OtpSent with no recovery path if a subsequent save failed.
+        // Step 4: cancel the timeout job only after all DB writes succeeded.
         if (!string.IsNullOrWhiteSpace(process.TimeoutHangfireJobId))
             backgroundJobClient.Delete(process.TimeoutHangfireJobId);
 
         logger.LogInformation("User {UserId} onboarding phone verified successfully", command.UserId);
 
-        var roles = await userManager.GetRolesAsync(user);
-        var userDto = CreateUserDto(user, roles);
-
         return new VerifyOnboardingPhoneResult(
-            accessToken,
-            refreshTokenString,
-            DateTime.UtcNow.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes),
-            userDto);
-    }
-
-    private static string ComputeTokenHash(string token)
-    {
-        using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
-        return Convert.ToBase64String(hashBytes);
-    }
-
-    private static UserDto CreateUserDto(ApplicationUser user, IList<string> roles)
-    {
-        return new UserDto
-        {
-            Id = user.Id,
-            Email = user.Email ?? string.Empty,
-            PhoneNumber = user.PhoneNumber,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            IsEmailVerified = user.EmailConfirmed,
-            IsPhoneVerified = user.IsPhoneNumberVerified,
-            IsProfileComplete = user.IsProfileComplete,
-            Roles = roles.ToList()
-        };
+            session.AccessToken,
+            session.RefreshToken,
+            session.AccessTokenExpiresAt,
+            AuthUserDtoFactory.Create(user, session.Roles));
     }
 }

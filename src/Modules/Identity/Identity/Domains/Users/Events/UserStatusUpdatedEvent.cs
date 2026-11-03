@@ -1,4 +1,4 @@
-using Shared.Core.DDD;
+using Shared.Contracts.Events;
 
 namespace Identity.Domains.Users.Events;
 

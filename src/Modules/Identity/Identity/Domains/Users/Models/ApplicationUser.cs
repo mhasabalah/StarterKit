@@ -11,15 +11,17 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? ProfilePictureUrl { get; set; }
+
+    /// <summary>Tenant of the user's last tenant session; preferred at the next login (multi-tenancy).</summary>
+    public Guid? LastActiveTenantId { get; set; }
     
     // OAuth provider information
     public string? OAuthProvider { get; set; }  // Google, Facebook, None
     public string? OAuthProviderId { get; set; }
     
-    // Phone verification (Identity handles phone, but we track verification)
+    // Phone verification (Identity handles phone, but we track verification).
+    // OTP codes are NOT stored on the user: see Identity.Services.Otp (HMAC-hashed, attempt-limited).
     public bool IsPhoneNumberVerified { get; set; }
-    public string? PhoneVerificationCode { get; set; }
-    public DateTime? PhoneVerificationCodeExpiry { get; set; }
     
     /// <summary>
     /// Domain suffix for placeholder emails assigned to phone-only registrations.

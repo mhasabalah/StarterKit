@@ -1,20 +1,26 @@
+using Identity.Services.Token;
+
 namespace Identity.Infrastructure;
 
+/// <summary>
+/// While a token carries <c>must_change_password=true</c> (e.g. the seeded SuperAdmin), only the endpoints needed to
+/// change the password or end the session are reachable. Paths match the routes the Carter modules actually map.
+/// </summary>
 public class MustChangePasswordMiddleware(RequestDelegate next)
 {
-    private static readonly string[] AllowedPaths =
+    public static readonly string[] AllowedPaths =
     [
-        "/api/v1/auth/reset-password",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/logout"
+        "/api/auth/change-password",
+        "/api/auth/reset-password",
+        "/api/auth/refresh",
+        "/api/auth/logout"
     ];
 
     public async Task InvokeAsync(HttpContext context)
     {
         if (context.User.Identity?.IsAuthenticated == true
-            && context.User.FindFirst("must_change_password")?.Value == "true"
-            && !AllowedPaths.Any(p =>
-                context.Request.Path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)))
+            && context.User.FindFirst(IdentityClaimTypes.MustChangePassword)?.Value == "true"
+            && !IsAllowed(context.Request.Path))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsJsonAsync(new
@@ -27,4 +33,7 @@ public class MustChangePasswordMiddleware(RequestDelegate next)
 
         await next(context);
     }
+
+    public static bool IsAllowed(PathString path) =>
+        AllowedPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
 }

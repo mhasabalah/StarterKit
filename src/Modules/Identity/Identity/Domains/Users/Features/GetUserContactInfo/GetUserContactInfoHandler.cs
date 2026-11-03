@@ -1,4 +1,4 @@
-using Identity.Contracts.Users.Queries;
+using UserDirectory.Contracts.Queries;
 using Microsoft.AspNetCore.Identity;
 
 namespace Identity.Domains.Users.Features.GetUserContactInfo;

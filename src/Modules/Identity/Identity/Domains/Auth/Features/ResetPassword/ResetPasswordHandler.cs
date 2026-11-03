@@ -1,4 +1,6 @@
 using Identity.Contracts.Auth.Commands;
+using Identity.Domains.Auth.Validation;
+using Identity.Services.Sessions;
 
 namespace Identity.Domains.Auth.Features.ResetPassword;
 
@@ -18,13 +20,7 @@ public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordComm
         RuleFor(x => x.Token)
             .NotEmpty().WithMessage("Reset token is required");
 
-        RuleFor(x => x.NewPassword)
-            .NotEmpty().WithMessage("Password is required")
-            .MinimumLength(8).WithMessage("Password must be at least 8 characters")
-            .Matches(@"[A-Z]").WithMessage("Password must contain an uppercase letter")
-            .Matches(@"[a-z]").WithMessage("Password must contain a lowercase letter")
-            .Matches(@"[0-9]").WithMessage("Password must contain a digit")
-            .Matches(@"[\W_]").WithMessage("Password must contain a special character");
+        RuleFor(x => x.NewPassword).ApplyPasswordRules();
 
         RuleFor(x => x.ConfirmPassword)
             .Equal(x => x.NewPassword).WithMessage("Passwords do not match");
@@ -33,27 +29,22 @@ public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordComm
 
 public class ResetPasswordHandler(
     UserManager<ApplicationUser> userManager,
+    ISessionRevoker sessionRevoker,
     ILogger<ResetPasswordHandler> logger)
     : ICommandHandler<ResetPasswordCommand, ResetPasswordResult>
 {
-    public async Task<ResetPasswordResult> Handle(
-        ResetPasswordCommand command, CancellationToken cancellationToken)
-    {
-        var user = await FindUserAsync(command);
+    public const string InvalidTokenMessage = "Invalid or expired reset token.";
 
-        if (user is null)
-        {
-            // Do not reveal whether the userId is valid
-            throw new BadRequestException("Invalid or expired reset token.");
-        }
+    public async Task<ResetPasswordResult> Handle(ResetPasswordCommand command, CancellationToken cancellationToken)
+    {
+        var user = await FindUserAsync(command)
+                   ?? throw new BadRequestException(InvalidTokenMessage);
 
         var result = await userManager.ResetPasswordAsync(user, command.Token, command.NewPassword);
-
         if (!result.Succeeded)
         {
             logger.LogWarning("Password reset failed for user {UserId}", user.Id);
-            // Return generic message — do not expose Identity error details to client
-            throw new BadRequestException("Invalid or expired reset token.");
+            throw new BadRequestException(InvalidTokenMessage);
         }
 
         if (user.MustChangePasswordOnNextLogin)
@@ -62,10 +53,12 @@ public class ResetPasswordHandler(
             await userManager.UpdateAsync(user);
         }
 
+        // Whoever had the old password (or a stolen session) is signed out everywhere.
+        await sessionRevoker.RevokeAllAsync(user.Id, "Password reset", cancellationToken);
+
         logger.LogInformation("Password reset completed for user {UserId}", user.Id);
 
-        return new ResetPasswordResult(
-            "Password reset successfully. You can now log in with your new password.");
+        return new ResetPasswordResult("Password reset successfully. You can now log in with your new password.");
     }
 
     private async Task<ApplicationUser?> FindUserAsync(ResetPasswordCommand command)

@@ -1,9 +1,11 @@
+using Identity.Contracts.Audit;
+
 namespace Identity.Contracts.Admins.Commands;
 
 /// <summary>
 /// Command to promote a user to admin
 /// </summary>
-public record PromoteToAdminCommand : ICommand<PromoteToAdminResult>
+public record PromoteToAdminCommand : ICommand<PromoteToAdminResult>, IAuditedCommand
 {
     public Guid UserId { get; init; }
     public bool MakeSuperAdmin { get; init; }

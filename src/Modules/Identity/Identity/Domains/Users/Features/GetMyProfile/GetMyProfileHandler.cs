@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Users.Dtos;
 using Identity.Contracts.Users.Queries;
 using Identity.Domains.Users.Exceptions;
@@ -33,6 +34,7 @@ public class GetMyProfileHandler(
             ProfilePictureUrl = user.ProfilePictureUrl,
             IsProfileComplete = user.IsProfileComplete,
             Roles = roles.ToList(),
+            Permissions = RolePermissionMap.For(roles),
             CreatedAt = user.CreatedAt
         };
     }

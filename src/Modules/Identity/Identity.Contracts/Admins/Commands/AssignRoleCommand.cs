@@ -1,9 +1,11 @@
+using Identity.Contracts.Audit;
+
 namespace Identity.Contracts.Admins.Commands;
 
 /// <summary>
 /// Command to assign a role to a user
 /// </summary>
-public record AssignRoleCommand : ICommand<AssignRoleResult>
+public record AssignRoleCommand : ICommand<AssignRoleResult>, IAuditedCommand
 {
     public Guid UserId { get; init; }
     public string RoleName { get; init; } = default!;

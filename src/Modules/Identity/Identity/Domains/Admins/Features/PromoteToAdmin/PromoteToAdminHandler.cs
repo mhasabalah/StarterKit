@@ -1,9 +1,10 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Admins.Commands;
 using Identity.Domains.Admins.Events;
-using Identity.Domains.Roles.Constants;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 
 namespace Identity.Domains.Admins.Features.PromoteToAdmin;
 
@@ -14,13 +15,13 @@ public class PromoteToAdminCommandValidator : AbstractValidator<PromoteToAdminCo
         RuleFor(x => x.UserId)
             .NotEmpty()
             .WithMessage("User ID is required");
-            
+
         RuleFor(x => x.Reason)
             .NotEmpty()
             .MinimumLength(10)
             .MaximumLength(500)
             .WithMessage("Reason must be between 10 and 500 characters");
-            
+
         RuleFor(x => x.PromotedByAdminId)
             .NotEmpty()
             .WithMessage("Admin ID is required");
@@ -29,100 +30,65 @@ public class PromoteToAdminCommandValidator : AbstractValidator<PromoteToAdminCo
 
 public class PromoteToAdminHandler(
     UserManager<ApplicationUser> userManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    ISessionRevoker sessionRevoker,
     IPublisher publisher,
+    IIdentityAuditWriter audit,
     ILogger<PromoteToAdminHandler> logger)
     : ICommandHandler<PromoteToAdminCommand, PromoteToAdminResult>
 {
-    public async Task<PromoteToAdminResult> Handle(
-        PromoteToAdminCommand command,
-        CancellationToken cancellationToken)
+    public async Task<PromoteToAdminResult> Handle(PromoteToAdminCommand command, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Promoting user {UserId} to {AdminType} by {PromotedBy}",
-            command.UserId,
-            command.MakeSuperAdmin ? "SuperAdmin" : "Admin",
-            command.PromotedByAdminId);
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new UserNotFoundException(command.UserId);
 
-        // Validate user exists
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-        if (user == null)
-        {
-            logger.LogWarning("User not found: {UserId}", command.UserId);
-            throw new UserNotFoundException(command.UserId);
-        }
+        await roleHierarchyGuard.EnsureIsSuperAdminAsync(command.PromotedByAdminId, cancellationToken);
+        await roleHierarchyGuard.EnsureCanManageAsync(command.PromotedByAdminId, user, cancellationToken);
 
-        // Validate promoter exists and is SuperAdmin
-        var promoter = await userManager.FindByIdAsync(command.PromotedByAdminId.ToString());
-        if (promoter == null)
-        {
-            throw new UserNotFoundException(command.PromotedByAdminId);
-        }
-
-        var promoterRoles = await userManager.GetRolesAsync(promoter);
-        if (!promoterRoles.Contains(RoleConstants.SuperAdmin))
-        {
-            throw new InvalidUserOperationException(
-                "Only SuperAdmin can promote users to admin");
-        }
-
-        // Check current roles
         var currentRoles = await userManager.GetRolesAsync(user);
-        
-        // Check if already admin
+
         if (currentRoles.Contains(RoleConstants.Admin))
         {
             if (command.MakeSuperAdmin && currentRoles.Contains(RoleConstants.SuperAdmin))
             {
                 throw new InvalidUserOperationException("User is already a SuperAdmin");
             }
+
             if (!command.MakeSuperAdmin)
             {
                 throw new InvalidUserOperationException("User is already an Admin");
             }
         }
 
-        // Ensure User role exists
-        if (!currentRoles.Contains(RoleConstants.User))
+        var rolesToAdd = new List<string> { RoleConstants.User, RoleConstants.Admin };
+        if (command.MakeSuperAdmin)
         {
-            await userManager.AddToRoleAsync(user, RoleConstants.User);
+            rolesToAdd.Add(RoleConstants.SuperAdmin);
         }
 
-        // Add Admin role
-        if (!currentRoles.Contains(RoleConstants.Admin))
+        foreach (var role in rolesToAdd.Where(r => !currentRoles.Contains(r)))
         {
-            var addAdminResult = await userManager.AddToRoleAsync(user, RoleConstants.Admin);
-            if (!addAdminResult.Succeeded)
+            var result = await userManager.AddToRoleAsync(user, role);
+            if (!result.Succeeded)
             {
-                var errors = string.Join(", ", addAdminResult.Errors.Select(e => e.Description));
-                return new PromoteToAdminResult(
-                    false,
-                    $"Failed to promote to Admin: {errors}",
-                    currentRoles.ToList());
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return new PromoteToAdminResult(false, $"Failed to promote to {role}: {errors}", currentRoles.ToList());
             }
         }
 
-        // Add SuperAdmin role if requested
-        if (command.MakeSuperAdmin && !currentRoles.Contains(RoleConstants.SuperAdmin))
-        {
-            var addSuperResult = await userManager.AddToRoleAsync(user, RoleConstants.SuperAdmin);
-            if (!addSuperResult.Succeeded)
-            {
-                var errors = string.Join(", ", addSuperResult.Errors.Select(e => e.Description));
-                return new PromoteToAdminResult(
-                    false,
-                    $"Failed to promote to SuperAdmin: {errors}",
-                    currentRoles.ToList());
-            }
-        }
-
-        // Update user timestamp
         user.UpdatedAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
 
-        // Get updated roles
+        // Live tokens carry the old role set: end every session (rotates the security stamp) so the promotion takes
+        // effect now and the admin session starts from a fresh login (and its 2FA step).
+        await sessionRevoker.RevokeAllAsync(user.Id, "Promoted to admin", cancellationToken);
+
         var newRoles = await userManager.GetRolesAsync(user);
 
-        // Raise domain event
+        audit.Record(IdentityAuditActions.AdminPromoted, user.Id, reason: command.Reason,
+            before: UserAuditSnapshot.Of(user, currentRoles), after: UserAuditSnapshot.Of(user, newRoles),
+            actorId: command.PromotedByAdminId);
+
         await publisher.Publish(new UserPromotedToAdminEvent
         {
             UserId = user.Id,
@@ -132,9 +98,8 @@ public class PromoteToAdminHandler(
         }, cancellationToken);
 
         logger.LogInformation(
-            "User {UserId} promoted successfully to {AdminType}",
-            command.UserId,
-            command.MakeSuperAdmin ? "SuperAdmin" : "Admin");
+            "User {UserId} promoted to {AdminType} by {PromotedBy}",
+            user.Id, command.MakeSuperAdmin ? RoleConstants.SuperAdmin : RoleConstants.Admin, command.PromotedByAdminId);
 
         var message = command.MakeSuperAdmin
             ? $"User promoted to SuperAdmin successfully. Reason: {command.Reason}"

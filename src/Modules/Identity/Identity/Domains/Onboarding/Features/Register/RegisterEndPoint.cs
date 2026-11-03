@@ -18,9 +18,8 @@ public class RegisterEndPoint : ICarterModule
             .Produces<RegisterOnboardingResult>(200)
             .ProducesProblem(400)
             .ProducesProblem(409)
-            .WithOpenApi()
             .AllowAnonymous()
-            .RequireRateLimiting("create")
+            .RequireRateLimiting("otp")
             .HasApiVersion(1.0);
     }
 }
