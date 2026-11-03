@@ -5,7 +5,7 @@ using QuestPDF.Infrastructure;
 namespace Subscriptions.Domains.Subscriptions.Services;
 
 /// <summary>
-/// QuestPDF layout for a subscription invoice. Pure presentation:
+/// QuestPDF layout for a subscription invoice or credit note. Pure presentation:
 /// it depends only on <see cref="InvoicePdfModel"/>, never on EF entities,
 /// so it can be rendered and asserted on in unit tests.
 /// </summary>
@@ -23,8 +23,8 @@ public sealed class InvoiceDocument(InvoicePdfModel model) : IDocument
             page.Margin(50, QuestPDF.Infrastructure.Unit.Point);
             page.DefaultTextStyle(x => x
                 .FontSize(11)
-                .FontFamily(Fonts.Lato)
-                .Fallback(f => f.FontFamily(PdfConfiguration.ArabicFontFamily)));
+                // Primary Latin font, then the embedded Arabic font as fallback (QuestPDF 2024.3+ API).
+                .FontFamily("Lato", PdfConfiguration.ArabicFontFamily));
 
             page.Content().Column(column =>
             {
@@ -52,7 +52,7 @@ public sealed class InvoiceDocument(InvoicePdfModel model) : IDocument
                         });
                         row.RelativeItem().AlignRight().Column(col =>
                         {
-                            col.Item().Text("INVOICE")
+                            col.Item().Text(model.IsCreditNote ? "CREDIT NOTE" : "INVOICE")
                                 .Bold().FontSize(18).FontColor("#ffffff");
                             col.Item().Text(model.InvoiceNumber)
                                 .FontSize(12).FontColor("#94a3b8");
@@ -126,19 +126,16 @@ public sealed class InvoiceDocument(InvoicePdfModel model) : IDocument
                     table.Cell().Padding(4).Text("Subtotal (excl. VAT)");
                     table.Cell().Padding(4).AlignRight().Text($"{model.NetAmount:F2} {model.Currency}");
 
-                    table.Cell().Padding(4).Text($"VAT ({model.VatPercent}%)").FontColor("#64748b");
+                    table.Cell().Padding(4).Text($"VAT ({model.TaxRateLabel})").FontColor("#64748b");
                     table.Cell().Padding(4).AlignRight().Text($"{model.TaxAmount:F2} {model.Currency}").FontColor("#64748b");
 
                     table.Cell().Padding(4).Text("Total").Bold().FontSize(14).FontColor("#0f172a");
                     table.Cell().Padding(4).AlignRight().Text($"{model.TotalAmount:F2} {model.Currency}").Bold().FontSize(14).FontColor("#0f172a");
                 });
 
-                if (model.IsDeferred)
-                {
-                    column.Item().AlignRight()
-                        .Text("* Deferred — will be collected at next renewal")
-                        .Italic().FontSize(9).FontColor("#94a3b8");
-                }
+                column.Item().AlignRight()
+                    .Text(model.PricesIncludeTax ? "Prices include VAT" : "VAT added to net prices")
+                    .Italic().FontSize(9).FontColor("#94a3b8");
 
                 column.Item().LineHorizontal(1).LineColor("#e2e8f0");
 

@@ -9,5 +9,9 @@ public enum InvoiceType
     Renewal = 1,
 
     [LocalizedDescription("Proration", "تسوية جزئية")]
-    Proration = 2
+    Proration = 2,
+
+    /// <summary>Negative document linked to an original invoice (refund, upgrade revert, admin correction).</summary>
+    [LocalizedDescription("Credit Note", "إشعار دائن")]
+    CreditNote = 3
 }

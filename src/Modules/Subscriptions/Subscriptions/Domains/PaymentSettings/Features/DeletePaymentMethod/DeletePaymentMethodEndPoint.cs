@@ -12,12 +12,11 @@ public class DeletePaymentMethodEndPoint : ICarterModule
                     await sender.Send(new DeletePaymentMethodCommand(id), ct);
                     return Results.Ok(ApiResponseExtensions.Success("Payment method deleted successfully"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PaymentSettingsManage)
             .WithName("DeletePaymentMethod")
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

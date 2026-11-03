@@ -26,8 +26,8 @@ public static class PdfConfiguration
             if (_configured) return;
 
             QuestPDF.Settings.License = LicenseType.Community;
-            QuestPDF.Settings.UseEnvironmentFonts = false;
-            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+            QuestPDF.Settings.UseSystemFonts = false;
+            QuestPDF.Settings.ThrowOnMissingTextGlyphs = false;
 
             FontManager.RegisterFontFromEmbeddedResource(
                 "Subscriptions.Resources.Fonts.NotoSansArabic-Regular.ttf");

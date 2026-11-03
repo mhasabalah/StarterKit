@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Subscriptions.Contracts.Subscriptions.Commands;
-using Subscriptions.Domains.Plans.Exceptions;
+using Subscriptions.Domains.Subscriptions.Services;
+using Subscriptions.Options;
 
 namespace Subscriptions.Domains.Subscriptions.Features.CreateSubscription;
 
@@ -13,20 +13,23 @@ public class CreateSubscriptionCommandValidator : AbstractValidator<CreateSubscr
     }
 }
 
+/// <summary>
+/// Creates a PendingApproval subscription + its activation payment. The pre-check gives a friendly 409; the filtered
+/// unique index (one open subscription per subscriber) makes concurrent creates safe (the loser gets a 409 too).
+/// </summary>
 public class CreateSubscriptionHandler(
     IPlanRepository planRepository,
     ISubscriptionRepository subscriptionRepository,
-    SubscriptionsDbContext dbContext)
+    SubscriptionsDbContext dbContext,
+    ISubscriberInfoProvider subscriberInfoProvider,
+    IOptions<SubscriptionOptions> options)
     : ICommandHandler<CreateSubscriptionCommand, CreateSubscriptionResult>
 {
     public async Task<CreateSubscriptionResult> Handle(
         CreateSubscriptionCommand command,
         CancellationToken cancellationToken)
     {
-        var hasActive = await subscriptionRepository.HasActiveSubscriptionAsync(
-            command.SubscriberId,
-            cancellationToken);
-        if (hasActive)
+        if (await subscriptionRepository.HasOpenSubscriptionAsync(command.SubscriberId, cancellationToken))
         {
             throw new ActiveSubscriptionAlreadyExistsException();
         }
@@ -37,33 +40,33 @@ public class CreateSubscriptionHandler(
             throw new PlanNotFoundException(command.PlanId);
         }
 
-        var featuresJson = JsonSerializer.Serialize(
-            plan.Features.ToDictionary(x => x.Key, _ => "true"));
-        var idempotencyToken = Guid.NewGuid().ToString();
-        var subscription = Subscription.Create(command.SubscriberId, plan, featuresJson, idempotencyToken);
-        var payment = SubscriptionPayment.Create(subscription.Id, plan.Price, plan.Currency);
-        subscription.AddPayment(payment);
+        var now = DateTimeOffset.UtcNow;
+        var price = PricingPolicy.PlanPriceAt(plan, now);
+        var amountDue = TaxCalculator.AmountDue(price, options.Value.Tax.ToPolicy());
+
+        var subscription = Subscription.Create(command.SubscriberId, PlanSnapshot.From(plan, price), amountDue, now);
+        var payment = subscription.ActivationPayment;
+        await PaymentSettlementService.RefreshSubscriberSnapshotAsync(subscriberInfoProvider, subscription, cancellationToken);
 
         await subscriptionRepository.AddAsync(subscription, cancellationToken);
-        await dbContext.TransitionLogs.AddAsync(
-            SubscriptionTransitionLog.Create(
-                subscription.Id,
-                command.SubscriberId,
-                null,
-                SubscriptionStatus.PendingApproval,
-                command.SubscriberId,
-                "Subscriber",
-                null),
-            cancellationToken);
+        dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
+            subscription.Id,
+            command.SubscriberId,
+            null,
+            SubscriptionStatus.PendingApproval,
+            command.SubscriberId,
+            "Subscriber",
+            null));
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CreateSubscriptionResult(
             subscription.Id,
-            idempotencyToken,
+            payment.Id,
             subscription.Status.ToString(),
             subscription.PlanName,
             subscription.Price,
+            payment.Amount,
             subscription.Currency,
             subscription.BillingCycleInMonths);
     }

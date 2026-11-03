@@ -18,7 +18,7 @@ public class GetMySubscriptionHandler(SubscriptionsDbContext dbContext)
             {
                 Subscription = x,
                 LatestPayment = x.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault(),
-                ScheduledChange = x.ScheduledPlanChange
+                ScheduledChange = x.ScheduledPlanChanges.FirstOrDefault(c => c.Status == PlanChangeStatus.Pending)
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -76,6 +76,9 @@ public class GetMySubscriptionHandler(SubscriptionsDbContext dbContext)
             subscription.Subscription.ScheduledCancellationDate,
             subscription.Subscription.CancellationReason?.ToString(),
             plan?.PendingPrice,
-            plan?.PriceEffectiveAt);
+            plan?.PriceEffectiveAt,
+            subscription.Subscription.CurrentPeriodStart,
+            subscription.Subscription.DeferredProrationAmount,
+            subscription.Subscription.Version);
     }
 }

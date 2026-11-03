@@ -15,12 +15,11 @@ public class GetPaymentByIdEndPoint : ICarterModule
                         ? ApiResponseExtensions.NotFound("Payment not found")
                         : Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRead)
             .WithName("GetPaymentById")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<AdminPaymentDto>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

@@ -7,6 +7,7 @@ using Subscriptions.Data.Repositories;
 using Subscriptions.Domains.Plans.Features.AddPlanFeature;
 using Subscriptions.Domains.Plans.Features.DeletePlanFeature;
 using Subscriptions.Domains.Plans.Models;
+using Subscriptions.Domains.Subscriptions.Services;
 using Xunit;
 
 namespace Subscriptions.Tests;
@@ -34,7 +35,7 @@ public class PlanFeatureToggleTests
         await dbContext.SaveChangesAsync();
 
         dbContext.ChangeTracker.Clear();
-        var handler = new AddPlanFeatureHandler(dbContext);
+        var handler = new AddPlanFeatureHandler(dbContext, new NullAdminAuditWriter());
 
         await handler.Handle(new AddPlanFeatureCommand(plan.Id, "analytics"), CancellationToken.None);
 
@@ -64,7 +65,7 @@ public class PlanFeatureToggleTests
         await dbContext.SaveChangesAsync();
 
         dbContext.ChangeTracker.Clear();
-        var handler = new DeletePlanFeatureHandler(dbContext);
+        var handler = new DeletePlanFeatureHandler(dbContext, new NullAdminAuditWriter());
 
         await handler.Handle(new DeletePlanFeatureCommand(plan.Id, "analytics"), CancellationToken.None);
 
@@ -80,5 +81,22 @@ public class PlanFeatureToggleTests
             .Options;
 
         return new SubscriptionsDbContext(options);
+    }
+}
+
+internal sealed class NullAdminAuditWriter : IAdminAuditWriter
+{
+    public void Record(
+        string action,
+        Guid targetId,
+        string targetType,
+        Guid subscriberId = default,
+        string? reason = null,
+        decimal? amount = null,
+        string? currency = null,
+        object? before = null,
+        object? after = null,
+        Guid? adminId = null)
+    {
     }
 }

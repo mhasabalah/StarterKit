@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscribers;
 namespace Subscriptions.Domains.Subscriptions.Features.GetMySubscriptionInvoices;
 
 public class GetMySubscriptionInvoicesEndPoint : ICarterModule
@@ -7,11 +8,11 @@ public class GetMySubscriptionInvoicesEndPoint : ICarterModule
         app.MapGet(EndpointConfig.BaseApiPath + "/subscriptions/me/invoices",
                 async (
                     [AsParameters] GetMySubscriptionInvoicesQuery query,
-                    IHttpContextService httpContextService,
+                    IHttpContextService httpContextService, ISubscriberIdProvider subscribers,
                     ISender sender,
                     CancellationToken ct) =>
                 {
-                    var subscriberId = httpContextService.GetUserIdAsGuid()
+                    var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
 
                     var result = await sender.Send(query with { SubscriberId = subscriberId }, ct);
@@ -26,7 +27,6 @@ public class GetMySubscriptionInvoicesEndPoint : ICarterModule
             .Produces(StatusCodes.Status401Unauthorized)
             .WithSummary("Get My Subscription Invoices")
             .WithDescription("Returns paginated invoices for the authenticated subscriber's active subscription.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

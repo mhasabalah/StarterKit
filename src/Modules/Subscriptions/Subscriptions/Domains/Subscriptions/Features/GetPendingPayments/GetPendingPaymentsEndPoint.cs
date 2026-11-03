@@ -13,7 +13,7 @@ public class GetPendingPaymentsEndPoint : ICarterModule
                     var result = await sender.Send(query, ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRead)
             .RequireRateLimiting("search")
             .WithName("GetPendingPayments")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
@@ -24,7 +24,6 @@ public class GetPendingPaymentsEndPoint : ICarterModule
             .Produces(StatusCodes.Status403Forbidden)
             .WithSummary("Get Pending Payments")
             .WithDescription("Retrieve paginated list of submitted payments awaiting admin review. Admin only.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

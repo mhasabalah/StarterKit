@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.ScheduleDowngrade;
@@ -11,11 +12,11 @@ public class ScheduleDowngradeEndPoint : ICarterModule
         app.MapPost(EndpointConfig.BaseApiPath + "/subscriptions/{id:guid}/schedule-downgrade",
                 async (Guid id,
                     ScheduleDowngradeRequest request,
-                    IHttpContextService httpContextService,
+                    IHttpContextService httpContextService, ISubscriberIdProvider subscribers,
                     ISender sender,
                     CancellationToken ct) =>
                 {
-                    var subscriberId = httpContextService.GetUserIdAsGuid()
+                    var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
                     var result = await sender.Send(
                         new ScheduleDowngradeCommand(id, subscriberId, request.NewPlanId), ct);
@@ -27,7 +28,6 @@ public class ScheduleDowngradeEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<ScheduleDowngradeResult>>(StatusCodes.Status201Created)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

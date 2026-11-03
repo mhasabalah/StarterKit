@@ -12,13 +12,12 @@ public class UpdatePlanEndPoint : ICarterModule
                     await sender.Send(command with { PlanId = id }, ct);
                     return Results.Ok(ApiResponseExtensions.Success("Updated"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("UpdatePlan")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status409Conflict)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

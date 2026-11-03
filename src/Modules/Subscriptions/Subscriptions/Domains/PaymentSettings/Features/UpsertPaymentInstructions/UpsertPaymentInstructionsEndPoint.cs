@@ -12,12 +12,11 @@ public class UpsertPaymentInstructionsEndPoint : ICarterModule
                     await sender.Send(command, ct);
                     return Results.Ok(ApiResponseExtensions.Success("Payment instructions updated successfully"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PaymentSettingsManage)
             .WithName("UpsertPaymentInstructions")
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

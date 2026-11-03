@@ -15,5 +15,9 @@ public enum PaymentStatus
     Failed = 3,
 
     [LocalizedDescription("Rejected", "مرفوض")]
-    Rejected = 4
+    Rejected = 4,
+
+    /// <summary>Part of the amount was received (manual/offline receipts); the rest is still owed.</summary>
+    [LocalizedDescription("Partially paid", "مدفوع جزئياً")]
+    PartiallyPaid = 5
 }

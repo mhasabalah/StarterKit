@@ -12,9 +12,11 @@ public class RetryInvoiceCommandValidator : AbstractValidator<RetryInvoiceComman
     }
 }
 
+/// <summary>Re-queues PDF generation + email for an invoice that has not been delivered yet.</summary>
 public class RetryInvoiceHandler(
     SubscriptionsDbContext dbContext,
-    IInvoiceService invoiceService)
+    IInvoiceIssuer invoiceIssuer,
+    IAdminAuditWriter audit)
     : ICommandHandler<RetryInvoiceCommand, Unit>
 {
     public async Task<Unit> Handle(RetryInvoiceCommand command, CancellationToken cancellationToken)
@@ -23,18 +25,25 @@ public class RetryInvoiceHandler(
             .FirstOrDefaultAsync(x => x.Id == command.InvoiceId, cancellationToken)
             ?? throw new NotFoundException($"Invoice {command.InvoiceId} not found.");
 
-        if (invoice.IsVoided)
-            throw new ConflictException("Cannot retry a voided invoice.");
-
         if (invoice.Status == InvoiceStatus.Sent)
-            throw new ConflictException("Invoice has already been sent successfully.");
+            throw new ConflictException("Invoice has already been sent successfully. Use resend instead.");
 
-        var subscription = await dbContext.Subscriptions
-            .Include(x => x.Invoices)
-            .FirstOrDefaultAsync(x => x.Id == invoice.SubscriptionId, cancellationToken)
-            ?? throw new SubscriptionNotFoundException(invoice.SubscriptionId);
+        var before = invoice.Status;
+        invoice.ResetForRetry();
 
-        await invoiceService.RetryAsync(invoice, subscription, cancellationToken);
+        audit.Record(
+            "RetryInvoice",
+            invoice.Id,
+            "Invoice",
+            invoice.SubscriberId,
+            amount: invoice.TotalAmount,
+            currency: invoice.Currency,
+            before: new { Status = before.ToString(), invoice.RetryCount },
+            after: new { Status = invoice.Status.ToString() },
+            adminId: command.AdminId);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        invoiceIssuer.EnqueueDelivery(invoice.Id);
         return Unit.Value;
     }
 }

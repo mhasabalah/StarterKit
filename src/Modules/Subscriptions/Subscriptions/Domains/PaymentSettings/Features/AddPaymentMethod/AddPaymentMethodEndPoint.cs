@@ -14,12 +14,11 @@ public class AddPaymentMethodEndPoint : ICarterModule
                         $"{EndpointConfig.BaseApiPath}/admin/payment-methods/{id}",
                         ApiResponseExtensions.Success(new { id }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PaymentSettingsManage)
             .WithName("AddPaymentMethod")
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces(StatusCodes.Status201Created)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

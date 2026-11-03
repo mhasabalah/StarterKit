@@ -39,9 +39,21 @@ public class GetPastDueSubscriptionsHandler(SubscriptionsDbContext dbContext)
                 ? (x.GracePeriodEndsAt.Value.UtcDateTime - DateTime.UtcNow).Days
                 : 0,
             x.Payments
+                .Where(p => p.Purpose == PaymentPurpose.Renewal)
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => p.Status.ToString())
-                .FirstOrDefault() ?? PaymentStatus.Pending.ToString()));
+                .FirstOrDefault() ?? PaymentStatus.Pending.ToString(),
+            x.Payments
+                .Where(p => p.Purpose == PaymentPurpose.Renewal)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => (Guid?)p.Id)
+                .FirstOrDefault(),
+            x.Payments
+                .Where(p => p.Purpose == PaymentPurpose.Renewal)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => (decimal?)p.Amount)
+                .FirstOrDefault(),
+            x.Version));
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }

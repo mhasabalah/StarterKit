@@ -61,14 +61,7 @@ internal static class SubscriptionCacheSerializer
             return payload.Features;
         }
 
-        try
-        {
-            return JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions) ?? [];
-        }
-        catch
-        {
-            return [];
-        }
+        return FeaturesJson.Deserialize(json);
     }
 
     public static SubscriptionCachePayload CreatePayload(

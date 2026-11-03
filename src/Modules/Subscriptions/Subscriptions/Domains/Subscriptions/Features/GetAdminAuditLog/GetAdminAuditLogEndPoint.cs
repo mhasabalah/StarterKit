@@ -13,7 +13,7 @@ public class GetAdminAuditLogEndPoint : ICarterModule
                     var result = await sender.Send(query, ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(policy => policy.RequireRole(RoleConstants.SuperAdmin))
+            .RequirePermission(Permissions.AuditRead)
             .RequireRateLimiting("search")
             .WithName("GetAdminAuditLog")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
@@ -23,8 +23,7 @@ public class GetAdminAuditLogEndPoint : ICarterModule
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithSummary("Get Admin Audit Log")
-            .WithDescription("Retrieve paginated audit log of admin actions on subscriptions. SuperAdmin only.")
-            .WithOpenApi()
+            .WithDescription("Retrieve paginated audit log of admin actions on subscriptions. Requires audit.read.")
             .HasApiVersion(1.0);
     }
 }

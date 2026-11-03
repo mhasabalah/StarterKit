@@ -13,7 +13,7 @@ public class GetPastDueSubscriptionsEndPoint : ICarterModule
                     var result = await sender.Send(query, ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRead)
             .RequireRateLimiting("search")
             .WithName("GetPastDueSubscriptions")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
@@ -24,7 +24,6 @@ public class GetPastDueSubscriptionsEndPoint : ICarterModule
             .Produces(StatusCodes.Status403Forbidden)
             .WithSummary("Get Past-Due Subscriptions")
             .WithDescription("Retrieve paginated list of subscriptions in the grace period. Admin only.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

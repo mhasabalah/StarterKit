@@ -28,10 +28,11 @@ public class GetPaymentProofHandler(
         if (!query.IsAdmin && paymentData.SubscriberId != query.ActorId)
             throw new ForbiddenException("You are not allowed to access this proof.");
 
-        var attachmentResult = await sender.Send(
-            new GetAttachmentByIdQuery(paymentData.ProofAttachmentId.Value), cancellationToken);
+        // Ownership/admin checked above, so ask Attachment for a fresh short-lived signed URL (trusted query).
+        // Never redirect to a stored URL: proofs are private and stored URLs may be public or expired.
+        var readUrl = await sender.Send(
+            new GetAttachmentReadUrlQuery(paymentData.ProofAttachmentId.Value), cancellationToken);
 
-        var attachment = attachmentResult.Attachment;
-        return (attachment.FileUrl, attachment.ContentType, attachment.FileName);
+        return (readUrl.Url, readUrl.ContentType, readUrl.FileName);
     }
 }

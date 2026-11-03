@@ -2,18 +2,21 @@ namespace Subscriptions.Domains.Subscriptions.Jobs;
 
 [DisableConcurrentExecution(60)]
 public class ProcessPriceChangeNotificationsJob(
-    IServiceScopeFactory scopeFactory,
+    IUnitOfWorkRunner unitOfWork,
     ILogger<ProcessPriceChangeNotificationsJob> logger)
 {
-    public async Task ExecuteAsync(IJobCancellationToken cancellationToken)
+    public Task ExecuteAsync(IJobCancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        return unitOfWork.RunAsync((services, _) => ExecuteAsync(services, cancellationToken), CancellationToken.None);
+    }
 
-        using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>();
-        var notificationSender = scope.ServiceProvider.GetRequiredService<INotificationSender>();
-        var subscriberInfoProvider = scope.ServiceProvider.GetRequiredService<ISubscriberInfoProvider>();
-        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    private async Task ExecuteAsync(IServiceProvider services, IJobCancellationToken cancellationToken)
+    {
+        var dbContext = services.GetRequiredService<SubscriptionsDbContext>();
+        var notificationSender = services.GetRequiredService<INotificationSender>();
+        var subscriberInfoProvider = services.GetRequiredService<ISubscriberInfoProvider>();
+        var configuration = services.GetRequiredService<IConfiguration>();
 
         var now = DateTimeOffset.UtcNow;
         var frontendBaseUrl = configuration["Application:FrontendBaseUrl"] ?? "http://localhost:3000";

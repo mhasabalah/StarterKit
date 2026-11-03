@@ -12,6 +12,11 @@ public class RequestRefundCommandValidator : AbstractValidator<RequestRefundComm
     }
 }
 
+/// <summary>
+/// Requests a refund for a cancelled annual subscription. The amount is based on the MONEY RECEIVED for the current
+/// period and on when service actually ended (decimal day math, actual period length), capped at
+/// Σ paid − Σ approved/processed refunds. A second refund after one was processed is impossible (C11).
+/// </summary>
 public class RequestRefundHandler(
     ISubscriptionRepository subscriptionRepository,
     SubscriptionsDbContext dbContext,
@@ -32,45 +37,20 @@ public class RequestRefundHandler(
         if (subscription.BillingCycleInMonths != 12)
             throw new ConflictException("Monthly plans are not eligible for refunds.");
 
-        var hasActiveRefund = await dbContext.RefundRequests
+        var existing = await dbContext.RefundRequests
             .AsNoTracking()
-            .AnyAsync(r => r.SubscriptionId == command.SubscriptionId
-                        && (r.Status == RefundStatus.Requested
-                         || r.Status == RefundStatus.UnderReview
-                         || r.Status == RefundStatus.Approved),
-                cancellationToken);
+            .AnyAsync(r => r.SubscriptionId == command.SubscriptionId && r.Status != RefundStatus.Rejected, cancellationToken);
+        if (existing)
+            throw new ConflictException("A refund has already been requested or processed for this subscription.");
 
-        if (hasActiveRefund)
-            throw new ConflictException("A refund request is already pending for this subscription.");
-
-        var now = DateTimeOffset.UtcNow;
         var startDate = subscription.StartDate
             ?? throw new ConflictException("Subscription has no activation date.");
+        var periodEnd = subscription.RenewalDate
+            ?? throw new ConflictException("Subscription has no billing period.");
+        var periodStart = subscription.EffectivePeriodStart ?? startDate;
 
-        var proratedWindowEnd = startDate.AddDays(options.Value.RefundProratedWindowDays);
-        if (now > proratedWindowEnd)
-            throw new ConflictException("The refund window for this subscription has expired.");
-
-        var fullWindowEnd = startDate.AddDays(options.Value.RefundFullWindowDays);
-        RefundType refundType;
-        decimal refundAmount;
-
-        if (now <= fullWindowEnd)
-        {
-            refundType = RefundType.Full;
-            refundAmount = subscription.Price;
-        }
-        else
-        {
-            refundType = RefundType.Prorated;
-            var renewalDate = subscription.RenewalDate ?? startDate.AddMonths(subscription.BillingCycleInMonths);
-            var remainingDays = (renewalDate - now).TotalDays;
-            var totalDays = subscription.BillingCycleInMonths * 30m;
-            refundAmount = Math.Round((decimal)(remainingDays / (double)totalDays) * subscription.Price, 2);
-        }
-
-        if (refundAmount <= 0)
-            throw new ConflictException("Calculated refund amount is zero.");
+        var input = await RefundInputs.BuildAsync(dbContext, subscription, periodStart, periodEnd, options.Value, cancellationToken);
+        var quote = RefundPolicy.Quote(input);
 
         var refundRequest = SubscriptionRefundRequest.Create(
             subscription.Id,
@@ -79,15 +59,81 @@ public class RequestRefundHandler(
             subscription.PlanName,
             subscription.BillingCycleInMonths,
             startDate,
-            subscription.CancelledAt ?? now,
-            subscription.RenewalDate ?? startDate.AddMonths(subscription.BillingCycleInMonths),
-            refundAmount,
+            subscription.CancelledAt ?? input.ServiceEnd,
+            periodEnd,
+            quote.Amount,
             subscription.Currency,
-            refundType);
+            quote.Type);
 
-        await dbContext.RefundRequests.AddAsync(refundRequest, cancellationToken);
+        dbContext.RefundRequests.Add(refundRequest);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return refundRequest.Id;
+    }
+}
+
+/// <summary>Gathers the money facts for <see cref="RefundPolicy"/> from the database.</summary>
+internal static class RefundInputs
+{
+    public static async Task<RefundInput> BuildAsync(
+        SubscriptionsDbContext dbContext,
+        Subscription subscription,
+        DateTimeOffset periodStart,
+        DateTimeOffset periodEnd,
+        SubscriptionOptions options,
+        CancellationToken ct)
+    {
+        var paid = await dbContext.Payments
+            .AsNoTracking()
+            .Where(p => p.SubscriptionId == subscription.Id && p.Status == PaymentStatus.Paid)
+            .Select(p => new { p.Amount, p.Purpose, p.CreatedAt, p.PaidAt })
+            .ToListAsync(ct);
+
+        var refundable = await RefundableAsync(dbContext, subscription.Id, paid.Select(x => x.Amount), null, ct);
+
+        var periodPayment = paid
+            .Where(x => x.Purpose != PaymentPurpose.Proration)
+            .OrderByDescending(x => x.PaidAt)
+            .Select(x => x.Amount)
+            .FirstOrDefault();
+        var periodProrations = paid
+            .Where(x => x.Purpose == PaymentPurpose.Proration && x.CreatedAt >= periodStart)
+            .Sum(x => x.Amount);
+
+        var serviceEnd = subscription.EndDate ?? subscription.CancelledAt ?? DateTimeOffset.UtcNow;
+
+        return new RefundInput(
+            periodPayment + periodProrations,
+            refundable,
+            periodStart,
+            periodEnd,
+            serviceEnd,
+            options.RefundFullWindowDays,
+            options.RefundProratedWindowDays);
+    }
+
+    /// <summary>Σ paid − Σ approved/processed refunds (optionally excluding one refund request).</summary>
+    public static async Task<decimal> RefundableAsync(
+        SubscriptionsDbContext dbContext,
+        Guid subscriptionId,
+        IEnumerable<decimal>? paidAmounts,
+        Guid? excludeRefundId,
+        CancellationToken ct)
+    {
+        var paid = paidAmounts?.ToList() ?? await dbContext.Payments
+            .AsNoTracking()
+            .Where(p => p.SubscriptionId == subscriptionId && p.Status == PaymentStatus.Paid)
+            .Select(p => p.Amount)
+            .ToListAsync(ct);
+
+        var refunded = await dbContext.RefundRequests
+            .AsNoTracking()
+            .Where(r => r.SubscriptionId == subscriptionId &&
+                        (r.Status == RefundStatus.Approved || r.Status == RefundStatus.Processed) &&
+                        (excludeRefundId == null || r.Id != excludeRefundId))
+            .Select(r => r.RequestedAmount)
+            .ToListAsync(ct);
+
+        return RefundPolicy.Refundable(paid, refunded);
     }
 }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.ScheduleDowngrade;
@@ -13,6 +12,10 @@ public class ScheduleDowngradeCommandValidator : AbstractValidator<ScheduleDowng
     }
 }
 
+/// <summary>
+/// Schedules a downgrade for the renewal boundary (applied by the renewal orchestrator before the renewal is priced).
+/// Several downgrades over time are fine; only one may be pending (filtered unique index).
+/// </summary>
 public class ScheduleDowngradeHandler(
     ISubscriptionRepository subscriptionRepository,
     IPlanRepository planRepository,
@@ -23,14 +26,11 @@ public class ScheduleDowngradeHandler(
         ScheduleDowngradeCommand command,
         CancellationToken cancellationToken)
     {
-        var subscription = await subscriptionRepository.GetByIdForUpdateAsync(command.SubscriptionId, cancellationToken)
+        var subscription = await subscriptionRepository.GetByIdAsync(command.SubscriptionId, cancellationToken)
             ?? throw new SubscriptionNotFoundException(command.SubscriptionId);
 
         if (subscription.SubscriberId != command.SubscriberId)
             throw new ForbiddenException("You are not allowed to schedule a downgrade for this subscription.");
-
-        if (subscription.Status != SubscriptionStatus.Active)
-            throw new ConflictException("Only active subscriptions can have a downgrade scheduled.");
 
         var newPlan = await planRepository.GetByIdAsync(command.NewPlanId, cancellationToken)
             ?? throw new PlanNotFoundException(command.NewPlanId);
@@ -38,41 +38,29 @@ public class ScheduleDowngradeHandler(
         if (!newPlan.IsActive || newPlan.IsDeleted)
             throw new PlanNotFoundException(command.NewPlanId);
 
-        if (newPlan.Price >= subscription.Price)
-            throw new ConflictException("New plan price must be lower than the current plan price for a downgrade.");
-
-        if (subscription.ScheduledPlanChange is { Status: PlanChangeStatus.Pending })
-            throw new ConflictException("A pending scheduled downgrade already exists. Cancel it first.");
-
+        var now = DateTimeOffset.UtcNow;
         var currentPlanName = subscription.PlanName;
+        var change = subscription.ScheduleDowngrade(
+            PlanSnapshot.From(newPlan, PricingPolicy.PlanPriceAt(newPlan, subscription.RenewalDate ?? now)),
+            command.SubscriberId,
+            now);
 
-        var newFeaturesJson = JsonSerializer.Serialize(
-            newPlan.Features.ToDictionary(x => x.Key, _ => "true"));
+        dbContext.ScheduledPlanChanges.Add(change);
+        dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
+            subscription.Id,
+            subscription.SubscriberId,
+            SubscriptionStatus.Active,
+            SubscriptionStatus.Active,
+            command.SubscriberId,
+            "Subscriber",
+            $"Scheduled downgrade to plan {newPlan.Name.En}"));
 
-        subscription.ScheduleDowngrade(newPlan, newFeaturesJson, command.SubscriberId);
-
-        // Must use AddAsync — EF infers Modified for a client-assigned Guid set on a navigation property.
-        await dbContext.ScheduledPlanChanges.AddAsync(subscription.ScheduledPlanChange!, cancellationToken);
-
-        await dbContext.TransitionLogs.AddAsync(
-            SubscriptionTransitionLog.Create(
-                subscription.Id,
-                subscription.SubscriberId,
-                SubscriptionStatus.Active,
-                SubscriptionStatus.Active,
-                command.SubscriberId,
-                "Subscriber",
-                $"Scheduled downgrade to plan {newPlan.Name}"),
-            cancellationToken);
-
-        await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
-
-        var effectiveAt = subscription.ScheduledPlanChange!.EffectiveAt;
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new ScheduleDowngradeResult(
             subscription.Id,
             currentPlanName,
             newPlan.Name.En,
-            effectiveAt);
+            change.EffectiveAt);
     }
 }

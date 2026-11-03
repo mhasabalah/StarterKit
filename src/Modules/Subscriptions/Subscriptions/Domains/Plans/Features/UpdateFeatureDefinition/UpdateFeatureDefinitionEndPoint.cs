@@ -31,13 +31,12 @@ public class UpdateFeatureDefinitionEndPoint : ICarterModule
 
                     return Results.Ok(ApiResponseExtensions.Success(true));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("UpdateFeatureDefinition")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

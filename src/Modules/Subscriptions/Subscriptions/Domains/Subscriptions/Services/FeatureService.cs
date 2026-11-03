@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Contracts.Subscriptions.DTOs;
 
 namespace Subscriptions.Domains.Subscriptions.Services;
@@ -6,7 +6,7 @@ namespace Subscriptions.Domains.Subscriptions.Services;
 public class FeatureService(
     IDistributedCache cache,
     SubscriptionsDbContext dbContext,
-    IHttpContextService httpContextService)
+    ISubscriberIdProvider subscriberIdProvider)
     : IFeatureService
 {
     private readonly SemaphoreSlim _sync = new(1, 1);
@@ -53,7 +53,7 @@ public class FeatureService(
             if (_isLoaded)
                 return;
 
-            var subscriberId = httpContextService.GetUserIdAsGuid();
+            var subscriberId = subscriberIdProvider.GetCurrentSubscriberId();
             if (subscriberId is null)
             {
                 _features = [];
@@ -98,7 +98,7 @@ public class FeatureService(
                 return;
             }
 
-            var features = TryReadFeatureDictionary(subscription.FeaturesJson);
+            var features = FeaturesJson.Deserialize(subscription.FeaturesJson);
             var payload = SubscriptionCacheSerializer.SerializePayload(
                 SubscriptionCacheSerializer.CreatePayload(
                     new ActivePlanLimitsDto(
@@ -116,21 +116,6 @@ public class FeatureService(
         finally
         {
             _sync.Release();
-        }
-    }
-
-    private static Dictionary<string, string> TryReadFeatureDictionary(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return [];
-
-        try
-        {
-            return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? [];
-        }
-        catch
-        {
-            return [];
         }
     }
 }

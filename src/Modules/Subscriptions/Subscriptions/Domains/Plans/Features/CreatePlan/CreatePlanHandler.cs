@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 
 namespace Subscriptions.Domains.Plans.Features.CreatePlan;
@@ -15,7 +16,7 @@ public class CreatePlanCommandValidator : AbstractValidator<CreatePlanCommand>
     }
 }
 
-public class CreatePlanHandler(IPlanRepository planRepository)
+public class CreatePlanHandler(IPlanRepository planRepository, IAdminAuditWriter audit)
     : ICommandHandler<CreatePlanCommand, Guid>
 {
     public async Task<Guid> Handle(CreatePlanCommand command, CancellationToken cancellationToken)
@@ -32,6 +33,8 @@ public class CreatePlanHandler(IPlanRepository planRepository)
             command.IsPublic,
             command.DiscountPercent);
 
+        audit.Record("CreatePlan", plan.Id, "Plan", amount: plan.Price, currency: plan.Currency,
+            after: new { Name = plan.Name.En, plan.Price, plan.Currency, plan.BillingCycleInMonths, plan.DiscountPercent, plan.IsPublic });
         await planRepository.AddAsync(plan, cancellationToken);
         return plan.Id;
     }

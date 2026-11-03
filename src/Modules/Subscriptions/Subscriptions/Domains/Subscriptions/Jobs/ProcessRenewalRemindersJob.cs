@@ -6,18 +6,21 @@ namespace Subscriptions.Domains.Subscriptions.Jobs;
 /// <summary>Daily job: sends renewal reminder emails 7 days before a subscription's renewal date.</summary>
 [DisableConcurrentExecution(60)]
 public class ProcessRenewalRemindersJob(
-    IServiceScopeFactory scopeFactory,
+    IUnitOfWorkRunner unitOfWork,
     IConfiguration configuration,
     ILogger<ProcessRenewalRemindersJob> logger)
 {
-    public async Task ExecuteAsync(IJobCancellationToken cancellationToken)
+    public Task ExecuteAsync(IJobCancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        return unitOfWork.RunAsync((services, _) => ExecuteAsync(services, cancellationToken), CancellationToken.None);
+    }
 
-        using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>();
-        var notificationSender = scope.ServiceProvider.GetRequiredService<INotificationSender>();
-        var subscriberInfoProvider = scope.ServiceProvider.GetRequiredService<ISubscriberInfoProvider>();
+    private async Task ExecuteAsync(IServiceProvider services, IJobCancellationToken cancellationToken)
+    {
+        var dbContext = services.GetRequiredService<SubscriptionsDbContext>();
+        var notificationSender = services.GetRequiredService<INotificationSender>();
+        var subscriberInfoProvider = services.GetRequiredService<ISubscriberInfoProvider>();
 
         var now = DateTimeOffset.UtcNow;
         var reminderFrom = now.AddDays(7);

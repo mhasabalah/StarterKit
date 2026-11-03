@@ -1,17 +1,29 @@
 namespace Subscriptions.Data.Repositories;
 
+/// <summary>
+/// Loads subscriptions for command handlers. Never loads payments and invoices together (no cartesian explosion):
+/// the subscription comes with its PENDING plan change only; payments are loaded explicitly when needed.
+/// </summary>
 public interface ISubscriptionRepository
 {
+    /// <summary>Tracked subscription + its pending scheduled plan change (if any).</summary>
     Task<Subscription?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<Subscription?> GetByIdForUpdateAsync(Guid id, CancellationToken ct = default);
-    Task<Subscription?> GetActiveBySubscriberIdAsync(
-        Guid subscriberId,
-        CancellationToken ct = default);
-    Task<bool> HasActiveSubscriptionAsync(Guid subscriberId, CancellationToken ct = default);
-    Task AddAsync(Subscription sub, CancellationToken ct = default);
-    Task UpdateAsync(Subscription sub, CancellationToken ct = default);
-    Task AddInvoiceAsync(SubscriptionInvoice invoice, CancellationToken ct = default);
-    Task AddScheduledPlanChangeAsync(ScheduledPlanChange change, CancellationToken ct = default);
-    Task AddTransitionLogAsync(SubscriptionTransitionLog log, CancellationToken ct = default);
-    Task AddAuditLogAsync(AdminActionAuditLog log, CancellationToken ct = default);
+
+    /// <summary>Tracked payment of the subscription (fixes up into <c>Subscription.Payments</c> when that is tracked).</summary>
+    Task<SubscriptionPayment?> GetPaymentAsync(Guid subscriptionId, Guid paymentId, CancellationToken ct = default);
+
+    /// <summary>Tracked payments still owed (Pending / Submitted / Rejected / PartiallyPaid).</summary>
+    Task<IReadOnlyList<SubscriptionPayment>> GetAwaitingPaymentsAsync(Guid subscriptionId, CancellationToken ct = default);
+
+    /// <summary>The subscriber's open (PendingApproval / Active / PastDue) subscription, tracked.</summary>
+    Task<Subscription?> GetOpenBySubscriberIdAsync(Guid subscriberId, CancellationToken ct = default);
+
+    Task<bool> HasOpenSubscriptionAsync(Guid subscriberId, CancellationToken ct = default);
+
+    /// <summary>Another payment whose proof has the same SHA-256 content hash (oldest first), or null.</summary>
+    Task<Guid?> FindPaymentWithProofHashAsync(string contentHash, Guid excludingPaymentId, CancellationToken ct = default);
+
+    Task AddAsync(Subscription subscription, CancellationToken ct = default);
+
+    Task SaveChangesAsync(CancellationToken ct = default);
 }

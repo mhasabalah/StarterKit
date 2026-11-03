@@ -2,7 +2,7 @@ using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.AdminReviewRefund;
 
-public record AdminReviewRefundRequest(bool Approve, string? Notes);
+public record AdminReviewRefundRequest(bool Approve, string? Notes, long? Version = null);
 
 public class AdminReviewRefundEndPoint : ICarterModule
 {
@@ -13,15 +13,14 @@ public class AdminReviewRefundEndPoint : ICarterModule
                 {
                     var adminId = httpContextService.GetUserIdAsGuid()
                         ?? throw new ForbiddenException("Unauthorized");
-                    await sender.Send(new AdminReviewRefundCommand(refundId, adminId, request.Approve, request.Notes), ct);
+                    await sender.Send(new AdminReviewRefundCommand(refundId, adminId, request.Approve, request.Notes, request.Version), ct);
                     return Results.Ok(ApiResponseExtensions.Success(request.Approve ? "Refund approved." : "Refund rejected."));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRefund)
             .WithName("AdminReviewRefund")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<string>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

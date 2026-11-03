@@ -4,4 +4,6 @@ public record ApproveRenewalResult(
     Guid SubscriptionId,
     string Status,
     DateTimeOffset NewRenewalDate,
-    string IdempotencyToken);
+    Guid PaymentId,
+    Guid InvoiceId,
+    string InvoiceNumber);

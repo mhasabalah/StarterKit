@@ -1,3 +1,4 @@
+using Shared.Core.Data;
 using Microsoft.EntityFrameworkCore.Design;
 
 namespace Subscriptions.Data;
@@ -12,7 +13,7 @@ public class SubscriptionsDbContextFactory : IDesignTimeDbContextFactory<Subscri
             "Server=localhost;Port=5432;Database=starterkit;User Id=postgres;Password=postgres;Include Error Detail=true";
 
         optionsBuilder.UseNpgsql(connectionString, b =>
-            b.MigrationsHistoryTable("__subscriptions_migrations_history", "subscriptions"));
+            b.UseModuleMigrationsHistory<SubscriptionsDbContext>());
         optionsBuilder.UseSnakeCaseNamingConvention();
 
         return new SubscriptionsDbContext(optionsBuilder.Options);

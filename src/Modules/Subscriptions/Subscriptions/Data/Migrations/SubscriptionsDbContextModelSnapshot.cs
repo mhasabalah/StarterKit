@@ -18,12 +18,187 @@ namespace Subscriptions.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("subscriptions")
-                .HasAnnotation("ProductVersion", "9.0.9")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.HasSequence("invoice_number_seq");
+            modelBuilder.Entity("Shared.Core.Messaging.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime?>("DeadLetteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dead_lettered_at");
+
+                    b.Property<bool>("HostScope")
+                        .HasColumnType("boolean")
+                        .HasColumnName("host_scope");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<Guid?>("LockToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lock_token");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("message_type");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_on");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("trace_parent");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.HasIndex("NextAttemptAt")
+                        .HasDatabaseName("ix_outbox_messages_pending")
+                        .HasFilter("processed_at IS NULL AND dead_lettered_at IS NULL");
+
+                    b.HasIndex("ProcessedAt")
+                        .HasDatabaseName("ix_outbox_messages_processed_at")
+                        .HasFilter("processed_at IS NOT NULL");
+
+                    b.ToTable("outbox_messages", "subscriptions");
+                });
+
+            modelBuilder.Entity("Subscriptions.Domains.Ledger.Models.LedgerEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("payment_method");
+
+                    b.Property<Guid?>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<string>("PlanName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("plan_name");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reference");
+
+                    b.Property<Guid?>("RefundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("refund_id");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscriber_id");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ledger_entries");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("ix_ledger_entries_occurred_at");
+
+                    b.HasIndex("PaymentId")
+                        .HasDatabaseName("ix_ledger_entries_payment_id");
+
+                    b.HasIndex("RefundId")
+                        .HasDatabaseName("ix_ledger_entries_refund_id");
+
+                    b.HasIndex("SubscriberId")
+                        .HasDatabaseName("ix_ledger_entries_subscriber_id");
+
+                    b.HasIndex("SubscriptionId")
+                        .HasDatabaseName("ix_ledger_entries_subscription_id");
+
+                    b.HasIndex("Currency", "OccurredAt")
+                        .HasDatabaseName("ix_ledger_entries_currency_occurred_at");
+
+                    b.ToTable("ledger_entries", "subscriptions");
+                });
 
             modelBuilder.Entity("Subscriptions.Domains.PaymentSettings.Models.PaymentInstructions", b =>
                 {
@@ -344,6 +519,24 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("admin_id");
 
+                    b.Property<string>("AfterJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("after_json");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("before_json");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");
@@ -379,13 +572,31 @@ namespace Subscriptions.Data.Migrations
                     b.HasIndex("SubscriberId")
                         .HasDatabaseName("ix_admin_action_audit_logs_subscriber_id");
 
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("ix_admin_action_audit_logs_target_type_target_id");
+
                     b.ToTable("admin_action_audit_logs", "subscriptions");
+                });
+
+            modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.InvoiceNumberCounter", b =>
+                {
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.Property<long>("LastValue")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_value");
+
+                    b.HasKey("Year")
+                        .HasName("pk_invoice_number_counters");
+
+                    b.ToTable("invoice_number_counters", "subscriptions");
                 });
 
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.ScheduledPlanChange", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -452,8 +663,8 @@ namespace Subscriptions.Data.Migrations
 
                     b.Property<string>("NewPlanName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("new_plan_name");
 
                     b.Property<decimal>("NewPrice")
@@ -489,11 +700,11 @@ namespace Subscriptions.Data.Migrations
 
                     b.HasIndex("SubscriptionId")
                         .IsUnique()
-                        .HasDatabaseName("ix_scheduled_plan_changes_subscription_id");
+                        .HasDatabaseName("ux_scheduled_plan_changes_subscription_pending")
+                        .HasFilter("\"status\" = 'Pending'");
 
-                    b.HasIndex("SubscriptionId", "Status")
-                        .IsUnique()
-                        .HasDatabaseName("ix_scheduled_plan_changes_subscription_id_status");
+                    b.HasIndex("Status", "EffectiveAt")
+                        .HasDatabaseName("ix_scheduled_plan_changes_status_effective_at");
 
                     b.ToTable("scheduled_plan_changes", "subscriptions");
                 });
@@ -501,7 +712,6 @@ namespace Subscriptions.Data.Migrations
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.Subscription", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -528,6 +738,10 @@ namespace Subscriptions.Data.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("cancelled_at_period_end");
 
+                    b.Property<DateTimeOffset?>("ComplimentaryUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("complimentary_until");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -542,6 +756,15 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency");
 
+                    b.Property<DateTimeOffset?>("CurrentPeriodStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("current_period_start");
+
+                    b.Property<decimal>("DeferredProrationAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("deferred_proration_amount");
+
                     b.Property<DateTimeOffset?>("EndDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_date");
@@ -554,11 +777,6 @@ namespace Subscriptions.Data.Migrations
                     b.Property<DateTimeOffset?>("GracePeriodEndsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("grace_period_ends_at");
-
-                    b.Property<string>("IdempotencyToken")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("idempotency_token");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -611,9 +829,21 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("start_date");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
                         .HasColumnName("status");
+
+                    b.Property<string>("SubscriberDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subscriber_display_name");
+
+                    b.Property<string>("SubscriberEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("subscriber_email");
 
                     b.Property<Guid>("SubscriberId")
                         .HasColumnType("uuid")
@@ -631,21 +861,25 @@ namespace Subscriptions.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_subscriptions");
 
-                    b.HasIndex("GracePeriodEndsAt")
-                        .HasDatabaseName("ix_subscriptions_grace_period_ends_at");
-
-                    b.HasIndex("RenewalDate")
-                        .HasDatabaseName("ix_subscriptions_renewal_date");
+                    b.HasIndex("PlanId")
+                        .HasDatabaseName("ix_subscriptions_plan_id");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_subscriptions_status");
 
-                    b.HasIndex("SubscriberId")
-                        .HasDatabaseName("ix_subscriptions_subscriber_id");
+                    b.HasIndex("SubscriberEmail")
+                        .HasDatabaseName("ix_subscriptions_subscriber_email");
 
-                    b.HasIndex("Status", "CancelledAtPeriodEnd", "ScheduledCancellationDate")
-                        .HasDatabaseName("ix_subscriptions_status_cancelled_at_period_end_scheduled_canc")
-                        .HasFilter("\"cancelled_at_period_end\" = true");
+                    b.HasIndex("SubscriberId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_subscriptions_subscriber_open")
+                        .HasFilter("\"status\" IN ('PendingApproval', 'Active', 'PastDue')");
+
+                    b.HasIndex("Status", "GracePeriodEndsAt")
+                        .HasDatabaseName("ix_subscriptions_status_grace_period_ends_at");
+
+                    b.HasIndex("Status", "RenewalDate")
+                        .HasDatabaseName("ix_subscriptions_status_renewal_date");
 
                     b.ToTable("subscriptions", "subscriptions");
                 });
@@ -653,14 +887,33 @@ namespace Subscriptions.Data.Migrations
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionInvoice", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("amount");
+                    b.Property<int>("BillingCycleInMonths")
+                        .HasColumnType("integer")
+                        .HasColumnName("billing_cycle_in_months");
+
+                    b.Property<string>("BuyerAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("buyer_address");
+
+                    b.Property<string>("BuyerEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("buyer_email");
+
+                    b.Property<string>("BuyerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("buyer_name");
+
+                    b.Property<string>("BuyerTaxId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("buyer_tax_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -670,11 +923,27 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("CreditReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("credit_reason");
+
+                    b.Property<decimal>("CreditedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("credited_amount");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
 
                     b.Property<string>("ErrorMessage")
                         .HasMaxLength(500)
@@ -683,21 +952,13 @@ namespace Subscriptions.Data.Migrations
 
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
                         .HasColumnName("invoice_number");
-
-                    b.Property<bool>("IsDeferred")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_deferred");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
-
-                    b.Property<bool>("IsVoided")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_voided");
 
                     b.Property<DateTimeOffset>("IssuedAt")
                         .HasColumnType("timestamp with time zone")
@@ -711,9 +972,14 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("last_modified_by");
 
-                    b.Property<Guid?>("OriginalPlanId")
+                    b.Property<decimal>("NetAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("net_amount");
+
+                    b.Property<Guid?>("OriginalInvoiceId")
                         .HasColumnType("uuid")
-                        .HasColumnName("original_plan_id");
+                        .HasColumnName("original_invoice_id");
 
                     b.Property<Guid?>("PaymentId")
                         .HasColumnType("uuid")
@@ -724,9 +990,47 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("pdf_storage_key");
 
+                    b.Property<DateTimeOffset?>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateTimeOffset?>("PeriodStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_start");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<string>("PlanName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("plan_name");
+
+                    b.Property<bool>("PricesIncludeTax")
+                        .HasColumnType("boolean")
+                        .HasColumnName("prices_include_tax");
+
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer")
                         .HasColumnName("retry_count");
+
+                    b.Property<string>("SellerAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("seller_address");
+
+                    b.Property<string>("SellerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("seller_name");
+
+                    b.Property<string>("SellerTaxId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("seller_tax_id");
 
                     b.Property<DateTimeOffset?>("SentAt")
                         .HasColumnType("timestamp with time zone")
@@ -736,16 +1040,28 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("status");
 
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscriber_id");
+
                     b.Property<Guid>("SubscriptionId")
                         .HasColumnType("uuid")
                         .HasColumnName("subscription_id");
 
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("tax_amount");
+
                     b.Property<decimal>("TaxRate")
-                        .ValueGeneratedOnAdd()
-                        .HasPrecision(5, 4)
-                        .HasColumnType("numeric(5,4)")
-                        .HasDefaultValue(0.15m)
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)")
                         .HasColumnName("tax_rate");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_amount");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer")
@@ -763,11 +1079,22 @@ namespace Subscriptions.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_subscription_invoices_invoice_number");
 
+                    b.HasIndex("OriginalInvoiceId")
+                        .HasDatabaseName("ix_subscription_invoices_original_invoice_id");
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_subscription_invoices_payment")
+                        .HasFilter("\"payment_id\" IS NOT NULL AND \"type\" <> 3");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_subscription_invoices_status");
+
+                    b.HasIndex("SubscriberId")
+                        .HasDatabaseName("ix_subscription_invoices_subscriber_id");
+
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_subscription_invoices_subscription_id");
-
-                    b.HasIndex("Status", "IsVoided")
-                        .HasDatabaseName("ix_subscription_invoices_status_is_voided");
 
                     b.ToTable("subscription_invoices", "subscriptions");
                 });
@@ -775,7 +1102,6 @@ namespace Subscriptions.Data.Migrations
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionPayment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -783,6 +1109,13 @@ namespace Subscriptions.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("amount");
+
+                    b.Property<decimal>("AmountReceived")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("amount_received");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -798,10 +1131,20 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency");
 
-                    b.Property<string>("IdempotencyToken")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("idempotency_token");
+                    b.Property<Guid?>("DuplicateOfPaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("duplicate_of_payment_id");
+
+                    b.Property<bool>("DuplicateProof")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("duplicate_proof");
+
+                    b.Property<decimal>("IncludedProrationAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("included_proration_amount");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -819,6 +1162,10 @@ namespace Subscriptions.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
+
+                    b.Property<Guid?>("OriginalPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("original_plan_id");
 
                     b.Property<DateTimeOffset?>("PaidAt")
                         .HasColumnType("timestamp with time zone")
@@ -852,6 +1199,17 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("proof_attachment_id");
 
+                    b.Property<string>("ProofContentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("proof_content_hash");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("purpose");
+
                     b.Property<DateTimeOffset?>("ReviewedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("reviewed_at");
@@ -863,6 +1221,10 @@ namespace Subscriptions.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
 
                     b.Property<Guid>("SubscriptionId")
                         .HasColumnType("uuid")
@@ -879,13 +1241,87 @@ namespace Subscriptions.Data.Migrations
                     b.HasIndex("PaymentMethodId")
                         .HasDatabaseName("ix_subscription_payments_payment_method_id");
 
+                    b.HasIndex("ProofContentHash")
+                        .HasDatabaseName("ix_subscription_payments_proof_content_hash");
+
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_subscription_payments_status");
 
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_subscription_payments_subscription_id");
 
+                    b.HasIndex("SubscriptionId", "Status")
+                        .HasDatabaseName("ix_subscription_payments_subscription_id_status");
+
+                    b.HasIndex("Purpose", "Status", "CreatedAt")
+                        .HasDatabaseName("ix_subscription_payments_purpose_status_created_at");
+
                     b.ToTable("subscription_payments", "subscriptions");
+                });
+
+            modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionPaymentReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("method");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reference");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_subscription_payment_receipts");
+
+                    b.HasIndex("PaymentId")
+                        .HasDatabaseName("ix_subscription_payment_receipts_payment_id");
+
+                    b.HasIndex("SubscriptionId")
+                        .HasDatabaseName("ix_subscription_payment_receipts_subscription_id");
+
+                    b.ToTable("subscription_payment_receipts", "subscriptions");
                 });
 
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionRefundRequest", b =>
@@ -1015,7 +1451,7 @@ namespace Subscriptions.Data.Migrations
                     b.HasIndex("SubscriptionId")
                         .IsUnique()
                         .HasDatabaseName("ix_subscription_refund_requests_subscription_active")
-                        .HasFilter("\"status\" IN (0, 1, 2)");
+                        .HasFilter("\"status\" IN (0, 1, 2, 4)");
 
                     b.ToTable("subscription_refund_requests", "subscriptions");
                 });
@@ -1037,8 +1473,9 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("actor_type");
 
-                    b.Property<int?>("FromStatus")
-                        .HasColumnType("integer")
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
                         .HasColumnName("from_status");
 
                     b.Property<DateTimeOffset>("OccurredAt")
@@ -1058,8 +1495,10 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("subscription_id");
 
-                    b.Property<int>("ToStatus")
-                        .HasColumnType("integer")
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
                         .HasColumnName("to_status");
 
                     b.HasKey("Id")
@@ -1211,8 +1650,8 @@ namespace Subscriptions.Data.Migrations
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.ScheduledPlanChange", b =>
                 {
                     b.HasOne("Subscriptions.Domains.Subscriptions.Models.Subscription", null)
-                        .WithOne("ScheduledPlanChange")
-                        .HasForeignKey("Subscriptions.Domains.Subscriptions.Models.ScheduledPlanChange", "SubscriptionId")
+                        .WithMany("ScheduledPlanChanges")
+                        .HasForeignKey("SubscriptionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_scheduled_plan_changes_subscriptions_subscription_id");
@@ -1220,8 +1659,14 @@ namespace Subscriptions.Data.Migrations
 
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionInvoice", b =>
                 {
+                    b.HasOne("Subscriptions.Domains.Subscriptions.Models.SubscriptionInvoice", null)
+                        .WithMany()
+                        .HasForeignKey("OriginalInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_subscription_invoices_subscription_invoices_original_invoic");
+
                     b.HasOne("Subscriptions.Domains.Subscriptions.Models.Subscription", "Subscription")
-                        .WithMany("Invoices")
+                        .WithMany()
                         .HasForeignKey("SubscriptionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
@@ -1242,6 +1687,16 @@ namespace Subscriptions.Data.Migrations
                     b.Navigation("Subscription");
                 });
 
+            modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionPaymentReceipt", b =>
+                {
+                    b.HasOne("Subscriptions.Domains.Subscriptions.Models.SubscriptionPayment", null)
+                        .WithMany("Receipts")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_subscription_payment_receipts_subscription_payments_payment");
+                });
+
             modelBuilder.Entity("Subscriptions.Domains.Plans.Models.Plan", b =>
                 {
                     b.Navigation("Features");
@@ -1249,11 +1704,14 @@ namespace Subscriptions.Data.Migrations
 
             modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.Subscription", b =>
                 {
-                    b.Navigation("Invoices");
-
                     b.Navigation("Payments");
 
-                    b.Navigation("ScheduledPlanChange");
+                    b.Navigation("ScheduledPlanChanges");
+                });
+
+            modelBuilder.Entity("Subscriptions.Domains.Subscriptions.Models.SubscriptionPayment", b =>
+                {
+                    b.Navigation("Receipts");
                 });
 #pragma warning restore 612, 618
         }

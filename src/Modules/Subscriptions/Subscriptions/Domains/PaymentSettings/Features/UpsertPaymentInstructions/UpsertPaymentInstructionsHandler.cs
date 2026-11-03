@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.PaymentSettings.Features.UpsertPaymentInstructions;
@@ -12,7 +13,7 @@ public class UpsertPaymentInstructionsCommandValidator
     }
 }
 
-public class UpsertPaymentInstructionsHandler(IPaymentInstructionsRepository repository)
+public class UpsertPaymentInstructionsHandler(IPaymentInstructionsRepository repository, IAdminAuditWriter audit)
     : ICommandHandler<UpsertPaymentInstructionsCommand, Unit>
 {
     public async Task<Unit> Handle(
@@ -26,10 +27,15 @@ public class UpsertPaymentInstructionsHandler(IPaymentInstructionsRepository rep
             var instructions = PaymentInstructions.Create(
                 command.SupportWhatsApp,
                 command.SupportEmail);
+            audit.Record("UpsertPaymentInstructions", instructions.Id, "PaymentInstructions",
+                after: new { command.SupportWhatsApp, command.SupportEmail });
             await repository.AddAsync(instructions, cancellationToken);
         }
         else
         {
+            audit.Record("UpsertPaymentInstructions", existing.Id, "PaymentInstructions",
+                before: new { existing.SupportWhatsApp, existing.SupportEmail },
+                after: new { command.SupportWhatsApp, command.SupportEmail });
             existing.Update(command.SupportWhatsApp, command.SupportEmail);
             await repository.SaveChangesAsync(cancellationToken);
         }

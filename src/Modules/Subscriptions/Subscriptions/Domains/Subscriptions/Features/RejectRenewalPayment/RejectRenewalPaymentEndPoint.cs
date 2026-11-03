@@ -2,7 +2,7 @@ using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.RejectRenewalPayment;
 
-public record RejectRenewalPaymentRequest(Guid PaymentId, string Reason);
+public record RejectRenewalPaymentRequest(Guid? PaymentId, string Reason, long? Version = null);
 
 public class RejectRenewalPaymentEndPoint : ICarterModule
 {
@@ -18,16 +18,15 @@ public class RejectRenewalPaymentEndPoint : ICarterModule
                     var adminId = httpContextService.GetUserIdAsGuid()
                         ?? throw new ForbiddenException("Unauthorized");
                     await sender.Send(
-                        new RejectRenewalPaymentCommand(id, request.PaymentId, adminId, request.Reason),
+                        new RejectRenewalPaymentCommand(id, request.PaymentId, adminId, request.Reason, request.Version),
                         ct);
                     return Results.Ok(ApiResponseExtensions.Success("Rejected"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingApprove)
             .WithName("RejectRenewalPayment")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<string>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

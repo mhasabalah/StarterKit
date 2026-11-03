@@ -33,7 +33,10 @@ public class GetInvoicePdfHandler(SubscriptionsDbContext dbContext, ISender send
             throw new NotFoundException("Invoice PDF has not been generated yet.");
         }
 
-        var attachment = await sender.Send(new GetAttachmentByIdQuery(attachmentId), cancellationToken);
-        return (attachment.Attachment.FileUrl, "application/pdf", $"{invoiceData.InvoiceNumber}.pdf");
+        // Ownership/admin checked above, so ask Attachment for a fresh short-lived signed URL (trusted query).
+        // The invoice may have been uploaded by another user (admin/system), so the per-user
+        // GetAttachmentByIdQuery access check is not the right gate here.
+        var readUrl = await sender.Send(new GetAttachmentReadUrlQuery(attachmentId), cancellationToken);
+        return (readUrl.Url, "application/pdf", $"{invoiceData.InvoiceNumber}.pdf");
     }
 }

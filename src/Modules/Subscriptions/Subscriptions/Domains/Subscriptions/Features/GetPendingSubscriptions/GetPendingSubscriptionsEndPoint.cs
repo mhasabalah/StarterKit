@@ -13,7 +13,7 @@ public class GetPendingSubscriptionsEndPoint : ICarterModule
                     var result = await sender.Send(query, ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRead)
             .RequireRateLimiting("search")
             .WithName("GetPendingSubscriptions")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
@@ -24,7 +24,6 @@ public class GetPendingSubscriptionsEndPoint : ICarterModule
             .Produces(StatusCodes.Status403Forbidden)
             .WithSummary("Get Pending Subscriptions")
             .WithDescription("Retrieve paginated list of subscriptions awaiting admin approval. Admin only.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using System.Text.Json;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
@@ -23,7 +24,10 @@ public class UpdatePaymentMethodCommandValidator : AbstractValidator<UpdatePayme
     }
 }
 
-public class UpdatePaymentMethodHandler(IPaymentMethodRepository repository, SubscriptionsDbContext dbContext)
+public class UpdatePaymentMethodHandler(
+    IPaymentMethodRepository repository,
+    SubscriptionsDbContext dbContext,
+    IAdminAuditWriter audit)
     : ICommandHandler<UpdatePaymentMethodCommand, Unit>
 {
     public async Task<Unit> Handle(UpdatePaymentMethodCommand command, CancellationToken cancellationToken)
@@ -31,10 +35,8 @@ public class UpdatePaymentMethodHandler(IPaymentMethodRepository repository, Sub
         var method = await repository.GetByIdAsync(command.Id, cancellationToken)
             ?? throw new PaymentMethodNotFoundException(command.Id);
 
-        if (command.Version.HasValue)
-        {
-            dbContext.Entry(method).Property(e => e.Version).OriginalValue = command.Version.Value;
-        }
+        dbContext.ExpectVersion(method, command.Version);
+        var before = new { method.Type, method.DisplayName, method.Value, method.Description, method.SortOrder, method.IsActive };
 
         method.Update(
             command.Type,
@@ -45,6 +47,8 @@ public class UpdatePaymentMethodHandler(IPaymentMethodRepository repository, Sub
             command.SortOrder,
             command.IsActive);
 
+        audit.Record("UpdatePaymentMethod", method.Id, "PaymentMethod", before: before,
+            after: new { method.Type, method.DisplayName, method.Value, method.Description, method.SortOrder, method.IsActive });
         await repository.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }
