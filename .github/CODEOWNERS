@@ -1,0 +1,14 @@
+# Code owners are requested for review automatically. Later rules win.
+# Rename the owner after creating a project from this template (wiki/Getting-Started/New-Project.md).
+
+*                                        @mhasabalah
+
+# High-risk areas: changes here always need an owner's review.
+/src/Shared/Shared.Core/MultiTenancy/    @mhasabalah
+/src/Shared/Shared.Core/Authorization/   @mhasabalah
+/src/Modules/Identity/                   @mhasabalah
+/src/Modules/Subscriptions/Subscriptions/Domains/Ledger/  @mhasabalah
+/src/Api.Tests/Architecture/             @mhasabalah
+/.github/workflows/                      @mhasabalah
+/deployment/                             @mhasabalah
+/CLAUDE.md                               @mhasabalah
