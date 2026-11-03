@@ -28,7 +28,9 @@ public class E2ETestFixture : IAsyncLifetime
         Factory = new E2ETestFactory(_postgres.ConnectionString);
 
         // Force host construction so migrations apply now (surfaces startup failures early).
+        // Startup auto-migrates every module, so a forgotten migration fails the E2E suite (intended).
         _ = Factory.Services;
+        await Task.CompletedTask;
     }
 
     public async Task DisposeAsync()

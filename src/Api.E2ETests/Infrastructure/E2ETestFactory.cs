@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -32,6 +33,15 @@ public class E2ETestFactory : WebApplicationFactory<Program>
         // read by WebApplication.CreateBuilder up front, so they win for those.
         Environment.SetEnvironmentVariable($"ConnectionStrings__{ConnectionStringName}", _connectionString);
         Environment.SetEnvironmentVariable("Redis__Enabled", "false");
+
+        // Every test client shares one IP, so the production auth (10/min) and otp (3/10min) budgets would make the
+        // suite order-dependent (429s). Rate limiting is read at registration time (hence env vars, like above) and is
+        // covered by Shared.Core.Tests/Web/RateLimitingTests. Indexes follow the policy order in appsettings.json;
+        // Name is set too so a reorder fails loudly instead of silently raising another policy.
+        Environment.SetEnvironmentVariable("RateLimiting__Policies__3__Name", "auth");
+        Environment.SetEnvironmentVariable("RateLimiting__Policies__3__PermitLimit", "10000");
+        Environment.SetEnvironmentVariable("RateLimiting__Policies__4__Name", "otp");
+        Environment.SetEnvironmentVariable("RateLimiting__Policies__4__PermitLimit", "10000");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -60,10 +70,11 @@ public class E2ETestFactory : WebApplicationFactory<Program>
 
     protected virtual void ConfigureTestServices(IServiceCollection services)
     {
-        // Replace authentication with the header-driven test scheme.
+        // Replace authentication with the header-driven test scheme. A real "Authorization: Bearer" token without
+        // test headers is forwarded to the app's JWT bearer scheme (real signature, blacklist and claim handling).
         services.AddAuthentication(defaultScheme: TestAuthHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
-                TestAuthHandler.SchemeName, _ => { });
+                TestAuthHandler.SchemeName, options => options.ForwardDefaultSelector = ForwardRealTokens);
 
         services.PostConfigure<AuthenticationOptions>(o =>
         {
@@ -71,6 +82,21 @@ public class E2ETestFactory : WebApplicationFactory<Program>
             o.DefaultChallengeScheme = TestAuthHandler.SchemeName;
             o.DefaultScheme = TestAuthHandler.SchemeName;
         });
+    }
+
+    private static string? ForwardRealTokens(Microsoft.AspNetCore.Http.HttpContext context) =>
+        !context.Request.Headers.ContainsKey(TestAuthHandler.UserIdHeader) &&
+        context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? JwtBearerDefaults.AuthenticationScheme
+            : null;
+
+    /// <summary>Creates a client that sends a real access token (validated by the app's JWT bearer scheme).</summary>
+    public HttpClient CreateClientWithToken(string accessToken)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        return client;
     }
 
     /// <summary>Creates a client whose requests are authenticated as the given user/roles.</summary>

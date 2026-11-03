@@ -9,13 +9,16 @@ public static class TestData
     public static string UniqueSku(string prefix = "E2E") =>
         $"{prefix}-{Guid.NewGuid():N}".ToUpperInvariant();
 
-    public static object ValidCreateProductPayload(string? sku = null, decimal price = 49.99m) => new
+    /// <summary>A Catalog create/update body: bilingual name, enums as names (they serialize as strings).</summary>
+    public static Dictionary<string, object?> ValidCreateProductPayload(
+        string? sku = null, decimal price = 49.99m, string nameEn = "E2E Product") => new()
     {
-        Name = "E2E Product",
-        Description = "Created by the e2e suite.",
-        Sku = sku ?? UniqueSku(),
-        Price = price,
-        IsActive = true,
-        ImageAttachmentId = (Guid?)null,
+        ["name"] = new { en = nameEn, ar = "منتج اختبار" },
+        ["description"] = "Created by the e2e suite.",
+        ["sku"] = sku ?? UniqueSku(),
+        ["type"] = "Physical",
+        ["price"] = price,
+        ["compareAtPrice"] = null,
+        ["currency"] = "USD",
     };
 }
