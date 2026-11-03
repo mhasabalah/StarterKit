@@ -9,55 +9,63 @@ public class CancelSubscriptionCommandValidator : AbstractValidator<CancelSubscr
     {
         RuleFor(x => x.SubscriptionId).NotEmpty();
         RuleFor(x => x.ActorId).NotEmpty();
+        RuleFor(x => x.CancellationNote).MaximumLength(1000);
     }
 }
 
+/// <summary>
+/// Subscriber: Active → cancellation scheduled for the period end (applied by the renewal orchestrator);
+/// PastDue → cancelled now. Admin: cancelled now (audited).
+/// </summary>
 public class CancelSubscriptionHandler(
     ISubscriptionRepository subscriptionRepository,
+    IAdminAuditWriter audit,
     IDistributedCache cache,
     SubscriptionsDbContext dbContext)
     : ICommandHandler<CancelSubscriptionCommand, Unit>
 {
     public async Task<Unit> Handle(CancelSubscriptionCommand command, CancellationToken cancellationToken)
     {
-        var subscription = await subscriptionRepository.GetByIdForUpdateAsync(command.SubscriptionId, cancellationToken)
+        var subscription = await subscriptionRepository.GetByIdAsync(command.SubscriptionId, cancellationToken)
             ?? throw new SubscriptionNotFoundException(command.SubscriptionId);
 
-        if (subscription.Status is not (SubscriptionStatus.Active or SubscriptionStatus.PastDue))
-        {
-            throw new ConflictException("Only active or past due subscriptions can be cancelled.");
-        }
-
         if (!command.IsAdminActor && subscription.SubscriberId != command.ActorId)
-        {
             throw new ForbiddenException("You are not allowed to cancel this subscription.");
-        }
 
+        if (subscription.Status is not (SubscriptionStatus.Active or SubscriptionStatus.PastDue))
+            throw new ConflictException("Only active or past due subscriptions can be cancelled.");
+
+        var now = DateTimeOffset.UtcNow;
         var fromStatus = subscription.Status;
-        SubscriptionStatus toStatus;
-        string actorType = command.IsAdminActor ? "Admin" : "Subscriber";
+        var actorType = command.IsAdminActor ? "Admin" : "Subscriber";
 
         if (command.IsAdminActor || subscription.Status == SubscriptionStatus.PastDue)
-        {
-            subscription.CancelImmediately(command.ActorId, command.CancellationReason, command.CancellationNote);
-            toStatus = SubscriptionStatus.Cancelled;
-        }
+            subscription.CancelImmediately(command.ActorId, command.CancellationReason, command.CancellationNote, now);
         else
-        {
-            subscription.ScheduleCancellation(command.ActorId, command.CancellationReason, command.CancellationNote);
-            toStatus = SubscriptionStatus.Active;
-        }
+            subscription.ScheduleCancellation(command.ActorId, command.CancellationReason, command.CancellationNote, now);
 
-        await dbContext.TransitionLogs.AddAsync(
-            SubscriptionTransitionLog.Create(
+        dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
+            subscription.Id,
+            subscription.SubscriberId,
+            fromStatus,
+            subscription.Status,
+            command.ActorId,
+            actorType,
+            command.CancellationNote ?? command.Reason));
+
+        if (command.IsAdminActor)
+        {
+            audit.Record(
+                "CancelSubscription",
                 subscription.Id,
+                "Subscription",
                 subscription.SubscriberId,
-                fromStatus,
-                toStatus,
-                command.ActorId,
-                actorType,
-                command.CancellationNote ?? command.Reason),
-            cancellationToken);
+                command.CancellationNote ?? command.Reason,
+                currency: subscription.Currency,
+                before: new { Status = fromStatus.ToString() },
+                after: new { Status = subscription.Status.ToString(), subscription.EndDate, Reason = command.CancellationReason?.ToString() },
+                adminId: command.ActorId);
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await cache.RemoveAsync(SubscriptionCacheKeys.ForSubscriber(subscription.SubscriberId), cancellationToken);

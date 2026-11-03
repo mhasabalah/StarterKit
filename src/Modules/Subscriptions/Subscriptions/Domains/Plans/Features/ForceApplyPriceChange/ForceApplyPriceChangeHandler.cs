@@ -17,6 +17,7 @@ public class ForceApplyPriceChangeCommandValidator : AbstractValidator<ForceAppl
 public class ForceApplyPriceChangeHandler(
     IPlanRepository planRepository,
     SubscriptionsDbContext dbContext,
+    IAdminAuditWriter audit,
     INotificationSender notificationSender,
     ISubscriberInfoProvider subscriberInfoProvider,
     IConfiguration configuration)
@@ -38,16 +39,14 @@ public class ForceApplyPriceChangeHandler(
 
         plan.ForcePrice(command.NewPrice);
 
-        await dbContext.AdminAuditLogs.AddAsync(
-            AdminActionAuditLog.Create(
-                command.AdminId,
-                "ForceApplyPriceChange",
-                plan.Id,
-                "Plan",
-                Guid.Empty,
-                $"Forced immediate price change from {plan.Currency} {oldPrice:F2} to {plan.Currency} {command.NewPrice:F2}"
-                + (hadPendingSchedule ? " (cancelled existing scheduled change)" : string.Empty)),
-            cancellationToken);
+        audit.Record(
+            "ForceApplyPriceChange",
+            plan.Id,
+            "Plan",
+            reason: $"Forced immediate price change from {plan.Currency} {oldPrice:F2} to {plan.Currency} {command.NewPrice:F2}"
+                + (hadPendingSchedule ? " (cancelled existing scheduled change)" : string.Empty),
+            amount: command.NewPrice, currency: plan.Currency, before: new { Price = oldPrice, HadPendingSchedule = hadPendingSchedule }, after: new { Price = command.NewPrice },
+            adminId: command.AdminId);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

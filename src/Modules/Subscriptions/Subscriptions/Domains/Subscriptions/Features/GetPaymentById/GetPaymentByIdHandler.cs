@@ -30,7 +30,9 @@ public class GetPaymentByIdHandler(SubscriptionsDbContext dbContext)
                 p.CreatedAt,
                 p.ReviewedBy,
                 p.ReviewedAt,
-                p.Notes))
+                p.Notes,
+                p.Purpose.ToString(),
+                p.Version))
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

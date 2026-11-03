@@ -12,12 +12,11 @@ public class DeletePlanEndPoint : ICarterModule
                     await sender.Send(new DeletePlanCommand(id), ct);
                     return Results.Ok(ApiResponseExtensions.Success("Deleted"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("DeletePlan")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

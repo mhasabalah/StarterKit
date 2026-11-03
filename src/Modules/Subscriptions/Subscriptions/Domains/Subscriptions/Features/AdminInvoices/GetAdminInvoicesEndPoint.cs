@@ -14,7 +14,7 @@ public class GetAdminInvoicesEndPoint : ICarterModule
                     var result = await sender.Send(query, ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRead)
             .WithName("GetAdminInvoices")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
@@ -24,7 +24,6 @@ public class GetAdminInvoicesEndPoint : ICarterModule
             .Produces(StatusCodes.Status403Forbidden)
             .WithSummary("Get Admin Invoices")
             .WithDescription("Retrieve paginated invoices, optionally filtered by subscriber, status, or type. Admin only.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

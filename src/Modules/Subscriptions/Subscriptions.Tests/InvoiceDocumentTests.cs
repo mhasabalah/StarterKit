@@ -11,10 +11,10 @@ public class InvoiceDocumentTests
     public InvoiceDocumentTests() => PdfConfiguration.Configure();
 
     private static InvoicePdfModel SampleModel(
-        bool isDeferred = false,
+        bool isCreditNote = false,
         string subscriberName = "Acme Ltd") => new()
     {
-        InvoiceNumber = "INV-202606-00042",
+        InvoiceNumber = "INV-2026-000042",
         TypeLabel = "Activation",
         Description = "Subscription Activation — Pro Plan",
         SubscriberName = subscriberName,
@@ -25,8 +25,8 @@ public class InvoiceDocumentTests
         NetAmount = 1000m,
         TaxAmount = 150m,
         TotalAmount = 1150m,
-        VatPercent = 15,
-        IsDeferred = isDeferred
+        TaxRate = 0.15m,
+        IsCreditNote = isCreditNote
     };
 
     [Fact]
@@ -41,11 +41,24 @@ public class InvoiceDocumentTests
     }
 
     [Fact]
-    public void GeneratePdf_renders_deferred_invoices_without_throwing()
+    public void GeneratePdf_renders_credit_notes_without_throwing()
     {
-        var act = () => new InvoiceDocument(SampleModel(isDeferred: true)).GeneratePdf();
+        var model = SampleModel(isCreditNote: true) with { NetAmount = -1000m, TaxAmount = -150m, TotalAmount = -1150m };
+        var act = () => new InvoiceDocument(model).GeneratePdf();
 
         act.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData("0.15", "15%")]
+    [InlineData("0.075", "7.5%")]
+    [InlineData("0.05", "5%")]
+    [InlineData("0", "0%")]
+    public void Tax_rate_label_is_not_truncated(string rate, string expected)
+    {
+        var model = SampleModel() with { TaxRate = decimal.Parse(rate, System.Globalization.CultureInfo.InvariantCulture) };
+
+        model.TaxRateLabel.Should().Be(expected);
     }
 
     [Fact]

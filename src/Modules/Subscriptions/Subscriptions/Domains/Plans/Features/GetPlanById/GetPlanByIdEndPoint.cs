@@ -15,12 +15,11 @@ public class GetPlanByIdEndPoint : ICarterModule
                         ? ApiResponseExtensions.NotFound("Plan not found")
                         : Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("GetPlanById")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<AdminPlanDto>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

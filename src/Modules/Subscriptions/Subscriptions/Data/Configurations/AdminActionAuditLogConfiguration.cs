@@ -7,22 +7,18 @@ public class AdminActionAuditLogConfiguration : IEntityTypeConfiguration<AdminAc
         builder.ToTable("admin_action_audit_logs");
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.Action)
-            .IsRequired()
-            .HasMaxLength(100);
-
-        builder.Property(x => x.TargetType)
-            .IsRequired()
-            .HasMaxLength(50);
-
-        builder.Property(x => x.Reason)
-            .HasMaxLength(1000);
-
-        builder.Property(x => x.OccurredAt)
-            .IsRequired();
+        builder.Property(x => x.Action).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.TargetType).IsRequired().HasMaxLength(50);
+        builder.Property(x => x.Reason).HasMaxLength(1000);
+        builder.Property(x => x.Amount).HasPrecision(18, 2).IsRequired(false);
+        builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(false);
+        builder.Property(x => x.BeforeJson).HasColumnType("jsonb").IsRequired(false);
+        builder.Property(x => x.AfterJson).HasColumnType("jsonb").IsRequired(false);
+        builder.Property(x => x.OccurredAt).IsRequired();
 
         builder.HasIndex(x => x.AdminId);
         builder.HasIndex(x => x.OccurredAt);
         builder.HasIndex(x => x.SubscriberId);
+        builder.HasIndex(x => new { x.TargetType, x.TargetId });
     }
 }

@@ -20,26 +20,24 @@ public class CancelScheduledDowngradeHandler(
         CancelScheduledDowngradeCommand command,
         CancellationToken cancellationToken)
     {
-        var subscription = await subscriptionRepository.GetByIdForUpdateAsync(command.SubscriptionId, cancellationToken)
+        var subscription = await subscriptionRepository.GetByIdAsync(command.SubscriptionId, cancellationToken)
             ?? throw new SubscriptionNotFoundException(command.SubscriptionId);
 
         if (subscription.SubscriberId != command.SubscriberId)
             throw new ForbiddenException("You are not allowed to modify this subscription.");
 
-        subscription.CancelScheduledDowngrade(command.SubscriberId);
+        subscription.CancelScheduledDowngrade(DateTimeOffset.UtcNow);
 
-        await dbContext.TransitionLogs.AddAsync(
-            SubscriptionTransitionLog.Create(
-                subscription.Id,
-                subscription.SubscriberId,
-                SubscriptionStatus.Active,
-                SubscriptionStatus.Active,
-                command.SubscriberId,
-                "Subscriber",
-                "Cancelled scheduled downgrade"),
-            cancellationToken);
+        dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
+            subscription.Id,
+            subscription.SubscriberId,
+            subscription.Status,
+            subscription.Status,
+            command.SubscriberId,
+            "Subscriber",
+            "Cancelled scheduled downgrade"));
 
-        await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }
 }

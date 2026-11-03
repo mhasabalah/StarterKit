@@ -3,6 +3,10 @@ using Subscriptions.Contracts.Subscriptions.Queries;
 
 namespace Subscriptions.Domains.Subscriptions.Features.GetRenewalStatus;
 
+/// <summary>
+/// The open renewal for a past-due subscriber. The expected amount is the amount on the renewal PAYMENT (priced at
+/// the boundary, incl. deferred proration), not the live plan price.
+/// </summary>
 public class GetRenewalStatusHandler(SubscriptionsDbContext dbContext)
     : IQueryHandler<GetRenewalStatusQuery, RenewalStatusDto?>
 {
@@ -19,30 +23,16 @@ public class GetRenewalStatusHandler(SubscriptionsDbContext dbContext)
                 x.Id,
                 x.Status,
                 x.GracePeriodEndsAt,
-                x.PlanId,
-                x.Price,
                 x.Currency,
-                LatestPayment = x.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
+                RenewalPayment = x.Payments
+                    .Where(p => p.Purpose == PaymentPurpose.Renewal)
+                    .OrderByDescending(p => p.CreatedAt)
+                    .FirstOrDefault()
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (subscription?.LatestPayment is null)
+        if (subscription?.RenewalPayment is null)
             return null;
-
-        var plan = await dbContext.Plans
-            .AsNoTracking()
-            .Where(p => p.Id == subscription.PlanId)
-            .Select(p => new { p.Price, p.PendingPrice, p.PriceEffectiveAt })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var now = DateTimeOffset.UtcNow;
-        decimal expectedAmount;
-        if (plan is { PendingPrice: not null, PriceEffectiveAt: not null } && plan.PriceEffectiveAt <= now)
-            expectedAmount = plan.PendingPrice.Value;   // effective but job hasn't promoted yet
-        else if (plan != null && plan.Price != subscription.Price)
-            expectedAmount = plan.Price;                // already promoted by ProcessPlanPriceChangesJob
-        else
-            expectedAmount = subscription.Price;
 
         var daysUntilExpiry = subscription.GracePeriodEndsAt.HasValue
             ? (subscription.GracePeriodEndsAt.Value.UtcDateTime - DateTime.UtcNow).Days
@@ -53,10 +43,10 @@ public class GetRenewalStatusHandler(SubscriptionsDbContext dbContext)
             subscription.Status.ToString(),
             subscription.GracePeriodEndsAt,
             daysUntilExpiry,
-            subscription.LatestPayment.Id,
-            subscription.LatestPayment.Status.ToString(),
-            subscription.LatestPayment.Amount,
+            subscription.RenewalPayment.Id,
+            subscription.RenewalPayment.Status.ToString(),
+            subscription.RenewalPayment.Amount,
             subscription.Currency,
-            expectedAmount);
+            subscription.RenewalPayment.Amount);
     }
 }

@@ -31,25 +31,7 @@ public class GetAdminRefundRequestsHandler(SubscriptionsDbContext dbContext)
         queryable = queryable.OrderByDescending(x => x.RequestedAt);
         queryable = queryable.OrderByDynamic(query.SortColumn, query.SortBy);
 
-        var dtoQuery = queryable.Select(x => new AdminRefundRequestDto(
-            x.Id,
-            x.SubscriptionId,
-            x.SubscriberId,
-            x.PlanName,
-            x.BillingCycleInMonths,
-            x.SubscriptionStartedAt,
-            x.CancelledAt,
-            x.RenewalDate,
-            x.RequestedAmount,
-            x.Currency,
-            x.RefundType.ToString(),
-            x.Status.ToString(),
-            x.RequestedAt,
-            x.ReviewedBy,
-            x.ReviewedAt,
-            x.ReviewNotes,
-            x.ProcessedAt,
-            x.ExternalTransactionRef));
+        var dtoQuery = queryable.Select(Services.AdminBillingProjections.ToAdminRefundRequestDto);
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }

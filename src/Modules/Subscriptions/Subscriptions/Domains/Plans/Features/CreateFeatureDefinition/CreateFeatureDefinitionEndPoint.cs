@@ -32,13 +32,12 @@ public class CreateFeatureDefinitionEndPoint : ICarterModule
 
                     return Results.Ok(ApiResponseExtensions.Success(new { key }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("CreateFeatureDefinition")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status409Conflict)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

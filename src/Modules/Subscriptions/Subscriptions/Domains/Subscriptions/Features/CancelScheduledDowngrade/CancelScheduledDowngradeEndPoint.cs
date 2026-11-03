@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.CancelScheduledDowngrade;
@@ -8,11 +9,11 @@ public class CancelScheduledDowngradeEndPoint : ICarterModule
     {
         app.MapDelete(EndpointConfig.BaseApiPath + "/subscriptions/{id:guid}/scheduled-downgrade",
                 async (Guid id,
-                    IHttpContextService httpContextService,
+                    IHttpContextService httpContextService, ISubscriberIdProvider subscribers,
                     ISender sender,
                     CancellationToken ct) =>
                 {
-                    var subscriberId = httpContextService.GetUserIdAsGuid()
+                    var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
                     await sender.Send(new CancelScheduledDowngradeCommand(id, subscriberId), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { Status = "Cancelled" }));
@@ -21,7 +22,6 @@ public class CancelScheduledDowngradeEndPoint : ICarterModule
             .WithName("CancelScheduledDowngrade")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

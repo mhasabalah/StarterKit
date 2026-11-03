@@ -2,57 +2,48 @@ using Subscriptions.Domains.Subscriptions.Services;
 
 namespace Subscriptions.Domains.Subscriptions.Jobs;
 
+/// <summary>
+/// Backstop for invoice delivery (job id <c>process-invoice-retry</c>): re-enqueues invoices whose delivery was
+/// never queued (process stopped between commit and enqueue) or failed with retries left.
+/// Delivery itself is idempotent (<see cref="InvoiceDeliveryJob"/>).
+/// </summary>
 [DisableConcurrentExecution(60)]
 public class ProcessInvoiceRetryJob(
-    IServiceScopeFactory scopeFactory,
+    IUnitOfWorkRunner unitOfWork,
     ILogger<ProcessInvoiceRetryJob> logger)
 {
-    private const int MaxRetryCount = 3;
+    public const int MaxRetryCount = 5;
+    private static readonly TimeSpan StuckAfter = TimeSpan.FromMinutes(15);
 
-    public async Task ExecuteAsync(IJobCancellationToken cancellationToken)
+    public Task ExecuteAsync(IJobCancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        return unitOfWork.RunAsync((services, _) => ExecuteAsync(services, cancellationToken), CancellationToken.None);
+    }
 
-        using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>();
-        var invoiceService = scope.ServiceProvider.GetRequiredService<IInvoiceService>();
+    private async Task ExecuteAsync(IServiceProvider services, IJobCancellationToken cancellationToken)
+    {
+        var dbContext = services.GetRequiredService<SubscriptionsDbContext>();
+        var issuer = services.GetRequiredService<IInvoiceIssuer>();
 
-        var pendingInvoiceIds = await dbContext.Invoices
+        var stuckBefore = DateTimeOffset.UtcNow - StuckAfter;
+        var invoiceIds = await dbContext.Invoices
             .AsNoTracking()
-            .Where(x => (x.Status == InvoiceStatus.Pending || x.Status == InvoiceStatus.Failed)
-                        && !x.IsVoided
-                        && x.RetryCount < MaxRetryCount)
+            .Where(x => x.SentAt == null &&
+                        ((x.Status == InvoiceStatus.Pending && x.CreatedAt <= stuckBefore) ||
+                         (x.Status == InvoiceStatus.Generated && x.CreatedAt <= stuckBefore) ||
+                         (x.Status == InvoiceStatus.Failed && x.RetryCount < MaxRetryCount)))
             .Select(x => x.Id)
             .ToListAsync(CancellationToken.None);
 
-        foreach (var invoiceId in pendingInvoiceIds)
+        foreach (var invoiceId in invoiceIds)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            issuer.EnqueueDelivery(invoiceId);
+        }
 
-            try
-            {
-                var invoice = await dbContext.Invoices
-                    .FirstOrDefaultAsync(x => x.Id == invoiceId, CancellationToken.None);
-                if (invoice is null)
-                    continue;
-
-                var subscription = await dbContext.Subscriptions
-                    .Include(x => x.Invoices)
-                    .FirstOrDefaultAsync(x => x.Id == invoice.SubscriptionId, CancellationToken.None);
-                if (subscription is null)
-                    continue;
-
-                await invoiceService.RetryAsync(invoice, subscription, CancellationToken.None);
-
-                logger.LogInformation(
-                    "Retried invoice {InvoiceId} ({InvoiceNumber}). Status={Status} RetryCount={RetryCount}",
-                    invoice.Id, invoice.InvoiceNumber, invoice.Status, invoice.RetryCount);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error retrying invoice {InvoiceId}.", invoiceId);
-                dbContext.ChangeTracker.Clear();
-            }
+        if (invoiceIds.Count > 0)
+        {
+            logger.LogInformation("Re-enqueued delivery of {Count} invoices.", invoiceIds.Count);
         }
     }
 }

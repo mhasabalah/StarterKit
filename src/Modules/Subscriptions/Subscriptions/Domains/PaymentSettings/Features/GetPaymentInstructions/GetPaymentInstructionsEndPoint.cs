@@ -20,7 +20,6 @@ public class GetPaymentInstructionsEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces<ApiResponse<PaymentInstructionsDto>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

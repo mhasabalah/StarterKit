@@ -1,5 +1,6 @@
 namespace Subscriptions.Contracts.Subscriptions.DTOs;
 
+/// <param name="Version">Round-trip as <c>AdminReviewRefundCommand.Version</c> / <c>MarkRefundProcessedCommand.Version</c>.</param>
 public record AdminRefundRequestDto(
     Guid RefundRequestId,
     Guid SubscriptionId,
@@ -18,4 +19,5 @@ public record AdminRefundRequestDto(
     DateTimeOffset? ReviewedAt,
     string? ReviewNotes,
     DateTimeOffset? ProcessedAt,
-    string? ExternalTransactionRef);
+    string? ExternalTransactionRef,
+    long Version = 0);

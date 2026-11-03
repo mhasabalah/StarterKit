@@ -3,10 +3,18 @@ using Subscriptions.Domains.Subscriptions.Services;
 
 namespace Subscriptions.Domains.Subscriptions.Features.CreateSubscriptionForApprovedApplication;
 
+/// <summary>
+/// Cross-module entry point: another module approved an application and wants an active subscription right away.
+/// Idempotent per subscriber (returns the open subscription if one exists; the unique index settles races).
+/// The activation invoice is issued in the same transaction when the payment is approved here.
+/// </summary>
 public class CreateSubscriptionForApprovedApplicationHandler(
     IPlanRepository planRepository,
     ISubscriptionRepository subscriptionRepository,
-    IInvoiceService invoiceService,
+    IInvoiceIssuer invoiceIssuer,
+    ILedgerRepository ledger,
+    ISubscriberInfoProvider subscriberInfoProvider,
+    IAdminAuditWriter audit,
     SubscriptionsDbContext dbContext,
     IDistributedCache cache,
     ILogger<CreateSubscriptionForApprovedApplicationHandler> logger)
@@ -16,82 +24,100 @@ public class CreateSubscriptionForApprovedApplicationHandler(
         CreateSubscriptionForApprovedApplicationCommand command,
         CancellationToken cancellationToken)
     {
-        // Idempotency: return existing subscription if already active
-        if (await subscriptionRepository.HasActiveSubscriptionAsync(command.SubscriberId, cancellationToken))
+        var existing = await subscriptionRepository.GetOpenBySubscriberIdAsync(command.SubscriberId, cancellationToken);
+        if (existing is not null)
         {
             logger.LogWarning(
-                "Subscriber {SubscriberId} already has an active subscription; skipping auto-activation",
+                "Subscriber {SubscriberId} already has an open subscription; skipping auto-activation",
                 command.SubscriberId);
-            var existing = await subscriptionRepository.GetActiveBySubscriberIdAsync(
-                command.SubscriberId, cancellationToken);
-            return existing!.Id;
+            return existing.Id;
         }
 
         var plan = await planRepository.GetByIdAsync(command.PlanId, cancellationToken)
             ?? throw new PlanNotFoundException(command.PlanId);
 
-        var idempotencyToken = $"auto-approval-{command.SubscriberId:N}";
+        var now = DateTimeOffset.UtcNow;
 
-        var subscription = Subscription.Create(
-            command.SubscriberId,
-            plan,
-            command.FeaturesJson,
-            idempotencyToken);
-
-        var payment = SubscriptionPayment.Create(
-            subscription.Id,
+        // The caller dictates the commercial terms (approved application); limits/features come from the command.
+        var snapshot = new PlanSnapshot(
+            plan.Id,
+            plan.Name.En,
             command.Price,
-            command.Currency);
+            command.Currency,
+            command.BillingCycleInMonths,
+            command.MaxItems,
+            command.MaxStorageGb,
+            command.MaxUsers,
+            string.IsNullOrWhiteSpace(command.FeaturesJson) ? FeaturesJson.Empty : command.FeaturesJson);
+
+        // The approved application states the amount actually collected (gross).
+        var subscription = Subscription.Create(command.SubscriberId, snapshot, command.Price, now);
+        var payment = subscription.ActivationPayment;
 
         if (command.ProofAttachmentId.HasValue)
         {
-            payment.SubmitProofWithSnapshot(
+            payment.SubmitProof(
                 command.ProofAttachmentId.Value,
-                command.PaymentMethodId,
-                command.PaymentMethodType,
-                command.PaymentMethodDisplayName,
-                command.PaymentMethodValue,
-                command.PaymentMethodDescription,
-                command.SubscriberId);
+                new PaymentMethodSnapshot(
+                    command.PaymentMethodId,
+                    command.PaymentMethodType,
+                    command.PaymentMethodDisplayName,
+                    command.PaymentMethodValue,
+                    command.PaymentMethodDescription),
+                command.SubscriberId,
+                now);
         }
 
-        subscription.Activate();
+        subscription.Activate(now);
+        await PaymentSettlementService.RefreshSubscriberSnapshotAsync(subscriberInfoProvider, subscription, cancellationToken);
 
-        if (payment.Status == PaymentStatus.Submitted)
-            payment.Approve(command.AdminId, command.SubscriberId);
+        SubscriptionInvoice? invoice = null;
+        await using (var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken))
+        {
+            await subscriptionRepository.AddAsync(subscription, cancellationToken);
 
-        await subscriptionRepository.AddAsync(subscription, cancellationToken);
-        await dbContext.Payments.AddAsync(payment, cancellationToken);
+            if (payment.Status == PaymentStatus.Submitted)
+            {
+                var received = payment.Approve(command.AdminId, command.SubscriberId, now);
+                invoice = await invoiceIssuer.IssueForPaymentAsync(subscription, payment, cancellationToken);
+                if (received > 0m)
+                {
+                    ledger.Add(LedgerEntry.ForPayment(subscription, payment, received, invoice.Id, command.AdminId, now));
+                }
+            }
 
-        await dbContext.TransitionLogs.AddAsync(
-            SubscriptionTransitionLog.Create(
+            dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
                 subscription.Id,
                 subscription.SubscriberId,
                 SubscriptionStatus.PendingApproval,
                 SubscriptionStatus.Active,
                 command.AdminId,
                 "Admin",
-                null),
-            cancellationToken);
+                null));
 
-        await dbContext.AdminAuditLogs.AddAsync(
-            AdminActionAuditLog.Create(
-                command.AdminId,
+            audit.Record(
                 "ApproveApplicationSubscription",
                 subscription.Id,
                 "Subscription",
                 subscription.SubscriberId,
-                null),
-            cancellationToken);
+                amount: payment.Amount,
+                currency: payment.Currency,
+                after: new { Status = subscription.Status.ToString(), PaymentStatus = payment.Status.ToString(), InvoiceId = invoice?.Id },
+                adminId: command.AdminId);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         await cache.RemoveAsync(SubscriptionCacheKeys.ForSubscriber(subscription.SubscriberId), cancellationToken);
-
-        await invoiceService.GenerateActivationInvoiceAsync(subscription, payment.Id, cancellationToken);
+        if (invoice is not null)
+        {
+            invoiceIssuer.EnqueueDelivery(invoice.Id);
+        }
 
         logger.LogInformation(
             "Auto-activated subscription {SubscriptionId} for subscriber {SubscriberId} on plan {PlanName}",
-            subscription.Id, subscription.SubscriberId, plan.Name);
+            subscription.Id, subscription.SubscriberId, plan.Name.En);
 
         return subscription.Id;
     }

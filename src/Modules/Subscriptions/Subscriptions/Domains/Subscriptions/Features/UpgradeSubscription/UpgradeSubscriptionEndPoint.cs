@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.UpgradeSubscription;
@@ -11,11 +12,11 @@ public class UpgradeSubscriptionEndPoint : ICarterModule
         app.MapPost(EndpointConfig.BaseApiPath + "/subscriptions/{id:guid}/upgrade",
                 async (Guid id,
                     UpgradeSubscriptionRequest request,
-                    IHttpContextService httpContextService,
+                    IHttpContextService httpContextService, ISubscriberIdProvider subscribers,
                     ISender sender,
                     CancellationToken ct) =>
                 {
-                    var subscriberId = httpContextService.GetUserIdAsGuid()
+                    var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
                     var result = await sender.Send(
                         new UpgradeSubscriptionCommand(id, subscriberId, request.NewPlanId), ct);
@@ -27,7 +28,6 @@ public class UpgradeSubscriptionEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<UpgradeSubscriptionResult>>(StatusCodes.Status201Created)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

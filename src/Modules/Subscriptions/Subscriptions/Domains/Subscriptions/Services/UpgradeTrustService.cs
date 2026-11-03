@@ -2,64 +2,63 @@ using Subscriptions.Options;
 
 namespace Subscriptions.Domains.Subscriptions.Services;
 
+/// <summary>Priced upgrade: proration for the rest of the current period, whether it is deferred, and the amount due now.</summary>
+/// <param name="ProratedAmount">Prorated price difference (tax basis).</param>
+/// <param name="AmountDue">Gross amount of the proration payment (0 when deferred).</param>
+/// <param name="ProofRequiredBy">Deadline for paying a non-deferred proration (null when nothing is due now).</param>
+public sealed record UpgradeQuote(
+    decimal NewPlanPrice,
+    decimal ProratedAmount,
+    bool IsDeferred,
+    decimal AmountDue,
+    DateTimeOffset? ProofRequiredBy);
+
+public interface IUpgradeTrustService
+{
+    Task<UpgradeQuote> QuoteAsync(Subscription subscription, Plan newPlan, DateTimeOffset now, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Prices an immediate upgrade. Proration covers only the CURRENT period (CurrentPeriodStart → RenewalDate), never
+/// the whole lifetime. Trusted subscribers (≥ TrustMinCycles paid activation/renewal payments) may defer a small
+/// proration (≤ ProratedDeferralThresholdPercent of the current price) to the next renewal.
+/// </summary>
 public class UpgradeTrustService(
     SubscriptionsDbContext dbContext,
     IOptions<SubscriptionOptions> options)
     : IUpgradeTrustService
 {
-    public async Task<UpgradeTrustEvaluation> EvaluateAsync(
+    public async Task<UpgradeQuote> QuoteAsync(
         Subscription subscription,
         Plan newPlan,
+        DateTimeOffset now,
         CancellationToken ct = default)
     {
-        var proratedAmount = CalculateProration(subscription, newPlan);
-        var isTrusted = await IsTrustedSubscriberAsync(subscription.SubscriberId, ct);
+        var settings = options.Value;
+        var newPrice = PricingPolicy.PlanPriceAt(newPlan, now);
+        var periodEnd = subscription.RenewalDate ?? now;
+        var periodStart = subscription.EffectivePeriodStart ?? now;
 
-        var thresholdPercent = options.Value.ProratedDeferralThresholdPercent;
-        var threshold = subscription.Price * thresholdPercent / 100m;
+        var proration = PricingPolicy.UpgradeProration(subscription.Price, newPrice, periodStart, periodEnd, now);
+        var trusted = await IsTrustedSubscriberAsync(subscription.SubscriberId, ct);
+        var deferred = PricingPolicy.ShouldDeferProration(
+            trusted, proration, subscription.Price, settings.ProratedDeferralThresholdPercent);
 
-        var isDeferred = isTrusted && proratedAmount <= threshold;
-        var proofRequiredBy = isDeferred
-            ? null
-            : (DateTimeOffset?)DateTimeOffset.UtcNow.AddHours(options.Value.UpgradeSlaHours);
+        var amountDue = deferred || proration <= 0m ? 0m : TaxCalculator.AmountDue(proration, settings.Tax.ToPolicy());
+        DateTimeOffset? proofRequiredBy = amountDue > 0m ? now.AddHours(settings.UpgradeSlaHours) : null;
 
-        return new UpgradeTrustEvaluation(isDeferred, proratedAmount, proofRequiredBy);
-    }
-
-    private static decimal CalculateProration(Subscription subscription, Plan newPlan)
-    {
-        var priceDiff = newPlan.Price - subscription.Price;
-        if (priceDiff <= 0)
-            return 0;
-
-        if (subscription.RenewalDate is null || subscription.StartDate is null)
-            return priceDiff;
-
-        var totalCycleDays = (subscription.RenewalDate.Value - subscription.StartDate.Value).TotalDays;
-        if (totalCycleDays <= 0)
-            return priceDiff;
-
-        var remainingDays = (subscription.RenewalDate.Value - DateTimeOffset.UtcNow).TotalDays;
-        if (remainingDays <= 0)
-            return 0;
-
-        var ratio = remainingDays / totalCycleDays;
-        return Math.Round((decimal)ratio * priceDiff, 2);
+        return new UpgradeQuote(newPrice, proration, deferred, amountDue, proofRequiredBy);
     }
 
     private async Task<bool> IsTrustedSubscriberAsync(Guid subscriberId, CancellationToken ct)
     {
-        var minCycles = options.Value.TrustMinCycles;
-
         var paidCycles = await dbContext.Payments
             .AsNoTracking()
-            .Join(dbContext.Subscriptions,
-                p => p.SubscriptionId,
-                s => s.Id,
-                (p, s) => new { p, s })
-            .Where(x => x.s.SubscriberId == subscriberId && x.p.Status == PaymentStatus.Paid)
+            .Where(p => p.Status == PaymentStatus.Paid &&
+                        p.Purpose != PaymentPurpose.Proration &&
+                        p.Subscription.SubscriberId == subscriberId)
             .CountAsync(ct);
 
-        return paidCycles >= minCycles;
+        return paidCycles >= options.Value.TrustMinCycles;
     }
 }

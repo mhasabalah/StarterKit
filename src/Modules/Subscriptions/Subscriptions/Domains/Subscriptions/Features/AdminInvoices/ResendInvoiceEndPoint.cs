@@ -17,11 +17,10 @@ public class ResendInvoiceEndPoint : ICarterModule
                     await sender.Send(new ResendInvoiceCommand(id, adminId), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { Status = "Resent" }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingApprove)
             .WithName("ResendInvoice")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

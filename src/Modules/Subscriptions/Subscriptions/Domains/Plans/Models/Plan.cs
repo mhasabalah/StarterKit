@@ -127,7 +127,7 @@ public class Plan : Aggregate<Guid>
     public void SchedulePriceChange(decimal newPrice, DateTimeOffset effectiveAt)
     {
         PendingPrice = newPrice;
-        PriceEffectiveAt = effectiveAt;
+        PriceEffectiveAt = effectiveAt.ToUniversalTime(); // timestamptz: Npgsql only writes offset 0
         PriceChangeAnnouncedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }

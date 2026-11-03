@@ -21,11 +21,10 @@ public class SchedulePriceChangeEndPoint : ICarterModule
                         new SchedulePriceChangeCommand(id, adminId, request.NewPrice, request.EffectiveAt), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { Status = "Scheduled" }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("SchedulePriceChange")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

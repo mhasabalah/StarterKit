@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 namespace Subscriptions.Domains.Subscriptions.Features.GetMySubscriptionInvoices;
 
 public class GetMySubscriptionInvoicesQueryValidator : AbstractValidator<GetMySubscriptionInvoicesQuery>
@@ -16,48 +17,17 @@ public class GetMySubscriptionInvoicesHandler(SubscriptionsDbContext dbContext)
         GetMySubscriptionInvoicesQuery query,
         CancellationToken cancellationToken)
     {
+        // All of the subscriber's invoices and credit notes (snapshot carries the subscriber id), so documents of a
+        // cancelled subscription (e.g. refund credit notes) stay visible.
         var subscriberId = query.SubscriberId ?? Guid.Empty;
-        var subscriptionId = await dbContext.Subscriptions
-            .AsNoTracking()
-            .Where(x => x.SubscriberId == subscriberId &&
-                        x.Status != SubscriptionStatus.Cancelled &&
-                        x.Status != SubscriptionStatus.Expired)
-            .OrderByDescending(x => x.UpdatedAt)
-            .Select(x => (Guid?)x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (subscriptionId is null)
-            return new PaginatedResult<InvoiceDto>
-            {
-                Result = [],
-                PageInfoResult = new PageInfoResult
-                {
-                    TotalItems = 0,
-                    CurrentPage = query.PageNumber ?? 1,
-                    PageSize = query.PageSize ?? 10
-                }
-            };
-
         var invoiceQueryable = dbContext.Invoices
             .AsNoTracking()
-            .Where(x => x.SubscriptionId == subscriptionId.Value)
+            .Where(x => x.SubscriberId == subscriberId)
             .OrderByDescending(x => x.IssuedAt);
 
         var invoiceQueryable2 = invoiceQueryable.OrderByDynamic(query.SortColumn, query.SortBy);
 
-        var dtoQuery = invoiceQueryable2.Select(x => new InvoiceDto(
-                x.Id,
-                x.InvoiceNumber,
-                x.Type.ToString(),
-                x.Status.ToString(),
-                x.Amount,
-                x.TaxRate,
-                Math.Round(x.Amount * (1 - x.TaxRate), 2),
-                Math.Round(x.Amount * x.TaxRate, 2),
-                x.Currency,
-                x.IsDeferred,
-                x.IsVoided,
-                x.IssuedAt));
+        var dtoQuery = invoiceQueryable2.Select(InvoiceProjections.ToInvoiceDto);
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }

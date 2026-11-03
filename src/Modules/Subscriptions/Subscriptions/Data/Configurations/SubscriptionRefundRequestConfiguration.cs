@@ -1,10 +1,13 @@
-using Subscriptions.Contracts.Subscriptions.Enums;
-using Subscriptions.Domains.Subscriptions.Models;
-
 namespace Subscriptions.Data.Configurations;
 
 public class SubscriptionRefundRequestConfiguration : IEntityTypeConfiguration<SubscriptionRefundRequest>
 {
+    /// <summary>
+    /// At most one non-rejected refund per subscription: Requested(0), UnderReview(1), Approved(2) AND Processed(4).
+    /// Including Processed makes a second refund after a processed one impossible at the database level (C11).
+    /// </summary>
+    public const string OneRefundPerSubscriptionIndex = "ix_subscription_refund_requests_subscription_active";
+
     public void Configure(EntityTypeBuilder<SubscriptionRefundRequest> builder)
     {
         builder.ToTable("subscription_refund_requests");
@@ -34,10 +37,9 @@ public class SubscriptionRefundRequestConfiguration : IEntityTypeConfiguration<S
         builder.HasIndex(x => x.SubscriberId);
         builder.HasIndex(x => x.Status);
 
-        // At most one active (non-terminal) refund per subscription
         builder.HasIndex(x => x.SubscriptionId)
             .IsUnique()
-            .HasFilter("\"status\" IN (0, 1, 2)")
-            .HasDatabaseName("ix_subscription_refund_requests_subscription_active");
+            .HasFilter("\"status\" IN (0, 1, 2, 4)")
+            .HasDatabaseName(OneRefundPerSubscriptionIndex);
     }
 }

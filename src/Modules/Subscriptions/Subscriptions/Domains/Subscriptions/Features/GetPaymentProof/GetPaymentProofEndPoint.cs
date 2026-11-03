@@ -16,7 +16,6 @@ public class GetPaymentProofEndPoint : ICarterModule
             .WithName("GetPaymentProofForSubscriber")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
 
         app.MapGet(EndpointConfig.BaseApiPath + "/admin/payments/{paymentId:guid}/proof",
@@ -27,11 +26,10 @@ public class GetPaymentProofEndPoint : ICarterModule
                     var result = await sender.Send(new GetPaymentProofQuery(paymentId, actorId, true), ct);
                     return Results.Redirect(result.FileUrl);
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingRead)
             .WithName("GetPaymentProofForAdmin")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

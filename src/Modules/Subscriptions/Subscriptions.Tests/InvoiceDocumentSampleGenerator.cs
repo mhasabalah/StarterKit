@@ -27,7 +27,7 @@ public class InvoiceDocumentSampleGenerator
 
         var happyPath = new InvoicePdfModel
         {
-            InvoiceNumber = "INV-202606-00042",
+            InvoiceNumber = "INV-2026-000042",
             TypeLabel = "Activation",
             Description = "Subscription Activation — Pro Plan",
             SubscriberName = "Acme Ltd",
@@ -38,13 +38,12 @@ public class InvoiceDocumentSampleGenerator
             NetAmount = 1000m,
             TaxAmount = 150m,
             TotalAmount = 1150m,
-            VatPercent = 15,
-            IsDeferred = false
+            TaxRate = 0.15m
         };
 
         var arabic = happyPath with
         {
-            InvoiceNumber = "INV-202606-00043",
+            InvoiceNumber = "INV-2026-000043",
             TypeLabel = "Renewal",
             Description = "تجديد الاشتراك — الباقة الاحترافية",
             SubscriberName = "شركة المثال المحدودة"

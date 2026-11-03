@@ -12,29 +12,34 @@ public class ResendInvoiceCommandValidator : AbstractValidator<ResendInvoiceComm
     }
 }
 
+/// <summary>Emails an already delivered invoice again (PDF re-rendered from the snapshot).</summary>
 public class ResendInvoiceHandler(
     SubscriptionsDbContext dbContext,
-    IInvoiceService invoiceService)
+    IInvoiceIssuer invoiceIssuer,
+    IAdminAuditWriter audit)
     : ICommandHandler<ResendInvoiceCommand, Unit>
 {
     public async Task<Unit> Handle(ResendInvoiceCommand command, CancellationToken cancellationToken)
     {
         var invoice = await dbContext.Invoices
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == command.InvoiceId, cancellationToken)
             ?? throw new NotFoundException($"Invoice {command.InvoiceId} not found.");
 
-        if (invoice.IsVoided)
-            throw new ConflictException("Cannot resend a voided invoice.");
-
-        if (invoice.Status == InvoiceStatus.Pending || invoice.Status == InvoiceStatus.Failed)
+        if (invoice.PdfStorageKey is null)
             throw new ConflictException("Invoice PDF has not been generated yet. Use retry instead.");
 
-        var subscription = await dbContext.Subscriptions
-            .Include(x => x.Invoices)
-            .FirstOrDefaultAsync(x => x.Id == invoice.SubscriptionId, cancellationToken)
-            ?? throw new SubscriptionNotFoundException(invoice.SubscriptionId);
+        audit.Record(
+            "ResendInvoice",
+            invoice.Id,
+            "Invoice",
+            invoice.SubscriberId,
+            amount: invoice.TotalAmount,
+            currency: invoice.Currency,
+            adminId: command.AdminId);
 
-        await invoiceService.ResendAsync(invoice, subscription, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        invoiceIssuer.EnqueueDelivery(invoice.Id, forceResend: true);
         return Unit.Value;
     }
 }

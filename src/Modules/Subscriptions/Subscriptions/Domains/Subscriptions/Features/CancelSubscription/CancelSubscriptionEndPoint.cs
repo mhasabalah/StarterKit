@@ -25,7 +25,6 @@ public class CancelSubscriptionEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<string>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
 
         app.MapPost(EndpointConfig.BaseApiPath + "/admin/subscriptions/{id:guid}/cancel",
@@ -36,12 +35,11 @@ public class CancelSubscriptionEndPoint : ICarterModule
                     await sender.Send(new CancelSubscriptionCommand(id, actorId, true, request.Reason, request.CancellationReason, request.CancellationNote), ct);
                     return Results.Ok(ApiResponseExtensions.Success("Cancelled"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingApprove)
             .WithName("CancelSubscriptionByAdmin")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<string>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

@@ -12,4 +12,6 @@ public record AdminPaymentDto(
     DateTimeOffset CreatedAt,
     Guid? ReviewedBy,
     DateTimeOffset? ReviewedAt,
-    string? Notes);
+    string? Notes,
+    string Purpose = "",
+    long Version = 0);

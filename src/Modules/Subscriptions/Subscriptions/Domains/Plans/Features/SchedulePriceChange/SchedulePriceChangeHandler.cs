@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 
 namespace Subscriptions.Domains.Plans.Features.SchedulePriceChange;
@@ -16,7 +17,8 @@ public class SchedulePriceChangeCommandValidator : AbstractValidator<SchedulePri
 
 public class SchedulePriceChangeHandler(
     IPlanRepository planRepository,
-    SubscriptionsDbContext dbContext)
+    SubscriptionsDbContext dbContext,
+    IAdminAuditWriter audit)
     : ICommandHandler<SchedulePriceChangeCommand, Unit>
 {
     public async Task<Unit> Handle(SchedulePriceChangeCommand command, CancellationToken cancellationToken)
@@ -36,15 +38,13 @@ public class SchedulePriceChangeHandler(
 
         plan.SchedulePriceChange(command.NewPrice, command.EffectiveAt);
 
-        await dbContext.AdminAuditLogs.AddAsync(
-            AdminActionAuditLog.Create(
-                command.AdminId,
-                "SchedulePriceChange",
-                plan.Id,
-                "Plan",
-                Guid.Empty,
-                $"Price change from {plan.Currency} {plan.Price:F2} to {plan.Currency} {command.NewPrice:F2}, effective {command.EffectiveAt:yyyy-MM-dd}"),
-            cancellationToken);
+        audit.Record(
+            "SchedulePriceChange",
+            plan.Id,
+            "Plan",
+            reason: $"Price change from {plan.Currency} {plan.Price:F2} to {plan.Currency} {command.NewPrice:F2}, effective {command.EffectiveAt:yyyy-MM-dd}",
+            amount: command.NewPrice, currency: plan.Currency, before: new { Price = plan.Price }, after: new { PendingPrice = command.NewPrice, command.EffectiveAt },
+            adminId: command.AdminId);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return Unit.Value;

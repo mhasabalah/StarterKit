@@ -38,7 +38,11 @@ public class GetAdminAuditLogHandler(SubscriptionsDbContext dbContext)
             x.TargetType,
             x.SubscriberId,
             x.Reason,
-            x.OccurredAt));
+            x.OccurredAt,
+            x.Amount,
+            x.Currency,
+            x.BeforeJson,
+            x.AfterJson));
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }
@@ -53,11 +57,18 @@ public class GetAdminAuditLogHandler(SubscriptionsDbContext dbContext)
         if (!string.IsNullOrWhiteSpace(query.Action))
             queryable = queryable.Where(x => x.Action == query.Action);
 
-        if (query.From.HasValue)
-            queryable = queryable.Where(x => x.OccurredAt >= query.From.Value);
+        // timestamptz parameters must be UTC (offset 0) - normalize client-supplied offsets.
+        if (query.From is { } from)
+        {
+            var fromUtc = from.ToUniversalTime();
+            queryable = queryable.Where(x => x.OccurredAt >= fromUtc);
+        }
 
-        if (query.To.HasValue)
-            queryable = queryable.Where(x => x.OccurredAt <= query.To.Value);
+        if (query.To is { } to)
+        {
+            var toUtc = to.ToUniversalTime();
+            queryable = queryable.Where(x => x.OccurredAt <= toUtc);
+        }
 
         return queryable;
     }

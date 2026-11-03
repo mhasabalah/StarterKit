@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Contracts.Subscriptions.DTOs;
 using Subscriptions.Contracts.Subscriptions.Queries;
 
@@ -8,9 +9,9 @@ public class GetRenewalStatusEndPoint : ICarterModule
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         app.MapGet(EndpointConfig.BaseApiPath + "/subscriptions/me/renewal",
-                async (IHttpContextService httpContextService, ISender sender, CancellationToken ct) =>
+                async (IHttpContextService httpContextService, ISubscriberIdProvider subscribers, ISender sender, CancellationToken ct) =>
                 {
-                    var subscriberId = httpContextService.GetUserIdAsGuid()
+                    var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
                     var result = await sender.Send(new GetRenewalStatusQuery(subscriberId), ct);
                     return result is null
@@ -22,7 +23,6 @@ public class GetRenewalStatusEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<RenewalStatusDto>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

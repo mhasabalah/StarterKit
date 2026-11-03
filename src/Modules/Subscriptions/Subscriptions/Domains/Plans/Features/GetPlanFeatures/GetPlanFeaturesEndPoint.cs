@@ -13,12 +13,11 @@ public class GetPlanFeaturesEndPoint : ICarterModule
                     var result = await sender.Send(new GetPlanFeaturesQuery(id), ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("GetPlanFeatures")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<List<AdminPlanFeatureDto>>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

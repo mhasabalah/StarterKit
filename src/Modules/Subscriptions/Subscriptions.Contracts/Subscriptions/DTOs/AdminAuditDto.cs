@@ -8,4 +8,8 @@ public record AdminAuditDto(
     string TargetType,
     Guid SubscriberId,
     string? Reason,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    decimal? Amount = null,
+    string? Currency = null,
+    string? BeforeJson = null,
+    string? AfterJson = null);

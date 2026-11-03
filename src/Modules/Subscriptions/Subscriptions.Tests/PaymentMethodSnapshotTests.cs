@@ -17,9 +17,9 @@ public class PaymentMethodSnapshotTests
             "Transfer to CIB account and attach the receipt",
             null,
             sortOrder: 1);
-        var payment = SubscriptionPayment.Create(Guid.NewGuid(), 100m, "EGP");
+        var payment = SubscriptionPayment.Create(Guid.NewGuid(), PaymentPurpose.Activation, 100m, "EGP", DateTimeOffset.UtcNow);
 
-        payment.SubmitProof(Guid.NewGuid(), paymentMethod, Guid.NewGuid());
+        payment.SubmitProof(Guid.NewGuid(), PaymentMethodSnapshot.From(paymentMethod), Guid.NewGuid(), DateTimeOffset.UtcNow);
 
         payment.PaymentMethodId.Should().Be(paymentMethod.Id);
         payment.PaymentMethodType.Should().Be(paymentMethod.Type);

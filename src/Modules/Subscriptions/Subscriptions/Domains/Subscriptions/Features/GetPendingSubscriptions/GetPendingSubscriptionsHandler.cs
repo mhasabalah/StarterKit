@@ -40,7 +40,13 @@ public class GetPendingSubscriptionsHandler(SubscriptionsDbContext dbContext)
             x.Payments
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => p.Status.ToString())
-                .FirstOrDefault() ?? PaymentStatus.Pending.ToString()));
+                .FirstOrDefault() ?? PaymentStatus.Pending.ToString(),
+            x.Payments
+                .Where(p => p.Purpose == PaymentPurpose.Activation)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => (Guid?)p.Id)
+                .FirstOrDefault(),
+            x.Version));
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }

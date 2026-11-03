@@ -17,11 +17,10 @@ public class RetryInvoiceEndPoint : ICarterModule
                     await sender.Send(new RetryInvoiceCommand(id, adminId), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { Status = "Retried" }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.BillingApprove)
             .WithName("RetryInvoice")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

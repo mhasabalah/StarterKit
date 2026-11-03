@@ -13,12 +13,11 @@ public class GetFeatureCatalogEndPoint : ICarterModule
                     var result = await sender.Send(new GetFeatureCatalogQuery(includeInactive), ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("GetFeatureCatalog")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<List<FeatureCatalogItemDto>>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

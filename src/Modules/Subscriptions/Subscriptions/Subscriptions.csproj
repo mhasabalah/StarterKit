@@ -28,11 +28,10 @@
     <ItemGroup>
         <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
         <ProjectReference Include="..\..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
-        <ProjectReference Include="..\..\..\Shared\Shared.Notification\Shared.Notification.csproj" />
         <ProjectReference Include="..\Subscriptions.Contracts\Subscriptions.Contracts.csproj" />
         <ProjectReference Include="..\..\Attachment\Attachment.Contracts\Attachment.Contracts.csproj" />
-        <ProjectReference Include="..\..\Identity\Identity.Contracts\Identity.Contracts.csproj" />
-        <ProjectReference Include="..\..\..\Shared\Shared.Email\Shared.Email.csproj" />
+        <ProjectReference Include="..\..\Identity\UserDirectory.Contracts\UserDirectory.Contracts.csproj" />
+        <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

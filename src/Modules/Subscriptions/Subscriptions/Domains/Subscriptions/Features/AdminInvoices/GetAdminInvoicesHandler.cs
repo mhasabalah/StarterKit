@@ -27,7 +27,7 @@ public class GetAdminInvoicesHandler(SubscriptionsDbContext dbContext)
         var queryable = dbContext.Invoices.AsNoTracking();
 
         if (query.SubscriberId.HasValue)
-            queryable = queryable.Where(i => i.Subscription.SubscriberId == query.SubscriberId.Value);
+            queryable = queryable.Where(i => i.SubscriberId == query.SubscriberId.Value);
 
         if (query.Status.HasValue)
             queryable = queryable.Where(i => (int)i.Status == query.Status.Value);
@@ -38,25 +38,8 @@ public class GetAdminInvoicesHandler(SubscriptionsDbContext dbContext)
         queryable = queryable.OrderByDescending(i => i.IssuedAt);
         queryable = queryable.OrderByDynamic(query.SortColumn, query.SortBy);
 
-        var dtoQuery = queryable.Select(i => new AdminInvoiceDto(
-            i.Id,
-            i.SubscriptionId,
-            i.Subscription.SubscriberId,
-            i.InvoiceNumber,
-            i.Type.ToString(),
-            i.Status.ToString(),
-            i.Amount,
-            i.TaxRate,
-            Math.Round(i.Amount * (1 - i.TaxRate), 2),
-            Math.Round(i.Amount * i.TaxRate, 2),
-            i.Currency,
-            i.IsDeferred,
-            i.IsVoided,
-            i.RetryCount,
-            i.ErrorMessage,
-            i.SentAt,
-            i.IssuedAt,
-            i.CreatedAt));
+        // Issue-time snapshot only: amounts are never recomputed from the current tax configuration.
+        var dtoQuery = queryable.Select(Services.AdminBillingProjections.ToAdminInvoiceDto);
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }

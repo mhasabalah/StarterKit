@@ -1,6 +1,6 @@
 global using MediatR;
 global using Shared.Contracts.CQRS;
 global using Shared.Contracts.Pagination;
-global using Shared.Core.DDD;
+global using Shared.Contracts.Events;
 
 namespace Subscriptions.Contracts;

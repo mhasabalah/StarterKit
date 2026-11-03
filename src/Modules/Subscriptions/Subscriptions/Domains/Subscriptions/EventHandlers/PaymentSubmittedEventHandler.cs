@@ -1,8 +1,12 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
+/// <summary>Tells the billing team (see <see cref="IAdminNotificationRecipients"/>) that a proof awaits review.</summary>
 public class PaymentSubmittedEventHandler(
     ISubscriberInfoProvider subscriberInfoProvider,
     INotificationSender notificationSender,
+    IAdminNotificationRecipients recipients,
     IConfiguration configuration,
     SubscriptionsDbContext dbContext,
     ILogger<PaymentSubmittedEventHandler> logger)
@@ -10,6 +14,15 @@ public class PaymentSubmittedEventHandler(
 {
     public async Task Handle(PaymentSubmittedEvent notification, CancellationToken cancellationToken)
     {
+        var adminEmails = await recipients.GetEmailsAsync(cancellationToken);
+        if (adminEmails.Count == 0)
+        {
+            logger.LogWarning(
+                "No admin notification recipients configured (Subscriptions:AdminNotifications) - skipping payment proof notification for {SubscriptionId}",
+                notification.SubscriptionId);
+            return;
+        }
+
         var planName = await dbContext.Subscriptions
             .AsNoTracking()
             .Where(x => x.Id == notification.SubscriptionId)
@@ -17,15 +30,6 @@ public class PaymentSubmittedEventHandler(
             .FirstOrDefaultAsync(cancellationToken) ?? "Plan";
 
         var subscriber = await subscriberInfoProvider.GetAsync(notification.SubscriberId, cancellationToken);
-
-        var adminEmail = configuration["Email:FromAddress"];
-        if (string.IsNullOrWhiteSpace(adminEmail))
-        {
-            logger.LogWarning(
-                "Admin email not configured — skipping payment proof notification for {SubscriptionId}",
-                notification.SubscriptionId);
-            return;
-        }
 
         var frontendBaseUrl = configuration["Application:FrontendBaseUrl"] ?? "http://localhost:3000";
         var model = new AdminPaymentProofReceivedModel
@@ -37,13 +41,17 @@ public class PaymentSubmittedEventHandler(
             AdminReviewUrl = $"{frontendBaseUrl}/admin/subscriptions/{notification.SubscriptionId}"
         };
 
-        await notificationSender
-            .ToEmail(adminEmail)
-            .WithEmail(EmailTemplate.AdminPaymentProofReceived, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+        foreach (var email in adminEmails)
+        {
+            await notificationSender
+                .ToEmail(email)
+                .WithEmail(EmailTemplate.AdminPaymentProofReceived, model.ToDictionary())
+                .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+        }
 
         logger.LogInformation(
-            "Admin notified of payment proof for {SubscriptionId} by subscriber {SubscriberId}",
+            "{Count} admin(s) notified of payment proof for {SubscriptionId} by subscriber {SubscriberId}",
+            adminEmails.Count,
             notification.SubscriptionId,
             notification.SubscriberId);
     }

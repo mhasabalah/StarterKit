@@ -1,10 +1,12 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 using Subscriptions.Domains.Plans.Exceptions;
 
 namespace Subscriptions.Domains.Plans.Features.AddPlanFeature;
 
 public class AddPlanFeatureHandler(
-    SubscriptionsDbContext dbContext)
+    SubscriptionsDbContext dbContext,
+    IAdminAuditWriter audit)
     : ICommandHandler<AddPlanFeatureCommand, Guid>
 {
     public async Task<Guid> Handle(AddPlanFeatureCommand command, CancellationToken cancellationToken)
@@ -30,6 +32,7 @@ public class AddPlanFeatureHandler(
 
         var feature = PlanFeature.Create(command.PlanId, command.Key);
         await dbContext.PlanFeatures.AddAsync(feature, cancellationToken);
+        audit.Record("AddPlanFeature", command.PlanId, "Plan", after: new { command.Key });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return feature.Id;

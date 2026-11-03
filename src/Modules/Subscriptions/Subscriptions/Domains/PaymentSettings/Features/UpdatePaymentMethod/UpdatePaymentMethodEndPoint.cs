@@ -12,12 +12,11 @@ public class UpdatePaymentMethodEndPoint : ICarterModule
                     await sender.Send(command with { Id = id }, ct);
                     return Results.Ok(ApiResponseExtensions.Success("Payment method updated successfully"));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PaymentSettingsManage)
             .WithName("UpdatePaymentMethod")
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

@@ -13,13 +13,12 @@ public class CreatePlanEndPoint : ICarterModule
                     return Results.Created($"{EndpointConfig.BaseApiPath}/admin/plans/{planId}",
                         ApiResponseExtensions.Success(new { planId }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .RequireRateLimiting("create")
             .WithName("CreatePlan")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces(StatusCodes.Status201Created)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

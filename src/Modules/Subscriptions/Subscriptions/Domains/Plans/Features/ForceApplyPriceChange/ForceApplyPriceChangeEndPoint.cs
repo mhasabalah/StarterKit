@@ -21,11 +21,10 @@ public class ForceApplyPriceChangeEndPoint : ICarterModule
                         new ForceApplyPriceChangeCommand(id, adminId, request.NewPrice), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { Status = "Applied" }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("ForceApplyPriceChange")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

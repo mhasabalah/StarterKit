@@ -1,5 +1,8 @@
 namespace Subscriptions.Contracts.Subscriptions.DTOs;
 
+/// <param name="CurrentPeriodStart">Start of the current billing period (the previous renewal date).</param>
+/// <param name="DeferredProrationAmount">Upgrade proration added to the next renewal (tax basis).</param>
+/// <param name="Version">The subscription version (optimistic concurrency).</param>
 public record SubscriptionDto(
     Guid SubscriptionId,
     string PlanName,
@@ -19,4 +22,7 @@ public record SubscriptionDto(
     DateTimeOffset? ScheduledCancellationDate = null,
     string? CancellationReason = null,
     decimal? UpcomingPrice = null,
-    DateTimeOffset? PriceEffectiveAt = null);
+    DateTimeOffset? PriceEffectiveAt = null,
+    DateTimeOffset? CurrentPeriodStart = null,
+    decimal DeferredProrationAmount = 0m,
+    long Version = 0);

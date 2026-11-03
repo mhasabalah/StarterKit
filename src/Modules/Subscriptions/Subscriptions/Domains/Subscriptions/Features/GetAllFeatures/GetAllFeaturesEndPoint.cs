@@ -12,12 +12,11 @@ public class GetAllFeaturesEndPoint : ICarterModule
                     var result = await sender.Send(new GetAllFeaturesQuery(subscriberId), ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("GetAllFeatures")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces<ApiResponse<Dictionary<string, string>>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

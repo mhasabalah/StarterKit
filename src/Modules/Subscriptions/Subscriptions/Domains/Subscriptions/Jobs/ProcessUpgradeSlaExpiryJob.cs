@@ -3,105 +3,172 @@ using Subscriptions.Options;
 
 namespace Subscriptions.Domains.Subscriptions.Jobs;
 
+/// <summary>What the SLA job did with one overdue proration payment.</summary>
+public enum UpgradeSlaOutcome
+{
+    Skipped,
+    Reverted,
+    ClosedWithoutRevert
+}
+
+/// <summary>
+/// Hourly upgrade-SLA enforcement (job id <c>process-upgrade-sla-expiry</c>). An immediate upgrade whose proration
+/// payment is still UNPAID (Pending, or Rejected with no new proof) after <c>UpgradeSlaHours</c> is reverted:
+/// the subscription goes back to the original plan, the payment is closed (Failed) and ONLY the invoice tied to that
+/// payment is cancelled with a credit note. A proof that is Submitted (awaiting admin review) is never reverted, and
+/// previously paid invoices are never touched.
+/// Each payment is one <see cref="IUnitOfWorkRunner"/> unit of work: its domain events are published after its
+/// commit, and a conflict on one payment is logged and skipped without aborting the batch.
+/// </summary>
 [DisableConcurrentExecution(60)]
 public class ProcessUpgradeSlaExpiryJob(
-    IServiceScopeFactory scopeFactory,
+    IUnitOfWorkRunner unitOfWork,
     IOptions<SubscriptionOptions> options,
     ILogger<ProcessUpgradeSlaExpiryJob> logger)
 {
+    public const string RevertReason = "Upgrade reverted: proration not paid within the SLA";
+
     public async Task ExecuteAsync(IJobCancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        await ProcessAsync(DateTimeOffset.UtcNow, CancellationToken.None);
+    }
 
-        using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>();
-        var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
-        var planRepository = scope.ServiceProvider.GetRequiredService<IPlanRepository>();
+    public async Task<IReadOnlyDictionary<Guid, UpgradeSlaOutcome>> ProcessAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        var cutoff = now.AddHours(-options.Value.UpgradeSlaHours);
 
-        var slaHours = options.Value.UpgradeSlaHours;
-        var cutoff = DateTimeOffset.UtcNow.AddHours(-slaHours);
+        var overdue = await unitOfWork.RunAsync(async (services, token) =>
+            (await services.GetRequiredService<SubscriptionsDbContext>().Payments
+                    .AsNoTracking()
+                    .Where(p => p.Purpose == PaymentPurpose.Proration &&
+                                (p.Status == PaymentStatus.Pending || p.Status == PaymentStatus.Rejected) &&
+                                p.CreatedAt <= cutoff)
+                    .OrderBy(p => p.CreatedAt)
+                    .Select(p => new { p.Id, p.SubscriptionId })
+                    .ToListAsync(token))
+                .Select(x => (PaymentId: x.Id, x.SubscriptionId))
+                .ToList(), ct);
 
-        // Find subscriptions with non-deferred proration invoices older than SLA window
-        // where the associated payment has not been approved (Paid). Capture OriginalPlanId
-        // from the invoice so we can revert to the correct pre-upgrade plan.
-        var expiredUpgrades = await dbContext.Invoices
-            .AsNoTracking()
-            .Where(inv =>
-                inv.Type == InvoiceType.Proration &&
-                !inv.IsDeferred &&
-                !inv.IsVoided &&
-                inv.OriginalPlanId != null &&
-                inv.IssuedAt <= cutoff)
-            .Join(dbContext.Subscriptions,
-                inv => inv.SubscriptionId,
-                sub => sub.Id,
-                (inv, sub) => new { InvoiceId = inv.Id, SubscriptionId = sub.Id, inv.PaymentId, inv.OriginalPlanId })
-            .Where(x => x.PaymentId != null)
-            .Join(dbContext.Payments,
-                x => x.PaymentId,
-                p => p.Id,
-                (x, p) => new { x.SubscriptionId, x.OriginalPlanId, p.Status })
-            .Where(x => x.Status != PaymentStatus.Paid)
-            .Select(x => new { x.SubscriptionId, x.OriginalPlanId })
-            .Distinct()
-            .ToListAsync(CancellationToken.None);
-
-        foreach (var item in expiredUpgrades)
+        var outcomes = new Dictionary<Guid, UpgradeSlaOutcome>();
+        foreach (var (paymentId, subscriptionId) in overdue)
         {
-            var subscriptionId = item.SubscriptionId;
-            cancellationToken.ThrowIfCancellationRequested();
-
+            ct.ThrowIfCancellationRequested();
             try
             {
-                var sub = await dbContext.Subscriptions
-                    .Include(x => x.Invoices)
-                    .FirstOrDefaultAsync(x => x.Id == subscriptionId, CancellationToken.None);
-
-                if (sub is null || sub.Status != SubscriptionStatus.Active)
-                    continue;
-
-                var originalPlan = await planRepository.GetByIdAsync(item.OriginalPlanId!.Value, CancellationToken.None);
-                if (originalPlan is null)
-                {
-                    logger.LogWarning(
-                        "Cannot revert subscription {SubscriptionId}: original plan {PlanId} not found.",
-                        subscriptionId, item.OriginalPlanId);
-                    continue;
-                }
-
-                var originalFeaturesJson = System.Text.Json.JsonSerializer.Serialize(
-                    originalPlan.Features.ToDictionary(x => x.Key, _ => "true"));
-
-                sub.RevertUpgrade(originalPlan, originalFeaturesJson, "Upgrade SLA expired without proof submission");
-
-                // Void the proration invoices that weren't paid
-                foreach (var invoice in sub.Invoices.Where(i =>
-                    i.Type == InvoiceType.Proration && !i.IsVoided && !i.IsDeferred))
-                {
-                    invoice.Void();
-                }
-
-                await dbContext.SaveChangesAsync(CancellationToken.None);
-                await cache.RemoveAsync(SubscriptionCacheKeys.ForSubscriber(sub.SubscriberId));
-
-                logger.LogInformation(
-                    "Reverted subscription {SubscriptionId} upgrade for subscriber {SubscriberId} due to SLA expiry.",
-                    sub.Id, sub.SubscriberId);
+                outcomes[paymentId] = await unitOfWork.RunAsync(
+                    (services, token) => ProcessPaymentAsync(services, subscriptionId, paymentId, now, cutoff, token), ct);
             }
-            catch (DbUpdateConcurrencyException ex)
+            catch (Exception ex) when (ex.IsConcurrencyConflict() || ex is ConflictException)
             {
-                logger.LogWarning(ex,
-                    "Concurrency conflict reverting subscription {SubscriptionId}.",
-                    subscriptionId);
-                dbContext.ChangeTracker.Clear();
+                logger.LogWarning(ex, "Upgrade SLA for payment {PaymentId} skipped: {Message}", paymentId, ex.Message);
+                outcomes[paymentId] = UpgradeSlaOutcome.Skipped;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex,
-                    "Error reverting subscription {SubscriptionId} upgrade.",
-                    subscriptionId);
-                dbContext.ChangeTracker.Clear();
+                logger.LogError(ex, "Upgrade SLA for payment {PaymentId} failed.", paymentId);
+                outcomes[paymentId] = UpgradeSlaOutcome.Skipped;
             }
         }
+
+        return outcomes;
+    }
+
+    private async Task<UpgradeSlaOutcome> ProcessPaymentAsync(
+        IServiceProvider services,
+        Guid subscriptionId,
+        Guid paymentId,
+        DateTimeOffset now,
+        DateTimeOffset cutoff,
+        CancellationToken ct)
+    {
+        var dbContext = services.GetRequiredService<SubscriptionsDbContext>();
+        var repository = services.GetRequiredService<ISubscriptionRepository>();
+        var issuer = services.GetRequiredService<IInvoiceIssuer>();
+        var cache = services.GetRequiredService<IDistributedCache>();
+
+        var subscription = await repository.GetByIdAsync(subscriptionId, ct);
+        var payment = await repository.GetPaymentAsync(subscriptionId, paymentId, ct);
+
+        // Re-check under the unit of work: a proof may have been submitted or approved since the scan.
+        if (subscription is null ||
+            payment is null ||
+            payment.Status is not (PaymentStatus.Pending or PaymentStatus.Rejected) ||
+            payment.CreatedAt > cutoff)
+        {
+            return UpgradeSlaOutcome.Skipped;
+        }
+
+        if (subscription.Status == SubscriptionStatus.PastDue)
+        {
+            // The renewal already billed the upgraded plan; an admin must decide (reverting would desync that bill).
+            logger.LogWarning(
+                "Unpaid upgrade proration {PaymentId} on past-due subscription {SubscriptionId} needs admin review.",
+                paymentId, subscriptionId);
+            return UpgradeSlaOutcome.Skipped;
+        }
+
+        PlanSnapshot? original = null;
+        if (subscription.Status == SubscriptionStatus.Active)
+        {
+            var originalPlan = payment.OriginalPlanId is { } planId
+                ? await dbContext.Plans.Include(p => p.Features).AsNoTracking().FirstOrDefaultAsync(p => p.Id == planId, ct)
+                : null;
+
+            if (originalPlan is null ||
+                !string.Equals(originalPlan.Currency, subscription.Currency, StringComparison.OrdinalIgnoreCase) ||
+                originalPlan.BillingCycleInMonths != subscription.BillingCycleInMonths)
+            {
+                logger.LogWarning(
+                    "Cannot revert subscription {SubscriptionId}: original plan {PlanId} is missing or incompatible.",
+                    subscriptionId, payment.OriginalPlanId);
+                return UpgradeSlaOutcome.Skipped;
+            }
+
+            original = PlanSnapshot.From(originalPlan, PricingPolicy.PlanPriceAt(originalPlan, now));
+        }
+
+        SubscriptionInvoice? creditNote = null;
+        await using (var transaction = await dbContext.Database.BeginTransactionAsync(ct))
+        {
+            if (original is not null)
+            {
+                subscription.RevertUpgrade(original, now);
+                dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
+                    subscription.Id,
+                    subscription.SubscriberId,
+                    subscription.Status,
+                    subscription.Status,
+                    options.Value.SystemActorId,
+                    "System",
+                    RevertReason));
+            }
+
+            payment.MarkFailed(RevertReason);
+
+            // Only the invoice of THIS payment; earlier (paid) invoices are never credited here.
+            var invoice = await dbContext.Invoices.FirstOrDefaultAsync(
+                x => x.PaymentId == payment.Id && x.Type == InvoiceType.Proration, ct);
+            if (invoice is not null && CreditNotePolicy.Creditable(invoice.TotalAmount, invoice.CreditedAmount) > 0m)
+            {
+                creditNote = await issuer.IssueCreditNoteAsync(invoice, null, RevertReason, ct);
+            }
+
+            await dbContext.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+
+        if (creditNote is not null)
+        {
+            issuer.EnqueueDelivery(creditNote.Id);
+        }
+
+        await cache.RemoveAsync(SubscriptionCacheKeys.ForSubscriber(subscription.SubscriberId), ct);
+
+        logger.LogInformation(
+            "Upgrade SLA expired for payment {PaymentId}; subscription {SubscriptionId} {Action}.",
+            paymentId, subscriptionId, original is null ? "closed without revert" : "reverted");
+
+        return original is null ? UpgradeSlaOutcome.ClosedWithoutRevert : UpgradeSlaOutcome.Reverted;
     }
 }

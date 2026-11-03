@@ -1,9 +1,10 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 using Subscriptions.Domains.Plans.Exceptions;
 
 namespace Subscriptions.Domains.Plans.Features.DeletePlanFeature;
 
-public class DeletePlanFeatureHandler(SubscriptionsDbContext dbContext)
+public class DeletePlanFeatureHandler(SubscriptionsDbContext dbContext, IAdminAuditWriter audit)
     : ICommandHandler<DeletePlanFeatureCommand, Unit>
 {
     public async Task<Unit> Handle(DeletePlanFeatureCommand command, CancellationToken cancellationToken)
@@ -20,6 +21,7 @@ public class DeletePlanFeatureHandler(SubscriptionsDbContext dbContext)
             ?? throw new PlanFeatureNotFoundException(command.Key);
 
         dbContext.PlanFeatures.Remove(feature);
+        audit.Record("DeletePlanFeature", command.PlanId, "Plan", before: new { command.Key });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;

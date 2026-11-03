@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Subscriptions.Contracts.Subscriptions.Commands;
 using Subscriptions.Domains.Subscriptions.Services;
 
@@ -14,10 +13,20 @@ public class UpgradeSubscriptionCommandValidator : AbstractValidator<UpgradeSubs
     }
 }
 
+/// <summary>
+/// Immediate upgrade with a prorated charge for the rest of the current period.
+/// <list type="bullet">
+/// <item>Same currency and billing cycle only (400 otherwise); a pending scheduled downgrade is cancelled.</item>
+/// <item>Deferred (trusted + small): added to the next renewal bill, no payment/invoice now.</item>
+/// <item>Otherwise: a Proration payment + its invoice are created in the same transaction. The subscriber uploads a
+/// proof (POST /subscriptions/{id}/proration/proof) and an admin approves it; if it is still unpaid after the SLA the
+/// upgrade is reverted and that invoice is credited.</item>
+/// </list>
+/// </summary>
 public class UpgradeSubscriptionHandler(
     ISubscriptionRepository subscriptionRepository,
     IPlanRepository planRepository,
-    IInvoiceService invoiceService,
+    IInvoiceIssuer invoiceIssuer,
     IUpgradeTrustService trustService,
     IDistributedCache cache,
     SubscriptionsDbContext dbContext,
@@ -28,7 +37,9 @@ public class UpgradeSubscriptionHandler(
         UpgradeSubscriptionCommand command,
         CancellationToken cancellationToken)
     {
-        var subscription = await subscriptionRepository.GetByIdForUpdateAsync(command.SubscriptionId, cancellationToken)
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var subscription = await subscriptionRepository.GetByIdAsync(command.SubscriptionId, cancellationToken)
             ?? throw new SubscriptionNotFoundException(command.SubscriptionId);
 
         if (subscription.SubscriberId != command.SubscriberId)
@@ -43,63 +54,58 @@ public class UpgradeSubscriptionHandler(
         if (!newPlan.IsActive || newPlan.IsDeleted)
             throw new PlanNotFoundException(command.NewPlanId);
 
-        if (newPlan.Price <= subscription.Price)
-            throw new ConflictException("New plan price must be higher than the current plan price.");
+        // Loads still-owed payments into Subscription.Payments so the aggregate can refuse stacked unpaid upgrades.
+        await subscriptionRepository.GetAwaitingPaymentsAsync(subscription.Id, cancellationToken);
 
-        var evaluation = await trustService.EvaluateAsync(subscription, newPlan, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var quote = await trustService.QuoteAsync(subscription, newPlan, now, cancellationToken);
+        var originalPlanName = subscription.PlanName;
 
-        var originalPlanId = subscription.PlanId;
-        var newFeaturesJson = JsonSerializer.Serialize(
-            newPlan.Features.ToDictionary(x => x.Key, _ => "true"));
+        var payment = subscription.UpgradePlan(
+            PlanSnapshot.From(newPlan, quote.NewPlanPrice),
+            quote.ProratedAmount,
+            quote.IsDeferred,
+            quote.AmountDue,
+            now);
 
-        subscription.UpgradePlan(newPlan, newFeaturesJson, command.SubscriberId, evaluation.ProratedAmount, evaluation.IsDeferred);
-
-        Guid? prorationPaymentId = null;
-        if (!evaluation.IsDeferred && evaluation.ProratedAmount > 0)
+        SubscriptionInvoice? invoice = null;
+        if (payment is not null)
         {
-            var prorationPayment = SubscriptionPayment.Create(
-                subscription.Id,
-                evaluation.ProratedAmount,
-                subscription.Currency);
-            // Must use AddAsync (not subscription.AddPayment) — EF infers Modified for a
-            // client-assigned Guid added to an unloaded collection navigation property.
-            await dbContext.Payments.AddAsync(prorationPayment, cancellationToken);
-            prorationPaymentId = prorationPayment.Id;
+            dbContext.Payments.Add(payment);
+            invoice = await invoiceIssuer.IssueForPaymentAsync(subscription, payment, cancellationToken);
         }
 
-        await dbContext.TransitionLogs.AddAsync(
-            SubscriptionTransitionLog.Create(
-                subscription.Id,
-                subscription.SubscriberId,
-                SubscriptionStatus.Active,
-                SubscriptionStatus.Active,
-                command.SubscriberId,
-                "Subscriber",
-                $"Upgraded to plan {newPlan.Name}"),
-            cancellationToken);
+        dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(
+            subscription.Id,
+            subscription.SubscriberId,
+            SubscriptionStatus.Active,
+            SubscriptionStatus.Active,
+            command.SubscriberId,
+            "Subscriber",
+            $"Upgraded from plan {originalPlanName} to plan {newPlan.Name.En}"));
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        await cache.RemoveAsync(SubscriptionCacheKeys.ForSubscriber(subscription.SubscriberId), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-        var invoice = await invoiceService.GenerateProratedInvoiceAsync(
-            subscription,
-            prorationPaymentId,
-            evaluation.ProratedAmount,
-            evaluation.IsDeferred,
-            originalPlanId,
-            cancellationToken);
+        await cache.RemoveAsync(SubscriptionCacheKeys.ForSubscriber(subscription.SubscriberId), cancellationToken);
+        if (invoice is not null)
+        {
+            invoiceIssuer.EnqueueDelivery(invoice.Id);
+        }
 
         logger.LogInformation(
-            "Subscription {SubscriptionId} upgraded to plan {PlanName}. Proration={Amount} Deferred={IsDeferred}",
-            subscription.Id, newPlan.Name, evaluation.ProratedAmount, evaluation.IsDeferred);
+            "Subscription {SubscriptionId} upgraded to plan {PlanName}. Proration={Amount} Due={Due} Deferred={IsDeferred}",
+            subscription.Id, newPlan.Name.En, quote.ProratedAmount, quote.AmountDue, quote.IsDeferred);
 
         return new UpgradeSubscriptionResult(
             subscription.Id,
             newPlan.Name.En,
-            evaluation.ProratedAmount,
+            quote.ProratedAmount,
+            payment?.Amount ?? 0m,
             subscription.Currency,
-            evaluation.IsDeferred,
-            invoice.Id,
-            evaluation.ProofRequiredBy);
+            quote.IsDeferred,
+            payment?.Id,
+            invoice?.Id,
+            payment is null ? null : quote.ProofRequiredBy);
     }
 }

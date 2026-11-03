@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.DTOs;
 using Subscriptions.Contracts.Subscriptions.Queries;
 
@@ -38,19 +39,7 @@ public class GetSubscriptionInvoicesHandler(SubscriptionsDbContext dbContext)
         queryable = queryable.OrderByDescending(x => x.IssuedAt);
         queryable = queryable.OrderByDynamic(query.SortColumn, query.SortBy);
 
-        var dtoQuery = queryable.Select(x => new InvoiceDto(
-            x.Id,
-            x.InvoiceNumber,
-            x.Type.ToString(),
-            x.Status.ToString(),
-            x.Amount,
-            x.TaxRate,
-            Math.Round(x.Amount * (1 - x.TaxRate), 2),
-            Math.Round(x.Amount * x.TaxRate, 2),
-            x.Currency,
-            x.IsDeferred,
-            x.IsVoided,
-            x.IssuedAt));
+        var dtoQuery = queryable.Select(InvoiceProjections.ToInvoiceDto);
 
         return await dtoQuery.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
     }

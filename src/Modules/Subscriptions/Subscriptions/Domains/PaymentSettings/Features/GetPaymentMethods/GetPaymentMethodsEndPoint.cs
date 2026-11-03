@@ -18,7 +18,6 @@ public class GetPaymentMethodsEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces<ApiResponse<IReadOnlyList<PaymentMethodDto>>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
 
         app.MapGet(EndpointConfig.BaseApiPath + "/admin/payment-methods",
@@ -27,12 +26,11 @@ public class GetPaymentMethodsEndPoint : ICarterModule
                     var result = await sender.Send(new GetAdminPaymentMethodsQuery(), ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PaymentSettingsManage)
             .WithName("GetAdminPaymentMethods")
             .WithApiVersionSet(app.NewApiVersionSet("Payment Methods").Build())
             .WithTags("Payment Methods")
             .Produces<ApiResponse<IReadOnlyList<PaymentMethodDto>>>(StatusCodes.Status200OK)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

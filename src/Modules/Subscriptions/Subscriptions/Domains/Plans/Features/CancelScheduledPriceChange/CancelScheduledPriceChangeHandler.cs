@@ -16,6 +16,7 @@ public class CancelScheduledPriceChangeCommandValidator : AbstractValidator<Canc
 public class CancelScheduledPriceChangeHandler(
     IPlanRepository planRepository,
     SubscriptionsDbContext dbContext,
+    IAdminAuditWriter audit,
     INotificationSender notificationSender,
     ISubscriberInfoProvider subscriberInfoProvider,
     IConfiguration configuration)
@@ -35,15 +36,13 @@ public class CancelScheduledPriceChangeHandler(
 
         plan.CancelPriceChange();
 
-        await dbContext.AdminAuditLogs.AddAsync(
-            AdminActionAuditLog.Create(
-                command.AdminId,
-                "CancelScheduledPriceChange",
-                plan.Id,
-                "Plan",
-                Guid.Empty,
-                $"Cancelled scheduled price change to {plan.Currency} {cancelledPendingPrice:F2} that was effective {cancelledEffectiveAt:yyyy-MM-dd}"),
-            cancellationToken);
+        audit.Record(
+            "CancelScheduledPriceChange",
+            plan.Id,
+            "Plan",
+            reason: $"Cancelled scheduled price change to {plan.Currency} {cancelledPendingPrice:F2} that was effective {cancelledEffectiveAt:yyyy-MM-dd}",
+            amount: cancelledPendingPrice, currency: plan.Currency, before: new { PendingPrice = cancelledPendingPrice, PriceEffectiveAt = cancelledEffectiveAt }, after: new { PendingPrice = (decimal?)null },
+            adminId: command.AdminId);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

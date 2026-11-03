@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Contracts.Subscriptions.DTOs;
 using Subscriptions.Contracts.Subscriptions.Queries;
 
@@ -10,11 +11,11 @@ public class GetPaymentHistoryEndPoint : ICarterModule
         app.MapGet(EndpointConfig.BaseApiPath + "/subscriptions/me/payments",
                 async (
                     [AsParameters] GetPaymentHistoryQuery query,
-                    IHttpContextService httpContextService,
+                    IHttpContextService httpContextService, ISubscriberIdProvider subscribers,
                     ISender sender,
                     CancellationToken ct) =>
                 {
-                    var subscriberId = httpContextService.GetUserIdAsGuid()
+                    var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
 
                     var result = await sender.Send(query with { SubscriberId = subscriberId }, ct);
@@ -29,7 +30,6 @@ public class GetPaymentHistoryEndPoint : ICarterModule
             .Produces(StatusCodes.Status401Unauthorized)
             .WithSummary("Get Payment History")
             .WithDescription("Retrieve paginated payment history for the authenticated subscriber.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

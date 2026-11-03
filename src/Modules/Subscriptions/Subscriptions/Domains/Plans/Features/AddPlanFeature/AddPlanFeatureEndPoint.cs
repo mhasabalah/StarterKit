@@ -14,14 +14,13 @@ public class AddPlanFeatureEndPoint : ICarterModule
                     var featureId = await sender.Send(new AddPlanFeatureCommand(id, request.Key), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { featureId }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("AddPlanFeature")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

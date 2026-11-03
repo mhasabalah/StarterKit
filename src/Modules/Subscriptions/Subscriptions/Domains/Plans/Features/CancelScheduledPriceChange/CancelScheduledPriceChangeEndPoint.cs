@@ -17,11 +17,10 @@ public class CancelScheduledPriceChangeEndPoint : ICarterModule
                     await sender.Send(new CancelScheduledPriceChangeCommand(id, adminId), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { Status = "Cancelled" }));
                 })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.PlansManage)
             .WithName("CancelScheduledPriceChange")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

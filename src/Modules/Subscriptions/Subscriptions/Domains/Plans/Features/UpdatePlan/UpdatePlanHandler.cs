@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 
 namespace Subscriptions.Domains.Plans.Features.UpdatePlan;
@@ -20,7 +21,8 @@ public class UpdatePlanCommandValidator : AbstractValidator<UpdatePlanCommand>
 
 public class UpdatePlanHandler(
     IPlanRepository planRepository,
-    SubscriptionsDbContext dbContext)
+    SubscriptionsDbContext dbContext,
+    IAdminAuditWriter audit)
     : ICommandHandler<UpdatePlanCommand, Unit>
 {
     public async Task<Unit> Handle(UpdatePlanCommand command, CancellationToken cancellationToken)
@@ -28,8 +30,8 @@ public class UpdatePlanHandler(
         var plan = await planRepository.GetByIdAsync(command.PlanId, cancellationToken)
             ?? throw new PlanNotFoundException(command.PlanId);
 
-        // Set expected version for EF concurrency check
-        dbContext.Entry(plan).Property(e => e.Version).OriginalValue = command.Version;
+        dbContext.ExpectVersion(plan, command.Version);
+        var before = Snapshot(plan);
 
         plan.Update(
             command.Name,
@@ -43,7 +45,23 @@ public class UpdatePlanHandler(
             command.IsPublic,
             command.DiscountPercent);
 
+        audit.Record("UpdatePlan", plan.Id, "Plan", amount: plan.Price, currency: plan.Currency,
+            before: before, after: Snapshot(plan));
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }
+
+    private static object Snapshot(Plan plan) => new
+    {
+        Name = plan.Name.En,
+        plan.Currency,
+        plan.BillingCycleInMonths,
+        plan.MaxItems,
+        plan.MaxStorageGb,
+        plan.MaxUsers,
+        plan.IsActive,
+        plan.IsPublic,
+        plan.DiscountPercent
+    };
 }

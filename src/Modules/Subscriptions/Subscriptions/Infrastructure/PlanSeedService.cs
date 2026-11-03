@@ -6,7 +6,7 @@ using Subscriptions.Domains.Plans.Models;
 namespace Subscriptions.Infrastructure;
 
 public class PlanSeedService(
-    IServiceScopeFactory serviceScopeFactory,
+    IUnitOfWorkRunner unitOfWork,
     IConfiguration configuration) : IHostedService
 {
     private const string StarterSeedKey = "seed:starter";
@@ -34,16 +34,16 @@ public class PlanSeedService(
     private static readonly string[] ProfessionalFeatures = ["analytics.basic", "analytics.advanced", "custom.branding", "api.access"];
     private static readonly string[] EnterpriseFeatures = ["analytics.basic", "analytics.advanced", "analytics.full", "custom.branding", "priority.support", "api.access"];
 
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        using var scope = serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>();
+    public Task StartAsync(CancellationToken cancellationToken) =>
+        unitOfWork.RunAsync(async (services, ct) =>
+        {
+            var dbContext = services.GetRequiredService<SubscriptionsDbContext>();
 
-        await SeedCatalog(dbContext, cancellationToken);
-        await SeedPlans(dbContext, cancellationToken);
-        await SeedPaymentInstructions(dbContext, cancellationToken);
-        await SeedPaymentMethods(dbContext, cancellationToken);
-    }
+            await SeedCatalog(dbContext, ct);
+            await SeedPlans(dbContext, ct);
+            await SeedPaymentInstructions(dbContext, ct);
+            await SeedPaymentMethods(dbContext, ct);
+        }, cancellationToken);
 
     private static async Task SeedCatalog(SubscriptionsDbContext dbContext, CancellationToken cancellationToken)
     {
@@ -74,7 +74,7 @@ public class PlanSeedService(
     private static async Task SeedPlans(SubscriptionsDbContext dbContext, CancellationToken cancellationToken)
     {
         // Load AsNoTracking — property updates go through ExecuteUpdateAsync which has no WHERE version = N.
-        // This avoids ConcurrencyConflictException from the Version concurrency token on Plan.
+        // This avoids a DbUpdateConcurrencyException from the Version concurrency token on Plan.
         var existingPlans = await dbContext.Plans
             .Include(x => x.Features)
             .AsNoTracking()

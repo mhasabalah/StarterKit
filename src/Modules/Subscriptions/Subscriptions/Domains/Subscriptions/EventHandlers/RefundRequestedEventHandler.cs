@@ -1,28 +1,32 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
+/// <summary>Tells the billing team (see <see cref="IAdminNotificationRecipients"/>) that a refund was requested.</summary>
 public class RefundRequestedEventHandler(
     ISubscriberInfoProvider subscriberInfoProvider,
     INotificationSender notificationSender,
-    IConfiguration configuration,
+    IAdminNotificationRecipients recipients,
     SubscriptionsDbContext dbContext,
     ILogger<RefundRequestedEventHandler> logger)
     : INotificationHandler<RefundRequestedEvent>
 {
     public async Task Handle(RefundRequestedEvent notification, CancellationToken cancellationToken)
     {
+        var adminEmails = await recipients.GetEmailsAsync(cancellationToken);
+        if (adminEmails.Count == 0)
+        {
+            logger.LogWarning(
+                "No admin notification recipients configured (Subscriptions:AdminNotifications) - skipping refund notification for {RefundRequestId}",
+                notification.RefundRequestId);
+            return;
+        }
+
         var refund = await dbContext.RefundRequests
             .AsNoTracking()
             .Where(x => x.Id == notification.RefundRequestId)
             .Select(x => new { x.PlanName, x.RefundType })
             .FirstOrDefaultAsync(cancellationToken);
-
-        var adminEmail = configuration["Email:FromAddress"];
-        if (string.IsNullOrWhiteSpace(adminEmail))
-        {
-            logger.LogWarning("Admin email not configured — skipping refund notification for {RefundRequestId}",
-                notification.RefundRequestId);
-            return;
-        }
 
         var subscriber = await subscriberInfoProvider.GetAsync(notification.SubscriberId, cancellationToken);
 
@@ -35,9 +39,12 @@ public class RefundRequestedEventHandler(
             RefundType = refund?.RefundType.ToString() ?? string.Empty
         };
 
-        await notificationSender
-            .ToEmail(adminEmail)
-            .WithEmail(EmailTemplate.RefundRequested, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+        foreach (var email in adminEmails)
+        {
+            await notificationSender
+                .ToEmail(email)
+                .WithEmail(EmailTemplate.RefundRequested, model.ToDictionary())
+                .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+        }
     }
 }

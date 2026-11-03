@@ -1,3 +1,4 @@
+using Subscriptions.Domains.Subscriptions.Services;
 using System.Text.Json;
 using Subscriptions.Contracts.Subscriptions.Commands;
 
@@ -22,7 +23,7 @@ public class AddPaymentMethodCommandValidator : AbstractValidator<AddPaymentMeth
     }
 }
 
-public class AddPaymentMethodHandler(IPaymentMethodRepository repository)
+public class AddPaymentMethodHandler(IPaymentMethodRepository repository, IAdminAuditWriter audit)
     : ICommandHandler<AddPaymentMethodCommand, Guid>
 {
     public async Task<Guid> Handle(AddPaymentMethodCommand command, CancellationToken cancellationToken)
@@ -35,6 +36,8 @@ public class AddPaymentMethodHandler(IPaymentMethodRepository repository)
             command.Metadata,
             command.SortOrder);
 
+        audit.Record("AddPaymentMethod", method.Id, "PaymentMethod",
+            after: new { method.Type, method.DisplayName, method.Value, method.Description, method.SortOrder, method.IsActive });
         await repository.AddAsync(method, cancellationToken);
         return method.Id;
     }

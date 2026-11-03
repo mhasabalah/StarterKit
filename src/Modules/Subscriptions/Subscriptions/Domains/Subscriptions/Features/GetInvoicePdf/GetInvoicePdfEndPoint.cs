@@ -15,7 +15,9 @@ public class GetInvoicePdfEndPoint : ICarterModule
                     var actorId = httpContextService.GetUserIdAsGuid()
                         ?? throw new ForbiddenException("Unauthorized");
 
-                    var isAdmin = httpContextService.HasAnyRole(RoleConstants.Admin, RoleConstants.SuperAdmin);
+                    // Billing staff (billing.read permission claim) may read any invoice; legacy admin roles too.
+                    var isAdmin = httpContextService.HasClaim(Permissions.ClaimType, Permissions.BillingRead) ||
+                                  httpContextService.HasAnyRole(RoleConstants.Admin, RoleConstants.SuperAdmin);
 
                     var result = await sender.Send(new GetInvoicePdfQuery(id, actorId, isAdmin), ct);
                     return Results.Redirect(result.FileUrl);
@@ -24,7 +26,6 @@ public class GetInvoicePdfEndPoint : ICarterModule
             .WithName("GetInvoicePdf")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Invoices")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }
