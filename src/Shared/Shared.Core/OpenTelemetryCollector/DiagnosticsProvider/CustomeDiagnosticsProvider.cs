@@ -79,11 +79,11 @@ public class CustomeDiagnosticsProvider(
                     idFormat: ActivityIdFormat.W3C,
                     tags: createActivityInfo.Tags
                 )
-                ?.Start() ?? Activity.Current;
+                ?.Start(); // never fall back to Activity.Current: disposing it would end the caller's span
 
         try
         {
-            await action(activity!, cancellationToken);
+            await action(activity, cancellationToken);
             activity?.SetOkStatus();
         }
         catch (Exception ex)
@@ -113,11 +113,11 @@ public class CustomeDiagnosticsProvider(
                     idFormat: ActivityIdFormat.W3C,
                     tags: createActivityInfo.Tags
                 )
-                ?.Start() ?? Activity.Current;
+                ?.Start(); // never fall back to Activity.Current: disposing it would end the caller's span
 
         try
         {
-            var result = await action(activity!, cancellationToken);
+            var result = await action(activity, cancellationToken);
 
             activity?.SetOkStatus();
 
