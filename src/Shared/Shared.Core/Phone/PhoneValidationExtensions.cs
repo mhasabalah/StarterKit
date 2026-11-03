@@ -13,7 +13,10 @@ public static class PhoneValidationExtensions
         // to avoid re-registering ValidationBehavior/LoggingBehavior pipeline behaviors.
         var assembly = typeof(ValidatePhoneHandler).Assembly;
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
-        services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+        // Skip open generic validators (e.g. BaseQueryValidator<TQuery>): they are base classes, not services.
+        // Registering one makes every IValidator<T> resolution throw "Cannot instantiate implementation type".
+        services.AddValidatorsFromAssembly(assembly,
+            filter: r => !r.ValidatorType.IsGenericTypeDefinition, includeInternalTypes: true);
 
         return services;
     }

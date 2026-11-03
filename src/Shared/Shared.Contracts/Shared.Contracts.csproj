@@ -2,6 +2,8 @@
 
     <ItemGroup>
         <PackageReference Include="MediatR"/>
+        <!-- [MessageUrn] for integration events only (abstractions package: no transport, no infrastructure). -->
+        <PackageReference Include="MassTransit.Abstractions"/>
     </ItemGroup>
 
 </Project>

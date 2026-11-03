@@ -2,6 +2,14 @@
 
     <ItemGroup>
         <PackageReference Include="MassTransit"/>
+        <!-- Durable transports, chosen by Messaging:Transport (InMemory stays the dev/test default). -->
+        <PackageReference Include="MassTransit.RabbitMQ"/>
+        <PackageReference Include="MassTransit.SqlTransport.PostgreSql"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Tenant propagation filters (Shared.Core.MultiTenancy.Messaging). -->
+        <ProjectReference Include="..\Shared.Core\Shared.Core.csproj" />
     </ItemGroup>
 
 </Project>

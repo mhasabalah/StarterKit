@@ -16,18 +16,18 @@ using Shared.Core.Extensions;
 using Shared.Core.OpenTelemetryCollector.CoreDiagnostics.Commands;
 using Shared.Core.OpenTelemetryCollector.CoreDiagnostics.Query;
 using Shared.Core.OpenTelemetryCollector.DiagnosticsProvider;
+using HealthEndpoints = Shared.Core.HealthCheck.Extensions;
 
 namespace Shared.Core.OpenTelemetryCollector;
 
-// https://learn.microsoft.com/en-us/dotnet/core/diagnostics/observability-otlp-example
-// https://learn.microsoft.com/en-us/dotnet/core/diagnostics/observability-prgrja-example
-// https://learn.microsoft.com/en-us/dotnet/core/diagnostics/observability-prgrja-example
-// https://blog.codingmilitia.com/2023/09/05/observing-dotnet-microservices-with-opentelemetry-logs-traces-metrics/
+/// <summary>
+/// OpenTelemetry logs, metrics and traces. Exporter selection: <see cref="OtlpExporterPlan"/>.
+/// Resource identity: <see cref="ObservabilityOptions.ServiceName"/> (or the application name) unless the platform
+/// sets <c>OTEL_SERVICE_NAME</c> / <c>OTEL_RESOURCE_ATTRIBUTES</c> (Aspire, docker compose) - those win, so the
+/// Aspire dashboard links telemetry to the right resource and replica.
+/// </summary>
 public static class Extensions
 {
-    private const string HealthEndpointPath = "/health";
-    private const string AlivenessEndpointPath = "/alive";
-
     public static WebApplicationBuilder AddCustomObservability(this WebApplicationBuilder builder)
     {
         Activity.DefaultIdFormat = ActivityIdFormat.W3C;
@@ -48,67 +48,37 @@ public static class Extensions
             return builder;
         }
 
-        void ConfigureResourceBuilder(ResourceBuilder resourceBuilder)
-        {
-            resourceBuilder.AddAttributes([
-                new KeyValuePair<string, object>("service.environment",
-                    builder.Environment.EnvironmentName)
-            ]);
+        var exporterPlan = OtlpExporterPlan.Create(observabilityOptions, builder.Configuration);
+        var serviceName = observabilityOptions.ServiceName ?? builder.Environment.ApplicationName;
+        var serviceVersion = ServiceVersion();
+        var environmentName = builder.Environment.EnvironmentName;
 
-            resourceBuilder.AddService(
-                observabilityOptions.ServiceName ??
-                builder.Environment.ApplicationName,
-                serviceVersion: Assembly.GetCallingAssembly().GetName().Version?.ToString() ??
-                                "unknown",
-                serviceInstanceId: Environment.MachineName
-            );
-        }
+        var otel = builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName, serviceVersion: serviceVersion, serviceInstanceId: Environment.MachineName)
+                .AddAttributes([
+                    new KeyValuePair<string, object>("deployment.environment.name", environmentName),
+                    new KeyValuePair<string, object>("service.environment", environmentName)
+                ])
+                // Added last so platform-provided OTEL_SERVICE_NAME / OTEL_RESOURCE_ATTRIBUTES override the defaults above.
+                .AddEnvironmentVariableDetector());
 
         if (observabilityOptions.LoggingEnabled)
         {
-            // logging
-            // opentelemtry logging works with .net default logging providers and doesn't work for `serilog`, in serilog we should enable `WriteToProviders=true`
-            builder.Logging.AddOpenTelemetry(options =>
-            {
-                var resourceBuilder = ResourceBuilder.CreateDefault();
-                ConfigureResourceBuilder(resourceBuilder);
-                options.SetResourceBuilder(resourceBuilder);
+            otel.WithLogging(
+                logging => AddLoggingExporters(logging, observabilityOptions, exporterPlan),
+                options =>
+                {
+                    options.IncludeFormattedMessage = true;
+                    options.IncludeScopes = true;
+                    // Parse the state passed to logger.Log even when it is not a KeyValuePair collection.
+                    options.ParseStateValues = true;
 
-                options.IncludeFormattedMessage = true;
-                options.IncludeScopes = true;
-                // this allows the state value passed to the logger.Log method to be parsed, in case it isn't a collection of KeyValuePair<string, object?>, which is the case when we use things like logger.LogInformation.
-                options.ParseStateValues = true;
-                // which means the message wouldn't have the placeholders replaced
-                options.IncludeFormattedMessage = true;
-
-                // add some metadata to exported logs
-                options.SetResourceBuilder(
-                    ResourceBuilder
-                        .CreateDefault()
-                        .AddService(
-                            observabilityOptions.ServiceName ?? builder.Environment.ApplicationName,
-                            serviceVersion: Assembly.GetCallingAssembly().GetName().Version
-                                ?.ToString() ?? "unknown",
-                            serviceInstanceId: Environment.MachineName
-                        )
-                );
-
-                options.AddLoggingExporters(observabilityOptions);
-            });
-        }
-
-        if (observabilityOptions is { MetricsEnabled: false, TracingEnabled: false })
-        {
-            return builder;
-        }
-
-        OpenTelemetryBuilder otel = null!;
-
-        if (observabilityOptions.MetricsEnabled || observabilityOptions.TracingEnabled)
-        {
-            // metrics and tracing
-            otel = builder.Services.AddOpenTelemetry();
-            otel.ConfigureResource(ConfigureResourceBuilder);
+                    if (observabilityOptions.UseGrafanaExporter)
+                    {
+                        options.UseGrafana();
+                    }
+                });
         }
 
         if (observabilityOptions.MetricsEnabled)
@@ -122,7 +92,6 @@ public static class Extensions
                     .AddRuntimeInstrumentation()
                     .AddMeter(InstrumentationOptions.MeterName)
                     .AddMeter(observabilityOptions.InstrumentationName)
-                    // metrics provides by ASP.NET Core in .NET 8
                     .AddView(
                         "http.server.request.duration",
                         new ExplicitBucketHistogramConfiguration
@@ -138,7 +107,7 @@ public static class Extensions
                     .AddMeter("Microsoft.AspNetCore.Hosting")
                     .AddMeter("Microsoft.AspNetCore.Server.Kestrel");
 
-                AddMetricsExporter(observabilityOptions, metrics);
+                AddMetricsExporters(metrics, observabilityOptions, exporterPlan);
             });
         }
 
@@ -157,32 +126,31 @@ public static class Extensions
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
-                        // Don't trace requests to the health endpoint to avoid filling the dashboard with noise
+                        // Health probes would otherwise flood the trace view.
                         options.Filter = httpContext =>
                             !(httpContext.Request.Path.StartsWithSegments(
-                                  HealthEndpointPath, StringComparison.OrdinalIgnoreCase) ||
+                                  HealthEndpoints.HealthEndpointPath, StringComparison.OrdinalIgnoreCase) ||
                               httpContext.Request.Path.StartsWithSegments(
-                                  AlivenessEndpointPath, StringComparison.OrdinalIgnoreCase
-                              ));
+                                  HealthEndpoints.AlivenessEndpointPath, StringComparison.OrdinalIgnoreCase));
                     })
                     .AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation(instrumentationOptions =>
                     {
                         instrumentationOptions.RecordException = true;
                     })
-                    .AddEntityFrameworkCoreInstrumentation(instrumentationOptions =>
-                    {
-                        instrumentationOptions.SetDbStatementForText = true;
-                    })
+                    // OTel 1.20+: SQL text (db.query.text) is captured by default; the old
+                    // SetDbStatementForText option was removed with the stable DB semantic conventions.
+                    .AddEntityFrameworkCoreInstrumentation()
                     .AddSource(DiagnosticHeaders.DefaultListenerName)
                     .AddNpgsql()
                     // `AddSource` for adding custom activity sources
                     .AddSource(observabilityOptions.InstrumentationName)
-                    // metrics provides by ASP.NET Core in .NET 8
+                    // Transactional outbox publish spans (parented on the flow that raised the event).
+                    .AddSource(Shared.Core.Messaging.Outbox.OutboxRelay.ActivitySourceName)
                     .AddSource("Microsoft.AspNetCore.Hosting")
                     .AddSource("Microsoft.AspNetCore.Server.Kestrel");
 
-                AddTracingExporter(observabilityOptions, tracing);
+                AddTracingExporters(tracing, observabilityOptions, exporterPlan);
             });
         }
 
@@ -197,7 +165,7 @@ public static class Extensions
             {
                 var metricsFeature = context.Features.Get<IHttpMetricsTagsFeature>();
                 if (metricsFeature != null && context.Request.Path is
-                        { Value: "/metrics" or "/health" })
+                        { Value: "/metrics" or HealthEndpoints.HealthEndpointPath or HealthEndpoints.AlivenessEndpointPath })
                 {
                     metricsFeature.MetricsDisabled = true;
                 }
@@ -208,165 +176,110 @@ public static class Extensions
 
         if (options.UsePrometheusExporter)
         {
-            // export application metrics in `/metrics` endpoint and should scrape in the Prometheus config file and `scrape_configs`
-            // https://github.com/open-telemetry/opentelemetry-dotnet/tree/e330e57b04fa3e51fe5d63b52bfff891fb5b7961/src/OpenTelemetry.Exporter.Prometheus.AspNetCore
-            app.UseOpenTelemetryPrometheusScrapingEndpoint(); // http://localhost:4000/metrics
+            // Application metrics on `/metrics` for a Prometheus scrape job.
+            app.UseOpenTelemetryPrometheusScrapingEndpoint();
         }
 
         return app;
     }
 
-    private static void AddTracingExporter(ObservabilityOptions observabilityOptions,
-        TracerProviderBuilder tracing)
+    private static void AddTracingExporters(
+        TracerProviderBuilder tracing, ObservabilityOptions options, OtlpExporterPlan plan)
     {
-        if (observabilityOptions.UseJaegerExporter)
+        if (plan.UseStandard)
         {
-            ArgumentNullException.ThrowIfNull(observabilityOptions.JaegerOptions);
-            // https://github.com/open-telemetry/opentelemetry-dotnet/tree/e330e57b04fa3e51fe5d63b52bfff891fb5b7961/docs/trace/getting-started-jaeger
-            // `OpenTelemetry.Exporter.Jaeger` package and `AddJaegerExporter` to use Http endpoint (http://localhost:14268/api/traces) is deprecated, and we should use `OpenTelemetry.Exporter.OpenTelemetryProtocol` and `AddOtlpExporter` with OTLP port `4317` on Jaeger
-            // tracing.AddJaegerExporter(
-            //     x => x.Endpoint = new Uri(observabilityOptions.JaegerOptions.HttpExporterEndpoint)); // http://localhost:14268/api/traces
-            tracing.AddOtlpExporter(x =>
-            {
-                x.Endpoint = new Uri(observabilityOptions.JaegerOptions.OTLPGrpcExporterEndpoint);
-                x.Protocol = OtlpExportProtocol.Grpc;
-            });
+            tracing.AddOtlpExporter();
         }
 
-        if (observabilityOptions.UseZipkinExporter)
+        if (plan.CollectorEndpoint is { } collector)
         {
-            ArgumentNullException.ThrowIfNull(observabilityOptions.ZipkinOptions);
-            // https://github.com/open-telemetry/opentelemetry-dotnet/tree/e330e57b04fa3e51fe5d63b52bfff891fb5b7961/src/OpenTelemetry.Exporter.Zipkin
-            tracing.AddZipkinExporter(x =>
-                x.Endpoint = new Uri(observabilityOptions.ZipkinOptions.HttpExporterEndpoint)
-            ); // "http://localhost:9411/api/v2/spans"
+            tracing.AddOtlpExporter(OtlpExporterPlan.CollectorExporterName, o => UseGrpc(o, collector));
         }
 
-        if (observabilityOptions.UseConsoleExporter)
+        if (plan.JaegerEndpoint is { } jaeger)
+        {
+            tracing.AddOtlpExporter(OtlpExporterPlan.JaegerExporterName, o => UseGrpc(o, jaeger));
+        }
+
+        if (options.UseZipkinExporter)
+        {
+            tracing.AddZipkinExporter(x => x.Endpoint = new Uri(options.ZipkinOptions.HttpExporterEndpoint));
+        }
+
+        if (options.UseConsoleExporter)
         {
             tracing.AddConsoleExporter();
         }
 
-        if (observabilityOptions.UseOTLPExporter)
+        if (options.UseGrafanaExporter)
         {
-            ArgumentNullException.ThrowIfNull(observabilityOptions.OTLPOptions);
-            tracing.AddOtlpExporter(x =>
-            {
-                x.Endpoint = new Uri(observabilityOptions.OTLPOptions.OTLPGrpcExporterEndpoint);
-                x.Protocol = OtlpExportProtocol.Grpc;
-            });
-        }
-
-        if (observabilityOptions.UseAspireOTLPExporter)
-        {
-            // we can just one `AddOtlpExporter` and in development use `aspire-dashboard` OTLP endpoint address as `OTLPExporterEndpoint` and in production we can use `otel-collector` OTLP endpoint address
-            ArgumentNullException.ThrowIfNull(observabilityOptions.AspireDashboardOTLPOptions);
-            tracing.AddOtlpExporter(x =>
-            {
-                x.Endpoint = new Uri(observabilityOptions.AspireDashboardOTLPOptions
-                    .OTLPGrpcExporterEndpoint);
-                x.Protocol = OtlpExportProtocol.Grpc;
-            });
-        }
-
-        if (observabilityOptions.UseGrafanaExporter)
-        {
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/blob/main/docs/configuration.md#aspnet-core
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/blob/main/docs/configuration.md#sending-to-an-agent-or-collector-via-otlp
-            // https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/instrument/dotnet/
+            // https://github.com/grafana/grafana-opentelemetry-dotnet/blob/main/docs/configuration.md
+            // Note: the Grafana distro exports via the standard OTEL_EXPORTER_OTLP_* settings itself - enable it
+            // INSTEAD of a standard endpoint, not in addition, or spans are exported twice.
             tracing.UseGrafana();
         }
     }
 
-    private static void AddMetricsExporter(ObservabilityOptions observabilityOptions,
-        MeterProviderBuilder metrics)
+    private static void AddMetricsExporters(
+        MeterProviderBuilder metrics, ObservabilityOptions options, OtlpExporterPlan plan)
     {
-        if (observabilityOptions.UsePrometheusExporter)
+        if (options.UsePrometheusExporter)
         {
-            // https://github.com/open-telemetry/opentelemetry-dotnet/tree/e330e57b04fa3e51fe5d63b52bfff891fb5b7961/src/OpenTelemetry.Exporter.Prometheus.AspNetCore
-            // for exporting app metrics to `/metrics` endpoint
-            metrics.AddPrometheusExporter(o =>
-                o.DisableTotalNameSuffixForCounters = true); // http://localhost:4000/metrics
+            metrics.AddPrometheusExporter(o => o.DisableTotalNameSuffixForCounters = true);
         }
 
-        if (observabilityOptions.UseConsoleExporter)
+        if (plan.UseStandard)
+        {
+            metrics.AddOtlpExporter();
+        }
+
+        if (plan.CollectorEndpoint is { } collector)
+        {
+            metrics.AddOtlpExporter(OtlpExporterPlan.CollectorExporterName, o => UseGrpc(o, collector));
+        }
+
+        if (options.UseConsoleExporter)
         {
             metrics.AddConsoleExporter();
         }
 
-        if (observabilityOptions.UseOTLPExporter)
+        if (options.UseGrafanaExporter)
         {
-            ArgumentNullException.ThrowIfNull(observabilityOptions.OTLPOptions);
-            metrics.AddOtlpExporter(x =>
-            {
-                x.Endpoint = new Uri(observabilityOptions.OTLPOptions.OTLPGrpcExporterEndpoint);
-                x.Protocol = OtlpExportProtocol.Grpc;
-            });
-        }
-
-        if (observabilityOptions.UseAspireOTLPExporter)
-        {
-            // we can just one `AddOtlpExporter` and in development use `aspire-dashboard` OTLP endpoint address as `OTLPExporterEndpoint` and in production we can use `otel-collector` OTLP endpoint address
-            ArgumentNullException.ThrowIfNull(observabilityOptions.AspireDashboardOTLPOptions);
-            metrics.AddOtlpExporter(x =>
-            {
-                x.Endpoint = new Uri(observabilityOptions.AspireDashboardOTLPOptions
-                    .OTLPGrpcExporterEndpoint);
-                x.Protocol = OtlpExportProtocol.Grpc;
-            });
-        }
-
-        if (observabilityOptions.UseGrafanaExporter)
-        {
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/blob/main/docs/configuration.md#aspnet-core
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/blob/main/docs/configuration.md#sending-to-an-agent-or-collector-via-otlp
-            // https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/instrument/dotnet/
             metrics.UseGrafana();
         }
     }
 
     private static void AddLoggingExporters(
-        this OpenTelemetryLoggerOptions openTelemetryLoggerOptions,
-        ObservabilityOptions observabilityOptions
-    )
+        LoggerProviderBuilder logging, ObservabilityOptions options, OtlpExporterPlan plan)
     {
-        if (observabilityOptions.UseOTLPExporter)
+        if (plan.UseStandard)
         {
-            ArgumentNullException.ThrowIfNull(observabilityOptions.OTLPOptions);
-            openTelemetryLoggerOptions.AddOtlpExporter(options =>
-            {
-                options.Endpoint =
-                    new Uri(observabilityOptions.OTLPOptions.OTLPGrpcExporterEndpoint);
-                options.Protocol = OtlpExportProtocol.Grpc;
-            });
+            logging.AddOtlpExporter();
         }
 
-        if (observabilityOptions.UseAspireOTLPExporter)
+        if (plan.CollectorEndpoint is { } collector)
         {
-            // we can just one `AddOtlpExporter` and in development use `aspire-dashboard` OTLP endpoint address as `OTLPExporterEndpoint` and in production we can use `otel-collector` OTLP endpoint address
-            ArgumentNullException.ThrowIfNull(observabilityOptions.AspireDashboardOTLPOptions);
-            openTelemetryLoggerOptions.AddOtlpExporter(x =>
-            {
-                x.Endpoint = new Uri(observabilityOptions.AspireDashboardOTLPOptions
-                    .OTLPGrpcExporterEndpoint);
-                x.Protocol = OtlpExportProtocol.Grpc;
-            });
+            logging.AddOtlpExporter(OtlpExporterPlan.CollectorExporterName, o => UseGrpc(o, collector));
         }
 
-        if (observabilityOptions.UseGrafanaExporter)
+        if (options.UseConsoleExporter)
         {
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/
-            // https://github.com/grafana/grafana-opentelemetry-dotnet/blob/main/docs/configuration.md#aspnet-core
-            // https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/instrument/dotnet/
-            openTelemetryLoggerOptions.UseGrafana();
+            logging.AddConsoleExporter();
         }
+    }
 
-        if (observabilityOptions.UseConsoleExporter)
-        {
-            openTelemetryLoggerOptions.AddConsoleExporter();
-        }
+    private static void UseGrpc(OtlpExporterOptions options, Uri endpoint)
+    {
+        options.Endpoint = endpoint;
+        options.Protocol = OtlpExportProtocol.Grpc;
+    }
+
+    private static string ServiceVersion()
+    {
+        var entry = Assembly.GetEntryAssembly();
+        return entry?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+               ?? entry?.GetName().Version?.ToString()
+               ?? "unknown";
     }
 
     private static WebApplicationBuilder AddCoreDiagnostics(this WebApplicationBuilder builder)

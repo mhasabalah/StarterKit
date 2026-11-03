@@ -1,4 +1,5 @@
 using Shared.Core.Behaviors;
+using Shared.Core.Data;
 
 namespace Shared.Core.Extensions;
 
@@ -18,7 +19,11 @@ public static class MediatRExtentions
             config.AddOpenBehavior(typeof(DispatchDomainEventsBehavior<,>));
         });
 
-        services.AddValidatorsFromAssemblies(assemblies);
+        // DispatchDomainEventsBehavior needs the collector + dispatcher (TryAdd: idempotent).
+        services.AddDomainEventDispatch();
+
+        // Open generic validators are reusable bases (see BaseQueryValidator<TQuery>), never services.
+        services.AddValidatorsFromAssemblies(assemblies, filter: r => !r.ValidatorType.IsGenericTypeDefinition);
         return services;
     }
 }

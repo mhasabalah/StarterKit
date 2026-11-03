@@ -8,6 +8,7 @@
         <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
         <PackageReference Include="Carter" />
         <PackageReference Include="Figgle" />
+        <PackageReference Include="Figgle.Fonts" />
         <PackageReference Include="MassTransit" />
 
     </ItemGroup>
@@ -52,6 +53,7 @@
     <!-- Health Checks -->
     <ItemGroup Label="Health Checks">
         <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+        <PackageReference Include="AspNetCore.HealthChecks.Redis" />
         <PackageReference Include="AspNetCore.HealthChecks.Publisher.Seq" />
         <PackageReference Include="AspNetCore.HealthChecks.UI" />
         <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />

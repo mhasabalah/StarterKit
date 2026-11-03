@@ -1,12 +1,23 @@
 using System.Collections.Immutable;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
+using Shared.Core.MultiTenancy;
+using Shared.Core.MultiTenancy.Data;
 using IsolationLevel = System.Data.IsolationLevel;
 
 namespace Shared.Core.Data;
 
 public abstract class AppDbContextBase : DbContext, IDbContext
 {
+    private static readonly MethodInfo TenantFilterMethod = typeof(AppDbContextBase)
+        .GetMethod(nameof(ConfigureTenantFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+    private static readonly MethodInfo BranchFilterMethod = typeof(AppDbContextBase)
+        .GetMethod(nameof(ConfigureBranchFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
+
     private IDbContextTransaction _currentTransaction;
+    private ITenantContext? _tenantContext;
 
     protected AppDbContextBase(DbContextOptions options) : base(options)
     {
@@ -14,6 +25,80 @@ public abstract class AppDbContextBase : DbContext, IDbContext
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Multi-tenancy. The filter inputs below are read PER QUERY (EF parameterizes members of the context instance),
+    // from the ambient ITenantContext - so a cached model is safe across tenants.
+    // ------------------------------------------------------------------------------------------------------------
+
+    /// <summary>The ambient tenant context (DI singleton; a disabled/Default-tenant context outside DI).</summary>
+    protected ITenantContext TenantContext => _tenantContext ??= ResolveTenantContext();
+
+    /// <summary>Tenant filter value. <c>null</c> (unresolved tenant) matches NO rows: fail closed.</summary>
+    protected Guid? CurrentTenantId => TenantContext.TenantId;
+
+    /// <summary>Only host scope bypasses the tenant filter.</summary>
+    protected bool TenantFilterDisabled => TenantContext.IsHostScope;
+
+    protected bool BranchFilterDisabled => TenantContext.IsHostScope || !TenantContext.Branches.IsRestricted;
+
+    protected List<Guid> AllowedBranchIds => TenantContext.Branches.AllowedBranchIds?.ToList() ?? [];
+
+    /// <summary>
+    /// Adds the named <c>Tenant</c> filter (+ a <c>tenant_id</c> index) to every <see cref="IMustHaveTenant"/> entity and
+    /// the named <c>Branch</c> filter to every <see cref="IBranchScoped"/> entity. Call at the END of
+    /// <c>OnModelCreating</c> of every <see cref="ITenantDataContext"/> (after configurations, so indexes exist).
+    /// </summary>
+    protected void ApplyTenantFilters(ModelBuilder builder)
+    {
+        foreach (var entityType in builder.Model.GetEntityTypes()
+                     .Where(t => t.BaseType is null && !t.IsOwned())
+                     .ToList())
+        {
+            var clr = entityType.ClrType;
+
+            if (clr.IsAssignableTo(typeof(IMustHaveTenant)))
+            {
+                TenantFilterMethod.MakeGenericMethod(clr).Invoke(this, [builder]);
+                EnsureTenantIndex(entityType);
+            }
+
+            if (clr.IsAssignableTo(typeof(IBranchScoped)))
+            {
+                BranchFilterMethod.MakeGenericMethod(clr).Invoke(this, [builder]);
+            }
+        }
+    }
+
+    private void ConfigureTenantFilter<TEntity>(ModelBuilder builder) where TEntity : class, IMustHaveTenant =>
+        builder.Entity<TEntity>().HasQueryFilter(QueryFilterNames.Tenant,
+            e => TenantFilterDisabled || e.TenantId == CurrentTenantId);
+
+    private void ConfigureBranchFilter<TEntity>(ModelBuilder builder) where TEntity : class, IBranchScoped =>
+        builder.Entity<TEntity>().HasQueryFilter(QueryFilterNames.Branch,
+            e => BranchFilterDisabled || e.BranchId == null || AllowedBranchIds.Contains(e.BranchId.Value));
+
+    private static void EnsureTenantIndex(IMutableEntityType entityType)
+    {
+        var tenantId = entityType.FindProperty(nameof(IMustHaveTenant.TenantId));
+        if (tenantId is null) return;
+
+        var hasLeadingIndex = entityType.GetIndexes().Any(i => i.Properties[0] == tenantId)
+                              || entityType.FindPrimaryKey()?.Properties[0] == tenantId;
+        if (!hasLeadingIndex)
+        {
+            entityType.AddIndex(tenantId);
+        }
+    }
+
+    private ITenantContext ResolveTenantContext()
+    {
+        var applicationServices = this.GetService<IDbContextOptions>()
+            .FindExtension<CoreOptionsExtension>()?.ApplicationServiceProvider;
+
+        return applicationServices?.GetService<ITenantContext>()
+               ?? new TenantContext(Microsoft.Extensions.Options.Options.Create(new MultiTenancyOptions()));
     }
 
     public IExecutionStrategy CreateExecutionStrategy()
@@ -86,17 +171,11 @@ public abstract class AppDbContextBase : DbContext, IDbContext
         });
     }
 
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await base.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new Shared.Core.Exceptions.ConcurrencyConflictException(ex);
-        }
-    }
+    // NOTE: SaveChangesAsync is deliberately NOT overridden to translate DbUpdateConcurrencyException.
+    // EF's exception propagates unchanged so that background code can catch it per item
+    // (catch (Exception ex) when (ex.IsConcurrencyConflict())). The ONE translation to the domain
+    // ConcurrencyConflictException (HTTP 409) happens in ConcurrencyHandlingBehavior (MediatR), and
+    // ExceptionStatusMapper maps a raw DbUpdateConcurrencyException to 409 as well.
 
     public IReadOnlyList<IDomainEvent> GetDomainEvents()
     {

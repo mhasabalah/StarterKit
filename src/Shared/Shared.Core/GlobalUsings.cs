@@ -9,3 +9,4 @@ global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Logging;
 global using Shared.Contracts.CQRS;
 global using Shared.Core.DDD;
+global using Shared.Contracts.Events;

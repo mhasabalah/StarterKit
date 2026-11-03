@@ -9,6 +9,11 @@ public static class CarterExtentions
     {
         services.AddCarter(configurator: config =>
         {
+            // Validation runs in the MediatR ValidationBehavior (validators registered per module by AddMediatR).
+            // Carter would otherwise scan EVERY loaded assembly for validators and register them as IValidator,
+            // including open generic bases such as BaseQueryValidator<TQuery>, which breaks container build.
+            config.WithEmptyValidators();
+
             foreach (var assembly in assemblies)
             {
                 var modules = assembly.GetTypes()

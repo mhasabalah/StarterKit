@@ -10,8 +10,8 @@ public class InternalServerException : CustomException
     public InternalServerException(string message, int? code) : base(message, code: code) { }
 
     public InternalServerException(string message, int? code = null, params object[] args)
-        : base(string.Format(CultureInfo.CurrentCulture, message, args,
-            HttpStatusCode.InternalServerError, code))
+        : base(string.Format(CultureInfo.CurrentCulture, message, args),
+            HttpStatusCode.InternalServerError, code)
     {
     }
 }

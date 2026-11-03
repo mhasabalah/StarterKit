@@ -3,31 +3,27 @@ using Shared.Core.Data;
 namespace Shared.Core.Behaviors;
 
 /// <summary>
-/// Dispatches domain events collected by DispatchDomainEventsInterceptor
-/// after the command handler — and every nested command it invokes via
-/// ISender.Send — has fully completed.
+/// Publishes the domain events collected by <c>DispatchDomainEventsInterceptor</c> after the command handler - and
+/// every nested command it invokes via <c>ISender.Send</c> - has fully completed. Publishing itself is done by
+/// <see cref="IDomainEventDispatcher"/> (the same implementation background jobs use via <see cref="IUnitOfWorkRunner"/>).
 ///
-/// Why this beats dispatching inside the EF interceptor:
+/// Why not dispatch inside the EF interceptor:
+///   The interceptor fires once per SaveChanges. A handler that saves three times would make subscribers see
+///   partially-committed state twice. This behavior publishes once per ROOT command, after every save in the call
+///   tree has committed.
 ///
-///   Interceptor (SavedChanges) fires once per DbContext.SaveChanges call.
-///   If a handler calls SaveChanges three times, the interceptor fires three
-///   times and subscribers see partially-committed state on the first two.
+/// Nesting - the depth counter:
+///   A nested ISender.Send also passes through this behavior. Only the outermost command (depth == 1) dispatches;
+///   inner commands only increment/decrement the counter.
 ///
-///   This behavior fires exactly once per root command, after all saves across
-///   all DbContexts in the entire call tree are committed.  Subscribers always
-///   see the final, consistent state.
-///
-/// Nesting — how the depth counter works:
-///
-///   When a handler calls ISender.Send(innerCommand), that inner command also
-///   passes through this behavior.  The depth counter ensures only the
-///   outermost command (depth == 1) dispatches the collected events.  Inner
-///   commands increment/decrement the counter but do not publish.  All events
-///   from the whole tree are batched and published once when the root exits.
+/// Failure:
+///   If the root command throws, every event collected in its unit of work is discarded, so nothing leaks into the
+///   next command that runs in the same DI scope. Events of failed saves and rolled-back transactions never reach the
+///   collector's "ready" list in the first place.
 /// </summary>
 public class DispatchDomainEventsBehavior<TRequest, TResponse>(
     IDomainEventCollector collector,
-    IPublisher publisher)
+    IDomainEventDispatcher dispatcher)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
@@ -41,15 +37,22 @@ public class DispatchDomainEventsBehavior<TRequest, TResponse>(
         {
             var response = await next();
 
-            // Only the outermost command dispatches — nested commands skip.
+            // Only the outermost command dispatches - nested commands skip.
             if (depth == 1)
             {
-                var events = collector.DequeueAll();
-                foreach (var domainEvent in events)
-                    await publisher.Publish(domainEvent, cancellationToken);
+                await dispatcher.DispatchPendingAsync(cancellationToken);
             }
 
             return response;
+        }
+        catch
+        {
+            if (depth == 1)
+            {
+                collector.Clear();
+            }
+
+            throw;
         }
         finally
         {
