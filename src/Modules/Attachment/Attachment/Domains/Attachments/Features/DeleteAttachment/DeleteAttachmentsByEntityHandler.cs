@@ -1,11 +1,18 @@
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Infrastructure.Storage;
+using Attachment.Infrastructure.BackgroundJobs;
 
 namespace Attachment.Domains.Attachments.Features.DeleteAttachment;
 
+/// <summary>
+/// Trusted (module-to-module) delete of every attachment of an entity: all live rows - Ready ones and uploads
+/// still in progress - are hidden at once (<c>PendingDeletion</c>, one save) and one
+/// <see cref="DeleteAttachmentFilesJob"/> deletes their files and rows. An upload racing this delete fails its
+/// "Ready" save on the version check and cleans up after itself.
+/// </summary>
 public class DeleteAttachmentsByEntityHandler(
     IAttachmentRepository repository,
-    IStorageService storageService,
+    IAttachmentBackgroundJobs backgroundJobs,
+    TimeProvider time,
     ILogger<DeleteAttachmentsByEntityHandler> logger)
     : ICommandHandler<DeleteAttachmentsByEntityCommand, DeleteAttachmentsByEntityResult>
 {
@@ -13,61 +20,21 @@ public class DeleteAttachmentsByEntityHandler(
         DeleteAttachmentsByEntityCommand command,
         CancellationToken cancellationToken)
     {
-        var attachments = await repository.GetByEntityAsync(
-            command.EntityType,
-            command.EntityId,
-            cancellationToken);
-
+        var attachments = await repository.GetLiveByEntityAsync(command.EntityType, command.EntityId, cancellationToken);
         if (attachments.Count == 0)
-        {
-            logger.LogDebug(
-                "No attachments found for {EntityType} {EntityId} — nothing to delete",
-                command.EntityType,
-                command.EntityId);
-
             return new DeleteAttachmentsByEntityResult(0);
-        }
 
-        // Collect all storage paths (file + thumbnail) for batch deletion
-        var storagePaths = attachments
-            .SelectMany(a => new[] { a.StoragePath, a.ThumbnailPath }
-                .Where(p => !string.IsNullOrEmpty(p))!)
-            .ToList();
-
-        try
-        {
-            await storageService.DeleteBatchAsync(storagePaths, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex,
-                "Failed to delete physical files for {EntityType} {EntityId}. " +
-                "Paths attempted: {Paths}",
-                command.EntityType,
-                command.EntityId,
-                string.Join(", ", storagePaths));
-
-            // Re-throw so the DB records are NOT deleted — avoids dangling DB rows
-            // with no corresponding storage files AND lost storage files with orphan DB rows.
-            throw;
-        }
-
-        // Hard delete DB records after storage deletion succeeded
-        var deletedCount = 0;
+        var now = time.GetUtcNow().UtcDateTime;
         foreach (var attachment in attachments)
-        {
-            var deleted = await repository.DeleteAsync(attachment.Id, cancellationToken);
-            if (deleted) deletedCount++;
-        }
+            attachment.RequestDeletion(now);
 
         await repository.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Deleted {Count} attachment(s) for {EntityType} {EntityId}",
-            deletedCount,
-            command.EntityType,
-            command.EntityId);
+        backgroundJobs.EnqueueFileDeletion(attachments.Select(a => a.Id).ToList());
 
-        return new DeleteAttachmentsByEntityResult(deletedCount);
+        logger.LogInformation("{Count} attachment(s) of {EntityType} {EntityId} marked for deletion",
+            attachments.Count, command.EntityType, command.EntityId);
+
+        return new DeleteAttachmentsByEntityResult(attachments.Count);
     }
 }

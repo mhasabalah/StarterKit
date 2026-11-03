@@ -1,7 +1,7 @@
 using Attachment.Contracts.Attachments.Commands;
 using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Authorization;
-using Attachment.Infrastructure.Storage;
+using Attachment.Infrastructure.BackgroundJobs;
 using Attachment.Resources;
 using Microsoft.Extensions.Localization;
 
@@ -16,10 +16,16 @@ public class DeleteAttachmentCommandValidator : AbstractValidator<DeleteAttachme
     }
 }
 
+/// <summary>
+/// Hides the attachment at once (<c>PendingDeletion</c> + soft delete, saved here) and enqueues
+/// <see cref="DeleteAttachmentFilesJob"/> to delete its files and row. The request never waits for (or fails on)
+/// storage; the job retries and the reconciliation sweeper backs it up.
+/// </summary>
 public class DeleteAttachmentHandler(
     IAttachmentRepository repository,
-    IStorageService storageService,
-    IAttachmentAuthorizationService authorizationService,
+    IAttachmentAccessService accessService,
+    IAttachmentBackgroundJobs backgroundJobs,
+    TimeProvider time,
     ILogger<DeleteAttachmentHandler> logger)
     : ICommandHandler<DeleteAttachmentCommand, DeleteAttachmentResult>
 {
@@ -27,60 +33,23 @@ public class DeleteAttachmentHandler(
         DeleteAttachmentCommand command,
         CancellationToken cancellationToken)
     {
-        var attachment = await repository.GetByIdAsync(command.Id, cancellationToken);
+        var attachment = await repository.GetByIdAsync(command.Id, cancellationToken)
+                         ?? throw new AttachmentNotFoundException(command.Id);
 
-        if (attachment == null)
+        if (!await accessService.CanDeleteAsync(attachment, command.EnforceEntityAccessPolicy, cancellationToken))
         {
-            throw new AttachmentNotFoundException(command.Id);
+            if (!accessService.Current.IsAuthenticated)
+                throw new UnauthorizedException("Authentication is required to delete attachments.");
+
+            throw new ForbiddenException("You are not allowed to delete this attachment.");
         }
 
-        // Check authorization using HTTP context
-        var canDelete = await authorizationService.CanCurrentUserDeleteAsync(command.Id, cancellationToken);
-        if (!canDelete)
-        {
-            throw new UnauthorizedAccessException(
-                $"User does not have permission to delete attachment {command.Id}");
-        }
-
-        // Delete physical files - must succeed before DB deletion
-        var filesToDelete = new List<string> { attachment.StoragePath };
-        if (!string.IsNullOrEmpty(attachment.ThumbnailPath))
-        {
-            filesToDelete.Add(attachment.ThumbnailPath);
-        }
-
-        try
-        {
-            await storageService.DeleteBatchAsync(filesToDelete, cancellationToken);
-            
-            logger.LogInformation(
-                "Deleted {Count} physical file(s) for attachment {AttachmentId} by user {UserId}",
-                filesToDelete.Count,
-                command.Id,
-                authorizationService.GetCurrentUserId());
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(
-                ex,
-                "Failed to delete physical files for attachment {AttachmentId}. Storage paths: {Paths}",
-                command.Id,
-                string.Join(", ", filesToDelete));
-            
-            throw new InvalidOperationException(
-                $"Cannot delete attachment {command.Id} - physical file deletion failed. Please try again or contact support.",
-                ex);
-        }
-
-        // Only hard delete DB record if storage deletion succeeded
-        var success = await repository.DeleteAsync(command.Id, cancellationToken);
+        attachment.RequestDeletion(time.GetUtcNow().UtcDateTime);
         await repository.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Attachment deleted. ID: {AttachmentId} by user {UserId}", 
-            command.Id,
-            authorizationService.GetCurrentUserId());
+        backgroundJobs.EnqueueFileDeletion([attachment.Id]);
 
-        return new DeleteAttachmentResult(success);
+        logger.LogInformation("Attachment {AttachmentId} deleted by {UserId}", command.Id, accessService.Current.UserId);
+        return new DeleteAttachmentResult(true);
     }
 }

@@ -1,56 +1,32 @@
 using Attachment.Contracts.Attachments.Queries;
-using Attachment.Data.Repository.Attachments;
+using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Configuration;
+using Attachment.Infrastructure.Security;
 using Microsoft.Extensions.Options;
 
 namespace Attachment.Domains.Attachments.Features.GetPendingAttachmentsBySession;
 
 public class GetPendingAttachmentsBySessionHandler(
     IPendingAttachmentRepository repository,
-    IOptions<AttachmentOptions> options,
-    ILogger<GetPendingAttachmentsBySessionHandler> logger)
+    IPendingSessionService sessionService,
+    PendingAttachmentDtoFactory dtoFactory,
+    IOptions<AttachmentOptions> options)
     : IQueryHandler<GetPendingAttachmentsBySessionQuery, GetPendingAttachmentsBySessionResult>
 {
-    private readonly AttachmentOptions _options = options.Value;
-
     public async Task<GetPendingAttachmentsBySessionResult> Handle(
         GetPendingAttachmentsBySessionQuery query,
         CancellationToken cancellationToken)
     {
-        var pendingAttachments = await repository.GetBySessionIdAsync(
-            query.SessionId,
-            cancellationToken);
+        if (!sessionService.IsOwnedByCurrentCaller(query.SessionId))
+            throw new PendingSessionAccessDeniedException();
 
-        var dtos = pendingAttachments
-            .Select(p => new PendingAttachmentDto(
-                p.Id,
-                p.SessionId,
-                p.FileName,
-                p.OriginalFileName,
-                p.ContentType,
-                p.FileSize,
-                p.FileUrl,
-                p.ThumbnailUrl,
-                p.Type,
-                p.Category,
-                p.DisplayOrder,
-                p.IsPrimary,
-                p.Width,
-                p.Height,
-                p.ExpiresAt,
-                p.CreatedAt,
-                p.IsExpired()))
-            .ToList();
+        var pending = await repository.GetBySessionIdAsync(query.SessionId, cancellationToken);
 
-        var totalCount = dtos.Count;
-        var remainingSlots = Math.Max(0, _options.Pending.MaxUploadsPerSession - totalCount);
+        var dtos = new List<PendingAttachmentDto>(pending.Count);
+        foreach (var p in pending)
+            dtos.Add(await dtoFactory.CreateAsync(p, cancellationToken));
 
-        logger.LogInformation(
-            "Retrieved {Count} pending attachments for session {SessionId}, {Remaining} slots remaining",
-            totalCount,
-            query.SessionId,
-            remainingSlots);
-
-        return new GetPendingAttachmentsBySessionResult(dtos, totalCount, remainingSlots);
+        var remaining = Math.Max(0, options.Value.Pending.MaxUploadsPerSession - dtos.Count);
+        return new GetPendingAttachmentsBySessionResult(dtos, dtos.Count, remaining);
     }
 }

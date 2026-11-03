@@ -1,6 +1,7 @@
 using Attachment.Contracts.Attachments.Queries;
 using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Authorization;
+using Attachment.Infrastructure.Storage;
 using Attachment.Resources;
 using Microsoft.Extensions.Localization;
 
@@ -15,37 +16,30 @@ public class GetAttachmentByIdQueryValidator : AbstractValidator<GetAttachmentBy
     }
 }
 
+/// <summary>Metadata of one attachment: public, admin, uploader, or entity policy CanRead.</summary>
 public class GetAttachmentByIdHandler(
     IAttachmentRepository repository,
-    IAttachmentAuthorizationService authorizationService,
+    IAttachmentAccessService accessService,
+    IAttachmentUrls urls,
     ILogger<GetAttachmentByIdHandler> logger)
     : IQueryHandler<GetAttachmentByIdQuery, GetAttachmentByIdResult>
 {
-    public async Task<GetAttachmentByIdResult> Handle(
-        GetAttachmentByIdQuery query,
-        CancellationToken cancellationToken)
+    public async Task<GetAttachmentByIdResult> Handle(GetAttachmentByIdQuery query, CancellationToken cancellationToken)
     {
-        var attachment = await repository.GetByIdAsync(query.Id, cancellationToken);
+        var attachment = await repository.GetReadOnlyByIdAsync(query.Id, cancellationToken)
+                         ?? throw new AttachmentNotFoundException(query.Id);
 
-        if (attachment == null)
+        if (!await accessService.CanReadAsync(attachment, cancellationToken))
         {
-            throw new AttachmentNotFoundException(query.Id);
+            logger.LogWarning("User {UserId} denied access to attachment {AttachmentId}",
+                accessService.Current.UserId, query.Id);
+
+            if (!accessService.Current.IsAuthenticated)
+                throw new UnauthorizedException("Authentication is required to access this attachment.");
+
+            throw new ForbiddenException("You do not have permission to access this attachment.");
         }
 
-        // Check if user can access this attachment
-        var canAccess = await authorizationService.CanCurrentUserAccessAsync(query.Id, cancellationToken);
-        if (!canAccess)
-        {
-            logger.LogWarning(
-                "User {UserId} attempted to access attachment {AttachmentId} without permission",
-                authorizationService.GetCurrentUserId(),
-                query.Id);
-            
-            throw new UnauthorizedAccessException(
-                $"You do not have permission to access attachment {query.Id}");
-        }
-
-        var dto = attachment.Adapt<AttachmentDto>();
-        return new GetAttachmentByIdResult(dto);
+        return new GetAttachmentByIdResult(urls.ToDto(attachment));
     }
 }

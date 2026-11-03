@@ -1,82 +1,57 @@
-using Attachment.Domains.Attachments.Models;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Attachment.Data.Repository.Attachments;
 
-public class PendingAttachmentRepository : IPendingAttachmentRepository
+public class PendingAttachmentRepository(AttachmentDbContext context) : IPendingAttachmentRepository
 {
-    private readonly AttachmentDbContext _context;
+    public Task<PendingAttachment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.PendingAttachments.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
 
-    public PendingAttachmentRepository(AttachmentDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<PendingAttachment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.PendingAttachments
-            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
-    }
-
-    public async Task<List<PendingAttachment>> GetBySessionIdAsync(
+    public Task<List<PendingAttachment>> GetBySessionIdAsync(
         Guid sessionId,
-        CancellationToken cancellationToken = default)
-    {
-        return await _context.PendingAttachments
+        CancellationToken cancellationToken = default) =>
+        context.PendingAttachments
             .Where(p => p.SessionId == sessionId && !p.IsDeleted && !p.IsAssociated)
             .OrderBy(p => p.DisplayOrder)
             .ThenBy(p => p.CreatedAt)
             .ToListAsync(cancellationToken);
-    }
 
-    public async Task<int> GetCountBySessionIdAsync(
-        Guid sessionId,
-        CancellationToken cancellationToken = default)
-    {
-        return await _context.PendingAttachments
+    public Task<int> GetCountBySessionIdAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
+        context.PendingAttachments
             .CountAsync(p => p.SessionId == sessionId && !p.IsDeleted && !p.IsAssociated, cancellationToken);
-    }
 
-    public async Task<List<PendingAttachment>> GetExpiredUnassociatedAsync(
+    public Task<bool> DisplayOrderExistsAsync(Guid sessionId, int displayOrder, CancellationToken cancellationToken = default) =>
+        context.PendingAttachments
+            .AnyAsync(p => p.SessionId == sessionId && p.DisplayOrder == displayOrder && !p.IsDeleted, cancellationToken);
+
+    public Task<List<PendingAttachment>> GetExpiredUnassociatedAsync(
         DateTime cutoffDate,
         int batchSize,
+        IReadOnlyCollection<Guid> excludeIds,
         CancellationToken cancellationToken = default)
     {
-        return await _context.PendingAttachments
-            .Where(p => p.ExpiresAt < cutoffDate && !p.IsAssociated && !p.IsDeleted)
-            .OrderBy(p => p.ExpiresAt)
-            .Take(batchSize)
-            .ToListAsync(cancellationToken);
+        var query = context.PendingAttachments
+            .Where(p => p.ExpiresAt < cutoffDate && !p.IsAssociated && !p.IsDeleted);
+
+        if (excludeIds.Count > 0)
+            query = query.Where(p => !excludeIds.Contains(p.Id));
+
+        return query.OrderBy(p => p.ExpiresAt).Take(batchSize).ToListAsync(cancellationToken);
     }
 
-    public async Task<(int totalCount, DateTime? oldestUploadDate)> GetSessionMetadataAsync(
+    public async Task<IDbContextTransaction> BeginSessionLockAsync(
         Guid sessionId,
         CancellationToken cancellationToken = default)
     {
-        var attachments = await _context.PendingAttachments
-            .Where(p => p.SessionId == sessionId && !p.IsDeleted && !p.IsAssociated)
-            .Select(p => p.CreatedAt)
-            .ToListAsync(cancellationToken);
-
-        return (attachments.Count, attachments.Any() ? attachments.Min() : null);
+        var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var key = BitConverter.ToInt64(sessionId.ToByteArray(), 0);
+        await context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({key})", cancellationToken);
+        return transaction;
     }
 
-    public async Task AddAsync(PendingAttachment pendingAttachment, CancellationToken cancellationToken = default)
-    {
-        await _context.PendingAttachments.AddAsync(pendingAttachment, cancellationToken);
-    }
+    public async Task AddAsync(PendingAttachment pendingAttachment, CancellationToken cancellationToken = default) =>
+        await context.PendingAttachments.AddAsync(pendingAttachment, cancellationToken);
 
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public void Remove(PendingAttachment pendingAttachment)
-    {
-        _context.PendingAttachments.Remove(pendingAttachment);
-    }
-
-    public void RemoveRange(IEnumerable<PendingAttachment> pendingAttachments)
-    {
-        _context.PendingAttachments.RemoveRange(pendingAttachments);
-    }
+    public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        context.SaveChangesAsync(cancellationToken);
 }

@@ -1,5 +1,5 @@
 using Attachment.Domains.Attachments.Models;
-using Shared.Core.DDD;
+using Shared.Contracts.Events;
 
 namespace Attachment.Domains.Attachments.Events;
 

@@ -1,161 +1,81 @@
+using Shared.Core.MultiTenancy.Data;
 namespace Attachment.Data.Repository.Attachments;
 
+/// <summary>
+/// See <see cref="IAttachmentRepository"/>. The read filter (Ready + not deleted) is the global query filter of
+/// <see cref="AttachmentDbContext"/>; only the maintenance methods call <c>IgnoreNonIsolationFilters</c>.
+/// </summary>
 public class AttachmentRepository(AttachmentDbContext context) : IAttachmentRepository
 {
-    public async Task<AttachmentFile?> GetByIdAsync(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        return await context.Attachments
-            .Where(a => !a.IsDeleted)
-            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
-    }
+    public Task<AttachmentFile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.Attachments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
-    public async Task<List<AttachmentFile>> GetByEntityAsync(
+    public Task<AttachmentFile?> GetReadOnlyByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.Attachments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+    public Task<List<AttachmentFile>> GetByEntityAsync(
         EntityType entityType,
         Guid entityId,
-        CancellationToken cancellationToken = default)
-    {
-        return await context.Attachments
-            .Where(a => a.EntityType == entityType && a.EntityId == entityId && !a.IsDeleted)
+        CancellationToken cancellationToken = default) =>
+        context.Attachments
+            .Where(a => a.EntityType == entityType && a.EntityId == entityId)
             .OrderByDescending(a => a.CreatedAt)
+            .ThenByDescending(a => a.Id)
             .ToListAsync(cancellationToken);
-    }
 
-    public async Task<List<AttachmentFile>> GetByEntityAndTypeAsync(
+    public async Task<(List<AttachmentFile> Items, int TotalCount)> GetByEntityVisiblePageAsync(
         EntityType entityType,
         Guid entityId,
-        AttachmentType type,
-        CancellationToken cancellationToken = default)
-    {
-        return await context.Attachments
-            .Where(a => a.EntityType == entityType 
-                && a.EntityId == entityId 
-                && a.Type == type
-                && !a.IsDeleted)
-            .OrderByDescending(a => a.CreatedAt)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<(List<AttachmentFile> Items, int TotalCount)> GetByUserIdAsync(
-        Guid userId,
-        AttachmentCategory? category = null,
-        AttachmentType? type = null,
-        int pageNumber = 1,
-        int pageSize = 10,
+        bool includePrivate,
+        Guid? uploaderId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
         var query = context.Attachments
-            .Where(a => a.UploadedBy == userId && !a.IsDeleted);
+            .AsNoTracking()
+            .Where(a => a.EntityType == entityType && a.EntityId == entityId);
 
-        if (category.HasValue)
+        if (!includePrivate)
         {
-            query = query.Where(a => a.Category == category.Value);
+            query = uploaderId is { } uid
+                ? query.Where(a => a.IsPublic || a.UploadedBy == uid)
+                : query.Where(a => a.IsPublic);
         }
 
-        if (type.HasValue)
-        {
-            query = query.Where(a => a.Type == type.Value);
-        }
+        var total = await query.CountAsync(cancellationToken);
+        if (total == 0)
+            return ([], 0);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
+        var skip = (int)Math.Min(((long)pageNumber - 1) * pageSize, int.MaxValue);
         var items = await query
             .OrderByDescending(a => a.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
+            .ThenByDescending(a => a.Id)
+            .Skip(skip)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return (items, totalCount);
+        return (items, total);
     }
 
-    public async Task<(List<AttachmentFile> Items, int TotalCount)> GetByTypeAsync(
-        AttachmentType type,
-        EntityType? entityType = null,
-        Guid? entityId = null,
-        int pageNumber = 1,
-        int pageSize = 10,
-        CancellationToken cancellationToken = default)
-    {
-        var query = context.Attachments
-            .Where(a => a.Type == type && !a.IsDeleted);
-
-        if (entityType.HasValue)
-        {
-            query = query.Where(a => a.EntityType == entityType.Value);
-        }
-
-        if (entityId.HasValue)
-        {
-            query = query.Where(a => a.EntityId == entityId.Value);
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderByDescending(a => a.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+    public Task<List<AttachmentFile>> GetLiveByEntityAsync(
+        EntityType entityType,
+        Guid entityId,
+        CancellationToken cancellationToken = default) =>
+        context.Attachments
+            .IgnoreNonIsolationFilters()
+            .Where(a => a.EntityType == entityType && a.EntityId == entityId && !a.IsDeleted &&
+                        (a.Status == AttachmentStatus.Ready || a.Status == AttachmentStatus.Uploading))
             .ToListAsync(cancellationToken);
 
-        return (items, totalCount);
-    }
+    public Task<AttachmentFile?> GetForMaintenanceAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.Attachments.IgnoreNonIsolationFilters().FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
-    public async Task<(List<AttachmentFile> Items, int TotalCount)> GetByCategoryAsync(
-        AttachmentCategory category,
-        bool publicOnly = false,
-        int pageNumber = 1,
-        int pageSize = 10,
-        CancellationToken cancellationToken = default)
-    {
-        var query = context.Attachments
-            .Where(a => a.Category == category && !a.IsDeleted);
-
-        if (publicOnly)
-        {
-            query = query.Where(a => a.IsPublic);
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderByDescending(a => a.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return (items, totalCount);
-    }
-
-    public async Task AddAsync(
-        AttachmentFile attachment,
-        CancellationToken cancellationToken = default)
-    {
+    public async Task AddAsync(AttachmentFile attachment, CancellationToken cancellationToken = default) =>
         await context.Attachments.AddAsync(attachment, cancellationToken);
-    }
 
-    public void Update(AttachmentFile attachment)
-    {
-        context.Attachments.Update(attachment);
-    }
+    public void Delete(AttachmentFile attachment) => context.Attachments.Remove(attachment);
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var attachment = await context.Attachments
-            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
-
-        if (attachment == null)
-        {
-            return false;
-        }
-
-        attachment.MarkAsDeleted(); // raises AttachmentDeletedEvent — collected by interceptor before DELETE
-        context.Attachments.Remove(attachment);
-        return true;
-    }
-
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return await context.SaveChangesAsync(cancellationToken);
-    }
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        context.SaveChangesAsync(cancellationToken);
 }

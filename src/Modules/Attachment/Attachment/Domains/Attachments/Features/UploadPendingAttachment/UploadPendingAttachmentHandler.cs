@@ -1,10 +1,9 @@
+using Shared.Core.MultiTenancy;
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Contracts.Attachments.Dtos;
-using Attachment.Data.Repository.Attachments;
 using Attachment.Domains.Attachments.Exceptions;
-using Attachment.Domains.Attachments.Models;
 using Attachment.Infrastructure.BackgroundJobs;
 using Attachment.Infrastructure.Configuration;
+using Attachment.Infrastructure.Security;
 using Attachment.Infrastructure.Storage;
 using Attachment.Infrastructure.Validation;
 using Attachment.Resources;
@@ -36,18 +35,21 @@ public class UploadPendingAttachmentCommandValidator : AbstractValidator<UploadP
 
         RuleFor(x => x.DisplayOrder)
             .GreaterThanOrEqualTo(0).WithMessage(_ => localizer["Validation.DisplayOrder.Min"]);
-
-        RuleFor(x => x.IsPrimary)
-            .NotNull().WithMessage(_ => localizer["Validation.IsPrimary.Required"]);
     }
 }
 
+/// <summary>
+/// Uploads into a server-issued session owned by the caller. The session is locked (advisory lock) for the
+/// duration so the per-session limit and display-order uniqueness hold under concurrent uploads.
+/// </summary>
 public class UploadPendingAttachmentHandler(
     IPendingAttachmentRepository repository,
     IStorageService storageService,
     IFileValidationService fileValidationService,
+    IPendingSessionService sessionService,
     IBackgroundJobClient backgroundJobClient,
     IOptions<AttachmentOptions> options,
+    ITenantContext tenantContext,
     ILogger<UploadPendingAttachmentHandler> logger)
     : ICommandHandler<UploadPendingAttachmentCommand, UploadPendingAttachmentResult>
 {
@@ -57,91 +59,88 @@ public class UploadPendingAttachmentHandler(
         UploadPendingAttachmentCommand command,
         CancellationToken cancellationToken)
     {
-        // Check session upload limit
+        if (!sessionService.IsOwnedByCurrentCaller(command.SessionId))
+            throw new PendingSessionAccessDeniedException();
+
+        await using var upload = await SeekableUpload.CreateAsync(command.FileStream, cancellationToken);
+
+        // Validate before taking the lock: it reads the whole file.
+        var validation = await fileValidationService.ValidateFileAsync(
+            upload.Stream, command.FileName, command.ContentType, command.FileSize, command.Type, cancellationToken);
+
+        if (!validation.IsValid || validation.Detected is not { } detected)
+            throw new InvalidFileException($"File validation failed: {string.Join(", ", validation.Errors)}");
+
+        var contentHash = await ContentHasher.Sha256HexAsync(upload.Stream, cancellationToken);
+
+        await using var sessionLock = await repository.BeginSessionLockAsync(command.SessionId, cancellationToken);
+
         var currentCount = await repository.GetCountBySessionIdAsync(command.SessionId, cancellationToken);
         if (currentCount >= _options.Pending.MaxUploadsPerSession)
-        {
             throw new SessionLimitExceededException(command.SessionId, _options.Pending.MaxUploadsPerSession);
-        }
 
-        // Validate DisplayOrder uniqueness for session
-        var existingAttachments = await repository.GetBySessionIdAsync(command.SessionId, cancellationToken);
-        if (existingAttachments.Any(a => a.DisplayOrder == command.DisplayOrder && !a.IsDeleted))
-        {
-            throw new InvalidOperationException(
-                $"Display order {command.DisplayOrder} already exists for session {command.SessionId}. " +
-                "Please use a unique display order.");
-        }
+        if (await repository.DisplayOrderExistsAsync(command.SessionId, command.DisplayOrder, cancellationToken))
+            throw new DisplayOrderConflictException(command.DisplayOrder);
 
-        // Validate file
-        var validationResult = await fileValidationService.ValidateFileAsync(
-            command.FileStream,
-            command.FileName,
-            command.ContentType,
-            command.FileSize,
-            command.Type,
-            cancellationToken);
-
-        if (!validationResult.IsValid)
-        {
-            throw new InvalidFileException(
-                $"File validation failed: {string.Join(", ", validationResult.Errors)}");
-        }
-
-        // Generate unique file ID
         var fileId = Guid.NewGuid();
-        var fileExtension = Path.GetExtension(command.FileName);
-        var storagePath = $"temp/{command.SessionId}/{fileId}{fileExtension}";
+        var storagePath = StoragePaths.ForPending(
+            tenantContext.TenantId ?? throw new TenantNotResolvedException("upload"), command.SessionId, fileId, detected.Extension);
 
-        // Upload to temporary location
-        var storageResult = await storageService.UploadToPathAsync(
-            command.FileStream,
-            storagePath,
-            command.ContentType,
-            cancellationToken);
+        upload.Stream.Position = 0;
+        var stored = await storageService.UploadToPathAsync(
+            upload.Stream, storagePath, detected.ContentType, cancellationToken);
 
-        // Create pending attachment entity
-        var pendingAttachment = PendingAttachment.Create(
-            fileId,
-            command.SessionId,
-            Path.GetFileName(storageResult.StoragePath),
-            command.FileName,
-            command.ContentType,
-            storageResult.FileSize,
-            storageResult.StoragePath,
-            storageResult.PublicUrl,
-            command.Type,
-            command.Category,
-            command.DisplayOrder,
-            command.IsPrimary,
-            _options.Pending.ExpirationHours);
-
-        // Save to database
-        await repository.AddAsync(pendingAttachment, cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
-
-        // Enqueue thumbnail generation job for images (async, non-blocking)
-        if (command.Type == AttachmentType.Image && _options.Image.EnableThumbnailGeneration)
+        PendingAttachment pendingAttachment;
+        try
         {
-            backgroundJobClient.Enqueue<GenerateThumbnailJob>(
-                job => job.ExecuteAsync(fileId));
+            pendingAttachment = PendingAttachment.Create(
+                fileId,
+                command.SessionId,
+                Path.GetFileName(stored.StoragePath),
+                validation.SafeFileName,
+                detected.ContentType,
+                stored.FileSize,
+                stored.StoragePath,
+                $"pending:{fileId:N}", // URLs are generated per request; the path is the source of truth
+                detected.Type,
+                command.Category,
+                command.DisplayOrder,
+                command.IsPrimary,
+                _options.Pending.ExpirationHours,
+                contentHash);
 
-            logger.LogInformation(
-                "Thumbnail generation job enqueued for pending attachment {FileId}",
-                fileId);
+            await repository.AddAsync(pendingAttachment, cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
+            await sessionLock.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            var cleanup = await storageService.DeleteBatchAsync([stored.StoragePath], CancellationToken.None);
+            if (!cleanup.AllSucceeded)
+                logger.LogError("Pending upload failed and blob {Path} could not be removed", stored.StoragePath);
+            throw;
+        }
+
+        if (detected.Type == AttachmentType.Image && _options.Image.EnableThumbnailGeneration)
+        {
+            backgroundJobClient.Enqueue<GenerateThumbnailJob>(job => job.ExecuteAsync(fileId));
         }
 
         logger.LogInformation(
-            "Pending attachment uploaded: SessionId={SessionId}, FileId={FileId}, FileName={FileName}",
-            command.SessionId,
-            fileId,
-            command.FileName);
+            "Pending attachment uploaded: SessionId={SessionId}, FileId={FileId}", command.SessionId, fileId);
+
+        var readUrl = await storageService.GetReadUrlAsync(
+            stored.StoragePath,
+            TimeSpan.FromMinutes(_options.Download.ReadUrlTtlMinutes),
+            new ReadUrlOptions(validation.SafeFileName, detected.ContentType,
+                FileResponseHeaders.IsInline(detected.ContentType, _options.Download.InlineContentTypes)),
+            cancellationToken);
 
         return new UploadPendingAttachmentResult(
             pendingAttachment.Id,
             pendingAttachment.SessionId,
-            pendingAttachment.FileName,
-            pendingAttachment.FileUrl,
+            pendingAttachment.OriginalFileName,
+            readUrl,
             pendingAttachment.ExpiresAt,
             pendingAttachment.DisplayOrder);
     }

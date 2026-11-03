@@ -1,3 +1,4 @@
+using Shared.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -18,7 +19,7 @@ public class AttachmentDbContextFactory : IDesignTimeDbContextFactory<Attachment
         
         optionsBuilder.UseNpgsql(
             connectionString,
-            b => b.MigrationsHistoryTable("__attachment_migrations_history", "attachment"));
+            b => b.UseModuleMigrationsHistory<AttachmentDbContext>());
         
         // Add snake_case naming convention
         optionsBuilder.UseSnakeCaseNamingConvention();

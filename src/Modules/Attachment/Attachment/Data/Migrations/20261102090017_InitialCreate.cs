@@ -24,6 +24,7 @@ namespace Attachment.Data.Migrations
                     original_file_name = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     content_type = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     file_size = table.Column<long>(type: "bigint", nullable: false),
+                    content_hash = table.Column<string>(type: "character(64)", fixedLength: true, maxLength: 64, nullable: true),
                     storage_path = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     file_url = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     thumbnail_path = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
@@ -37,6 +38,10 @@ namespace Attachment.Data.Migrations
                     width = table.Column<int>(type: "integer", nullable: true),
                     height = table.Column<int>(type: "integer", nullable: true),
                     description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false, defaultValue: "Ready"),
+                    deletion_requested_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    deletion_attempts = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    next_deletion_attempt_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_by = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     last_modified = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -60,6 +65,7 @@ namespace Attachment.Data.Migrations
                     original_file_name = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     content_type = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     file_size = table.Column<long>(type: "bigint", nullable: false),
+                    content_hash = table.Column<string>(type: "character(64)", fixedLength: true, maxLength: 64, nullable: true),
                     storage_path = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     file_url = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     thumbnail_path = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
@@ -92,6 +98,12 @@ namespace Attachment.Data.Migrations
                 column: "category");
 
             migrationBuilder.CreateIndex(
+                name: "ix_attachments_content_hash",
+                schema: "attachment",
+                table: "attachments",
+                column: "content_hash");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_attachments_created_at",
                 schema: "attachment",
                 table: "attachments",
@@ -114,6 +126,18 @@ namespace Attachment.Data.Migrations
                 schema: "attachment",
                 table: "attachments",
                 column: "is_deleted");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_attachments_status_created_at",
+                schema: "attachment",
+                table: "attachments",
+                columns: new[] { "status", "created_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_attachments_status_next_deletion_attempt_at",
+                schema: "attachment",
+                table: "attachments",
+                columns: new[] { "status", "next_deletion_attempt_at" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_attachments_type",

@@ -1,98 +1,68 @@
+using Amazon;
+using Amazon.S3;
 using Attachment.Infrastructure.Configuration;
 using Attachment.Infrastructure.Storage;
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Attachment.Infrastructure.Factories;
 
 /// <summary>
-/// Factory for creating storage service instances based on configuration
+/// Registers the storage provider selected by <c>Attachment:Storage:Provider</c>. There is no fallback:
+/// a missing provider configuration fails <c>ValidateOnStart</c> (see <see cref="AttachmentOptionsValidator"/>),
+/// and the provider clients are only created for the selected provider.
 /// </summary>
-public interface IStorageServiceFactory
+public static class StorageServiceFactory
 {
-    IStorageService CreateStorageService();
-}
-
-/// <summary>
-/// Implementation of storage service factory
-/// </summary>
-public class StorageServiceFactory : IStorageServiceFactory
-{
-    private readonly IOptions<AttachmentOptions> _options;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<StorageServiceFactory> _logger;
-
-    public StorageServiceFactory(
-        IOptions<AttachmentOptions> options,
-        IServiceProvider serviceProvider,
-        ILogger<StorageServiceFactory> logger)
+    public static IServiceCollection AddAttachmentStorage(this IServiceCollection services)
     {
-        _options = options;
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-    }
+        services.AddSingleton<ILocalReadUrlSigner, LocalReadUrlSigner>();
 
-    public IStorageService CreateStorageService()
-    {
-        var provider = _options.Value.Storage.Provider;
-        
-        _logger.LogInformation("Creating storage service for provider: {Provider}", provider);
+        services.AddScoped<LocalFileStorageService>();
+        services.AddScoped<AzureBlobStorageService>();
+        services.AddScoped<S3StorageService>();
 
-        return provider switch
+        services.AddSingleton(sp => CreateBlobServiceClient(Options(sp)));
+        services.AddSingleton<AzureBlobContainerGate>();
+        services.AddHostedService<AzureBlobContainerInitializer>(); // creates the container once, at startup
+        services.AddSingleton<IAmazonS3>(sp => CreateS3Client(Options(sp)));
+
+        services.AddScoped<IStorageService>(sp => Options(sp).Storage.Provider switch
         {
-            StorageProvider.Local => CreateLocalStorageService(),
-            StorageProvider.AzureBlob => CreateAzureBlobStorageService(),
-            StorageProvider.S3 => CreateS3StorageService(),
-            _ => throw new ArgumentException($"Unknown storage provider: {provider}")
-        };
+            StorageProvider.Local => sp.GetRequiredService<LocalFileStorageService>(),
+            StorageProvider.AzureBlob => sp.GetRequiredService<AzureBlobStorageService>(),
+            StorageProvider.S3 => sp.GetRequiredService<S3StorageService>(),
+            var other => throw new InvalidOperationException($"Unknown Attachment storage provider '{other}'.")
+        });
+
+        return services;
     }
 
-    private IStorageService CreateLocalStorageService()
-    {
-        var options = _options.Value.Storage.Local;
-        
-        _logger.LogInformation(
-            "Configuring Local storage: UploadPath={UploadPath}",
-            options.UploadPath);
+    private static AttachmentOptions Options(IServiceProvider sp) =>
+        sp.GetRequiredService<IOptions<AttachmentOptions>>().Value;
 
-        return _serviceProvider.GetRequiredService<LocalFileStorageService>();
+    private static BlobServiceClient CreateBlobServiceClient(AttachmentOptions options)
+    {
+        var connectionString = options.Storage.AzureBlob.ConnectionString;
+        if (string.IsNullOrWhiteSpace(connectionString))
+            throw new InvalidOperationException(
+                "Attachment:Storage:AzureBlob:ConnectionString is not configured.");
+
+        return new BlobServiceClient(connectionString);
     }
 
-    private IStorageService CreateAzureBlobStorageService()
+    /// <summary>
+    /// Static keys when both AccessKeyId and SecretAccessKey are set; otherwise the AWS default credential
+    /// chain (environment, shared profile, ECS task role, EC2 instance profile / IAM role).
+    /// </summary>
+    public static IAmazonS3 CreateS3Client(AttachmentOptions options)
     {
-        var options = _options.Value.Storage.AzureBlob;
+        var s3 = options.Storage.S3;
+        var config = new AmazonS3Config { RegionEndpoint = RegionEndpoint.GetBySystemName(s3.Region) };
 
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            _logger.LogWarning(
-                "Azure Blob Storage connection string is missing. Falling back to Local storage");
-            return CreateLocalStorageService();
-        }
-
-        _logger.LogInformation(
-            "Configuring Azure Blob Storage: Container={ContainerName}",
-            options.ContainerName);
-
-        return _serviceProvider.GetRequiredService<AzureBlobStorageService>();
-    }
-
-    private IStorageService CreateS3StorageService()
-    {
-        var options = _options.Value.Storage.S3;
-
-        if (string.IsNullOrWhiteSpace(options.AccessKeyId) || string.IsNullOrWhiteSpace(options.SecretAccessKey))
-        {
-            _logger.LogWarning(
-                "AWS S3 credentials are missing. Falling back to Local storage");
-            return CreateLocalStorageService();
-        }
-
-        _logger.LogInformation(
-            "Configuring AWS S3 Storage: Bucket={BucketName}, Region={Region}",
-            options.BucketName,
-            options.Region);
-
-        return _serviceProvider.GetRequiredService<S3StorageService>();
+        return string.IsNullOrWhiteSpace(s3.AccessKeyId) || string.IsNullOrWhiteSpace(s3.SecretAccessKey)
+            ? new AmazonS3Client(config)
+            : new AmazonS3Client(s3.AccessKeyId, s3.SecretAccessKey, config);
     }
 }

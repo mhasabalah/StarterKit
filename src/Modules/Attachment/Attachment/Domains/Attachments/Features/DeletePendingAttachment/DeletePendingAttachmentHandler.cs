@@ -1,6 +1,6 @@
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Data.Repository.Attachments;
 using Attachment.Domains.Attachments.Exceptions;
+using Attachment.Infrastructure.Security;
 using Attachment.Infrastructure.Storage;
 using Attachment.Resources;
 using Microsoft.Extensions.Localization;
@@ -22,62 +22,31 @@ public class DeletePendingAttachmentCommandValidator : AbstractValidator<DeleteP
 public class DeletePendingAttachmentHandler(
     IPendingAttachmentRepository repository,
     IStorageService storageService,
+    IPendingSessionService sessionService,
     ILogger<DeletePendingAttachmentHandler> logger)
     : ICommandHandler<DeletePendingAttachmentCommand, bool>
 {
-    public async Task<bool> Handle(
-        DeletePendingAttachmentCommand command,
-        CancellationToken cancellationToken)
+    public async Task<bool> Handle(DeletePendingAttachmentCommand command, CancellationToken cancellationToken)
     {
-        var pendingAttachment = await repository.GetByIdAsync(command.Id, cancellationToken);
+        if (!sessionService.IsOwnedByCurrentCaller(command.SessionId))
+            throw new PendingSessionAccessDeniedException();
 
-        if (pendingAttachment == null)
-        {
+        var pending = await repository.GetByIdAsync(command.Id, cancellationToken);
+        if (pending is null || !pending.BelongsToSession(command.SessionId))
             throw new PendingAttachmentNotFoundException(command.Id);
-        }
 
-        // Verify session ownership
-        if (!pendingAttachment.BelongsToSession(command.SessionId))
-        {
-            throw new UnauthorizedAccessException(
-                $"Pending attachment {command.Id} does not belong to session {command.SessionId}");
-        }
+        var paths = new List<string> { pending.StoragePath };
+        if (!string.IsNullOrEmpty(pending.ThumbnailPath))
+            paths.Add(pending.ThumbnailPath);
 
-        // Delete from blob storage
-        var filesToDelete = new List<string> { pendingAttachment.StoragePath };
+        var result = await storageService.DeleteBatchAsync(paths, cancellationToken);
+        if (!result.AllSucceeded)
+            throw new FileStorageException("The file could not be deleted. Please try again.");
 
-        if (!string.IsNullOrEmpty(pendingAttachment.ThumbnailPath))
-        {
-            filesToDelete.Add(pendingAttachment.ThumbnailPath);
-        }
-
-        try
-        {
-            await storageService.DeleteBatchAsync(filesToDelete, cancellationToken);
-
-            logger.LogInformation(
-                "Deleted {Count} files from storage for pending attachment {Id}",
-                filesToDelete.Count,
-                command.Id);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(
-                ex,
-                "Failed to delete files from storage for pending attachment {Id}",
-                command.Id);
-            // Continue with database deletion even if storage delete fails
-        }
-
-        // Mark as deleted in database
-        pendingAttachment.MarkAsDeleted();
+        pending.MarkAsDeleted();
         await repository.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Pending attachment deleted: Id={Id}, SessionId={SessionId}",
-            command.Id,
-            command.SessionId);
-
+        logger.LogInformation("Pending attachment {Id} of session {SessionId} deleted", command.Id, command.SessionId);
         return true;
     }
 }

@@ -1,17 +1,22 @@
-using Amazon.S3;
+using Attachment.Contracts.Authorization;
 using Attachment.Data.Seed;
+using Attachment.Domains.Attachments.Features.DownloadAttachment;
+using Attachment.Domains.Attachments.Features.GetPendingAttachmentsBySession;
 using Attachment.Infrastructure.Authorization;
 using Attachment.Infrastructure.BackgroundJobs;
 using Attachment.Infrastructure.Configuration;
 using Attachment.Infrastructure.Factories;
 using Attachment.Infrastructure.ImageProcessing;
+using Attachment.Infrastructure.Maintenance;
+using Attachment.Infrastructure.Security;
 using Attachment.Infrastructure.Storage;
 using Attachment.Infrastructure.Validation;
-using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Shared.Core.Extensions;
+using Shared.Core.Messaging.Outbox;
 using Shared.Core.Mapster;
 
 namespace Attachment;
@@ -22,151 +27,71 @@ public static class AttachmentModule
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Configure Options Pattern
         services.ConfigureAttachmentOptions(configuration);
 
-        // Register repositories
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<IPendingAttachmentRepository, PendingAttachmentRepository>();
 
-        // Register MediatR, Mapster, Carter
         services.AddMediatR(AttachmentRoot.AssemblyName);
         services.AddCustomMapster(AttachmentRoot.AssemblyName);
         services.AddCarterWithAssemblies(AttachmentRoot.AssemblyName);
 
-        // Register DbContext
         services.AddCustomDbContext<AttachmentDbContext>(configuration, "starterkit");
+        services.AddOutbox<AttachmentDbContext>(); // delivers the integration events raised by Attachment aggregates
         services.AddScoped<IDataSeeder, AttachmentDataSeeder>();
 
-        // Register storage services
-        services.ConfigureStorageServices();
+        services.AddAttachmentStorage();
 
-        // Register other services
+        // Security: signing keys, pending sessions, entity access policies.
+        services.AddSingleton<IAttachmentSigningKeys, AttachmentSigningKeys>();
+        services.AddScoped<IPendingSessionService, PendingSessionService>();
+        services.AddScoped<IAttachmentAccessService, AttachmentAccessService>();
+        services.AddAttachmentEntityPolicy<UserAttachmentEntityAccessPolicy>(EntityType.User);
+
+        // Validation / processing / URLs.
+        services.TryAddSingleton<IMalwareScanner, NoOpMalwareScanner>();
+        services.AddHostedService<MalwareScannerStartupCheck>();
         services.AddScoped<IImageProcessingService, ImageProcessingService>();
         services.AddScoped<IFileValidationService, FileValidationService>();
-        services.AddScoped<IAttachmentAuthorizationService, AttachmentAuthorizationService>();
+        services.AddSingleton<IAttachmentUrls, AttachmentUrls>();
+        services.AddScoped<AttachmentReadUrlFactory>();
+        services.AddScoped<PendingAttachmentDtoFactory>();
 
-        // Register background jobs
+        // Background work: thumbnails, async blob deletion, DB/blob reconciliation.
+        services.AddScoped<IAttachmentBackgroundJobs, HangfireAttachmentBackgroundJobs>();
+        services.AddScoped<AttachmentFileReaper>();
+        services.AddScoped<AttachmentReconciler>();
         services.AddTransient<CleanupExpiredPendingAttachmentsJob>();
         services.AddTransient<GenerateThumbnailJob>();
-
-        // Register job scheduler bootstrap
+        services.AddTransient<DeleteAttachmentFilesJob>();
+        services.AddTransient<AttachmentReconciliationJob>();
         services.AddHostedService<JobSchedulerBootstrap>();
 
         return services;
     }
 
-    /// <summary>
-    /// Configures AttachmentOptions using the Options pattern with validation
-    /// </summary>
     private static IServiceCollection ConfigureAttachmentOptions(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Bind configuration section
-        services.Configure<AttachmentOptions>(
-            configuration.GetSection(AttachmentOptions.SectionName));
-
-        // Add options validation
         services.AddSingleton<IValidateOptions<AttachmentOptions>, AttachmentOptionsValidator>();
 
-        // Validate options on startup
+        // Bind once (binding twice appends array items). Defaults for lists are applied only when not configured.
         services.AddOptions<AttachmentOptions>()
             .Bind(configuration.GetSection(AttachmentOptions.SectionName))
+            .PostConfigure(o => o.ApplyDefaults())
             .ValidateOnStart();
 
         return services;
     }
 
     /// <summary>
-    /// Configures storage services based on the configured provider
+    /// Runs migrations. Uploaded files are deliberately NOT exposed as static files: every read goes through
+    /// <c>GET /attachments/{id}/download</c> (access-checked) or a short-lived signed URL.
     /// </summary>
-    private static IServiceCollection ConfigureStorageServices(this IServiceCollection services)
-    {
-        // Register storage implementations
-        services.AddScoped<LocalFileStorageService>();
-        services.AddScoped<AzureBlobStorageService>();
-        services.AddScoped<S3StorageService>();
-
-        // Register Azure Blob Service Client (if needed)
-        services.AddSingleton(serviceProvider =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<AttachmentOptions>>().Value;
-
-            if (options.Storage.Provider == StorageProvider.AzureBlob &&
-                !string.IsNullOrWhiteSpace(options.Storage.AzureBlob.ConnectionString))
-            {
-                return new BlobServiceClient(options.Storage.AzureBlob.ConnectionString);
-            }
-
-            // Return null client if not using Azure
-            return null!;
-        });
-
-        // Register AWS S3 Client (if needed)
-        services.AddSingleton<IAmazonS3>(serviceProvider =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<AttachmentOptions>>().Value;
-
-            if (options.Storage.Provider == StorageProvider.S3 &&
-                !string.IsNullOrWhiteSpace(options.Storage.S3.AccessKeyId) &&
-                !string.IsNullOrWhiteSpace(options.Storage.S3.SecretAccessKey))
-            {
-                var config = new Amazon.S3.AmazonS3Config
-                {
-                    RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(options.Storage.S3.Region)
-                };
-
-                return new AmazonS3Client(
-                    options.Storage.S3.AccessKeyId,
-                    options.Storage.S3.SecretAccessKey,
-                    config);
-            }
-
-            // Return null client if not using S3
-            return null!;
-        });
-
-        // Register storage factory
-        services.AddScoped<IStorageServiceFactory, StorageServiceFactory>();
-
-        // Register IStorageService using factory
-        services.AddScoped<IStorageService>(serviceProvider =>
-        {
-            var factory = serviceProvider.GetRequiredService<IStorageServiceFactory>();
-            return factory.CreateStorageService();
-        });
-
-        return services;
-    }
-
     public static IApplicationBuilder UseAttachmentModule(this IApplicationBuilder app)
     {
         app.UseMigration<AttachmentDbContext>();
-
-        // Configure static files for local storage
-        var options = app.ApplicationServices
-            .GetRequiredService<IOptions<AttachmentOptions>>()
-            .Value;
-        
-        if (options.Storage.Provider == StorageProvider.Local)
-        {
-            var uploadPath = options.Storage.Local.UploadPath;
-            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), uploadPath);
-            
-            // Ensure directory exists
-            if (!Directory.Exists(fullPath))
-            {
-                Directory.CreateDirectory(fullPath);
-            }
-            
-            app.UseStaticFiles(new StaticFileOptions
-            {
-                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullPath),
-                RequestPath = $"/{uploadPath}"
-            });
-        }
-
         return app;
     }
 }

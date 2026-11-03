@@ -1,44 +1,27 @@
+using Shared.Core.MultiTenancy.BackgroundJobs;
 using Attachment.Contracts.Attachments.Commands;
+using Attachment.Infrastructure.Configuration;
 using Hangfire;
+using Microsoft.Extensions.Options;
 
 namespace Attachment.Infrastructure.BackgroundJobs;
 
-public class CleanupExpiredPendingAttachmentsJob
+/// <summary>Recurring: removes expired pending uploads, once per tenant (<see cref="ITenantJobRunner"/>).</summary>
+public class CleanupExpiredPendingAttachmentsJob(
+    ISender sender,
+    ITenantJobRunner tenantJobs,
+    IOptions<AttachmentOptions> options,
+    ILogger<CleanupExpiredPendingAttachmentsJob> logger)
 {
-    private readonly ISender _sender;
-    private readonly ILogger<CleanupExpiredPendingAttachmentsJob> _logger;
-
-    public CleanupExpiredPendingAttachmentsJob(
-        ISender sender,
-        ILogger<CleanupExpiredPendingAttachmentsJob> logger)
-    {
-        _sender = sender;
-        _logger = logger;
-    }
-
     [AutomaticRetry(Attempts = 3)]
     [DisableConcurrentExecution(timeoutInSeconds: 600)]
-    public async Task ExecuteAsync()
-    {
-        _logger.LogInformation("Starting cleanup of expired pending attachments");
-
-        try
+    public Task ExecuteAsync() =>
+        tenantJobs.ForEachTenantScopeAsync(async (tenant, ct) =>
         {
-            var command = new CleanupExpiredPendingAttachmentsCommand(
-                DateTime.UtcNow,
-                BatchSize: 100);
+            var result = await sender.Send(new CleanupExpiredPendingAttachmentsCommand(
+                DateTime.UtcNow, options.Value.Pending.CleanupBatchSize), ct);
 
-            var result = await _sender.Send(command);
-
-            _logger.LogInformation(
-                "Cleanup completed: {Cleaned} pending attachments cleaned, {FilesDeleted} files deleted",
-                result.Cleaned,
-                result.FilesDeleted);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during cleanup of expired pending attachments");
-            throw;
-        }
-    }
+            logger.LogInformation("Pending cleanup job ({Tenant}): {Cleaned} cleaned, {Files} files deleted",
+                tenant.Identifier, result.Cleaned, result.FilesDeleted);
+        }, nameof(CleanupExpiredPendingAttachmentsJob));
 }

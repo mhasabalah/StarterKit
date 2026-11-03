@@ -1,8 +1,8 @@
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Contracts.Attachments.Dtos;
+using Attachment.Domains.Attachments.Features.UploadAttachment;
+using Attachment.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Core.Response;
-using Shared.Core.Web;
 
 namespace Attachment.Domains.Attachments.Features.UploadPendingAttachment;
 
@@ -11,20 +11,21 @@ public sealed class UploadPendingAttachmentRequest
     [FromForm(Name = "file")]
     public required IFormFile File { get; init; }
 
+    /// <summary>Server-issued session id. Omit it on the first upload to get a new session.</summary>
     [FromForm(Name = "sessionId")]
-    public required Guid SessionId { get; init; }
+    public Guid? SessionId { get; init; }
 
     [FromForm(Name = "type")]
-    public AttachmentType Type { get; init; }
+    public AttachmentType? Type { get; init; }
 
     [FromForm(Name = "category")]
     public AttachmentCategory Category { get; init; } = AttachmentCategory.General;
 
     [FromForm(Name = "displayOrder")]
-    public int DisplayOrder { get; init; } = 0;
+    public int DisplayOrder { get; init; }
 
     [FromForm(Name = "isPrimary")]
-    public bool IsPrimary { get; init; } = false;
+    public bool IsPrimary { get; init; }
 }
 
 public sealed record UploadPendingAttachmentResponse(
@@ -36,40 +37,56 @@ public sealed record UploadPendingAttachmentResponse(
     int DisplayOrder,
     bool IsPrimary);
 
+public sealed record CreatePendingSessionResponse(Guid SessionId);
+
 public class UploadPendingAttachmentEndPoint : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
+        var maxBodyBytes = UploadLimits.MaxRequestBodyBytes(app.ServiceProvider);
+
+        app.MapPost(EndpointConfig.BaseApiPath + "/attachments/pending/sessions",
+                (IPendingSessionService sessions) =>
+                    Results.Ok(ApiResponseExtensions.Success(
+                        new CreatePendingSessionResponse(sessions.IssueForCurrentCaller()),
+                        "Upload session created")))
+            .WithName("CreatePendingAttachmentSession")
+            .WithTags("Pending Attachments")
+            .WithApiVersionSet(app.NewApiVersionSet("Attachment").Build())
+            .Produces<ApiResponse<CreatePendingSessionResponse>>(StatusCodes.Status200OK)
+            .WithSummary("Create an upload session")
+            .WithDescription(
+                "Issues a session id bound to the caller (the user, or the anonymous client fingerprint). " +
+                "Client-chosen session ids are rejected.")
+            .AllowAnonymous()
+            .RequireRateLimiting("upload")
+            .HasApiVersion(1.0);
+
         app.MapPost(EndpointConfig.BaseApiPath + "/attachments/pending/upload",
                 async ([FromForm] UploadPendingAttachmentRequest request,
                        ISender sender,
+                       IPendingSessionService sessions,
                        CancellationToken cancellationToken) =>
                 {
-                    if (request.File == null || request.File.Length == 0)
+                    if (request.File is null || request.File.Length == 0)
                     {
                         return Results.BadRequest(ApiResponseExtensions.BadRequest(
                             "File is required and cannot be empty"));
                     }
 
-                    if (request.File.Length > 500 * 1024 * 1024)
-                    {
-                        return Results.BadRequest(ApiResponseExtensions.BadRequest(
-                            "File size exceeds maximum allowed size of 500MB"));
-                    }
+                    var sessionId = request.SessionId is { } id && id != Guid.Empty
+                        ? id
+                        : sessions.IssueForCurrentCaller();
 
-                    var attachmentType = request.Type != default
-                        ? request.Type
-                        : DetermineAttachmentType(request.File.ContentType);
-
-                    using var fileStream = request.File.OpenReadStream();
+                    await using var fileStream = request.File.OpenReadStream();
 
                     var command = new UploadPendingAttachmentCommand(
-                        SessionId: request.SessionId,
+                        SessionId: sessionId,
                         FileName: request.File.FileName,
                         ContentType: request.File.ContentType,
                         FileSize: request.File.Length,
                         FileStream: fileStream,
-                        Type: attachmentType,
+                        Type: request.Type ?? AttachmentType.Other,
                         Category: request.Category,
                         DisplayOrder: request.DisplayOrder,
                         IsPrimary: request.IsPrimary);
@@ -91,34 +108,21 @@ public class UploadPendingAttachmentEndPoint : ICarterModule
             .WithTags("Pending Attachments")
             .WithApiVersionSet(app.NewApiVersionSet("Attachment").Build())
             .DisableAntiforgery()
+            .WithMetadata(new RequestSizeLimitAttribute(maxBodyBytes))
+            .WithFormOptions(multipartBodyLengthLimit: maxBodyBytes)
             .Accepts<UploadPendingAttachmentRequest>("multipart/form-data")
             .Produces<ApiResponse<UploadPendingAttachmentResponse>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden)
+            .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status413PayloadTooLarge)
             .Produces<ApiResponse<object>>(StatusCodes.Status429TooManyRequests)
-            .ProducesProblem(StatusCodes.Status500InternalServerError)
             .WithSummary("Upload file to session (anonymous)")
-            .WithDescription("Uploads a file to a temporary session before the owning entity is created. Max 20 files per session.")
-            .WithOpenApi()
+            .WithDescription(
+                "Uploads a file to a server-issued session before the owning entity exists. Omit sessionId to " +
+                "start a new session (returned in the response).")
             .AllowAnonymous()
             .RequireRateLimiting("upload")
             .HasApiVersion(1.0);
-    }
-
-    private static AttachmentType DetermineAttachmentType(string contentType)
-    {
-        return contentType.ToLowerInvariant() switch
-        {
-            var ct when ct.StartsWith("image/") => AttachmentType.Image,
-            var ct when ct.StartsWith("video/") => AttachmentType.Video,
-            var ct when ct.StartsWith("audio/") => AttachmentType.Audio,
-            "application/pdf" or
-            "application/msword" or
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" or
-            "application/vnd.ms-excel" or
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" or
-            "application/vnd.ms-powerpoint" or
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" => AttachmentType.Document,
-            _ => AttachmentType.Other
-        };
     }
 }

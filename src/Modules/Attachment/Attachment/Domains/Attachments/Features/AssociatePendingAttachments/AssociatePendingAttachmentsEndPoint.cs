@@ -1,14 +1,13 @@
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Contracts.Attachments.Dtos;
 using Shared.Core.Response;
-using Shared.Core.Web;
 
 namespace Attachment.Domains.Attachments.Features.AssociatePendingAttachments;
 
 public sealed record AssociatePendingAttachmentsRequest(
     Guid SessionId,
     EntityType EntityType,
-    Guid EntityId);
+    Guid EntityId,
+    bool IsPublic = false);
 
 public class AssociatePendingAttachmentsEndPoint : ICarterModule
 {
@@ -21,13 +20,17 @@ public class AssociatePendingAttachmentsEndPoint : ICarterModule
                        CancellationToken cancellationToken) =>
                 {
                     var userId = httpContextService.GetUserIdAsGuid()
-                        ?? throw new UnauthorizedAccessException("User must be authenticated");
+                        ?? throw new UnauthorizedException("User must be authenticated");
 
                     var command = new AssociatePendingAttachmentsCommand(
                         request.SessionId,
                         request.EntityType,
                         request.EntityId,
-                        userId);
+                        userId,
+                        request.IsPublic)
+                    {
+                        EnforceEntityAccessPolicy = true
+                    };
 
                     var result = await sender.Send(command, cancellationToken);
 
@@ -40,10 +43,11 @@ public class AssociatePendingAttachmentsEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Attachment").Build())
             .Produces<ApiResponse<AssociatePendingAttachmentsResult>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden)
             .WithSummary("Associate pending attachments with an entity")
-            .WithDescription("Moves pending attachments from session to permanent storage and links them to an entity")
-            .WithOpenApi()
+            .WithDescription(
+                "Moves the files of an owned upload session to permanent storage and links them to an entity. " +
+                "The entity type's attachment access policy must allow the caller.")
             .RequireAuthorization()
             .HasApiVersion(1.0);
     }

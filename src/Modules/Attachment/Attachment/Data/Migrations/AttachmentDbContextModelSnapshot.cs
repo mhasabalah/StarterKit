@@ -18,7 +18,7 @@ namespace Attachment.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("attachment")
-                .HasAnnotation("ProductVersion", "9.0.9")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -35,6 +35,12 @@ namespace Attachment.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("category");
 
+                    b.Property<string>("ContentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("content_hash")
+                        .IsFixedLength();
+
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -49,6 +55,16 @@ namespace Attachment.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("created_by");
+
+                    b.Property<int>("DeletionAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("deletion_attempts");
+
+                    b.Property<DateTime?>("DeletionRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletion_requested_at");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
@@ -100,17 +116,33 @@ namespace Attachment.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("last_modified_by");
 
+                    b.Property<DateTime?>("NextDeletionAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_deletion_attempt_at");
+
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("original_file_name");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Ready")
+                        .HasColumnName("status");
+
                     b.Property<string>("StoragePath")
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("storage_path");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
 
                     b.Property<string>("ThumbnailPath")
                         .HasMaxLength(1000)
@@ -146,11 +178,17 @@ namespace Attachment.Data.Migrations
                     b.HasIndex("Category")
                         .HasDatabaseName("ix_attachments_category");
 
+                    b.HasIndex("ContentHash")
+                        .HasDatabaseName("ix_attachments_content_hash");
+
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("ix_attachments_created_at");
 
                     b.HasIndex("IsDeleted")
                         .HasDatabaseName("ix_attachments_is_deleted");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_attachments_tenant_id");
 
                     b.HasIndex("Type")
                         .HasDatabaseName("ix_attachments_type");
@@ -160,6 +198,12 @@ namespace Attachment.Data.Migrations
 
                     b.HasIndex("EntityType", "EntityId")
                         .HasDatabaseName("ix_attachments_entity_type_entity_id");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_attachments_status_created_at");
+
+                    b.HasIndex("Status", "NextDeletionAttemptAt")
+                        .HasDatabaseName("ix_attachments_status_next_deletion_attempt_at");
 
                     b.HasIndex("EntityType", "EntityId", "Type")
                         .HasDatabaseName("ix_attachments_entity_type_entity_id_type");
@@ -182,6 +226,12 @@ namespace Attachment.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("category");
+
+                    b.Property<string>("ContentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("content_hash")
+                        .IsFixedLength();
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -265,6 +315,10 @@ namespace Attachment.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("storage_path");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.Property<string>("ThumbnailPath")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
@@ -304,15 +358,95 @@ namespace Attachment.Data.Migrations
                     b.HasIndex("ExpiresAt", "IsAssociated")
                         .HasDatabaseName("IX_PendingAttachments_ExpiresAt_IsAssociated");
 
-                    b.HasIndex("SessionId", "DisplayOrder")
+                    b.HasIndex("SessionId", "IsPrimary")
+                        .HasDatabaseName("IX_PendingAttachments_SessionId_IsPrimary");
+
+                    b.HasIndex("TenantId", "SessionId", "DisplayOrder")
                         .IsUnique()
                         .HasDatabaseName("IX_PendingAttachments_SessionId_DisplayOrder_Unique")
                         .HasFilter("is_deleted = false");
 
-                    b.HasIndex("SessionId", "IsPrimary")
-                        .HasDatabaseName("IX_PendingAttachments_SessionId_IsPrimary");
-
                     b.ToTable("pending_attachments", "attachment");
+                });
+
+            modelBuilder.Entity("Shared.Core.Messaging.Outbox.TenantOutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime?>("DeadLetteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dead_lettered_at");
+
+                    b.Property<bool>("HostScope")
+                        .HasColumnType("boolean")
+                        .HasColumnName("host_scope");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<Guid?>("LockToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lock_token");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("message_type");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_on");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("trace_parent");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.HasIndex("NextAttemptAt")
+                        .HasDatabaseName("ix_outbox_messages_pending")
+                        .HasFilter("processed_at IS NULL AND dead_lettered_at IS NULL");
+
+                    b.HasIndex("ProcessedAt")
+                        .HasDatabaseName("ix_outbox_messages_processed_at")
+                        .HasFilter("processed_at IS NOT NULL");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_outbox_messages_tenant_id");
+
+                    b.ToTable("outbox_messages", "attachment");
                 });
 #pragma warning restore 612, 618
         }

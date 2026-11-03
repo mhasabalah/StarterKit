@@ -1,42 +1,17 @@
 using Attachment.Contracts.Attachments.Queries;
-using Attachment.Data.Repository.Attachments;
+using Attachment.Domains.Attachments.Features.GetPendingAttachmentsBySession;
 
 namespace Attachment.Domains.Attachments.Features.GetPendingAttachmentById;
 
+/// <summary>Trusted (module-internal) lookup; there is no HTTP endpoint for it.</summary>
 public class GetPendingAttachmentByIdHandler(
     IPendingAttachmentRepository repository,
-    ILogger<GetPendingAttachmentByIdHandler> logger)
+    PendingAttachmentDtoFactory dtoFactory)
     : IQueryHandler<GetPendingAttachmentByIdQuery, PendingAttachmentDto?>
 {
-    public async Task<PendingAttachmentDto?> Handle(
-        GetPendingAttachmentByIdQuery query,
-        CancellationToken cancellationToken)
+    public async Task<PendingAttachmentDto?> Handle(GetPendingAttachmentByIdQuery query, CancellationToken cancellationToken)
     {
-        var pendingAttachment = await repository.GetByIdAsync(query.Id, cancellationToken);
-
-        if (pendingAttachment == null)
-        {
-            logger.LogWarning("Pending attachment not found: {Id}", query.Id);
-            return null;
-        }
-
-        return new PendingAttachmentDto(
-            pendingAttachment.Id,
-            pendingAttachment.SessionId,
-            pendingAttachment.FileName,
-            pendingAttachment.OriginalFileName,
-            pendingAttachment.ContentType,
-            pendingAttachment.FileSize,
-            pendingAttachment.FileUrl,
-            pendingAttachment.ThumbnailUrl,
-            pendingAttachment.Type,
-            pendingAttachment.Category,
-            pendingAttachment.DisplayOrder,
-            pendingAttachment.IsPrimary,
-            pendingAttachment.Width,
-            pendingAttachment.Height,
-            pendingAttachment.ExpiresAt,
-            pendingAttachment.CreatedAt,
-            pendingAttachment.IsExpired());
+        var pending = await repository.GetByIdAsync(query.Id, cancellationToken);
+        return pending is null ? null : await dtoFactory.CreateAsync(pending, cancellationToken);
     }
 }

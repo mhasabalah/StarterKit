@@ -1,7 +1,7 @@
 using Attachment.Contracts.Attachments.Commands;
-using Attachment.Data.Repository.Attachments;
 using Attachment.Domains.Attachments.Exceptions;
-using Attachment.Domains.Attachments.Models;
+using Attachment.Infrastructure.Authorization;
+using Attachment.Infrastructure.Security;
 using Attachment.Infrastructure.Storage;
 using Attachment.Resources;
 using Microsoft.Extensions.Localization;
@@ -23,133 +23,153 @@ public class AssociatePendingAttachmentsCommandValidator : AbstractValidator<Ass
     }
 }
 
+/// <summary>
+/// Moves the files of an owned session to the entity folder and creates the attachment rows.
+/// Consistency: if the save fails, every moved file is moved back to its pending path (the pending rows
+/// are untouched), so the session can be associated again.
+/// </summary>
 public class AssociatePendingAttachmentsHandler(
     IPendingAttachmentRepository pendingRepository,
     IAttachmentRepository attachmentRepository,
     IStorageService storageService,
+    IPendingSessionService sessionService,
+    IAttachmentAccessService accessService,
+    IAttachmentUrls urls,
     ILogger<AssociatePendingAttachmentsHandler> logger)
     : ICommandHandler<AssociatePendingAttachmentsCommand, AssociatePendingAttachmentsResult>
 {
+    private sealed record Move(PendingAttachment Pending, StorageResult File, string? ThumbPath);
+
     public async Task<AssociatePendingAttachmentsResult> Handle(
         AssociatePendingAttachmentsCommand command,
         CancellationToken cancellationToken)
     {
-        // Get all pending attachments for session
-        var pendingAttachments = await pendingRepository.GetBySessionIdAsync(
-            command.SessionId,
-            cancellationToken);
+        if (!sessionService.IsOwnedBy(command.SessionId, command.UserId))
+            throw new PendingSessionAccessDeniedException();
 
-        if (!pendingAttachments.Any())
+        if (command.EnforceEntityAccessPolicy)
+            await accessService.EnsureCanAttachToEntityAsync(command.EntityType, command.EntityId, cancellationToken);
+
+        var pending = (await pendingRepository.GetBySessionIdAsync(command.SessionId, cancellationToken))
+            .Where(p => !p.IsExpired())
+            .ToList();
+
+        if (pending.Count == 0)
         {
-            logger.LogWarning(
-                "No pending attachments found for session {SessionId}",
-                command.SessionId);
-
-            return new AssociatePendingAttachmentsResult(0, new List<Guid>(), new List<AssociatedAttachmentMetadata>());
+            logger.LogWarning("No live pending attachments for session {SessionId}", command.SessionId);
+            return new AssociatePendingAttachmentsResult(0, [], []);
         }
 
-        // Filter out expired attachments
-        var validAttachments = pendingAttachments.Where(p => !p.IsExpired()).ToList();
-
-        if (!validAttachments.Any())
-        {
-            logger.LogWarning(
-                "All pending attachments for session {SessionId} are expired",
-                command.SessionId);
-
-            return new AssociatePendingAttachmentsResult(0, new List<Guid>(), new List<AssociatedAttachmentMetadata>());
-        }
-
-        // Run all storage I/O in parallel — each file move is fully independent.
-        // DB writes follow sequentially; DbContext is not thread-safe.
-        var entityPrefix = command.EntityType.ToString().ToLower() + "s";
-
-        var storageTasks = validAttachments.Select(async pending =>
-        {
-            try
-            {
-                var ext = Path.GetExtension(pending.FileName);
-                var newPath = $"{entityPrefix}/{command.EntityId}/{pending.Id}{ext}";
-
-                // Move instead of Copy — atomically removes the temp file, no storage leak.
-                var moved = await storageService.MoveAsync(pending.StoragePath, newPath, cancellationToken);
-
-                string? thumbPath = null;
-                string? thumbUrl = null;
-
-                if (!string.IsNullOrEmpty(pending.ThumbnailPath))
-                {
-                    var thumbExt = Path.GetExtension(pending.ThumbnailPath);
-                    var newThumbPath = $"{entityPrefix}/{command.EntityId}/thumb_{pending.Id}{thumbExt}";
-                    var movedThumb = await storageService.MoveAsync(pending.ThumbnailPath, newThumbPath, cancellationToken);
-                    thumbPath = movedThumb.StoragePath;
-                    thumbUrl = movedThumb.PublicUrl;
-                }
-
-                return (Ok: true, Pending: pending, Moved: moved, ThumbPath: thumbPath, ThumbUrl: thumbUrl);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex,
-                    "Failed to move storage for pending attachment {PendingId} from session {SessionId}",
-                    pending.Id, command.SessionId);
-
-                return (Ok: false, Pending: pending, Moved: (StorageResult)null!,
-                        ThumbPath: (string?)null, ThumbUrl: (string?)null);
-            }
-        });
-
-        var storageResults = await Task.WhenAll(storageTasks);
+        // Storage I/O in parallel (independent files); DB work sequential (DbContext is not thread-safe).
+        var moves = await Task.WhenAll(pending.Select(p => TryMoveAsync(p, command, cancellationToken)));
+        var moved = moves.Where(m => m is not null).Select(m => m!).ToList();
 
         var associatedIds = new List<Guid>();
         var metadata = new List<AssociatedAttachmentMetadata>();
 
-        foreach (var r in storageResults.Where(r => r.Ok))
+        try
         {
-            var attachment = AttachmentFile.Create(
-                r.Pending.Id,
-                r.Pending.FileName,
-                r.Pending.OriginalFileName,
-                r.Pending.ContentType,
-                r.Moved.FileSize,
-                r.Moved.StoragePath,
-                r.Moved.PublicUrl,
-                r.Pending.Type,
-                command.UserId,
-                command.EntityType,
-                command.EntityId,
-                description: null,
-                isPublic: command.IsPublic);
-
-            if (r.ThumbPath != null && r.ThumbUrl != null
-                && r.Pending.Width.HasValue && r.Pending.Height.HasValue)
+            foreach (var m in moved)
             {
-                attachment.SetThumbnail(r.ThumbPath, r.ThumbUrl,
-                    r.Pending.Width.Value, r.Pending.Height.Value);
+                var attachment = AttachmentFile.Create(
+                    m.Pending.Id,
+                    m.Pending.FileName,
+                    m.Pending.OriginalFileName,
+                    m.Pending.ContentType,
+                    m.File.FileSize,
+                    m.File.StoragePath,
+                    urls.File(m.Pending.Id),
+                    m.Pending.Type,
+                    command.UserId,
+                    command.EntityType,
+                    command.EntityId,
+                    description: null,
+                    isPublic: command.IsPublic,
+                    contentHash: m.Pending.ContentHash);
+
+                if (m.ThumbPath is not null && m.Pending is { Width: { } w, Height: { } h })
+                    attachment.SetThumbnail(m.ThumbPath, urls.Thumbnail(attachment.Id), w, h);
+
+                await attachmentRepository.AddAsync(attachment, cancellationToken);
+                m.Pending.MarkAsAssociated();
+
+                associatedIds.Add(attachment.Id);
+                metadata.Add(new AssociatedAttachmentMetadata(
+                    attachment.Id, urls.File(attachment.Id), m.Pending.DisplayOrder, m.Pending.IsPrimary));
             }
 
-            await attachmentRepository.AddAsync(attachment, cancellationToken);
-            r.Pending.MarkAsAssociated();
-
-            associatedIds.Add(attachment.Id);
-            metadata.Add(new AssociatedAttachmentMetadata(
-                attachment.Id, r.Moved.PublicUrl, r.Pending.DisplayOrder, r.Pending.IsPrimary));
-
-            logger.LogInformation(
-                "Associated pending attachment {PendingId} with {EntityType} {EntityId}",
-                r.Pending.Id, command.EntityType, command.EntityId);
+            // Single SaveChanges: both repositories share the same AttachmentDbContext.
+            await attachmentRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            await MoveBackAsync(moved);
+            throw;
         }
 
-        // Single SaveChanges — both repos share the same AttachmentDbContext.
-        await attachmentRepository.SaveChangesAsync(cancellationToken);
-
         logger.LogInformation(
-            "Successfully associated {Count} pending attachments from session {SessionId} with {EntityType} {EntityId}",
-            associatedIds.Count,
-            command.SessionId,
-            command.EntityType,
-            command.EntityId);
+            "Associated {Count} pending attachments of session {SessionId} with {EntityType} {EntityId}",
+            associatedIds.Count, command.SessionId, command.EntityType, command.EntityId);
 
         return new AssociatePendingAttachmentsResult(associatedIds.Count, associatedIds, metadata);
+    }
+
+    private async Task<Move?> TryMoveAsync(
+        PendingAttachment pending, AssociatePendingAttachmentsCommand command, CancellationToken ct)
+    {
+        try
+        {
+            var extension = Path.GetExtension(pending.StoragePath);
+            var file = await storageService.MoveAsync(
+                pending.StoragePath,
+                StoragePaths.ForEntity(pending.TenantId, command.EntityType, command.EntityId, pending.Id, extension),
+                ct);
+
+            string? thumbPath = null;
+            if (!string.IsNullOrEmpty(pending.ThumbnailPath))
+            {
+                try
+                {
+                    thumbPath = (await storageService.MoveAsync(
+                        pending.ThumbnailPath,
+                        StoragePaths.ForEntityThumbnail(pending.TenantId, command.EntityType, command.EntityId, pending.Id),
+                        ct)).StoragePath;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning(ex, "Thumbnail of pending {PendingId} could not be moved", pending.Id);
+                }
+            }
+
+            return new Move(pending, file, thumbPath);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Failed to move pending attachment {PendingId} of session {SessionId}",
+                pending.Id, command.SessionId);
+            return null;
+        }
+    }
+
+    private async Task MoveBackAsync(IEnumerable<Move> moves)
+    {
+        foreach (var m in moves)
+        {
+            await TryMoveBackAsync(m.File.StoragePath, m.Pending.StoragePath);
+            if (m.ThumbPath is not null && m.Pending.ThumbnailPath is not null)
+                await TryMoveBackAsync(m.ThumbPath, m.Pending.ThumbnailPath);
+        }
+    }
+
+    private async Task TryMoveBackAsync(string from, string to)
+    {
+        try
+        {
+            await storageService.MoveAsync(from, to, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Associate failed and {From} could not be moved back to {To}", from, to);
+        }
     }
 }

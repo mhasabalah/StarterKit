@@ -1,6 +1,5 @@
 using Attachment.Contracts.Attachments.Queries;
 using Shared.Core.Response;
-using Shared.Core.Web;
 
 namespace Attachment.Domains.Attachments.Features.GetPendingAttachmentsBySession;
 
@@ -11,19 +10,16 @@ public class GetPendingAttachmentsBySessionEndPoint : ICarterModule
         app.MapGet(EndpointConfig.BaseApiPath + "/attachments/pending/session/{sessionId:guid}",
                 async (Guid sessionId, ISender sender, CancellationToken cancellationToken) =>
                 {
-                    var query = new GetPendingAttachmentsBySessionQuery(sessionId);
-                    var result = await sender.Send(query, cancellationToken);
-
+                    var result = await sender.Send(new GetPendingAttachmentsBySessionQuery(sessionId), cancellationToken);
                     return Results.Ok(ApiResponseExtensions.Success(result, "Pending attachments retrieved successfully"));
                 })
             .WithName("GetPendingAttachmentsBySession")
             .WithTags("Pending Attachments")
             .WithApiVersionSet(app.NewApiVersionSet("Attachment").Build())
             .Produces<ApiResponse<GetPendingAttachmentsBySessionResult>>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden)
             .WithSummary("Get all pending attachments for a session")
-            .WithDescription("Retrieves all pending attachments for a session with remaining slots count")
-            .WithOpenApi()
+            .WithDescription("Pending attachments of a session owned by the caller, with short-lived preview URLs.")
             .AllowAnonymous()
             .HasApiVersion(1.0);
     }
