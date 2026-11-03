@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Core.Data.Interceptors;
 using Testcontainers.PostgreSql;
@@ -26,16 +25,11 @@ namespace Api.E2ETests.Infrastructure;
 public sealed class PostgresContainerFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _container =
-        new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+        new PostgreSqlBuilder("postgres:16-alpine").Build();
 
     public string ConnectionString => _container.GetConnectionString();
 
-    public async Task InitializeAsync()
-    {
-        // Matches AddCustomDbContext in Shared.Core so DateTime handling is identical.
-        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-        await _container.StartAsync();
-    }
+    public async Task InitializeAsync() => await _container.StartAsync();
 
     public async Task DisposeAsync() => await _container.DisposeAsync();
 
@@ -57,7 +51,6 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
                     connectionString,
                     db => db.MigrationsAssembly(typeof(TContext).Assembly.GetName().Name))
                 .UseSnakeCaseNamingConvention();
-            options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
         });
 
         return services;
