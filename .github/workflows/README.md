@@ -11,7 +11,8 @@ The full documentation, including triggers, jobs, the GitHub environment, reposi
 | `database-backup.yml` | pgBackRest full (Sun) and differential (Mon–Sat) backups |
 | `health-monitoring.yml` | Health and resource checks every 6 h |
 | `test-runner.yml` | Self-hosted runner smoke test |
-| `claude.yml`, `claude-code-review.yml` | Claude Code assistant and PR review |
+| `claude.yml` | Claude Code assistant on `@claude` mentions |
+| `claude-code-review.yml` | Claude Code PR review: **manual only** (Run workflow with a PR number) |
 
 Related: [Self-Hosted Runner](../../wiki/deployment/Self-Hosted-Runner.md) ·
 [Deploy to VPS](../../wiki/deployment/Deploy-to-VPS.md) · [Backups](../../wiki/deployment/Backups.md)

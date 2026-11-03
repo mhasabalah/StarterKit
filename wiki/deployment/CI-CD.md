@@ -13,7 +13,8 @@ through a **self-hosted runner** labelled `deploy-only` ([Self-Hosted-Runner.md]
 | `database-backup.yml` | Sun 02:00 full, Mon-Sat 02:00 diff, manual | self-hosted | pgBackRest backup + verification + metrics ([Backups.md](Backups.md)) |
 | `health-monitoring.yml` | every 6 h, manual | hosted + self-hosted | Public `/health` checks, plus container and disk resource checks on the VPS |
 | `test-runner.yml` | manual | self-hosted | Smoke-tests the runner: basic, Docker, deployment dry-run |
-| `claude.yml`, `claude-code-review.yml` | issue/PR comments, PRs | GitHub-hosted | Claude Code assistant and automatic PR review (`CLAUDE_CODE_OAUTH_TOKEN`) |
+| `claude.yml` | an `@claude` mention in an issue or PR comment | GitHub-hosted | Claude Code assistant (`CLAUDE_CODE_OAUTH_TOKEN`) |
+| `claude-code-review.yml` | **manual only** (Run workflow → PR number) to save tokens; re-enable the `pull_request` trigger for automatic reviews | GitHub-hosted | Claude Code PR review (`CLAUDE_CODE_OAUTH_TOKEN`) |
 
 The deploy job uses `docker compose -f docker-compose.yml --env-file .env.prod` in `DEPLOY_DIR`. It only replaces
 the `api` container (`up -d --no-deps api`) when Postgres is already up. It verifies `http://localhost:5000/health`,
