@@ -8,16 +8,19 @@ public class ObservabilityOptions
     public bool TracingEnabled { get; set; } = true;
     public bool LoggingEnabled { get; set; } = true;
     public bool UsePrometheusExporter { get; set; } = true;
-    public bool UseOTLPExporter { get; set; } = true;
-    public bool UseAspireOTLPExporter { get; set; } = true;
+
+    /// <summary>
+    /// Adds a second OTLP destination (<see cref="OTLPOptions"/>) next to the standard <c>OTEL_EXPORTER_OTLP_*</c>
+    /// one - see <see cref="OtlpExporterPlan"/>. Off by default.
+    /// </summary>
+    public bool UseOTLPExporter { get; set; }
     public bool UseGrafanaExporter { get; set; }
     public bool UseConsoleExporter { get; set; }
     public bool UseJaegerExporter { get; set; }
     public bool UseZipkinExporter { get; set; }
-    public ZipkinOptions ZipkinOptions { get; set; } = default!;
-    public JaegerOptions JaegerOptions { get; set; } = default!;
-    public OTLPOptions OTLPOptions { get; set; } = default!;
-    public AspireDashboardOTLPOptions AspireDashboardOTLPOptions { get; set; } = default!;
+    public ZipkinOptions ZipkinOptions { get; set; } = new();
+    public JaegerOptions JaegerOptions { get; set; } = new();
+    public OTLPOptions OTLPOptions { get; set; } = new();
 }
 
 // https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/src/OpenTelemetry.Exporter.Zipkin/README.md
@@ -41,7 +44,3 @@ public class OTLPOptions
     public string OTLPHttpExporterEndpoint { get; set; } = "http://localhost:4318";
 }
 
-public class AspireDashboardOTLPOptions
-{
-    public string OTLPGrpcExporterEndpoint { get; set; } = "http://localhost:4319";
-}

@@ -1,14 +1,13 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Shared.Core.MultiTenancy;
 
 namespace Shared.Core.Web;
 
 public class HttpContextService : IHttpContextService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private const string TenantIdClaimType = "tenant_id";
-    private const string TenantIdHeaderKey = "X-Tenant-Id";
-    private const string CorrelationIdHeaderKey = "X-Correlation-Id";
+    private const string CorrelationIdHeaderKey = CorrelationExtensions.HeaderName;
 
     public HttpContextService(IHttpContextAccessor httpContextAccessor)
     {
@@ -91,28 +90,9 @@ public class HttpContextService : IHttpContextService
 
     public string? GetIpAddress()
     {
-        if (Context == null) return null;
-
-        // Check for forwarded IP (behind proxy/load balancer)
-        var forwardedFor = Context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            var ips = forwardedFor.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            if (ips.Length > 0)
-            {
-                return ips[0].Trim();
-            }
-        }
-
-        // Check for real IP header
-        var realIp = Context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(realIp))
-        {
-            return realIp;
-        }
-
-        // Fallback to connection remote IP
-        return Context.Connection.RemoteIpAddress?.ToString();
+        // X-Forwarded-For is resolved by UseTrustedForwardedHeaders (trusted proxies only) into
+        // Connection.RemoteIpAddress. Reading the raw header here would let any client spoof its IP.
+        return Context == null ? null : ClientIp.GetRemoteIpString(Context);
     }
 
     public string? GetUserAgent()
@@ -132,8 +112,11 @@ public class HttpContextService : IHttpContextService
 
     public string? GetCorrelationId()
     {
-        return GetHeaderValue(CorrelationIdHeaderKey) 
-               ?? Context?.TraceIdentifier;
+        if (Context == null) return null;
+
+        return Context.Items.TryGetValue(CorrelationExtensions.ItemKey, out var id) && id is string s
+            ? s
+            : GetHeaderValue(CorrelationIdHeaderKey) ?? Context.TraceIdentifier;
     }
 
     public string? GetHeaderValue(string headerKey)
@@ -161,14 +144,8 @@ public class HttpContextService : IHttpContextService
 
     public string? GetTenantId()
     {
-        // Try to get from claims first
-        var tenantIdFromClaim = GetClaimValue(TenantIdClaimType);
-        if (!string.IsNullOrEmpty(tenantIdFromClaim))
-        {
-            return tenantIdFromClaim;
-        }
-
-        // Fallback to header
-        return GetHeaderValue(TenantIdHeaderKey);
+        // The RESOLVED tenant (validated by TenantResolutionMiddleware: token claim, host or header + membership).
+        // Never read the raw header here - any client can send it.
+        return Context?.RequestServices.GetService<ITenantContext>()?.TenantId?.ToString();
     }
 }

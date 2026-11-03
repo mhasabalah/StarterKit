@@ -1,4 +1,4 @@
-namespace Shared.Core.Attributes;
+namespace Shared.Contracts.Attributes;
 
 /// <summary>
 /// Provides bilingual (English/Arabic) localized descriptions for enum values.

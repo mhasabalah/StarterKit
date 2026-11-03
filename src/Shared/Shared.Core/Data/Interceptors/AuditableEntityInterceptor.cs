@@ -2,9 +2,15 @@ using Shared.Core.Web;
 
 namespace Shared.Core.Data.Interceptors;
 
-public class AuditableEntityInterceptor(IHttpContextService httpContextService)
+/// <summary>
+/// Stamps audit fields and bumps the optimistic-concurrency <c>Version</c> on save.
+/// Time comes from <see cref="TimeProvider"/> (registered as <see cref="TimeProvider.System"/>; tests may inject a fake).
+/// </summary>
+public class AuditableEntityInterceptor(IHttpContextService httpContextService, TimeProvider? timeProvider = null)
     : SaveChangesInterceptor
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData,
         InterceptionResult<int> result)
     {
@@ -28,7 +34,7 @@ public class AuditableEntityInterceptor(IHttpContextService httpContextService)
         }
 
         var currentUser = GetCurrentUser();
-        var currentTime = DateTime.UtcNow;
+        var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
 
         foreach (var entry in context.ChangeTracker.Entries<IEntity>())
         {
@@ -36,27 +42,43 @@ public class AuditableEntityInterceptor(IHttpContextService httpContextService)
             {
                 entry.Entity.CreatedBy = currentUser;
                 entry.Entity.CreatedAt = currentTime;
-            }
-
-            if (entry.State == EntityState.Added || entry.State == EntityState.Modified ||
-                entry.HasChangedOwnedEntities())
-            {
                 entry.Entity.LastModifiedBy = currentUser;
                 entry.Entity.LastModified = currentTime;
+                continue; // New rows keep Version = 0; there is nothing to check on INSERT.
             }
 
-            // Increment version on every write — enables optimistic concurrency.
-            // OriginalValue must be set to the PRE-increment value so EF's WHERE clause
-            // checks the value the row had when we loaded it, not the new value.
-            // Without this, a second SaveChanges in the same handler scope would generate
-            // WHERE version = <old> but the DB already has <old+1>, causing a spurious 409.
-            if (entry.State == EntityState.Modified)
+            var ownedChanged = entry.HasChangedOwnedEntities();
+            if (entry.State != EntityState.Modified && !ownedChanged)
             {
-                var versionProp = entry.Property(nameof(IEntity.Version));
-                versionProp.OriginalValue = entry.Entity.Version;
-                entry.Entity.Version++;
+                continue;
             }
+
+            entry.Entity.LastModifiedBy = currentUser;
+            entry.Entity.LastModified = currentTime;
+
+            BumpVersion(entry);
         }
+    }
+
+    /// <summary>
+    /// Optimistic concurrency. EF emits <c>UPDATE ... WHERE version = @OriginalValue</c>, so:
+    /// <list type="bullet">
+    /// <item><c>OriginalValue</c> = the version the caller expects the row to have. It is the loaded value by
+    /// default, or the client-supplied value when a handler called
+    /// <see cref="DbContextVersioningExtensions.ExpectVersion{TEntity}"/>. This interceptor must NEVER
+    /// overwrite it. The previous implementation reset it to the loaded value, which silently turned every
+    /// stale-version request into a successful "last write wins" update.</item>
+    /// <item><c>CurrentValue</c> = <c>OriginalValue + 1</c>. This is also correct for a second SaveChanges in the
+    /// same scope, because EF accepts changes after each save (original == current again).</item>
+    /// <item>A change to an owned entity only (the owner is still <c>Unchanged</c>) bumps the version too. That marks
+    /// the owner <c>Modified</c>, so the aggregate row is updated and concurrency-checked.</item>
+    /// </list>
+    /// </summary>
+    private static void BumpVersion(EntityEntry<IEntity> entry)
+    {
+        var versionProp = entry.Property(e => e.Version);
+        versionProp.CurrentValue = versionProp.OriginalValue + 1;
+        versionProp.IsModified = true;
     }
 
     private string GetCurrentUser()

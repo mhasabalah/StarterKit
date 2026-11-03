@@ -1,10 +1,17 @@
 using Microsoft.AspNetCore.OpenApi;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 
 namespace Shared.Core.OpenApi;
 
+/// <summary>
+/// Adds the Bearer (JWT) and API-key security schemes to the OpenAPI document and makes Bearer the
+/// document-wide default requirement. Written against Microsoft.OpenApi v2 (.NET 10).
+/// </summary>
 public class SecuritySchemeDocumentTransformer : IOpenApiDocumentTransformer
 {
+    private const string BearerSchemeId = "Bearer";
+    private const string ApiKeySchemeId = "ApiKey";
+
     public Task TransformAsync(
         OpenApiDocument document,
         OpenApiDocumentTransformerContext context,
@@ -12,48 +19,32 @@ public class SecuritySchemeDocumentTransformer : IOpenApiDocumentTransformer
     )
     {
         document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
 
-        // Bearer token scheme
-        document.Components.SecuritySchemes.Add(
-            "Bearer",
-            new OpenApiSecurityScheme
-            {
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                Scheme = "bearer",
-                BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Description =
-                    "Enter 'Bearer' [space] and your token in the text input below.\n\nExample: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'"
-            }
-        );
+        document.Components.SecuritySchemes[BearerSchemeId] = new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description =
+                "Enter 'Bearer' [space] and your token in the text input below.\n\nExample: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'"
+        };
 
-        // API Key scheme
-        document.Components.SecuritySchemes.Add(
-            "ApiKey",
-            new OpenApiSecurityScheme
-            {
-                Name = "X-API-KEY",
-                Type = SecuritySchemeType.ApiKey,
-                In = ParameterLocation.Header,
-                Description =
-                    "Enter your API key in the text input below.\n\nExample: '12345-abcdef'"
-            }
-        );
+        document.Components.SecuritySchemes[ApiKeySchemeId] = new OpenApiSecurityScheme
+        {
+            Name = "X-API-KEY",
+            Type = SecuritySchemeType.ApiKey,
+            In = ParameterLocation.Header,
+            Description = "Enter your API key in the text input below.\n\nExample: '12345-abcdef'"
+        };
 
-        document.SecurityRequirements.Add(
-            new OpenApiSecurityRequirement
-            {
-                [new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                }] = []
-            }
-        );
+        document.Security ??= [];
+        document.Security.Add(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(BearerSchemeId, document)] = []
+        });
 
         return Task.CompletedTask;
     }

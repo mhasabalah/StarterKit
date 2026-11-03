@@ -108,7 +108,7 @@ public interface IHttpContextService
     string? GetRequestUrl();
     
     /// <summary>
-    /// Gets the tenant ID from claims or headers (for multi-tenant scenarios)
+    /// Gets the RESOLVED current tenant id (see <c>ITenantContext</c>); <c>null</c> when no tenant is resolved.
     /// </summary>
     string? GetTenantId();
 }

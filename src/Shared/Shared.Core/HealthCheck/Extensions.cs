@@ -1,43 +1,51 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Shared.Core.Data;
 using Shared.Core.Extensions;
-using Shared.Core.Web;
 
 namespace Shared.Core.HealthCheck;
 
 public static class Extensions
 {
-    private const string HealthEndpointPath = "/health";
-    private const string AlivenessEndpointPath = "/alive";
+    public const string HealthEndpointPath = "/health";
+    public const string AlivenessEndpointPath = "/alive";
 
-    public static IServiceCollection AddCustomHealthCheck(this IServiceCollection services)
+    /// <summary>Health check name of the application database (tag <see cref="HealthCheckTags.Ready"/>).</summary>
+    public const string DatabaseHealthCheckName = "postgres";
+
+    /// <summary>
+    /// Registers the liveness check and the database readiness check. The database connection string is
+    /// <c>ConnectionStrings:{HealthOptions:DatabaseConnectionStringName}</c> (Aspire / modules), falling back to
+    /// <c>PostgresOptions:ConnectionString</c> - the same resolution the module DbContexts use.
+    /// Redis registers its own readiness check in <see cref="RedisExtensions.AddRedisCache"/>.
+    /// </summary>
+    public static IServiceCollection AddCustomHealthCheck(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
-        var healthOptions = services.GetOptions<HealthOptions>(nameof(HealthOptions));
-
-        if (healthOptions.Enabled)
+        var healthOptions = configuration.GetSection(nameof(HealthOptions)).Get<HealthOptions>() ?? new HealthOptions();
+        if (!healthOptions.Enabled)
         {
-            var appOptions = services.GetOptions<AppOptions>(nameof(AppOptions));
-            var postgresOptions = services.GetOptions<PostgresOptions>(nameof(PostgresOptions));
-
-            var healthChecksBuilder = services.AddHealthChecks()
-                // Add a default liveness check to ensure app is responsive
-                .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
-
-            if (!string.IsNullOrEmpty(postgresOptions.ConnectionString))
-            {
-                healthChecksBuilder.AddNpgSql(postgresOptions.ConnectionString);
-            }
-
-            services.AddHealthChecksUI(setup =>
-            {
-                setup.SetEvaluationTimeInSeconds(60); // time in seconds between check
-                // Note: Self-monitoring not configured in Aspire environment due to service discovery limitations
-                // Health checks are still available at /health endpoint for external monitoring
-            }).AddInMemoryStorage();
+            return services;
         }
+
+        var healthChecks = services.AddHealthChecks()
+            .AddCheck("self", () => HealthCheckResult.Healthy(), [HealthCheckTags.Live]);
+
+        var databaseConnectionString =
+            configuration.GetConnectionString(healthOptions.DatabaseConnectionStringName) is { Length: > 0 } named
+                ? named
+                : configuration[$"{nameof(PostgresOptions)}:{nameof(PostgresOptions.ConnectionString)}"];
+
+        if (!string.IsNullOrWhiteSpace(databaseConnectionString))
+        {
+            healthChecks.AddNpgSql(databaseConnectionString, name: DatabaseHealthCheckName, tags: [HealthCheckTags.Ready]);
+        }
+
+        services.AddHealthChecksUI(setup => setup.SetEvaluationTimeInSeconds(60)).AddInMemoryStorage();
 
         return services;
     }
@@ -46,10 +54,13 @@ public static class Extensions
     {
         var healthOptions = app.Configuration.GetOptions<HealthOptions>(nameof(HealthOptions));
 
+        // Readiness: every check (process + dependencies). Used by Aspire, Docker and the deploy health gate.
         app.MapHealthChecks(HealthEndpointPath);
+
+        // Liveness: process only - a dependency outage must not get a healthy process restarted.
         app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
         {
-            Predicate = r => r.Tags.Contains("live")
+            Predicate = r => r.Tags.Contains(HealthCheckTags.Live)
         });
 
         if (healthOptions.Enabled && !app.Environment.IsProduction())

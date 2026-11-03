@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Reflection;
-using Shared.Core.Attributes;
+using Shared.Contracts.Attributes;
 
 namespace Shared.Core.Localization.Services;
 

@@ -1,148 +1,96 @@
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using Shared.Core.HealthCheck;
 using Shared.Core.Options;
+using StackExchange.Redis;
 
 namespace Shared.Core.Extensions;
 
 /// <summary>
-/// Extension methods for configuring Redis distributed cache
+/// Extension methods for configuring the Redis distributed cache.
 /// </summary>
 public static class RedisExtensions
 {
+    /// <summary>Health check name (tag <see cref="HealthCheckTags.Ready"/>).</summary>
+    public const string HealthCheckName = "redis";
+
     /// <summary>
-    /// Add Redis distributed cache with options pattern
+    /// Registers <see cref="IDistributedCache"/>. With <c>Redis:Enabled = true</c> (default) that is Redis over ONE
+    /// process-wide <see cref="IConnectionMultiplexer"/> (also used by the readiness health check and any other
+    /// Redis consumer); with <c>Redis:Enabled = false</c> it is the in-process memory cache.
+    /// Connection resolution: <see cref="RedisConnectionConfiguration"/>.
     /// </summary>
     /// <param name="services">Service collection</param>
     /// <param name="configuration">Configuration</param>
-    /// <param name="instanceNameSuffix">Optional suffix for instance name (e.g., "TokenBlacklist")</param>
-    /// <returns>Service collection for chaining</returns>
+    /// <param name="instanceNameSuffix">Optional suffix for the key prefix (e.g. "TokenBlacklist")</param>
     public static IServiceCollection AddRedisCache(
         this IServiceCollection services,
         IConfiguration configuration,
         string? instanceNameSuffix = null)
     {
-        // Configure options from appsettings
-        services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
+        var section = configuration.GetSection(RedisOptions.SectionName);
+        services.Configure<RedisOptions>(section);
+        var redisOptions = section.Get<RedisOptions>() ?? new RedisOptions();
 
-        // Get options for immediate use
-        var redisOptions = new RedisOptions();
-        configuration.GetSection(RedisOptions.SectionName).Bind(redisOptions);
-
-        // Get environment name
-        var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
-
-        if (environment != "Development")
-        {
-            OverrideFromEnvironment(redisOptions);
-        }
-
-        // Check if Redis is enabled
         if (!redisOptions.Enabled)
         {
             services.AddDistributedMemoryCache();
             return services;
         }
 
-        // Validate configuration
-        if (!redisOptions.IsValid())
-        {
-            throw new InvalidOperationException(
-                "Invalid Redis configuration. Host and Port are required.");
-        }
+        // Resolved eagerly so a misconfiguration (e.g. missing production secret) fails at startup, not on first use.
+        var redisConfiguration = RedisConnectionConfiguration.Resolve(configuration, redisOptions);
 
-        // Build connection string
-        var connectionString = redisOptions.GetConnectionString();
+        // One multiplexer per process (StackExchange.Redis guidance). With AbortOnConnectFail = false Connect returns
+        // even while Redis is down and keeps reconnecting in the background.
+        services.TryAddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConfiguration));
 
-        // Build instance name
-        var instanceName = redisOptions.InstanceName;
-        if (!string.IsNullOrEmpty(instanceNameSuffix))
-        {
-            instanceName = instanceName.TrimEnd(':') + $":{instanceNameSuffix}:";
-        }
+        var instanceName = string.IsNullOrEmpty(instanceNameSuffix)
+            ? redisOptions.InstanceName
+            : redisOptions.InstanceName.TrimEnd(':') + $":{instanceNameSuffix}:";
 
-        services.AddStackExchangeRedisCache(options =>
-        {
-            options.Configuration = connectionString;
-            options.InstanceName = instanceName;
-        });
-
-        return services;
-    }
-
-    /// <summary>
-    /// Override Redis Host and Port from environment variables (Docker/Kubernetes)
-    /// Only called in non-Development environments for Docker networking
-    ///
-    /// NOTE: Password is NOT overridden here - it's handled by GetPassword()
-    /// in RedisOptions for security-aware logic (secrets vs env vars)
-    /// </summary>
-    private static void OverrideFromEnvironment(RedisOptions options)
-    {
-        var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
-        if (!string.IsNullOrEmpty(redisHost))
-        {
-            options.Host = redisHost;
-        }
-
-        var redisPort = Environment.GetEnvironmentVariable("REDIS_PORT");
-        if (!string.IsNullOrEmpty(redisPort) && int.TryParse(redisPort, out var port))
-        {
-            options.Port = port;
-        }
-    }
-
-    /// <summary>
-    /// Health check extension for Redis
-    /// Requires: Microsoft.Extensions.Diagnostics.HealthChecks.Redis package
-    /// </summary>
-    /// <example>
-    /// // Add package: dotnet add package AspNetCore.HealthChecks.Redis
-    /// // Then use: services.AddRedisHealthCheck(configuration);
-    /// </example>
-    // Commented out - Add AspNetCore.HealthChecks.Redis package to enable
-    /*
-    public static IServiceCollection AddRedisHealthCheck(
-        this IServiceCollection services,
-        IConfiguration configuration)
-    {
-        var redisOptions = new RedisOptions();
-        configuration.GetSection(RedisOptions.SectionName).Bind(redisOptions);
-        OverrideFromEnvironment(redisOptions);
-
-        if (!redisOptions.Enabled)
-        {
-            return services;
-        }
-
-        var connectionString = redisOptions.GetConnectionString();
+        services.AddStackExchangeRedisCache(options => options.InstanceName = instanceName);
+        services.AddOptions<RedisCacheOptions>()
+            .Configure<IServiceProvider>((options, sp) =>
+                options.ConnectionMultiplexerFactory =
+                    () => Task.FromResult(sp.GetRequiredService<IConnectionMultiplexer>()));
 
         services.AddHealthChecks()
-            .AddRedis(connectionString, name: "redis", tags: new[] { "cache", "redis" });
+            .AddRedis(
+                sp => sp.GetRequiredService<IConnectionMultiplexer>(),
+                name: HealthCheckName,
+                tags: [HealthCheckTags.Ready]);
 
         return services;
     }
-    */
 
     /// <summary>
-    /// Get IDistributedCache with proper error handling
+    /// Get a JSON value from the cache. Cache failures are logged and treated as a miss (null);
+    /// cancellation of <paramref name="cancellationToken"/> is NOT swallowed.
     /// </summary>
     public static async Task<T?> GetFromCacheAsync<T>(
         this IDistributedCache cache,
         string key,
-        ILogger? logger = null) where T : class
+        ILogger? logger = null,
+        CancellationToken cancellationToken = default) where T : class
     {
         try
         {
-            var data = await cache.GetStringAsync(key);
+            var data = await cache.GetStringAsync(key, cancellationToken);
             if (string.IsNullOrEmpty(data))
             {
                 return null;
             }
 
             return System.Text.Json.JsonSerializer.Deserialize<T>(data);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -159,7 +107,8 @@ public static class RedisExtensions
         string key,
         T value,
         TimeSpan? expiration = null,
-        ILogger? logger = null) where T : class
+        ILogger? logger = null,
+        CancellationToken cancellationToken = default) where T : class
     {
         try
         {
@@ -171,7 +120,11 @@ public static class RedisExtensions
                 options.AbsoluteExpirationRelativeToNow = expiration;
             }
 
-            await cache.SetStringAsync(key, data, options);
+            await cache.SetStringAsync(key, data, options, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -185,11 +138,16 @@ public static class RedisExtensions
     public static async Task RemoveFromCacheAsync(
         this IDistributedCache cache,
         string key,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            await cache.RemoveAsync(key);
+            await cache.RemoveAsync(key, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

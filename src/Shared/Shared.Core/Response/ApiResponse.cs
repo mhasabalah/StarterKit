@@ -1,12 +1,25 @@
+using System.Text.Json.Serialization;
+
 namespace Shared.Core.Response;
 
-public class ApiResponse<TData>
+/// <summary>Marker for the response envelope so the response wrapper can recognise already-wrapped results.</summary>
+public interface IApiResponse;
+
+public class ApiResponse<TData> : IApiResponse
 {
     public bool IsSuccess { get; set; }
     public int StatusCode { get; set; }
     public TData? Data { get; set; }
     public string? SuccessMessage { get; set; }
     public List<string> Errors { get; set; } = new();
+
+    /// <summary>Error responses only: application error code (<c>CustomException.Code</c>). Omitted when null.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Code { get; set; }
+
+    /// <summary>Error responses only: trace id to quote to support / find the server log entry. Omitted when null.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TraceId { get; set; }
 
     public ApiResponse()
     {

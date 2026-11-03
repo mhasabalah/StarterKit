@@ -2,7 +2,7 @@ using System.Reflection;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Shared.Contracts.Enums;
-using Shared.Core.Attributes;
+using Shared.Contracts.Attributes;
 
 namespace Shared.Core.Enums;
 
