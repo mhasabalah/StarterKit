@@ -1,161 +1,69 @@
-using System.Net.Sockets;
-using Microsoft.Extensions.Hosting;
+using AppHost;
 
+// Local development orchestration (dotnet run in src/Aspire/AppHost). Production runs docker compose
+// (docker-compose.yml + deployment/), not this AppHost. Switches: AppHostSettings / wiki/Infrastructure/Aspire.md.
 var builder = DistributedApplication.CreateBuilder(args);
-
-//var docker = builder.AddDockerComposeEnvironment("docker-env");
+var settings = AppHostSettings.From(builder.Configuration);
 
 // ============================================================
-// 1. Infrastructure Services
+// 1. Infrastructure (persistent: survives AppHost restarts, data in named volumes)
 // ============================================================
-var postgres = builder
-    .AddPostgres("postgres", port: 5432)
+
+// Host port is random unless Postgres:HostPort is set (e.g. for a desktop SQL client); a fixed 5432 would clash
+// with a locally installed PostgreSQL. The password is generated once and kept in the AppHost user secrets.
+var postgres = builder.AddPostgres("postgres", port: settings.PostgresHostPort)
     .WithLifetime(ContainerLifetime.Persistent)
     .WithDataVolume()
-    .WithPgAdmin(c => c.WithLifetime(ContainerLifetime.Session));
+    .WithPgAdmin(pgAdmin => pgAdmin.WithLifetime(ContainerLifetime.Session));
 
-var appDb = postgres.AddDatabase("starterkit");
+// Connection string name "starterkit" = ConnectionStrings:starterkit used by every module DbContext.
+var database = postgres.AddDatabase("starterkit");
 
-var redis = builder
-    .AddRedis("redis")
+var redis = builder.AddRedis("redis")
     .WithLifetime(ContainerLifetime.Persistent)
     .WithDataVolume()
-    .WithRedisCommander(c => c.WithLifetime(ContainerLifetime.Session));
+    // Redis Insight (official GUI, version pinned by Aspire) - Aspire's Redis Commander integration uses ':latest'.
+    .WithRedisInsight(insight => insight.WithLifetime(ContainerLifetime.Session));
 
 var seq = builder.AddSeq("seq")
     .WithLifetime(ContainerLifetime.Persistent)
-    .WithDataVolume()
-    .WithEnvironment("ACCEPT_EULA", "Y");
+    .WithDataVolume();
 
 // ============================================================
-// 2. Observability Services
+// 2. Application
 // ============================================================
-
-// Jaeger - Distributed Tracing UI
-var jaeger = builder.AddContainer("jaeger", "jaegertracing/all-in-one")
-    .WithEndpoint(
-        6831,
-        6831,
-        name: "agent",
-        protocol: ProtocolType.Udp,
-        isProxied: true,
-        isExternal: false)
-    .WithEndpoint(16686, 16686, name: "http", isProxied: true, isExternal: true)
-    .WithEndpoint(14268, 14268, name: "collector", isProxied: true, isExternal: false)
-    .WithEndpoint(14317, 4317, name: "otlp-grpc", isProxied: true, isExternal: false)
-    .WithEndpoint(14318, 4318, name: "otlp-http", isProxied: true, isExternal: false);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    jaeger.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// Zipkin - Alternative Tracing UI
-var zipkin = builder.AddContainer("zipkin", "openzipkin/zipkin")
-    .WithEndpoint(9411, 9411, name: "http", isProxied: true, isExternal: true);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    zipkin.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// OpenTelemetry Collector - Central telemetry hub
-var otelCollector = builder.AddContainer("otel-collector", "otel/opentelemetry-collector-contrib")
-    .WithBindMount(
-        "../../../infra/observability/configs/otel-collector-config.yaml",
-        "/etc/otelcol-contrib/config.yaml",
-        true)
-    .WithArgs("--config=/etc/otelcol-contrib/config.yaml")
-    .WithEndpoint(11888, 1888, name: "otel-pprof", isProxied: true, isExternal: true)
-    .WithEndpoint(8888, 8888, name: "otel-metrics", isProxied: true, isExternal: true)
-    .WithEndpoint(8889, 8889, name: "otel-exporter-metrics", isProxied: true, isExternal: true)
-    .WithEndpoint(13133, 13133, name: "otel-health", isProxied: true, isExternal: true)
-    .WithEndpoint(4317, 4317, name: "otel-grpc", isProxied: true, isExternal: true)
-    .WithEndpoint(4318, 4318, name: "otel-http", isProxied: true, isExternal: true)
-    .WithEndpoint(55679, 55679, name: "otel-zpages", isProxied: true, isExternal: true);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    otelCollector.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// Prometheus - Metrics storage and querying
-var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
-    .WithBindMount("../../../infra/observability/configs/prometheus.yaml",
-        "/etc/prometheus/prometheus.yml")
-    .WithArgs(
-        "--config.file=/etc/prometheus/prometheus.yml",
-        "--storage.tsdb.path=/prometheus",
-        "--web.console.libraries=/usr/share/prometheus/console_libraries",
-        "--web.console.templates=/usr/share/prometheus/consoles",
-        "--web.enable-remote-write-receiver")
-    .WithEndpoint(9090, 9090, name: "http", isProxied: true, isExternal: true);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    prometheus.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// Grafana - Unified observability dashboard
-var grafana = builder.AddContainer("grafana", "grafana/grafana")
-    .WithEnvironment("GF_INSTALL_PLUGINS", "grafana-clock-panel,grafana-simple-json-datasource")
-    .WithEnvironment("GF_SECURITY_ADMIN_USER", "admin")
-    .WithEnvironment("GF_SECURITY_ADMIN_PASSWORD", "admin")
-    .WithEnvironment("GF_FEATURE_TOGGLES_ENABLE", "traceqlEditor")
-    .WithBindMount("../../../infra/observability/configs/grafana/provisioning",
-        "/etc/grafana/provisioning")
-    .WithBindMount("../../../infra/observability/configs/grafana/dashboards",
-        "/var/lib/grafana/dashboards")
-    .WithEndpoint(3000, 3000, name: "http", isProxied: true, isExternal: true);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    grafana.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// Tempo - Grafana's distributed tracing backend
-var tempo = builder.AddContainer("tempo", "grafana/tempo")
-    .WithBindMount("../../../infra/observability/configs/tempo.yaml", "/etc/tempo.yaml", true)
-    .WithArgs("--config.file=/etc/tempo.yaml")
-    .WithEndpoint(3200, 3200, name: "http", isProxied: true, isExternal: false)
-    .WithEndpoint(9095, 9095, name: "grpc", isProxied: true, isExternal: false)
-    .WithEndpoint(4317, 4317, name: "otlp-grpc", isProxied: true, isExternal: false)
-    .WithEndpoint(4318, 4318, name: "otlp-http", isProxied: true, isExternal: false);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    tempo.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// Loki - Log aggregation system
-var loki = builder.AddContainer("loki", "grafana/loki")
-    .WithBindMount("../../../infra/observability/configs/loki-config.yaml",
-        "/etc/loki/local-config.yaml", true)
-    .WithArgs("-config.file=/etc/loki/local-config.yaml")
-    .WithEndpoint(3100, 3100, name: "http", isProxied: true, isExternal: false)
-    .WithEndpoint(9096, 9096, name: "grpc", isProxied: true, isExternal: false);
-
-if (builder.ExecutionContext.IsPublishMode)
-{
-    loki.WithLifetime(ContainerLifetime.Persistent);
-}
-
-// ============================================================
-// 3. Application
-// ============================================================
-var api = builder
-    .AddProject<Projects.Api>("api")
-    .WithReference(appDb)
-    .WaitFor(appDb)
-    .WithReference(redis)
-    .WaitFor(redis)
+var api = builder.AddProject<Projects.Api>("api")
+    .WithReference(database).WaitFor(database)
+    .WithReference(redis).WaitFor(redis)
+    // Seq is optional for the API (log export retries in the background), so it does not gate startup.
     .WithReference(seq)
-    .WaitFor(seq);
+    .WithEnvironment("Messaging__Transport", settings.Transport.ToString())
+    // Readiness = process + Postgres + Redis (Shared.Core HealthCheck); shown as the resource health.
+    .WithHttpHealthCheck("/health");
 
-if (builder.Environment.IsProduction())
+if (settings.Transport == MessagingTransport.RabbitMq)
 {
-    api.WithReplicas(2)
-        .WithEnvironment("ASPNETCORE_FORWARDEDHEADERS_ENABLED", "true");
+    var rabbitmq = builder.AddRabbitMQ("rabbitmq")
+        .WithLifetime(ContainerLifetime.Persistent)
+        .WithDataVolume()
+        .WithManagementPlugin();
+
+    api.WithReference(rabbitmq).WaitFor(rabbitmq);
+}
+
+// ============================================================
+// 3. Observability
+// ============================================================
+// Always: Aspire injects OTEL_EXPORTER_OTLP_* (dashboard) into the API, which exports logs, traces and metrics there.
+// Optional: the Grafana stack as a second destination (see ObservabilityStack).
+if (settings.ObservabilityFullStack)
+{
+    var collector = builder.AddObservabilityStack();
+
+    api.WithEnvironment("ObservabilityOptions__UseOTLPExporter", "true")
+        .WithEnvironment(
+            "ObservabilityOptions__OTLPOptions__OTLPGrpcExporterEndpoint",
+            collector.GetEndpoint(ObservabilityStack.CollectorOtlpGrpcEndpoint));
 }
 
 builder.Build().Run();
