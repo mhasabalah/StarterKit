@@ -31,3 +31,6 @@ README.md
 !.git/config
 !.git/packed-refs
 !.git/refs/heads/**
+
+# ImageSharp license comes in as a BuildKit secret; never copy a license file into the build context
+**/sixlabors.lic
