@@ -12,8 +12,9 @@
     <ItemGroup>
         <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
         <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
-        <ProjectReference Include="..\..\..\Shared\Shared.Notification\Shared.Notification.csproj" />
+        <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
         <ProjectReference Include="..\Identity.Contracts\Identity.Contracts.csproj" />
+        <ProjectReference Include="..\UserDirectory.Contracts\UserDirectory.Contracts.csproj" />
         <ProjectReference Include="..\..\Attachment\Attachment.Contracts\Attachment.Contracts.csproj" />
     </ItemGroup>
 

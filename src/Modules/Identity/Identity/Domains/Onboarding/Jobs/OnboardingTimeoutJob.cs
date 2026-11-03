@@ -4,11 +4,14 @@ using Identity.Domains.Onboarding.Models;
 
 namespace Identity.Domains.Onboarding.Jobs;
 
+/// <summary>
+/// Times out an onboarding process whose OTP was never verified. Hangfire resolves this job (and the repository) in
+/// its own DI scope, so the job publishes the committed domain events itself via <see cref="IDomainEventDispatcher"/>.
+/// </summary>
 [Queue("default")]
 public class OnboardingTimeoutJob(
     IOnboardingProcessRepository repository,
-    IDomainEventCollector collector,
-    IPublisher publisher,
+    IDomainEventDispatcher domainEvents,
     ILogger<OnboardingTimeoutJob> logger)
 {
     public async Task ExecuteAsync(Guid userId, CancellationToken ct = default)
@@ -35,7 +38,7 @@ public class OnboardingTimeoutJob(
         {
             await repository.SaveChangesAsync(ct);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex.IsConcurrencyConflict())
         {
             // Phone verification committed first — the verify path won the race.
             // Timeout is a no-op: the process is already advancing normally.
@@ -47,11 +50,7 @@ public class OnboardingTimeoutJob(
 
         logger.LogInformation("Onboarding process for user {UserId} timed out", userId);
 
-        // Hangfire jobs run outside the MediatR pipeline, so DispatchDomainEventsBehavior
-        // never fires here. The EF interceptor already collected events into IDomainEventCollector
-        // during SaveChangesAsync above — dispatch them manually now.
-        var events = collector.DequeueAll();
-        foreach (var domainEvent in events)
-            await publisher.Publish(domainEvent, ct);
+        // Outside MediatR: publish the events of the committed save (OnboardingTimedOutEvent, ...).
+        await domainEvents.DispatchPendingAsync(ct);
     }
 }

@@ -1,4 +1,6 @@
 using Identity.Contracts.Auth.Commands;
+using Identity.Services.EmailConfirmation;
+using Identity.Services.Phone;
 using Shared.Core.Phone;
 using Shared.Core.Web;
 
@@ -25,6 +27,8 @@ public class CompleteProfileCommandValidator : AbstractValidator<CompleteProfile
 public class CompleteProfileHandler(
     UserManager<ApplicationUser> userManager,
     IHttpContextService httpContextService,
+    IPhoneNumberNormalizer phoneNormalizer,
+    IEmailConfirmationSender emailConfirmationSender,
     ILogger<CompleteProfileHandler> logger)
     : ICommandHandler<CompleteProfileCommand, CompleteProfileResult>
 {
@@ -47,8 +51,9 @@ public class CompleteProfileHandler(
         if (command.ProfilePictureUrl is not null)
             user.ProfilePictureUrl = command.ProfilePictureUrl;
 
-        // Add email only if the account has none yet (phone-registered users)
-        if (command.Email is not null && string.IsNullOrEmpty(user.Email))
+        // Add email only if the account has none yet (phone-registered users: null or the non-routable placeholder)
+        var emailAdded = false;
+        if (command.Email is not null && !HasRealEmail(user))
         {
             var existing = await userManager.FindByEmailAsync(command.Email);
             if (existing is not null)
@@ -57,26 +62,36 @@ public class CompleteProfileHandler(
             user.Email = command.Email;
             user.UserName = command.Email;
             user.EmailConfirmed = false;
+            emailAdded = true;
         }
 
         // Add phone only if the account has none yet (email-registered users)
-        if (command.PhoneNumber is not null && string.IsNullOrEmpty(user.PhoneNumber))
+        var phoneNumber = phoneNormalizer.Normalize(command.PhoneNumber);
+        if (phoneNumber is not null && string.IsNullOrEmpty(user.PhoneNumber))
         {
-            var existing = await userManager.Users
-                .FirstOrDefaultAsync(u => u.PhoneNumber == command.PhoneNumber, cancellationToken);
+            var existing = await userManager.FindByPhoneAsync(phoneNumber, cancellationToken);
             if (existing is not null)
                 throw new ConflictException("Phone number already in use.");
 
-            user.PhoneNumber = command.PhoneNumber;
+            user.PhoneNumber = phoneNumber;
             user.IsPhoneNumberVerified = false;
         }
 
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdateProfileCompletion();
 
-        await userManager.UpdateAsync(user);
+        var update = await userManager.UpdateAsync(user);
+        if (!update.Succeeded)
+        {
+            throw new BadRequestException(string.Join(", ", update.Errors.Select(e => e.Description)));
+        }
 
         logger.LogInformation("Profile updated for user {UserId}", userId);
+
+        if (emailAdded)
+        {
+            await emailConfirmationSender.TrySendAsync(user, cancellationToken);
+        }
 
         return new CompleteProfileResult(
             user.IsProfileComplete,
@@ -86,4 +101,8 @@ public class CompleteProfileHandler(
                 ? "Profile completed successfully."
                 : "Profile updated. Please verify your phone number.");
     }
+
+    private static bool HasRealEmail(ApplicationUser user) =>
+        !string.IsNullOrEmpty(user.Email) &&
+        !user.Email.EndsWith(ApplicationUser.PhonePlaceholderEmailDomain, StringComparison.OrdinalIgnoreCase);
 }

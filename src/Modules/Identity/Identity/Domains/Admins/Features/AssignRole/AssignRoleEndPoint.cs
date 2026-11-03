@@ -33,7 +33,7 @@ public class AssignRoleEndPoint : ICarterModule
                 var response = ApiResponse.Success(result, result.Message);
                 return Results.Ok(response);
             })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.UsersManage)
             .WithName("AssignRole")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
@@ -45,7 +45,6 @@ public class AssignRoleEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

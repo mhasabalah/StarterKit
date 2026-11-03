@@ -42,18 +42,17 @@ public class CreateAdminEndPoint : ICarterModule
                 var response = ApiResponse.Success(result, result.Message);
                 return Results.Created($"api/identity/admins/{result.AdminId}", response);
             })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.AdminsManage)
             .WithName("CreateAdmin")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
             .WithSummary("Create a new admin account")
             .WithDescription(
-                "Create a new admin account. Admin or SuperAdmin. Only SuperAdmin can set IsSuperAdmin=true.")
+                "Create a new admin account. SuperAdmin only.")
             .Produces<ApiResponse<CreateAdminResult>>(StatusCodes.Status201Created)
             .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

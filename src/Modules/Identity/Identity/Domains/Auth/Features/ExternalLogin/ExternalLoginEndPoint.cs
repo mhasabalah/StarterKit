@@ -20,7 +20,6 @@ public class ExternalLoginEndPoint : ICarterModule
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Authentication")
             .Produces<ExternalLoginResult>(200)
-            .WithOpenApi()
             .HasApiVersion(1.0);
 
         // Challenge endpoint that triggers the external authentication
@@ -51,7 +50,7 @@ public class ExternalLoginEndPoint : ICarterModule
             .WithTags("Authentication")
             .Produces<ExternalLoginCallbackResult>(200)
             .ProducesProblem(400)
-            .WithOpenApi()
+            .RequireRateLimiting("auth")
             .HasApiVersion(1.0);
     }
 }

@@ -1,102 +1,102 @@
-using Identity.Domains.Roles.Constants;
+using Identity.Options;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Identity.Data.Seed;
 
 public class IdentityDataSeeder(
     RoleManager<ApplicationRole> roleManager,
     UserManager<ApplicationUser> userManager,
+    IOptions<IdentitySecurityOptions> securityOptions,
+    IHostEnvironment environment,
     ILogger<IdentityDataSeeder> logger) : IDataSeeder
 {
     public Type DbContextType => typeof(ApplicationIdentityDbContext);
 
     public async Task SeedAllAsync()
     {
-        logger.LogInformation("Seeding Identity data...");
-
-        // Roles must be seeded before the SuperAdmin user so AddToRoleAsync succeeds.
+        // Roles must exist before the SuperAdmin user so AddToRoleAsync succeeds.
         await SeedRolesAsync();
         await SeedSuperAdminAsync();
-
-        logger.LogInformation("Identity data seeding completed");
     }
 
     private async Task SeedRolesAsync()
     {
-        logger.LogInformation("Checking roles...");
-
         foreach (var role in InitialData.Roles)
         {
-            var existingRole = await roleManager.FindByNameAsync(role.Name!);
-            if (existingRole == null)
+            if (await roleManager.FindByNameAsync(role.Name!) is not null)
             {
-                logger.LogInformation("Creating role: {RoleName}", role.Name);
-                var result = await roleManager.CreateAsync(role);
+                continue;
+            }
 
-                if (result.Succeeded)
-                {
-                    logger.LogInformation("Role {RoleName} created successfully", role.Name);
-                }
-                else
-                {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    logger.LogError("Failed to create role {RoleName}: {Errors}", role.Name, errors);
-                }
+            var result = await roleManager.CreateAsync(role);
+            if (result.Succeeded)
+            {
+                logger.LogInformation("Role {RoleName} created", role.Name);
             }
             else
             {
-                logger.LogInformation("Role {RoleName} already exists", role.Name);
+                logger.LogError("Failed to create role {RoleName}: {Errors}",
+                    role.Name, string.Join(", ", result.Errors.Select(e => e.Description)));
             }
         }
-
-        logger.LogInformation("Roles seeding completed");
     }
 
     private async Task SeedSuperAdminAsync()
     {
-        var existingUser = await userManager.FindByEmailAsync(InitialData.SuperAdminSeed.Email);
-        if (existingUser != null)
+        var seed = securityOptions.Value.SeedAdmin;
+
+        if (await userManager.FindByIdAsync(InitialData.SuperAdminSeed.Id.ToString()) is not null ||
+            await userManager.FindByEmailAsync(seed.Email) is not null)
         {
-            logger.LogInformation("SuperAdmin user already exists, skipping");
             return;
+        }
+
+        if (string.IsNullOrWhiteSpace(seed.Password))
+        {
+            if (environment.IsDevelopmentLike())
+            {
+                logger.LogWarning(
+                    "SuperAdmin not seeded: set Identity:SeedAdmin:Password (e.g. user secrets) to create it");
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Identity:SeedAdmin:Password must be configured (Docker secret) to seed the initial SuperAdmin.");
         }
 
         var user = new ApplicationUser
         {
-            Id                    = InitialData.SuperAdminSeed.Id,
-            UserName              = InitialData.SuperAdminSeed.UserName,
-            Email                 = InitialData.SuperAdminSeed.Email,
-            NormalizedUserName    = InitialData.SuperAdminSeed.UserName.ToUpperInvariant(),
-            NormalizedEmail       = InitialData.SuperAdminSeed.Email.ToUpperInvariant(),
-            FirstName             = InitialData.SuperAdminSeed.FirstName,
-            LastName              = InitialData.SuperAdminSeed.LastName,
-            EmailConfirmed        = true,
-            IsActive              = true,
+            Id = InitialData.SuperAdminSeed.Id,
+            UserName = seed.UserName,
+            Email = seed.Email,
+            FirstName = InitialData.SuperAdminSeed.FirstName,
+            LastName = InitialData.SuperAdminSeed.LastName,
+            EmailConfirmed = true,
+            IsActive = true,
             IsPhoneNumberVerified = false,
-            IsProfileComplete     = true,
-            CreatedAt             = DateTime.UtcNow
+            IsProfileComplete = true,
+            MustChangePasswordOnNextLogin = true,
+            CreatedAt = DateTime.UtcNow
         };
 
-        var createResult = await userManager.CreateAsync(user, InitialData.SuperAdminSeed.Password);
+        var createResult = await userManager.CreateAsync(user, seed.Password);
         if (!createResult.Succeeded)
         {
-            var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-            logger.LogError("Failed to create SuperAdmin user: {Errors}", errors);
+            logger.LogError("Failed to create SuperAdmin user: {Errors}",
+                string.Join(", ", createResult.Errors.Select(e => e.Description)));
             return;
         }
 
         var roleResult = await userManager.AddToRoleAsync(user, RoleConstants.SuperAdmin);
         if (!roleResult.Succeeded)
         {
-            var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-            logger.LogError("Failed to assign SuperAdmin role to seeded user: {Errors}", errors);
+            logger.LogError("Failed to assign SuperAdmin role to seeded user: {Errors}",
+                string.Join(", ", roleResult.Errors.Select(e => e.Description)));
             return;
         }
 
-        // Log credentials once so the operator knows them — change immediately after first login.
-        logger.LogWarning(
-            "SuperAdmin seeded successfully. Email: {Email} | Password: {Password} | " +
-            "⚠️  CHANGE THIS PASSWORD IMMEDIATELY AFTER FIRST LOGIN.",
-            InitialData.SuperAdminSeed.Email,
-            InitialData.SuperAdminSeed.Password);
+        // Never log the password. The account must change it at first login (MustChangePasswordOnNextLogin).
+        logger.LogWarning("SuperAdmin {UserId} seeded; password change is required at first login", user.Id);
     }
 }

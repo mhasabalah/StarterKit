@@ -15,7 +15,7 @@ public class GetAdminsEndPoint : ICarterModule
                     var result = await sender.Send(query);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
-            .RequireAuthorization(PolicyConstants.SuperAdminOnly)
+            .RequirePermission(Permissions.AdminsManage)
             .WithName("GetAdmins")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
@@ -25,7 +25,6 @@ public class GetAdminsEndPoint : ICarterModule
             .WithSummary("Get Admins")
             .WithDescription(
                 "Retrieve paginated list of admins with filtering and sorting. Admin or SuperAdmin.")
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

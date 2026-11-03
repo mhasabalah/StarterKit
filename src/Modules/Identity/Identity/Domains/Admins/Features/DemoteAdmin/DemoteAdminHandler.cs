@@ -1,10 +1,10 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Admins.Commands;
 using Identity.Domains.Admins.Events;
 using Identity.Domains.Admins.Exceptions;
-using Identity.Domains.Roles.Constants;
-using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 
 namespace Identity.Domains.Admins.Features.DemoteAdmin;
 
@@ -15,13 +15,13 @@ public class DemoteAdminCommandValidator : AbstractValidator<DemoteAdminCommand>
         RuleFor(x => x.AdminId)
             .NotEmpty()
             .WithMessage("Admin ID is required");
-            
+
         RuleFor(x => x.Reason)
             .NotEmpty()
             .MinimumLength(10)
             .MaximumLength(500)
             .WithMessage("Reason must be between 10 and 500 characters");
-            
+
         RuleFor(x => x.DemotedByAdminId)
             .NotEmpty()
             .WithMessage("Demoter admin ID is required");
@@ -30,87 +30,48 @@ public class DemoteAdminCommandValidator : AbstractValidator<DemoteAdminCommand>
 
 public class DemoteAdminHandler(
     UserManager<ApplicationUser> userManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    ISessionRevoker sessionRevoker,
     IPublisher publisher,
+    IIdentityAuditWriter audit,
     ILogger<DemoteAdminHandler> logger)
     : ICommandHandler<DemoteAdminCommand, DemoteAdminResult>
 {
-    public async Task<DemoteAdminResult> Handle(
-        DemoteAdminCommand command,
-        CancellationToken cancellationToken)
+    public async Task<DemoteAdminResult> Handle(DemoteAdminCommand command, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Demoting admin {AdminId} by {DemotedBy}",
-            command.AdminId, command.DemotedByAdminId);
+        var admin = await userManager.FindByIdAsync(command.AdminId.ToString())
+                    ?? throw new AdminNotFoundException(command.AdminId);
 
-        // Validate admin exists
-        var admin = await userManager.FindByIdAsync(command.AdminId.ToString());
-        if (admin == null)
-        {
-            logger.LogWarning("Admin not found: {AdminId}", command.AdminId);
-            throw new AdminNotFoundException(command.AdminId);
-        }
+        await roleHierarchyGuard.EnsureIsSuperAdminAsync(command.DemotedByAdminId, cancellationToken);
+        await roleHierarchyGuard.EnsureCanManageAsync(command.DemotedByAdminId, admin, cancellationToken);
 
-        // Validate demoter exists and is SuperAdmin
-        var demoter = await userManager.FindByIdAsync(command.DemotedByAdminId.ToString());
-        if (demoter == null)
-        {
-            throw new UserNotFoundException(command.DemotedByAdminId);
-        }
-
-        var demoterRoles = await userManager.GetRolesAsync(demoter);
-        if (!demoterRoles.Contains(RoleConstants.SuperAdmin))
-        {
-            throw new InvalidUserOperationException(
-                "Only SuperAdmin can demote admins");
-        }
-
-        // Prevent self-demotion
-        if (command.AdminId == command.DemotedByAdminId)
-        {
-            throw new InvalidUserOperationException(
-                "Cannot demote yourself");
-        }
-
-        // Check current roles
         var currentRoles = await userManager.GetRolesAsync(admin);
-        
-        // Verify user is actually an admin
-        if (!currentRoles.Contains(RoleConstants.Admin) && 
-            !currentRoles.Contains(RoleConstants.SuperAdmin))
+        if (!RoleHierarchy.IsAdminOrAbove(currentRoles))
         {
             throw new AdminNotFoundException(command.AdminId);
         }
 
-        // Remove Admin role
-        if (currentRoles.Contains(RoleConstants.Admin))
+        foreach (var role in new[] { RoleConstants.Admin, RoleConstants.SuperAdmin }.Where(currentRoles.Contains))
         {
-            var removeAdminResult = await userManager.RemoveFromRoleAsync(admin, RoleConstants.Admin);
-            if (!removeAdminResult.Succeeded)
+            var result = await userManager.RemoveFromRoleAsync(admin, role);
+            if (!result.Succeeded)
             {
-                var errors = string.Join(", ", removeAdminResult.Errors.Select(e => e.Description));
-                logger.LogError("Failed to remove Admin role: {Errors}", errors);
+                logger.LogError("Failed to remove {Role} role from {AdminId}: {Errors}",
+                    role, admin.Id, string.Join(", ", result.Errors.Select(e => e.Description)));
             }
         }
 
-        // Remove SuperAdmin role
-        if (currentRoles.Contains(RoleConstants.SuperAdmin))
-        {
-            var removeSuperResult = await userManager.RemoveFromRoleAsync(admin, RoleConstants.SuperAdmin);
-            if (!removeSuperResult.Succeeded)
-            {
-                var errors = string.Join(", ", removeSuperResult.Errors.Select(e => e.Description));
-                logger.LogError("Failed to remove SuperAdmin role: {Errors}", errors);
-            }
-        }
-
-        // Update user timestamp
         admin.UpdatedAt = DateTime.UtcNow;
         await userManager.UpdateAsync(admin);
 
-        // Get remaining roles
+        await sessionRevoker.RevokeAllAsync(admin.Id, "Demoted from admin", cancellationToken);
+
         var remainingRoles = await userManager.GetRolesAsync(admin);
 
-        // Raise domain event
+        audit.Record(IdentityAuditActions.AdminDemoted, admin.Id, reason: command.Reason,
+            before: UserAuditSnapshot.Of(admin, currentRoles), after: UserAuditSnapshot.Of(admin, remainingRoles),
+            actorId: command.DemotedByAdminId);
+
         await publisher.Publish(new AdminDemotedEvent
         {
             AdminId = admin.Id,
@@ -118,9 +79,7 @@ public class DemoteAdminHandler(
             DemotedBy = command.DemotedByAdminId
         }, cancellationToken);
 
-        logger.LogInformation(
-            "Admin {AdminId} demoted successfully to regular user",
-            command.AdminId);
+        logger.LogInformation("Admin {AdminId} demoted by {DemotedBy}", admin.Id, command.DemotedByAdminId);
 
         return new DemoteAdminResult(
             true,

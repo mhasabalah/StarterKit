@@ -1,16 +1,27 @@
-using Humanizer;
+using Identity.Authorization;
+using Identity.Data.Repository.Otp;
+using Identity.Data.Repository.RefreshTokens;
 using Identity.Data.Seed;
-using Identity.Data.Repository.Onboarding;
+using Identity.Domains.Audit.Services;
+using Identity.Domains.Auth.Services;
 using Identity.Domains.Onboarding.Jobs;
+using Identity.Domains.Users.Services;
 using Identity.Infrastructure;
 using Identity.Infrastructure.BackgroundJobs;
-using Identity.Services.Token;
-using Shared.Core.Authorization;
-using Shared.Core.Extensions;
-using Shared.Core.Mapster;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Options;
+using Identity.Infrastructure.DataProtection;
 using Identity.Options;
+using Identity.Services.EmailConfirmation;
+using Identity.Services.Otp;
+using Identity.Services.Phone;
+using Identity.Services.Sessions;
+using Identity.Services.Token;
+using Identity.Services.TwoFactor;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Shared.Core.Authorization;
+using AspNetIdentityOptions = Microsoft.AspNetCore.Identity.IdentityOptions;
 using RoleConstants = Identity.Domains.Roles.Constants.RoleConstants;
 
 namespace Identity;
@@ -21,149 +32,208 @@ public static class IdentityModule
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Configure Options Pattern
+        services.TryAddSingleton(TimeProvider.System);
+
         services.ConfigureOptions(configuration);
-
-        // 1. Register DbContext
         services.AddCustomDbContext<ApplicationIdentityDbContext>(configuration, "starterkit");
-
-        // 2. Configure ASP.NET Core Identity
         services.ConfigureIdentity();
-
-        // 3. Configure JWT Authentication
-        services.ConfigureJwtAuthentication(configuration);
-
-        // 4. Configure External Authentication
+        // Data Protection key ring (encrypts authenticator keys, signs reset tokens): database-backed, shared
+        // application name, optional at-rest encryption (Identity:DataProtection) + production guard.
+        services.AddIdentityDataProtection(configuration);
+        services.ConfigureJwtAuthentication();
         services.ConfigureExternalAuthentication(configuration);
+        services.AddIdentityAuthorizationPolicies(configuration);
+        services.ConfigureSmsService(configuration);
 
-        // 5. Configure Authorization Policies
-        services.ConfigureAuthorizationPolicies();
-
-        // 6. Register services
+        // Sessions, tokens, OTP
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IAuthSessionService, AuthSessionService>();
+        services.AddScoped<ISessionRevoker, SessionRevoker>();
+        services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
+        services.AddScoped<TokenBlacklistJwtBearerEvents>();
+        services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+        services.AddScoped<IOtpCodeService, OtpCodeService>();
+        services.AddScoped<IOtpSender, OtpSender>();
+        services.AddScoped<IEmailConfirmationSender, EmailConfirmationSender>();
+
+        // Two-factor (TOTP) + login completion
+        services.AddScoped<ITwoFactorService, TwoFactorService>();
+        services.AddSingleton<ITotpReplayGuard>(CreateTotpReplayGuard);
+        services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
+        services.AddScoped<ILoginCompletionService, LoginCompletionService>();
+
+        // Admin audit: writer + one transaction per IAuditedCommand (registered after AddMediatR below).
+        services.AddScoped<IIdentityAuditWriter, IdentityAuditWriter>();
+        services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
+
+        // Users / admins
+        services.AddScoped<IPhoneNumberNormalizer, PhoneNumberNormalizer>();
+        services.AddScoped<IRoleHierarchyGuard, RoleHierarchyGuard>();
+        services.AddScoped<IUserContactService, UserContactService>();
+
+        // Onboarding + seeding
         services.AddScoped<IDataSeeder, IdentityDataSeeder>();
-        services.ConfigureSmsService();
-        services.Configure<OnboardingOptions>(configuration.GetSection("Notification:Onboarding"));
         services.AddScoped<IOnboardingProcessRepository, OnboardingProcessRepository>();
         services.AddTransient<OnboardingTimeoutJob>();
         services.AddTransient<OnboardingOtpRetryJob>();
 
-        // Token Blacklist Service (for logout) - Using shared Redis from Shared.Core
-        services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
-        services.AddScoped<TokenBlacklistJwtBearerEvents>();
-
-        // 7. Register background jobs
+        // Background jobs
         services.AddScoped<RefreshTokenCleanupJob>();
         services.AddHostedService<IdentityJobSchedulerBootstrap>();
 
-        // 8. Add MediatR, Carter
         services.AddMediatR(IdentityRoot.AssemblyName);
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IPipelineBehavior<,>), typeof(AuditedCommandTransactionBehavior<,>)));
         services.AddCarterWithAssemblies(IdentityRoot.AssemblyName);
+
+        // Impersonated sessions may only READ Identity endpoints (never change credentials, 2FA, sessions, profile).
+        services.Configure<Shared.Core.MultiTenancy.Web.ImpersonationGuardOptions>(
+            o => o.ReadOnlyAssemblies.Add(IdentityRoot.AssemblyName));
 
         return services;
     }
 
-    private static void ConfigureOptions(this IServiceCollection services,
-        IConfiguration configuration)
+    /// <summary>
+    /// Redis (SET NX, atomic across instances) when Redis is enabled - <c>AddRedisCache</c> then registers the shared
+    /// <see cref="StackExchange.Redis.IConnectionMultiplexer"/>; otherwise the in-process IDistributedCache fallback.
+    /// </summary>
+    private static ITotpReplayGuard CreateTotpReplayGuard(IServiceProvider sp)
     {
-        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        var redis = sp.GetService<StackExchange.Redis.IConnectionMultiplexer>();
+        if (redis is not null)
+        {
+            var prefix = sp.GetService<IOptions<Shared.Core.Options.RedisOptions>>()?.Value.InstanceName ?? string.Empty;
+            return new RedisTotpReplayGuard(redis, prefix);
+        }
+
+        return new DistributedCacheTotpReplayGuard(
+            sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>());
+    }
+
+    private static void ConfigureOptions(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
+
+        services.AddOptions<IdentitySecurityOptions>()
+            .Bind(configuration.GetSection(IdentitySecurityOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                // Development/Testing convenience only: a random per-process key (codes die on restart).
+                if (string.IsNullOrEmpty(options.OtpHmacKey) && environment.IsDevelopmentLike())
+                {
+                    options.OtpHmacKey = Convert.ToBase64String(
+                        System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+                }
+            })
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<IdentitySecurityOptions>, IdentitySecurityOptionsValidator>();
+
         services.Configure<Options.AuthenticationOptions>(
             configuration.GetSection(Options.AuthenticationOptions.SectionName));
-        services.Configure<Options.IdentityOptions>(
-            configuration.GetSection(Options.IdentityOptions.SectionName));
-        services.Configure<PhoneVerificationOptions>(
-            configuration.GetSection(PhoneVerificationOptions.SectionName));
+        services.Configure<Options.IdentityOptions>(configuration.GetSection(Options.IdentityOptions.SectionName));
+        services.Configure<PhoneVerificationOptions>(configuration.GetSection(PhoneVerificationOptions.SectionName));
         services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
         services.Configure<LoginPolicyOptions>(configuration.GetSection(LoginPolicyOptions.SectionName));
         services.Configure<ApplicationOptions>(configuration.GetSection(ApplicationOptions.SectionName));
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
+        services.Configure<EmailConfirmationOptions>(configuration.GetSection(EmailConfirmationOptions.SectionName));
+        services.Configure<OnboardingOptions>(configuration.GetSection("Notification:Onboarding"));
     }
 
     private static void ConfigureIdentity(this IServiceCollection services)
     {
-        var serviceProvider = services.BuildServiceProvider();
-        var identityOptions = serviceProvider.GetService<IOptions<Options.IdentityOptions>>()?.Value
-                              ?? new Options.IdentityOptions();
-
-        services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
-            {
-                // Password settings
-                options.Password.RequireDigit = identityOptions.Password.RequireDigit;
-                options.Password.RequiredLength = identityOptions.Password.RequiredLength;
-                options.Password.RequireNonAlphanumeric =
-                    identityOptions.Password.RequireNonAlphanumeric;
-                options.Password.RequireUppercase = identityOptions.Password.RequireUppercase;
-                options.Password.RequireLowercase = identityOptions.Password.RequireLowercase;
-                options.Password.RequiredUniqueChars = identityOptions.Password.RequiredUniqueChars;
-
-                // Lockout settings
-                options.Lockout.DefaultLockoutTimeSpan =
-                    TimeSpan.FromMinutes(identityOptions.Lockout.DefaultLockoutTimeSpanMinutes);
-                options.Lockout.MaxFailedAccessAttempts =
-                    identityOptions.Lockout.MaxFailedAccessAttempts;
-                options.Lockout.AllowedForNewUsers = identityOptions.Lockout.AllowedForNewUsers;
-
-                // User settings
-                options.User.RequireUniqueEmail = identityOptions.User.RequireUniqueEmail;
-                options.User.AllowedUserNameCharacters =
-                    identityOptions.User.AllowedUserNameCharacters;
-
-                // SignIn settings
-                options.SignIn.RequireConfirmedEmail = identityOptions.SignIn.RequireConfirmedEmail;
-                options.SignIn.RequireConfirmedPhoneNumber =
-                    identityOptions.SignIn.RequireConfirmedPhoneNumber;
-            })
+        services.AddIdentity<ApplicationUser, ApplicationRole>()
             .AddEntityFrameworkStores<ApplicationIdentityDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddTokenProvider<EmailConfirmationTokenProvider>(EmailConfirmationTokenProviderOptions.ProviderName);
+
+        // Same EF store, but the authenticator key is encrypted and recovery codes are stored as hashes.
+        services.Replace(ServiceDescriptor.Scoped<IUserStore<ApplicationUser>, ProtectedUserStore>());
+
+
+        // Options are applied lazily from IOptions (no BuildServiceProvider during registration).
+        services.AddOptions<AspNetIdentityOptions>()
+            .Configure<IOptions<Options.IdentityOptions>>((options, settings) =>
+            {
+                var s = settings.Value;
+
+                options.Password.RequireDigit = s.Password.RequireDigit;
+                options.Password.RequiredLength = s.Password.RequiredLength;
+                options.Password.RequireNonAlphanumeric = s.Password.RequireNonAlphanumeric;
+                options.Password.RequireUppercase = s.Password.RequireUppercase;
+                options.Password.RequireLowercase = s.Password.RequireLowercase;
+                options.Password.RequiredUniqueChars = s.Password.RequiredUniqueChars;
+
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(s.Lockout.DefaultLockoutTimeSpanMinutes);
+                options.Lockout.MaxFailedAccessAttempts = s.Lockout.MaxFailedAccessAttempts;
+                options.Lockout.AllowedForNewUsers = s.Lockout.AllowedForNewUsers;
+
+                options.User.RequireUniqueEmail = s.User.RequireUniqueEmail;
+                options.User.AllowedUserNameCharacters = s.User.AllowedUserNameCharacters;
+
+                options.SignIn.RequireConfirmedEmail = s.SignIn.RequireConfirmedEmail;
+                options.SignIn.RequireConfirmedPhoneNumber = s.SignIn.RequireConfirmedPhoneNumber;
+
+                options.Tokens.EmailConfirmationTokenProvider = EmailConfirmationTokenProviderOptions.ProviderName;
+            });
+
+        // The reset link/OTP promise "valid for N hours" must match what Identity actually enforces (default 24h).
+        services.AddOptions<DataProtectionTokenProviderOptions>()
+            .Configure<IOptions<PasswordResetOptions>>((options, reset) =>
+                options.TokenLifespan = TimeSpan.FromHours(Math.Max(1, reset.Value.TokenExpiryHours)));
+
+        // Confirmation links have their own (longer) lifetime: EmailConfirmation:TokenExpiryHours, default 24h.
+        services.AddOptions<EmailConfirmationTokenProviderOptions>()
+            .Configure<IOptions<EmailConfirmationOptions>>((options, confirm) =>
+                options.TokenLifespan = TimeSpan.FromHours(Math.Max(1, confirm.Value.TokenExpiryHours)));
     }
 
-    private static void ConfigureJwtAuthentication(this IServiceCollection services,
-        IConfiguration configuration)
+    private static void ConfigureJwtAuthentication(this IServiceCollection services)
     {
-        var serviceProvider = services.BuildServiceProvider();
-        var jwtOptions = serviceProvider.GetService<IOptions<JwtOptions>>()?.Value;
-
-        if (jwtOptions == null)
-        {
-            throw new InvalidOperationException("JWT settings not configured properly");
-        }
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
-
         services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-            .AddJwtBearer(options =>
+            .AddJwtBearer();
+
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
             {
+                var jwt = jwtOptions.Value;
+
                 options.SaveToken = true;
-                options.RequireHttpsMetadata = jwtOptions.RequireHttpsMetadata;
+                options.RequireHttpsMetadata = jwt.RequireHttpsMetadata;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = jwtOptions.ValidateIssuer,
-                    ValidateAudience = jwtOptions.ValidateAudience,
-                    ValidateLifetime = jwtOptions.ValidateLifetime,
-                    ValidateIssuerSigningKey = jwtOptions.ValidateIssuerSigningKey,
-                    ValidIssuer = jwtOptions.Issuer,
-                    ValidAudience = jwtOptions.Audience,
-                    IssuerSigningKey = key,
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    RequireExpirationTime = true,
+                    RequireSignedTokens = true,
+                    ValidIssuer = jwt.Issuer,
+                    ValidAudience = jwt.Audience,
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
                     ClockSkew = TimeSpan.Zero
                 };
 
-                // Configure token blacklist validation
                 options.EventsType = typeof(TokenBlacklistJwtBearerEvents);
             });
     }
 
-    private static void ConfigureExternalAuthentication(this IServiceCollection services,
-        IConfiguration configuration)
+    private static void ConfigureExternalAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        var serviceProvider = services.BuildServiceProvider();
-        var authOptions =
-            serviceProvider.GetService<IOptions<Options.AuthenticationOptions>>()?.Value
-            ?? new Options.AuthenticationOptions();
+        // Which schemes exist must be known at registration time, so read the section directly.
+        var authOptions = configuration.GetSection(Options.AuthenticationOptions.SectionName)
+                              .Get<Options.AuthenticationOptions>()
+                          ?? new Options.AuthenticationOptions();
 
         var authBuilder = services.AddAuthentication();
 
@@ -188,58 +258,41 @@ public static class IdentityModule
         }
     }
 
-    private static void ConfigureAuthorizationPolicies(this IServiceCollection services)
+    private static void ConfigureSmsService(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddAuthorization(options =>
-        {
-            options.AddPolicy(PolicyConstants.UserOnly, policy =>
-                policy.RequireAuthenticatedUser());
+        var provider = configuration.GetSection(SmsOptions.SectionName).Get<SmsOptions>()?.Provider
+                       ?? SmsProvider.Mock;
 
-            options.AddPolicy(PolicyConstants.AdminOnly, policy =>
-                policy.RequireRole(RoleConstants.Admin, RoleConstants.SuperAdmin));
-
-            options.AddPolicy(PolicyConstants.SuperAdminOnly, policy =>
-                policy.RequireRole(RoleConstants.SuperAdmin));
-
-            options.AddPolicy(PolicyConstants.ProfileComplete, policy =>
-                policy.Requirements.Add(new Authorization.ProfileCompleteRequirement()));
-        });
-
-        services.AddScoped<IAuthorizationHandler, Authorization.ProfileCompleteHandler>();
-    }
-
-    private static void ConfigureSmsService(this IServiceCollection services)
-    {
-        var serviceProvider = services.BuildServiceProvider();
-        var smsOptions = serviceProvider.GetService<IOptions<SmsOptions>>()?.Value
-                         ?? new SmsOptions();
-
-        switch (smsOptions.Provider)
+        switch (provider)
         {
             case SmsProvider.Mock:
-                services.AddScoped<ISmsService, MockSmsService>();
-                break;
-            case SmsProvider.Twilio:
-                // TODO: Implement TwilioSmsService
-                services.AddScoped<ISmsService, MockSmsService>();
-                break;
-            case SmsProvider.AwsSns:
-                // TODO: Implement AwsSnsSmsService
-                services.AddScoped<ISmsService, MockSmsService>();
+                // The mock is for Development/Testing only. Elsewhere sending fails loudly instead of
+                // pretending to deliver codes nobody receives.
+                services.AddScoped<ISmsService>(sp =>
+                    sp.GetRequiredService<IHostEnvironment>().IsDevelopmentLike()
+                        ? ActivatorUtilities.CreateInstance<MockSmsService>(sp)
+                        : new DisabledSmsService());
                 break;
             default:
-                services.AddScoped<ISmsService, MockSmsService>();
-                break;
+                throw new InvalidOperationException(
+                    $"SmsSettings:Provider '{provider}' is configured but has no implementation. " +
+                    "Implement ISmsService for it or use 'Mock' in Development.");
         }
     }
 
-    public static IApplicationBuilder UseIdentityModule(this IApplicationBuilder app)
+    /// <param name="app">The application.</param>
+    /// <param name="afterAuthentication">
+    /// Middleware that must run between authentication and authorization - the tenant resolution middleware
+    /// (needs the authenticated user; tenant permission policies need the resolved membership).
+    /// </param>
+    public static IApplicationBuilder UseIdentityModule(this IApplicationBuilder app,
+        Action<IApplicationBuilder>? afterAuthentication = null)
     {
-        // Use authentication & authorization
         app.UseAuthentication();
+        afterAuthentication?.Invoke(app);
         app.UseAuthorization();
 
-        // Apply migrations and seed data (migrations FIRST, then seeding)
+        // Migrations first, then seeding (inside UseMigration).
         app.UseMigration<ApplicationIdentityDbContext>();
         app.UseMiddleware<MustChangePasswordMiddleware>();
 

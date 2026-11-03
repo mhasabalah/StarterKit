@@ -21,7 +21,6 @@ public class GetMyProfileEndPoint : ICarterModule
             .WithDescription("Retrieve the authenticated user's profile information.")
             .Produces<ApiResponse<MyProfileDto>>(StatusCodes.Status200OK)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

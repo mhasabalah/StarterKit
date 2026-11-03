@@ -32,7 +32,7 @@ public class UnlockUserEndPoint : ICarterModule
                 var response = ApiResponse.Success(result, result.Message);
                 return Results.Ok(response);
             })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.UsersManage)
             .WithName("UnlockUser")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("User Management")
@@ -43,7 +43,6 @@ public class UnlockUserEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

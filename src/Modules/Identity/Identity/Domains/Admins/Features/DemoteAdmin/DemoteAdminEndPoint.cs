@@ -32,7 +32,7 @@ public class DemoteAdminEndPoint : ICarterModule
                 var response = ApiResponse.Success(result, result.Message);
                 return Results.Ok(response);
             })
-            .RequireAuthorization(PolicyConstants.SuperAdminOnly)
+            .RequirePermission(Permissions.AdminsManage)
             .WithName("DemoteAdmin")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
@@ -44,7 +44,6 @@ public class DemoteAdminEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

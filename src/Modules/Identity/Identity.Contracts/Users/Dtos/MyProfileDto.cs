@@ -11,5 +11,8 @@ public record MyProfileDto
     public string? ProfilePictureUrl { get; init; }
     public bool IsProfileComplete { get; init; }
     public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
+
+    /// <summary>Platform permissions derived from <see cref="Roles"/> (the access token carries roles only).</summary>
+    public IReadOnlyList<string> Permissions { get; init; } = Array.Empty<string>();
     public DateTime CreatedAt { get; init; }
 }

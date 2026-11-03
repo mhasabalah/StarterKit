@@ -1,13 +1,11 @@
+using System.Text.RegularExpressions;
 using Identity.Contracts.Auth.Commands;
 using Identity.Options;
+using Identity.Services.Otp;
+using Identity.Services.Phone;
 using Microsoft.Extensions.Options;
 using Shared.Core.Phone;
-using Shared.Email.Options;
-using Shared.Email.Contracts;
-using Shared.Email.Enums;
-using Shared.Email.Models;
-using System.Security.Cryptography;
-using System.Text.RegularExpressions;
+using Notification.Contracts.Email.Models;
 
 namespace Identity.Domains.Auth.Features.ForgotPassword;
 
@@ -25,48 +23,48 @@ public class ForgotPasswordCommandValidator : AbstractValidator<ForgotPasswordCo
         Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
 }
 
+/// <summary>
+/// Sends reset instructions ONLY to a contact the account owner has proven: a confirmed email or a verified phone.
+/// (An admin-changed, unverified contact must never receive a reset.) The response is identical in every case.
+/// </summary>
 public class ForgotPasswordHandler(
     UserManager<ApplicationUser> userManager,
-    IEmailJobEnqueuer emailJobEnqueuer,
+    INotificationSender notificationSender,
     ISmsService smsService,
+    IOtpCodeService otpCodeService,
+    IPhoneNumberNormalizer phoneNormalizer,
     IOptions<PasswordResetOptions> resetOptions,
-    IOptions<PhoneVerificationOptions> phoneOptions,
-    IOptions<EmailOptions> emailOptions,
     ILogger<ForgotPasswordHandler> logger)
     : ICommandHandler<ForgotPasswordCommand, ForgotPasswordResult>
 {
-    private readonly PasswordResetOptions _resetOptions = resetOptions.Value;
-    private readonly PhoneVerificationOptions _phoneOptions = phoneOptions.Value;
-
-    private const string GenericMessage =
+    public const string GenericMessage =
         "If an account with that identifier exists, reset instructions have been sent.";
 
-    public async Task<ForgotPasswordResult> Handle(
-        ForgotPasswordCommand command, CancellationToken cancellationToken)
+    private readonly PasswordResetOptions _resetOptions = resetOptions.Value;
+
+    public async Task<ForgotPasswordResult> Handle(ForgotPasswordCommand command, CancellationToken cancellationToken)
     {
         if (command.Identifier.Contains('@'))
-            return await HandleEmailReset(command.Identifier, cancellationToken);
+        {
+            await HandleEmailResetAsync(command.Identifier.Trim(), cancellationToken);
+        }
+        else
+        {
+            await HandlePhoneResetAsync(command.Identifier, cancellationToken);
+        }
 
-        return await HandlePhoneReset(command.Identifier, cancellationToken);
+        return new ForgotPasswordResult(GenericMessage);
     }
 
-    private async Task<ForgotPasswordResult> HandleEmailReset(
-        string email, CancellationToken cancellationToken)
+    private async Task HandleEmailResetAsync(string email, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByEmailAsync(email);
 
-        // Reject missing users or phone-only placeholder accounts silently
-        if (user is null || user.Email!.EndsWith(ApplicationUser.PhonePlaceholderEmailDomain))
+        if (user is null || !CanReset(user) || !user.EmailConfirmed ||
+            user.Email!.EndsWith(ApplicationUser.PhonePlaceholderEmailDomain, StringComparison.OrdinalIgnoreCase))
         {
-            logger.LogWarning("Password reset requested for unknown or phone-only email");
-            return new ForgotPasswordResult(GenericMessage);
-        }
-
-        // OAuth accounts have no password — return generic response, do not hint
-        if (user.OAuthProvider is not null)
-        {
-            logger.LogInformation("Password reset silently blocked for OAuth user {UserId}", user.Id);
-            return new ForgotPasswordResult(GenericMessage);
+            logger.LogInformation("Password reset email not sent (unknown, unconfirmed or ineligible account)");
+            return;
         }
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
@@ -75,68 +73,48 @@ public class ForgotPasswordHandler(
 
         var model = new PasswordResetRequiredModel
         {
-            CompanyName = emailOptions.Value.BrandName,
             ResetUrl = resetUrl,
             ExpiresInHours = _resetOptions.TokenExpiryHours
         };
 
-        var message = new EmailMessage(
-            Template: EmailTemplate.PasswordResetRequired,
-            Model: model.ToDictionary(),
-            Recipients: [user.Email!],
-            Culture: EmailCulture.En,
-            UserId: user.Id
-        );
-
-        await emailJobEnqueuer.EnqueueAsync(message, cancellationToken);
+        // To the CONFIRMED address checked above (not whatever the directory says at delivery time), forced to Email
+        // so channel preferences can never suppress a security mail. userId only links the delivery log.
+        await notificationSender
+            .ToEmail(user.Email!, NotificationCulture.En, user.Id)
+            .WithEmail(EmailTemplate.PasswordResetRequired, model.ToDictionary())
+            .SendAsync(NotificationChannel.Email, cancellationToken);
 
         logger.LogInformation("Password reset email enqueued for user {UserId}", user.Id);
-
-        return new ForgotPasswordResult(GenericMessage);
     }
 
-    private async Task<ForgotPasswordResult> HandlePhoneReset(
-        string phone, CancellationToken cancellationToken)
+    private async Task HandlePhoneResetAsync(string rawPhone, CancellationToken cancellationToken)
     {
-        var user = await userManager.Users
-            .FirstOrDefaultAsync(u => u.PhoneNumber == phone, cancellationToken);
+        var phone = phoneNormalizer.Normalize(rawPhone);
+        var user = phone is null ? null : await userManager.FindByPhoneAsync(phone, cancellationToken);
 
-        if (user is null)
+        if (user is null || !CanReset(user) || !user.IsPhoneNumberVerified)
         {
-            logger.LogWarning("Password reset requested for unknown phone");
-            return new ForgotPasswordResult(GenericMessage);
+            logger.LogInformation("Password reset SMS not sent (unknown, unverified or ineligible account)");
+            return;
         }
 
-        if (user.OAuthProvider is not null)
-            return new ForgotPasswordResult(GenericMessage);
-
-        if (!user.IsPhoneNumberVerified)
-            return new ForgotPasswordResult(GenericMessage);
-
-        // Generate OTP using same length config as phone verification
-        var min = (int)Math.Pow(10, _phoneOptions.CodeLength - 1);
-        var max = (int)Math.Pow(10, _phoneOptions.CodeLength) - 1;
-        var otp = RandomNumberGenerator.GetInt32(min, max + 1).ToString();
-        var expiry = DateTime.UtcNow.AddMinutes(_resetOptions.OtpExpiryMinutes);
-
-        user.PhoneVerificationCode = otp;
-        user.PhoneVerificationCodeExpiry = expiry;
-        user.UpdatedAt = DateTime.UtcNow;
-
-        var updateResult = await userManager.UpdateAsync(user);
-        if (!updateResult.Succeeded)
+        try
         {
-            logger.LogError(
-                "Failed to persist OTP for user {UserId}: {Errors}",
-                user.Id,
-                string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-            return new ForgotPasswordResult(GenericMessage);
+            var otp = await otpCodeService.IssueAsync(user.Id, OtpPurpose.PasswordReset, cancellationToken);
+            await smsService.SendVerificationCodeAsync(user.PhoneNumber!, otp.Code);
+            logger.LogInformation("Password reset code sent to user {UserId}", user.Id);
         }
-
-        await smsService.SendVerificationCodeAsync(phone, otp);
-
-        logger.LogInformation("Password reset OTP sent for user {UserId}", user.Id);
-
-        return new ForgotPasswordResult(GenericMessage);
+        catch (OtpRateLimitedException)
+        {
+            // Same generic response: a 429 here would reveal that the phone number has an account.
+            logger.LogWarning("Password reset code for user {UserId} rate limited", user.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Failed to send password reset code to user {UserId}", user.Id);
+        }
     }
+
+    /// <summary>OAuth-only and deactivated accounts have no password to reset.</summary>
+    private static bool CanReset(ApplicationUser user) => user.OAuthProvider is null && user.IsActive;
 }

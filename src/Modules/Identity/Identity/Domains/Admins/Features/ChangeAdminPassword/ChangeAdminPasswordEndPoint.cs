@@ -32,7 +32,7 @@ public class ChangeAdminPasswordEndPoint : ICarterModule
                 await sender.Send(command, cancellationToken);
                 return Results.NoContent();
             })
-            .RequireAuthorization(PolicyConstants.SuperAdminOnly)
+            .RequirePermission(Permissions.AdminsManage)
             .WithName("ChangeAdminPassword")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")
@@ -44,7 +44,6 @@ public class ChangeAdminPasswordEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

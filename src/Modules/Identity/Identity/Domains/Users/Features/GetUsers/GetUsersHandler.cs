@@ -95,17 +95,18 @@ public class GetUsersHandler(ApplicationIdentityDbContext dbContext)
         if (!string.IsNullOrWhiteSpace(query.OAuthProvider))
             queryable = queryable.Where(u => u.OAuthProvider == query.OAuthProvider);
 
-        if (query.CreatedFrom.HasValue)
-            queryable = queryable.Where(u => u.CreatedAt >= query.CreatedFrom.Value);
+        // timestamptz parameters must be UTC (see UtcDateTimeExtensions).
+        if (query.CreatedFrom.AsUtc() is { } createdFrom)
+            queryable = queryable.Where(u => u.CreatedAt >= createdFrom);
 
-        if (query.CreatedTo.HasValue)
-            queryable = queryable.Where(u => u.CreatedAt <= query.CreatedTo.Value);
+        if (query.CreatedTo.AsUtc() is { } createdTo)
+            queryable = queryable.Where(u => u.CreatedAt <= createdTo);
 
-        if (query.LastLoginFrom.HasValue)
-            queryable = queryable.Where(u => u.LastLoginAt != null && u.LastLoginAt >= query.LastLoginFrom.Value);
+        if (query.LastLoginFrom.AsUtc() is { } lastLoginFrom)
+            queryable = queryable.Where(u => u.LastLoginAt != null && u.LastLoginAt >= lastLoginFrom);
 
-        if (query.LastLoginTo.HasValue)
-            queryable = queryable.Where(u => u.LastLoginAt != null && u.LastLoginAt <= query.LastLoginTo.Value);
+        if (query.LastLoginTo.AsUtc() is { } lastLoginTo)
+            queryable = queryable.Where(u => u.LastLoginAt != null && u.LastLoginAt <= lastLoginTo);
 
         return queryable;
     }

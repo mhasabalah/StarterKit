@@ -23,9 +23,8 @@ public class ForgotPasswordEndPoint : ICarterModule
                 "Accepts an email or phone number. " +
                 "Email accounts receive a reset link; phone accounts receive a 6-digit OTP via SMS. " +
                 "Always returns 200 regardless of whether the account exists.")
-            .WithOpenApi()
             .AllowAnonymous()
-            .RequireRateLimiting("create")
+            .RequireRateLimiting("otp")
             .HasApiVersion(1.0);
     }
 }

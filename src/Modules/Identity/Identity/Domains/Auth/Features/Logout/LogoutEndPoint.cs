@@ -25,7 +25,6 @@ public class LogoutEndPoint : ICarterModule
         .WithSummary("Logout and invalidate tokens")
         .WithDescription(@"Revokes the current access token and optionally the refresh token.
             Set logoutAllDevices=true to revoke all refresh tokens for this user.")
-        .WithOpenApi()
         .RequireAuthorization() // Must be authenticated to logout
         .HasApiVersion(1.0);
     }

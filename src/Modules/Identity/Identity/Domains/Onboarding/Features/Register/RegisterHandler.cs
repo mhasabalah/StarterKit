@@ -1,6 +1,7 @@
 using Identity.Contracts.Onboarding.Commands;
 using Identity.Data.Repository.Onboarding;
 using Identity.Domains.Onboarding.Models;
+using Identity.Services.Phone;
 using Shared.Core.Phone;
 
 namespace Identity.Domains.Onboarding.Features.Register;
@@ -41,6 +42,7 @@ public class RegisterHandler(
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
     IOnboardingProcessRepository repository,
+    IPhoneNumberNormalizer phoneNormalizer,
     ILogger<RegisterHandler> logger)
     : ICommandHandler<RegisterOnboardingCommand, RegisterOnboardingResult>
 {
@@ -48,8 +50,10 @@ public class RegisterHandler(
         RegisterOnboardingCommand command,
         CancellationToken cancellationToken)
     {
-        var existingUser = await userManager.Users
-            .FirstOrDefaultAsync(u => u.PhoneNumber == command.PhoneNumber, cancellationToken);
+        var phoneNumber = phoneNormalizer.Normalize(command.PhoneNumber)
+                          ?? throw new BadRequestException("Phone number is required");
+
+        var existingUser = await userManager.FindByPhoneAsync(phoneNumber, cancellationToken);
 
         if (existingUser != null)
         {
@@ -77,9 +81,7 @@ public class RegisterHandler(
             await repository.AddAsync(reOnboardingProcess, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation(
-                "Re-onboarding started for existing user {UserId} with phone {PhoneNumber}",
-                existingUser.Id, command.PhoneNumber);
+            logger.LogInformation("Re-onboarding started for existing user {UserId}", existingUser.Id);
 
             return new RegisterOnboardingResult(
                 existingUser.Id,
@@ -90,8 +92,8 @@ public class RegisterHandler(
         var user = new ApplicationUser
         {
             Id = Guid.NewGuid(),
-            UserName = command.PhoneNumber,
-            PhoneNumber = command.PhoneNumber,
+            UserName = phoneNumber,
+            PhoneNumber = phoneNumber,
             FirstName = command.FirstName,
             LastName = command.LastName,
             Email = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email,
@@ -115,9 +117,7 @@ public class RegisterHandler(
         await repository.AddAsync(process, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "Onboarding registration started for new user {UserId} with phone {PhoneNumber}",
-            user.Id, command.PhoneNumber);
+        logger.LogInformation("Onboarding registration started for new user {UserId}", user.Id);
 
         return new RegisterOnboardingResult(
             user.Id,

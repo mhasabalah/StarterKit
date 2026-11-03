@@ -1,9 +1,7 @@
 using Identity.Contracts.Auth.Commands;
-using Identity.Options;
 using Identity.Resources;
-using Identity.Services.Sms;
+using Identity.Services.Otp;
 using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Options;
 
 namespace Identity.Domains.Auth.Features.SendPhoneVerification;
 
@@ -18,24 +16,18 @@ public class SendPhoneVerificationCommandValidator : AbstractValidator<SendPhone
 
 public class SendPhoneVerificationHandler(
     UserManager<ApplicationUser> userManager,
+    IOtpCodeService otpCodeService,
     ISmsService smsService,
-    IOptions<PhoneVerificationOptions> options,
     IStringLocalizer<IdentityResource> localizer,
     ILogger<SendPhoneVerificationHandler> logger)
     : ICommandHandler<SendPhoneVerificationCommand, SendPhoneVerificationResult>
 {
-    private readonly PhoneVerificationOptions _options = options.Value;
-
     public async Task<SendPhoneVerificationResult> Handle(
         SendPhoneVerificationCommand command,
         CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-
-        if (user == null)
-        {
-            throw new NotFoundException("User", command.UserId);
-        }
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new NotFoundException("User", command.UserId);
 
         if (string.IsNullOrEmpty(user.PhoneNumber))
         {
@@ -47,27 +39,12 @@ public class SendPhoneVerificationHandler(
             throw new BadRequestException(localizer["Auth.PhoneVerification.AlreadyVerified"]);
         }
 
-        // Generate code based on configured length
-        var min = (int)Math.Pow(10, _options.CodeLength - 1);
-        var max = (int)Math.Pow(10, _options.CodeLength) - 1;
-        var code = Random.Shared.Next(min, max).ToString();
+        // Throws OtpRateLimitedException (429) during the resend cooldown / after the daily cap.
+        var otp = await otpCodeService.IssueAsync(user.Id, OtpPurpose.PhoneVerification, cancellationToken);
+        await smsService.SendVerificationCodeAsync(user.PhoneNumber, otp.Code);
 
-        var expiresAt = DateTime.UtcNow.AddMinutes(_options.CodeExpirationMinutes);
+        logger.LogInformation("Phone verification code sent to user {UserId}", user.Id);
 
-        user.PhoneVerificationCode = code;
-        user.PhoneVerificationCodeExpiry = expiresAt;
-        user.UpdatedAt = DateTime.UtcNow;
-
-        await userManager.UpdateAsync(user);
-
-        // Send SMS
-        await smsService.SendVerificationCodeAsync(user.PhoneNumber, code);
-
-        logger.LogInformation("Phone verification code sent to user {UserId}", command.UserId);
-
-        return new SendPhoneVerificationResult(
-            localizer["Auth.PhoneVerification.Sent"],
-            expiresAt
-        );
+        return new SendPhoneVerificationResult(localizer["Auth.PhoneVerification.Sent"], otp.ExpiresAt);
     }
 }

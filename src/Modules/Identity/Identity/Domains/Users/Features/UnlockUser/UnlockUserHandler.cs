@@ -1,9 +1,9 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Users.Commands;
 using Identity.Domains.Users.Events;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Identity.Services.Token;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
 
 namespace Identity.Domains.Users.Features.UnlockUser;
 
@@ -14,7 +14,7 @@ public class UnlockUserCommandValidator : AbstractValidator<UnlockUserCommand>
         RuleFor(x => x.UserId)
             .NotEmpty()
             .WithMessage("User ID is required");
-            
+
         RuleFor(x => x.UnlockedByAdminId)
             .NotEmpty()
             .WithMessage("Admin ID is required");
@@ -23,56 +23,38 @@ public class UnlockUserCommandValidator : AbstractValidator<UnlockUserCommand>
 
 public class UnlockUserHandler(
     UserManager<ApplicationUser> userManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
     IPublisher publisher,
-    ITokenBlacklistService tokenBlacklistService,
+    IIdentityAuditWriter audit,
     ILogger<UnlockUserHandler> logger)
     : ICommandHandler<UnlockUserCommand, UnlockUserResult>
 {
-    public async Task<UnlockUserResult> Handle(
-        UnlockUserCommand command,
-        CancellationToken cancellationToken)
+    public async Task<UnlockUserResult> Handle(UnlockUserCommand command, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Unlocking user {UserId} by admin {AdminId}",
-            command.UserId, command.UnlockedByAdminId);
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new UserNotFoundException(command.UserId);
 
-        // Validate user exists
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-        if (user == null)
+        await roleHierarchyGuard.EnsureCanManageAsync(command.UnlockedByAdminId, user, cancellationToken);
+
+        if (!await userManager.IsLockedOutAsync(user))
         {
-            logger.LogWarning("User not found for unlocking: {UserId}", command.UserId);
-            throw new UserNotFoundException(command.UserId);
+            throw new InvalidUserOperationException("User is not currently locked");
         }
 
-        // Check if user is locked
-        var isLocked = await userManager.IsLockedOutAsync(user);
-        if (!isLocked)
-        {
-            logger.LogWarning("User {UserId} is not locked", command.UserId);
-            throw new InvalidUserOperationException(
-                $"User '{user.UserName}' is not currently locked");
-        }
+        var roles = await userManager.GetRolesAsync(user);
+        var before = UserAuditSnapshot.Of(user, roles);
 
-        // Validate admin exists
-        var admin = await userManager.FindByIdAsync(command.UnlockedByAdminId.ToString());
-        if (admin == null)
-        {
-            throw new UserNotFoundException(command.UnlockedByAdminId);
-        }
-
-        // Remove lockout
         await userManager.SetLockoutEndDateAsync(user, null);
         await userManager.ResetAccessFailedCountAsync(user);
-        
-        // Reactivate user
+
+        // Old sessions stay dead (the lock rotated the security stamp); the user simply signs in again.
         user.IsActive = true;
         user.UpdatedAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
 
-        // Remove user-level Redis blacklist so fresh login is possible immediately
-        await tokenBlacklistService.RemoveUserBlacklistAsync(command.UserId);
+        audit.Record(IdentityAuditActions.UserUnlocked, user.Id, reason: command.UnlockReason,
+            before: before, after: UserAuditSnapshot.Of(user, roles), actorId: command.UnlockedByAdminId);
 
-        // Raise domain event
         await publisher.Publish(new UserUnlockedEvent
         {
             UserId = user.Id,
@@ -80,9 +62,7 @@ public class UnlockUserHandler(
             UnlockedBy = command.UnlockedByAdminId
         }, cancellationToken);
 
-        logger.LogInformation(
-            "User {UserId} unlocked successfully by admin {AdminId}",
-            command.UserId, command.UnlockedByAdminId);
+        logger.LogInformation("User {UserId} unlocked by admin {AdminId}", user.Id, command.UnlockedByAdminId);
 
         var message = string.IsNullOrEmpty(command.UnlockReason)
             ? "User account unlocked successfully"

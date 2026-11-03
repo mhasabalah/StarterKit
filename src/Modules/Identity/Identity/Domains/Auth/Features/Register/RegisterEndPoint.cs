@@ -22,8 +22,8 @@ public class RegisterEndPoint : ICarterModule
         .Produces<ApiResponse<RegisterResult>>()
         .WithSummary("Register new user")
         .WithDescription("Register a new user with email and password")
-        .WithOpenApi()
         .AllowAnonymous()
+        .RequireRateLimiting("auth")
         .HasApiVersion(1.0);
     }
 }

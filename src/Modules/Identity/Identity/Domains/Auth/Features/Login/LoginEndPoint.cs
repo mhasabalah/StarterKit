@@ -22,9 +22,8 @@ public class LoginEndPoint : ICarterModule
         .Produces<ApiResponse<LoginResult>>()
         .WithSummary("Login user")
         .WithDescription("Authenticate user with email and password, returns JWT token")
-        .WithOpenApi()
         .AllowAnonymous()
-        .RequireRateLimiting("search")
+        .RequireRateLimiting("auth")
         .HasApiVersion(1.0);
     }
 }

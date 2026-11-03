@@ -1,99 +1,99 @@
 using Identity.Contracts.Auth.Commands;
-using Identity.Services.Token;
-using Microsoft.AspNetCore.Authentication;
+using Identity.Services.Sessions;
+using Identity.Services.TwoFactor;
+using Shared.Core.Web;
 
 namespace Identity.Domains.Auth.Features.ExternalLogin;
 
-public class ExternalLoginHandler(
-    SignInManager<ApplicationUser> signInManager,
-    ILogger<ExternalLoginHandler> logger) 
+public class ExternalLoginHandler(ILogger<ExternalLoginHandler> logger)
     : ICommandHandler<ExternalLoginCommand, ExternalLoginResult>
 {
     public Task<ExternalLoginResult> Handle(ExternalLoginCommand command, CancellationToken cancellationToken)
     {
-        var redirectUrl = $"/api/identity/auth/external-callback?returnUrl={command.ReturnUrl}";
-        var properties = signInManager.ConfigureExternalAuthenticationProperties(command.Provider, redirectUrl);
-        
         logger.LogInformation("Initiating external login with {Provider}", command.Provider);
-        
-        // Return challenge URL that frontend should redirect to
+
+        // The frontend redirects the browser to this challenge URL.
         return Task.FromResult(new ExternalLoginResult(
-            $"/api/identity/auth/challenge/{command.Provider}?returnUrl={command.ReturnUrl}"
-        ));
+            $"/api/identity/auth/challenge/{Uri.EscapeDataString(command.Provider)}" +
+            $"?returnUrl={Uri.EscapeDataString(command.ReturnUrl)}"));
     }
 }
 
 public class ExternalLoginCallbackHandler(
     SignInManager<ApplicationUser> signInManager,
     UserManager<ApplicationUser> userManager,
-    IJwtTokenGenerator tokenGenerator,
-    ILogger<ExternalLoginCallbackHandler> logger) 
+    IAuthSessionService sessionService,
+    ITwoFactorChallengeService challengeService,
+    IHttpContextService httpContextService,
+    ILogger<ExternalLoginCallbackHandler> logger)
     : ICommandHandler<ExternalLoginCallbackCommand, ExternalLoginCallbackResult>
 {
     public async Task<ExternalLoginCallbackResult> Handle(
-        ExternalLoginCallbackCommand command, 
+        ExternalLoginCallbackCommand command,
         CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(command.RemoteError))
         {
             logger.LogError("Error from external provider: {Error}", command.RemoteError);
-            throw new BadRequestException($"Error from external provider: {command.RemoteError}");
+            throw new BadRequestException("Error from external provider.");
         }
 
-        var info = await signInManager.GetExternalLoginInfoAsync();
-        if (info == null)
-        {
-            logger.LogError("Failed to load external login information");
-            throw new BadRequestException("Failed to load external login information");
-        }
+        var info = await signInManager.GetExternalLoginInfoAsync()
+                   ?? throw new BadRequestException("Failed to load external login information");
 
-        // Sign in the user with this external login provider if the user already has a login
+        // Never bypass 2FA: an external provider is only the FIRST factor.
         var result = await signInManager.ExternalLoginSignInAsync(
-            info.LoginProvider, 
-            info.ProviderKey, 
-            isPersistent: false, 
-            bypassTwoFactor: true);
+            info.LoginProvider,
+            info.ProviderKey,
+            isPersistent: false,
+            bypassTwoFactor: false);
 
-        if (result.Succeeded)
+        if (result.Succeeded || result.RequiresTwoFactor)
         {
-            var user = await userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
-            if (user == null)
+            var user = await userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey)
+                       ?? throw new NotFoundException("User", info.ProviderKey);
+
+            if (!user.IsActive)
             {
-                throw new NotFoundException("User", info.ProviderKey);
+                throw new UnauthorizedException("Account is disabled.");
             }
 
-            // Check if phone verified
+            // Also covers a "remembered" 2FA client cookie making SignInManager report Succeeded: tokens are only
+            // ever issued after our own second-factor step.
+            if (result.RequiresTwoFactor || await userManager.GetTwoFactorEnabledAsync(user))
+            {
+                var challenge = challengeService.Create(user);
+                logger.LogInformation("User {UserId} passed {Provider}; two-factor challenge issued",
+                    user.Id, info.LoginProvider);
+
+                return new ExternalLoginCallbackResult(
+                    user.Id, false, false, null, null, null, "Two-factor authentication required")
+                {
+                    RequiresTwoFactor = true,
+                    TwoFactorChallengeToken = challenge.Token,
+                    TwoFactorChallengeExpiresAt = challenge.ExpiresAt
+                };
+            }
+
             if (!user.IsPhoneNumberVerified)
             {
                 return new ExternalLoginCallbackResult(
-                    user.Id,
-                    false,
-                    true,
-                    null,
-                    null,
-                    null,
-                    "Please verify your phone number to complete registration"
-                );
+                    user.Id, false, true, null, null, null,
+                    "Please verify your phone number to complete registration");
             }
 
-            // Generate JWT tokens
-            var accessToken = await tokenGenerator.GenerateTokenAsync(user);
-            var refreshToken = tokenGenerator.GenerateRefreshToken();
-            
+            // Persisted, rotating refresh token (the old code returned an unsaved one that could never refresh).
+            var session = await sessionService.IssueAsync(user, httpContextService.GetIpAddress(), cancellationToken);
+
             user.LastLoginAt = DateTime.UtcNow;
             await userManager.UpdateAsync(user);
 
-            logger.LogInformation("User {Email} logged in with {Provider}", user.Email, info.LoginProvider);
+            logger.LogInformation("User {UserId} logged in with {Provider}", user.Id, info.LoginProvider);
 
             return new ExternalLoginCallbackResult(
-                user.Id,
-                false,
-                false,
-                accessToken,
-                refreshToken,
-                DateTime.UtcNow.AddHours(1),
-                "Login successful"
-            );
+                user.Id, false, false,
+                session.AccessToken, session.RefreshToken, session.AccessTokenExpiresAt,
+                "Login successful");
         }
 
         if (result.IsLockedOut)
@@ -101,7 +101,6 @@ public class ExternalLoginCallbackHandler(
             throw new BadRequestException("User account is locked out");
         }
 
-        // If the user does not have an account, then create one
         var email = info.Principal.FindFirstValue(ClaimTypes.Email);
         if (string.IsNullOrEmpty(email))
         {
@@ -113,18 +112,17 @@ public class ExternalLoginCallbackHandler(
 
         if (existingUser != null)
         {
-            // User exists but doesn't have this external login linked
             var addLoginResult = await userManager.AddLoginAsync(existingUser, info);
             if (!addLoginResult.Succeeded)
             {
                 var errors = string.Join(", ", addLoginResult.Errors.Select(e => e.Description));
                 throw new BadRequestException($"Failed to link external login: {errors}");
             }
+
             newUser = existingUser;
         }
         else
         {
-            // Create new user
             newUser = new ApplicationUser
             {
                 Id = Guid.NewGuid(),
@@ -154,9 +152,9 @@ public class ExternalLoginCallbackHandler(
                 throw new BadRequestException($"Failed to add external login: {errors}");
             }
 
-            await userManager.AddToRoleAsync(newUser, "User");
+            await userManager.AddToRoleAsync(newUser, RoleConstants.User);
 
-            logger.LogInformation("New user {Email} created via {Provider}", email, info.LoginProvider);
+            logger.LogInformation("New user {UserId} created via {Provider}", newUser.Id, info.LoginProvider);
         }
 
         await signInManager.SignInAsync(newUser, isPersistent: false, info.LoginProvider);
@@ -168,7 +166,6 @@ public class ExternalLoginCallbackHandler(
             null,
             null,
             null,
-            "Registration successful. Please verify your phone number"
-        );
+            "Registration successful. Please verify your phone number");
     }
 }

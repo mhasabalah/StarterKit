@@ -1,12 +1,10 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Users.Commands;
-using Identity.Data;
 using Identity.Domains.Users.Events;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Identity.Options;
-using Identity.Services.Token;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 
 namespace Identity.Domains.Users.Features.LockUser;
 
@@ -17,17 +15,17 @@ public class LockUserCommandValidator : AbstractValidator<LockUserCommand>
         RuleFor(x => x.UserId)
             .NotEmpty()
             .WithMessage("User ID is required");
-            
+
         RuleFor(x => x.Reason)
             .NotEmpty()
             .MinimumLength(10)
             .MaximumLength(500)
             .WithMessage("Reason must be between 10 and 500 characters");
-            
+
         RuleFor(x => x.LockedByAdminId)
             .NotEmpty()
             .WithMessage("Admin ID is required");
-            
+
         When(x => x.Duration == LockDuration.Custom, () =>
         {
             RuleFor(x => x.CustomDurationHours)
@@ -40,77 +38,40 @@ public class LockUserCommandValidator : AbstractValidator<LockUserCommand>
 
 public class LockUserHandler(
     UserManager<ApplicationUser> userManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    ISessionRevoker sessionRevoker,
     IPublisher publisher,
-    ApplicationIdentityDbContext dbContext,
-    ITokenBlacklistService tokenBlacklistService,
-    IOptions<JwtOptions> jwtOptions,
+    IIdentityAuditWriter audit,
     ILogger<LockUserHandler> logger)
     : ICommandHandler<LockUserCommand, LockUserResult>
 {
-    public async Task<LockUserResult> Handle(
-        LockUserCommand command,
-        CancellationToken cancellationToken)
+    public async Task<LockUserResult> Handle(LockUserCommand command, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Locking user {UserId} with duration {Duration} by admin {AdminId}",
-            command.UserId, command.Duration, command.LockedByAdminId);
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new UserNotFoundException(command.UserId);
 
-        // Validate user exists
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-        if (user == null)
-        {
-            logger.LogWarning("User not found for locking: {UserId}", command.UserId);
-            throw new UserNotFoundException(command.UserId);
-        }
+        await roleHierarchyGuard.EnsureCanManageAsync(command.LockedByAdminId, user, cancellationToken);
 
-        // Check if already locked
-        var isCurrentlyLocked = await userManager.IsLockedOutAsync(user);
-        if (isCurrentlyLocked)
+        if (await userManager.IsLockedOutAsync(user))
         {
-            logger.LogWarning(
-                "User {UserId} is already locked until {LockoutEnd}",
-                command.UserId, user.LockoutEnd);
             throw new UserAlreadyLockedException(command.UserId);
         }
 
-        // Validate admin exists
-        var admin = await userManager.FindByIdAsync(command.LockedByAdminId.ToString());
-        if (admin == null)
-        {
-            throw new UserNotFoundException(command.LockedByAdminId);
-        }
-
-        // Calculate lockout end time
+        var roles = await userManager.GetRolesAsync(user);
+        var before = UserAuditSnapshot.Of(user, roles);
         var lockoutEnd = CalculateLockoutEnd(command.Duration, command.CustomDurationHours);
 
-        // Enable lockout
         await userManager.SetLockoutEnabledAsync(user, true);
         await userManager.SetLockoutEndDateAsync(user, lockoutEnd);
-        
-        // Deactivate user
         user.IsActive = false;
         user.UpdatedAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
 
-        // Revoke all active refresh tokens
-        var activeTokens = await dbContext.RefreshTokens
-            .Where(t => t.UserId == command.UserId && t.RevokedAt == null && t.ExpiresAt > DateTime.UtcNow)
-            .ToListAsync(cancellationToken);
+        await sessionRevoker.RevokeAllAsync(user.Id, "Account locked by admin", cancellationToken);
 
-        foreach (var token in activeTokens)
-        {
-            token.RevokedAt = DateTime.UtcNow;
-            token.RevokedReason = "Account locked by admin";
-        }
+        audit.Record(IdentityAuditActions.UserLocked, user.Id, reason: command.Reason,
+            before: before, after: UserAuditSnapshot.Of(user, roles), actorId: command.LockedByAdminId);
 
-        if (activeTokens.Count > 0)
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-        // Blacklist user in Redis for the access token lifetime
-        var blacklistDuration = TimeSpan.FromMinutes(jwtOptions.Value.AccessTokenExpirationMinutes + 1);
-        await tokenBlacklistService.BlacklistUserAsync(command.UserId, blacklistDuration);
-
-        // Raise domain event
         await publisher.Publish(new UserLockedEvent
         {
             UserId = user.Id,
@@ -120,8 +81,7 @@ public class LockUserHandler(
         }, cancellationToken);
 
         logger.LogInformation(
-            "User {UserId} locked successfully until {LockoutEnd} by admin {AdminId}",
-            command.UserId, lockoutEnd, command.LockedByAdminId);
+            "User {UserId} locked until {LockoutEnd} by admin {AdminId}", user.Id, lockoutEnd, command.LockedByAdminId);
 
         var message = lockoutEnd == DateTimeOffset.MaxValue
             ? $"User account locked permanently. Reason: {command.Reason}"
@@ -130,19 +90,14 @@ public class LockUserHandler(
         return new LockUserResult(true, message, lockoutEnd);
     }
 
-    private static DateTimeOffset CalculateLockoutEnd(
-        LockDuration duration,
-        int? customHours)
+    private static DateTimeOffset CalculateLockoutEnd(LockDuration duration, int? customHours) => duration switch
     {
-        return duration switch
-        {
-            LockDuration.OneHour => DateTimeOffset.UtcNow.AddHours(1),
-            LockDuration.OneDay => DateTimeOffset.UtcNow.AddDays(1),
-            LockDuration.OneWeek => DateTimeOffset.UtcNow.AddDays(7),
-            LockDuration.OneMonth => DateTimeOffset.UtcNow.AddMonths(1),
-            LockDuration.Permanent => DateTimeOffset.MaxValue,
-            LockDuration.Custom => DateTimeOffset.UtcNow.AddHours(customHours!.Value),
-            _ => DateTimeOffset.MaxValue
-        };
-    }
+        LockDuration.OneHour => DateTimeOffset.UtcNow.AddHours(1),
+        LockDuration.OneDay => DateTimeOffset.UtcNow.AddDays(1),
+        LockDuration.OneWeek => DateTimeOffset.UtcNow.AddDays(7),
+        LockDuration.OneMonth => DateTimeOffset.UtcNow.AddMonths(1),
+        LockDuration.Permanent => DateTimeOffset.MaxValue,
+        LockDuration.Custom => DateTimeOffset.UtcNow.AddHours(customHours!.Value),
+        _ => DateTimeOffset.MaxValue
+    };
 }

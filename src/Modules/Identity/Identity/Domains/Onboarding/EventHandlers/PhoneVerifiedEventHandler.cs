@@ -1,8 +1,8 @@
 using Identity.Contracts.Onboarding.Events;
-using Shared.Email.Contracts;
-using Shared.Email.Models;
-using Shared.Notification.Contracts;
-using Shared.Notification.Enums;
+using Notification.Contracts.Email;
+using Notification.Contracts.Enums;
+using Notification.Contracts.Email.Models;
+using Notification.Contracts;
 
 namespace Identity.Domains.Onboarding.EventHandlers;
 

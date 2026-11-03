@@ -1,51 +1,20 @@
-using Identity.Data;
+using Identity.Data.Repository.RefreshTokens;
 
 namespace Identity.Infrastructure.BackgroundJobs;
 
 /// <summary>
-/// Background job to clean up expired refresh tokens from database
-/// Runs daily via Hangfire
+/// Daily Hangfire job: deletes expired refresh tokens in batches (set-based DELETE, nothing loaded into memory).
+/// Revoked-but-unexpired tokens are kept on purpose: they are needed for refresh-token reuse detection.
 /// </summary>
 public class RefreshTokenCleanupJob(
-    ApplicationIdentityDbContext dbContext,
+    IRefreshTokenRepository refreshTokens,
     ILogger<RefreshTokenCleanupJob> logger)
 {
-    /// <summary>
-    /// Remove expired refresh tokens from database
-    /// </summary>
+    public const int BatchSize = 1000;
+
     public async Task ExecuteAsync()
     {
-        logger.LogInformation("Starting refresh token cleanup job");
-
-        try
-        {
-            var cutoffDate = DateTime.UtcNow;
-
-            // Find all expired tokens
-            var expiredTokens = await dbContext.RefreshTokens
-                .Where(rt => rt.ExpiresAt < cutoffDate)
-                .ToListAsync();
-
-            if (expiredTokens.Any())
-            {
-                dbContext.RefreshTokens.RemoveRange(expiredTokens);
-                await dbContext.SaveChangesAsync();
-
-                logger.LogInformation(
-                    "Cleaned up {Count} expired refresh tokens",
-                    expiredTokens.Count);
-            }
-            else
-            {
-                logger.LogInformation("No expired refresh tokens to clean up");
-            }
-
-            logger.LogInformation("Refresh token cleanup job completed successfully");
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error during refresh token cleanup");
-            throw;
-        }
+        var deleted = await refreshTokens.DeleteExpiredAsync(DateTime.UtcNow, BatchSize);
+        logger.LogInformation("Refresh token cleanup deleted {Count} expired tokens", deleted);
     }
 }

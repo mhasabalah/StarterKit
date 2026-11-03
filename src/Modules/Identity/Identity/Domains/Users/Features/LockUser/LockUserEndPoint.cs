@@ -34,7 +34,7 @@ public class LockUserEndPoint : ICarterModule
                 var response = ApiResponse.Success(result, result.Message);
                 return Results.Ok(response);
             })
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .RequirePermission(Permissions.UsersManage)
             .WithName("LockUser")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("User Management")
@@ -46,7 +46,6 @@ public class LockUserEndPoint : ICarterModule
             .Produces<ApiResponse>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-            .WithOpenApi()
             .HasApiVersion(1.0);
     }
 }

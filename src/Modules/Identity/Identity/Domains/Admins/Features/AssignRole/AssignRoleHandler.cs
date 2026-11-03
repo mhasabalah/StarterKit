@@ -1,10 +1,11 @@
+using Identity.Domains.Audit.Models;
+using Identity.Domains.Audit.Services;
 using Identity.Contracts.Admins.Commands;
 using Identity.Domains.Admins.Events;
 using Identity.Domains.Admins.Exceptions;
-using Identity.Domains.Roles.Constants;
 using Identity.Domains.Users.Exceptions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
+using Identity.Domains.Users.Services;
+using Identity.Services.Sessions;
 
 namespace Identity.Domains.Admins.Features.AssignRole;
 
@@ -15,12 +16,12 @@ public class AssignRoleCommandValidator : AbstractValidator<AssignRoleCommand>
         RuleFor(x => x.UserId)
             .NotEmpty()
             .WithMessage("User ID is required");
-            
+
         RuleFor(x => x.RoleName)
             .NotEmpty()
             .Must(role => RoleConstants.GetAllRoles().Contains(role))
             .WithMessage("Invalid role name");
-            
+
         RuleFor(x => x.AssignedByAdminId)
             .NotEmpty()
             .WithMessage("Admin ID is required");
@@ -30,76 +31,57 @@ public class AssignRoleCommandValidator : AbstractValidator<AssignRoleCommand>
 public class AssignRoleHandler(
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
+    IRoleHierarchyGuard roleHierarchyGuard,
+    ISessionRevoker sessionRevoker,
     IPublisher publisher,
+    IIdentityAuditWriter audit,
     ILogger<AssignRoleHandler> logger)
     : ICommandHandler<AssignRoleCommand, AssignRoleResult>
 {
-    public async Task<AssignRoleResult> Handle(
-        AssignRoleCommand command,
-        CancellationToken cancellationToken)
+    public async Task<AssignRoleResult> Handle(AssignRoleCommand command, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Assigning role {Role} to user {UserId} by admin {AdminId}",
-            command.RoleName, command.UserId, command.AssignedByAdminId);
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new UserNotFoundException(command.UserId);
 
-        // Validate user exists
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-        if (user == null)
+        await roleHierarchyGuard.EnsureCanManageAsync(command.AssignedByAdminId, user, cancellationToken);
+
+        // Granting a staff role (Admin, SuperAdmin, Finance, Support) is a SuperAdmin-only operation.
+        if (RoleConstants.IsStaffRole(command.RoleName))
         {
-            logger.LogWarning("User not found: {UserId}", command.UserId);
-            throw new UserNotFoundException(command.UserId);
+            await roleHierarchyGuard.EnsureIsSuperAdminAsync(command.AssignedByAdminId, cancellationToken);
         }
 
-        // Validate admin exists and has permission
-        var admin = await userManager.FindByIdAsync(command.AssignedByAdminId.ToString());
-        if (admin == null)
-        {
-            throw new UserNotFoundException(command.AssignedByAdminId);
-        }
-
-        var adminRoles = await userManager.GetRolesAsync(admin);
-        
-        // Only SuperAdmin can assign Admin or SuperAdmin roles
-        if ((command.RoleName == RoleConstants.Admin || command.RoleName == RoleConstants.SuperAdmin) 
-            && !adminRoles.Contains(RoleConstants.SuperAdmin))
-        {
-            throw new InvalidRoleOperationException(
-                "Only SuperAdmin can assign Admin or SuperAdmin roles");
-        }
-
-        // Validate role exists
         if (!await roleManager.RoleExistsAsync(command.RoleName))
         {
-            logger.LogWarning("Role not found: {RoleName}", command.RoleName);
             throw new RoleNotFoundException(command.RoleName);
         }
 
-        // Check if user already has this role
         if (await userManager.IsInRoleAsync(user, command.RoleName))
         {
-            logger.LogWarning(
-                "User {UserId} already has role {RoleName}",
-                command.UserId, command.RoleName);
-            throw new InvalidRoleOperationException(
-                $"User already has the '{command.RoleName}' role");
+            throw new InvalidRoleOperationException($"User already has the '{command.RoleName}' role");
         }
 
-        // Assign role
+        var before = UserAuditSnapshot.Of(user, await userManager.GetRolesAsync(user));
+
         var result = await userManager.AddToRoleAsync(user, command.RoleName);
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            logger.LogError(
-                "Failed to assign role {Role} to user {UserId}: {Errors}",
-                command.RoleName, command.UserId, errors);
+            logger.LogError("Failed to assign role {Role} to user {UserId}: {Errors}", command.RoleName, user.Id, errors);
             return new AssignRoleResult(false, $"Failed to assign role: {errors}", command.RoleName);
         }
 
-        // Update user timestamp
         user.UpdatedAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
 
-        // Raise domain event
+        // Live tokens carry the old role set: end every session (rotates the security stamp) so the grant takes
+        // effect now and the new, possibly MFA-gated, privileges start from a fresh login.
+        await sessionRevoker.RevokeAllAsync(user.Id, $"Role '{command.RoleName}' assigned", cancellationToken);
+
+        audit.Record(IdentityAuditActions.RoleAssigned, user.Id, reason: command.Reason,
+            before: before, after: UserAuditSnapshot.Of(user, await userManager.GetRolesAsync(user)),
+            actorId: command.AssignedByAdminId);
+
         await publisher.Publish(new RoleAssignedEvent
         {
             UserId = user.Id,
@@ -109,8 +91,7 @@ public class AssignRoleHandler(
         }, cancellationToken);
 
         logger.LogInformation(
-            "Role {Role} assigned successfully to user {UserId}",
-            command.RoleName, command.UserId);
+            "Role {Role} assigned to user {UserId} by {AdminId}", command.RoleName, user.Id, command.AssignedByAdminId);
 
         var message = string.IsNullOrEmpty(command.Reason)
             ? $"Role '{command.RoleName}' assigned successfully"

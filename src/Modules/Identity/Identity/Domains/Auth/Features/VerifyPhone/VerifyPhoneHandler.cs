@@ -1,6 +1,6 @@
 using Identity.Contracts.Auth.Commands;
 using Identity.Resources;
-using Identity.Services.Token;
+using Identity.Services.Otp;
 using Microsoft.Extensions.Localization;
 
 namespace Identity.Domains.Auth.Features.VerifyPhone;
@@ -14,70 +14,52 @@ public class VerifyPhoneCommandValidator : AbstractValidator<VerifyPhoneCommand>
 
         RuleFor(x => x.VerificationCode)
             .NotEmpty().WithMessage(_ => localizer["Validation.Code.Required"])
-            .Length(6).WithMessage(_ => localizer["Validation.Code.Length"]);
+            .Matches(@"^\d{4,9}$").WithMessage(_ => localizer["Validation.Code.Length"]);
     }
 }
 
+/// <summary>
+/// Marks the signed-in user's phone as verified. Deliberately does NOT issue tokens: signing in after a phone
+/// code is only part of the onboarding flow (/api/identity/onboarding/verify-phone).
+/// </summary>
 public class VerifyPhoneHandler(
     UserManager<ApplicationUser> userManager,
-    IJwtTokenGenerator tokenGenerator,
+    IOtpCodeService otpCodeService,
     IStringLocalizer<IdentityResource> localizer,
     ILogger<VerifyPhoneHandler> logger)
     : ICommandHandler<VerifyPhoneCommand, VerifyPhoneResult>
 {
-    public async Task<VerifyPhoneResult> Handle(
-        VerifyPhoneCommand command,
-        CancellationToken cancellationToken)
+    public async Task<VerifyPhoneResult> Handle(VerifyPhoneCommand command, CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByIdAsync(command.UserId.ToString());
-
-        if (user == null)
-        {
-            throw new NotFoundException("User", command.UserId);
-        }
+        var user = await userManager.FindByIdAsync(command.UserId.ToString())
+                   ?? throw new NotFoundException("User", command.UserId);
 
         if (user.IsPhoneNumberVerified)
         {
             throw new BadRequestException(localizer["Auth.PhoneVerification.AlreadyVerified"]);
         }
 
-        if (string.IsNullOrEmpty(user.PhoneVerificationCode))
+        var result = await otpCodeService.VerifyAsync(
+            user.Id, OtpPurpose.PhoneVerification, command.VerificationCode, cancellationToken);
+
+        if (!result.Succeeded)
         {
-            throw new BadRequestException(localizer["Auth.PhoneVerification.NoCode"]);
+            throw new BadRequestException(result.Status switch
+            {
+                OtpVerificationStatus.NotFound => localizer["Auth.PhoneVerification.NoCode"],
+                OtpVerificationStatus.Expired => localizer["Auth.PhoneVerification.Expired"],
+                OtpVerificationStatus.Locked => "Too many incorrect attempts. Please request a new code.",
+                _ => localizer["Auth.PhoneVerification.InvalidCode"]
+            });
         }
 
-        if (user.PhoneVerificationCodeExpiry < DateTime.UtcNow)
-        {
-            throw new BadRequestException(localizer["Auth.PhoneVerification.Expired"]);
-        }
-
-        if (user.PhoneVerificationCode != command.VerificationCode)
-        {
-            throw new BadRequestException(localizer["Auth.PhoneVerification.InvalidCode"]);
-        }
-
-        // Mark phone as verified
         user.IsPhoneNumberVerified = true;
-        user.PhoneVerificationCode = null;
-        user.PhoneVerificationCodeExpiry = null;
         user.UpdatedAt = DateTime.UtcNow;
-
-        // Update profile completion status
         user.UpdateProfileCompletion();
-
         await userManager.UpdateAsync(user);
 
-        // Generate tokens
-        var accessToken = await tokenGenerator.GenerateTokenAsync(user);
-        var refreshToken = tokenGenerator.GenerateRefreshToken();
+        logger.LogInformation("User {UserId} phone verified", user.Id);
 
-        logger.LogInformation("User {UserId} phone verified successfully", command.UserId);
-
-        return new VerifyPhoneResult(
-            accessToken,
-            refreshToken,
-            DateTime.UtcNow.AddHours(1),
-            localizer["Auth.PhoneVerification.Success"]
-        );
+        return new VerifyPhoneResult(localizer["Auth.PhoneVerification.Success"], user.IsProfileComplete);
     }
 }

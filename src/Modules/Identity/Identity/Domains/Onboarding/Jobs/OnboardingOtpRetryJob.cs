@@ -2,8 +2,7 @@ using Hangfire;
 using Identity.Data.Repository.Onboarding;
 using Identity.Options;
 using Microsoft.Extensions.Options;
-using Shared.Notification.Contracts;
-using Shared.Notification.Enums;
+using Identity.Services.Otp;
 
 namespace Identity.Domains.Onboarding.Jobs;
 
@@ -18,9 +17,10 @@ namespace Identity.Domains.Onboarding.Jobs;
 [Queue("default")]
 public class OnboardingOtpRetryJob(
     IOnboardingProcessRepository repository,
-    IVerificationService verificationService,
+    IOtpSender otpSender,
     IBackgroundJobClient backgroundJobClient,
     IOptions<OnboardingOptions> options,
+    IDomainEventDispatcher domainEvents,
     ILogger<OnboardingOtpRetryJob> logger)
 {
     private readonly OnboardingOptions _options = options.Value;
@@ -38,9 +38,9 @@ public class OnboardingOtpRetryJob(
             return;
         }
 
-        var sendResult = await verificationService.SendCodeAsync(
+        var sendResult = await otpSender.SendAsync(
             userId,
-            VerificationPurpose.PhoneVerification,
+            OtpPurpose.OnboardingPhoneVerification,
             NotificationCulture.En,
             ct);
 
@@ -60,6 +60,9 @@ public class OnboardingOtpRetryJob(
 
         process.MarkOtpSent(jobId);
         await repository.SaveChangesAsync(ct);
+
+        // Hangfire job = outside MediatR: publish the events of the committed save ourselves.
+        await domainEvents.DispatchPendingAsync(ct);
 
         logger.LogInformation(
             "OTP retry succeeded for user {UserId}. Timeout job scheduled: {JobId}",
