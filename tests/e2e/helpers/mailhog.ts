@@ -1,4 +1,4 @@
-const MAILHOG_URL = process.env.MAILHOG_URL ?? 'http://localhost:8026';
+const MAILHOG_URL = process.env.MAILHOG_URL ?? 'http://localhost:8025';
 
 /** Decode quoted-printable soft line breaks and hex escapes. */
 function decodeQuotedPrintable(input: string): string {
