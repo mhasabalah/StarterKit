@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="FluentAssertions" />
+        <PackageReference Include="Moq" />
+        <PackageReference Include="Testcontainers.PostgreSql" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Notification\Notification.csproj" />
+        <ProjectReference Include="..\Notification.Contracts\Notification.Contracts.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The shipped configuration: NotificationModuleRegistrationTests prove it passes the module's validation. -->
+        <None Include="..\..\..\Api\appsettings.json" Link="Api.appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit" />
+        <Using Include="FluentAssertions" />
+        <Using Include="Notification" />
+        <Using Include="Notification.Channels" />
+        <Using Include="Notification.Channels.Email" />
+        <Using Include="Notification.Channels.WhatsApp" />
+        <Using Include="Notification.Contracts" />
+        <Using Include="Notification.Contracts.Email" />
+        <Using Include="Notification.Contracts.Email.Models" />
+        <Using Include="Notification.Contracts.Enums" />
+        <Using Include="Notification.Dispatch" />
+        <Using Include="Notification.Options" />
+        <Using Include="Notification.Persistence" />
+        <Using Include="Notification.Persistence.Entities" />
+        <Using Include="Notification.Verification" />
+        <Using Include="Notification.Tests.Fakes" />
+        <Using Include="Notification.Features.Preferences" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,28 @@
+{% comment %}Variables: FirstName, ConfirmUrl, ExpiresInHours{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تأكيد البريد الإلكتروني{% else %}Confirm your email address{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ FirstName }}</strong>، يرجى تأكيد بريدك الإلكتروني لحسابك في {{ brandName }} بالنقر على الزر أدناه.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ FirstName }}</strong>, please confirm the email address of your {{ brandName }} account by clicking the button below.
+  {% endif %}
+</p>
+
+{% assign button_url = ConfirmUrl %}
+{% assign button_variant = 'primary' %}
+{% if culture == 'ar' %}{% assign button_text = 'تأكيد البريد الإلكتروني' %}{% else %}{% assign button_text = 'Confirm Email' %}{% endif %}
+{% include 'Components/Button' %}
+
+{% assign alert_type = 'info' %}
+{% if culture == 'ar' %}
+  {% assign alert_text_ar = 'ينتهي هذا الرابط خلال ' | append: ExpiresInHours | append: ' ساعة. إذا لم تنشئ حساباً فتجاهل هذه الرسالة.' %}
+  {% assign alert_text_en = alert_text_ar %}
+{% else %}
+  {% assign alert_text_en = 'This link expires in ' | append: ExpiresInHours | append: ' hours. If you did not create an account, you can safely ignore this email.' %}
+  {% assign alert_text_ar = alert_text_en %}
+{% endif %}
+{% include 'Components/Alert' %}
