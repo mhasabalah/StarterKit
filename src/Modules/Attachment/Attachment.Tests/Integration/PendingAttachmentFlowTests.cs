@@ -35,7 +35,7 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         new(new PendingAttachmentRepository(context),
             Storage(),
             new FileValidationService(TestOptions.Wrap(_options), new NoOpMalwareScanner(),
-                new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(TestOptions.Wrap(_options), NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
+                new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(TestOptions.Wrap(_options), NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Sessions(caller),
             new Mock<IBackgroundJobClient>().Object,
             TestOptions.Wrap(_options),
@@ -190,7 +190,7 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         var handler = new UploadAttachmentHandler(
             new AttachmentRepository(ctx), Storage(),
             new FileValidationService(options, new NoOpMalwareScanner(),
-                new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
+                new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Access(caller), new AttachmentUrls(options), new Mock<IAttachmentBackgroundJobs>().Object,
             options, TimeProvider.System, TenantContext.SingleTenant, NullLogger<UploadAttachmentHandler>.Instance);
 

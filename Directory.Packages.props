@@ -5,7 +5,7 @@
     - Pinned to the last OSS (free) major on purpose — newer majors are commercially licensed:
         MassTransit 8.x (9+ commercial), FluentAssertions 7.x (8+ commercial). MediatR was removed (owned mediator port,
         wiki/Decisions/0007-owned-mediator-port.md). Licenses of everything: wiki/Reference/Third-Party-Licenses.md.
-      Mapster 7.x kept (10.x has breaking API; upgrade separately). ImageSharp 3.x kept (4.x breaking).
+      Mapster 7.x kept (10.x has breaking API; upgrade separately).
     - Roslyn (Microsoft.CodeAnalysis.*) pinned to 5.0.0 = the exact version EF Core 10 Design (Workspaces.MSBuild 5.0.0) requires.
     - OpenTelemetry Process/GrpcNetClient/Prometheus have no stable release yet → latest pre-release.
   -->
@@ -107,7 +107,9 @@
     <PackageVersion Include="AWSSDK.S3" Version="4.0.104.8" />
     <PackageVersion Include="AWSSDK.Core" Version="4.0.102.16" />
     <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.102.7" />
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.2.0" />
+    <!-- Image processing (Attachment thumbnails / validation): MIT, no license key. -->
+    <PackageVersion Include="SkiaSharp" Version="4.153.2" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.2" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup Label="Background Jobs">

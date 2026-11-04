@@ -83,4 +83,5 @@ Thumbnails are generated in the background after the upload; read the attachment
 - [Configuration.md](Configuration.md) - option reference (see Security.md section 8 for new keys)
 - [Uploads.md](Uploads.md) - direct uploads and the pending (session) upload flow for frontends (Security.md wins on conflicts)
 - [Storage-Providers.md](Storage-Providers.md) - Local / Azure Blob / S3: choosing, configuring, operating
+- [Image-Processing.md](Image-Processing.md) - thumbnails and image validation behind `IImageProcessingService` (SkiaSharp); switching libraries
 - [appsettings.Attachment.example.json](appsettings.Attachment.example.json) - complete example configuration section

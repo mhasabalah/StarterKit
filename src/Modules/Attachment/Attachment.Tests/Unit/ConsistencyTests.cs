@@ -33,7 +33,7 @@ public sealed class ConsistencyTests : IDisposable
         return new UploadAttachmentHandler(
             repo, storage ?? TestServices.LocalStorage(_dir.Path),
             new FileValidationService(options, new NoOpMalwareScanner(),
-                new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
+                new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Access(caller),
             new AttachmentUrls(options),
             _jobs.Object,

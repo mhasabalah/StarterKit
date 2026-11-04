@@ -21,7 +21,9 @@
         <PackageReference Include="AWSSDK.S3" />
         <PackageReference Include="AWSSDK.Core" />
         <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" />
-        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="SkiaSharp" />
+        <!-- Linux (Docker/CI) native library without fontconfig/freetype system dependencies. -->
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
         <PackageReference Include="Hangfire.AspNetCore" />
         <PackageReference Include="Hangfire.PostgreSql" />

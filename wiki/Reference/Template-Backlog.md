@@ -231,7 +231,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
      Re-decide (buy v9, or move to Wolverine/Rebus) when 8.x stops getting security fixes.
    - **FluentAssertions 7.2: kept** (Apache-2.0, test-only). The exit is `AwesomeAssertions`.
    - **QuestPDF:** the license is now configuration (`Subscriptions:Pdf:License`), no longer hard-coded `Community`.
-2b. **SixLabors.ImageSharp 3.2** (Six Labors Split License) validates a license key in **Release** builds (Debug only
+2b. ✅ **Resolved 2026-11-04: replaced by SkiaSharp (MIT)**, no key and no secret ([Image processing](../Attachment/Image-Processing.md)). History: **SixLabors.ImageSharp 3.2** (Six Labors Split License) validates a license key in **Release** builds (Debug only
    warns), so `docker build` and the CI Release build fail without one.
    - 3.1.12, the last version that doesn't check a key, has several high-severity advisories. It's not an option for a module that parses user uploads.
    - The Dockerfile reads the key from the BuildKit secret `sixlabors_license`, and CI from the repo secret `SIXLABORS_LICENSE_KEY`.

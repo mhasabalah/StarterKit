@@ -51,7 +51,7 @@ public static class AttachmentModule
         // Validation / processing / URLs.
         services.TryAddSingleton<IMalwareScanner, NoOpMalwareScanner>();
         services.AddHostedService<MalwareScannerStartupCheck>();
-        services.AddScoped<IImageProcessingService, ImageProcessingService>();
+        services.AddScoped<IImageProcessingService, SkiaImageProcessingService>(); // the image adapter: swap it here
         services.AddScoped<IFileValidationService, FileValidationService>();
         services.AddSingleton<IAttachmentUrls, AttachmentUrls>();
         services.AddScoped<AttachmentReadUrlFactory>();

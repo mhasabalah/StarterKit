@@ -14,8 +14,8 @@ public sealed class FileValidationServiceTests
     {
         var wrapped = TestOptions.Wrap(options ?? TestOptions.Create());
         return new(wrapped, scanner ?? new NoOpMalwareScanner(),
-            new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(
-                wrapped, NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance),
+            new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(
+                wrapped, NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance),
             NullLogger<FileValidationService>.Instance);
     }
 

@@ -65,9 +65,6 @@ jobs:
 
       - name: Build
         run: dotnet build StarterKit.slnx --configuration Release --no-restore
-        env:
-          # MSBuild reads env vars as properties: ImageSharp 3.2+ validates this key in Release builds.
-          SixLaborsLicenseKey: ${{ secrets.SIXLABORS_LICENSE_KEY }}
 
       # Fails fast (and with a clear name) when a module DbContext has model changes without a migration:
       # boots the real Api against Testcontainers Postgres and calls HasPendingModelChanges() per context.
@@ -140,9 +137,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: BUILD_CONFIGURATION=Release
-          # ImageSharp 3.2+ license key (repo secret SIXLABORS_LICENSE_KEY); mounted as a BuildKit secret, never a layer.
-          secrets: |
-            sixlabors_license=${{ secrets.SIXLABORS_LICENSE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64

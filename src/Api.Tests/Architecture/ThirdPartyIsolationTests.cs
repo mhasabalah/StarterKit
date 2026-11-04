@@ -7,8 +7,8 @@ namespace Api.Tests.Architecture;
 /// (wiki/Reference/Third-Party-Licenses.md, wiki/Decisions/0007-owned-mediator-port.md):
 /// <list type="bullet">
 /// <item>The in-process mediator is OURS (<c>Shared.Contracts.Mediation</c>); nothing references MediatR.</item>
-/// <item>Revenue-gated libraries stay in the one module that owns them: ImageSharp in Attachment, QuestPDF in
-/// Subscriptions.</item>
+/// <item>Imaging stays behind <c>IImageProcessingService</c> in Attachment (SkiaSharp adapter); the revenue-gated
+/// ImageSharp is not referenced at all; QuestPDF (revenue-gated) stays in Subscriptions.</item>
 /// <item>Contracts may carry the <c>[MessageUrn]</c> attribute (MassTransit.Abstractions) but never the bus itself.</item>
 /// </list>
 /// </summary>
@@ -55,9 +55,16 @@ public sealed class ThirdPartyIsolationTests
     }
 
     [Fact]
-    public void ImageSharp_is_used_only_by_the_Attachment_module() =>
-        Production.Where(a => References(a).Any(r => r.StartsWith("SixLabors.", StringComparison.Ordinal)))
-            .Should().Equal(["Attachment"], "ImageSharp sits behind IImageProcessingService (Split License, revenue-gated)");
+    public void The_imaging_library_is_used_only_by_the_Attachment_module() =>
+        Production.Where(a => References(a).Any(r => r.StartsWith("SkiaSharp", StringComparison.Ordinal)))
+            .Should().Equal(["Attachment"], "SkiaSharp sits behind IImageProcessingService (one adapter file)");
+
+    [Theory]
+    [MemberData(nameof(ProductionAssemblies))]
+    public void Nothing_references_ImageSharp(string assembly) =>
+        References(assembly).Should().NotContain(r => r.StartsWith("SixLabors.", StringComparison.Ordinal),
+            "ImageSharp needs a license key at build time and is revenue-gated; add it only as an opt-in adapter " +
+            "(wiki/Attachment/Image-Processing.md)");
 
     [Fact]
     public void QuestPdf_is_used_only_by_the_Subscriptions_module() =>

@@ -78,6 +78,7 @@ wiki/
 - [README](Attachment/README.md) · [Security](Attachment/Security.md) · [Reliability](Attachment/Reliability.md) · [Configuration](Attachment/Configuration.md)
 - [Uploads](Attachment/Uploads.md): direct and pending (session) uploads
 - [Storage providers](Attachment/Storage-Providers.md): Local / Azure Blob / S3
+- [Image processing](Attachment/Image-Processing.md): thumbnails and image validation behind `IImageProcessingService` (SkiaSharp), how to switch libraries
 
 ## Subscriptions
 

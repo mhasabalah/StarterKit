@@ -42,7 +42,6 @@ the `api` container (`up -d --no-deps api`) when Postgres is already up. It veri
    |---|---|---|
    | `GITHUB_TOKEN` | automatic | GHCR push/pull |
    | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | optional | Deploy, backup and health notifications |
-   | `SIXLABORS_LICENSE_KEY` | optional | ImageSharp license (thumbnails) at build time |
    | `CLAUDE_CODE_OAUTH_TOKEN` | optional | Claude workflows |
 
    Application secrets (DB, Redis, JWT, ...) do **not** live in GitHub. They are files in `DEPLOY_DIR/secrets/` on

@@ -227,5 +227,5 @@ Contributions: [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 ## License
 
 [MIT](LICENSE). Projects created from the template may relicense their own code.
-Most dependencies are MIT/Apache-2.0. ImageSharp, QuestPDF and the Seq container are free only below a revenue threshold
-or for a single user. Check [Third-party licenses](wiki/Reference/Third-Party-Licenses.md) before shipping a product.
+Most dependencies are MIT/Apache-2.0. QuestPDF and the Seq container are free only below a revenue threshold or for a
+single user. Check [Third-party licenses](wiki/Reference/Third-Party-Licenses.md) before shipping a product.

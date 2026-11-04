@@ -24,8 +24,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "FluentAssertions"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "SixLabors.*"
-        update-types: ["version-update:semver-major"]
       # Breaking API in the next major - upgrade separately (Directory.Packages.props notes).
       - dependency-name: "Mapster*"
         update-types: ["version-update:semver-major"]
