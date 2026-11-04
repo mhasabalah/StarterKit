@@ -1,0 +1,2 @@
+# Keeps this folder in git: Grafana provisions *.json dashboards from here (Aspire AppHost and
+# docker-compose.observability.yml bind-mount it). Drop exported dashboard JSON files next to this file.
