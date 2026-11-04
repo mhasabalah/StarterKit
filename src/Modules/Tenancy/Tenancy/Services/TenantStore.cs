@@ -65,7 +65,8 @@ public sealed class TenantStore(
         CancellationToken cancellationToken = default)
     {
         var keys = new List<string> { $"id:{tenantId:N}" };
-        if (!string.IsNullOrEmpty(identifier)) keys.Add($"ident:{identifier}");
+        if (!string.IsNullOrEmpty(identifier))
+            keys.Add($"ident:{identifier}");
         keys.AddRange(hosts.Select(h => $"host:{h}"));
 
         foreach (var key in keys)
@@ -135,7 +136,8 @@ public sealed class TenantStore(
     private void SetLocal(string key, CachedTenant entry)
     {
         var seconds = options.Value.Cache.LocalSeconds;
-        if (seconds <= 0) return;
+        if (seconds <= 0)
+            return;
         var ttl = entry.Tenant is null ? TimeSpan.FromSeconds(Math.Min(seconds, MissTtl.TotalSeconds)) : TimeSpan.FromSeconds(seconds);
         memoryCache.Set(key, entry, ttl);
     }
@@ -157,7 +159,8 @@ public sealed class TenantStore(
     private async Task WriteDistributedAsync(string key, CachedTenant entry, CancellationToken cancellationToken)
     {
         var seconds = options.Value.Cache.DistributedSeconds;
-        if (seconds <= 0) return;
+        if (seconds <= 0)
+            return;
         try
         {
             var ttl = entry.Tenant is null ? MissTtl : TimeSpan.FromSeconds(seconds);

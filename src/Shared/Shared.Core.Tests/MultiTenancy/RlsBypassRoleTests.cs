@@ -57,7 +57,7 @@ public sealed class RlsBypassRoleTests : IAsyncLifetime
         }
 
         string As(string user) => new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
-            { Username = user, Password = Password }.ConnectionString;
+        { Username = user, Password = Password }.ConnectionString;
         _runtime = As("rt_app");
         _host = As("rt_host");
         _member = As("rt_member");
@@ -239,7 +239,8 @@ public sealed class RlsBypassRoleTests : IAsyncLifetime
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
-        await using (var prepare = new NpgsqlCommand(prepareSql, connection)) await prepare.ExecuteNonQueryAsync();
+        await using (var prepare = new NpgsqlCommand(prepareSql, connection))
+            await prepare.ExecuteNonQueryAsync();
         await using var count = new NpgsqlCommand("SELECT count(*)::int FROM app.notes", connection);
         return (int)(await count.ExecuteScalarAsync())!;
     }

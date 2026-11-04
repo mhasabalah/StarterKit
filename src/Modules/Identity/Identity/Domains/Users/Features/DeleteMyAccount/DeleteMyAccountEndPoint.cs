@@ -20,7 +20,8 @@ public class DeleteMyAccountEndPoint : ICarterModule
                 CancellationToken cancellationToken) =>
             {
                 var userId = httpContextService.GetUserIdAsGuid();
-                if (userId is null) return Results.Unauthorized();
+                if (userId is null)
+                    return Results.Unauthorized();
 
                 var result = await sender.Send(
                     new DeleteMyAccountCommand(userId.Value, request.Password, request.OtpCode), cancellationToken);
@@ -51,7 +52,8 @@ public class DeleteMyAccountEndPoint : ICarterModule
                 CancellationToken cancellationToken) =>
             {
                 var userId = httpContextService.GetUserIdAsGuid();
-                if (userId is null) return Results.Unauthorized();
+                if (userId is null)
+                    return Results.Unauthorized();
 
                 var result = await sender.Send(new SendAccountDeletionCodeCommand(userId.Value), cancellationToken);
                 return Results.Ok(ApiResponse.Success(result, result.Message));

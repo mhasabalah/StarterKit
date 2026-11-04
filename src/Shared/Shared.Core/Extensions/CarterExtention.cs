@@ -1,4 +1,4 @@
-﻿using Carter;
+using Carter;
 
 namespace Shared.Core.Extensions;
 

@@ -228,7 +228,8 @@ public sealed class FileValidationService(
             continuation++;
         }
 
-        if (i < 0) return span;
+        if (i < 0)
+            return span;
 
         var lead = span[i];
         var expected = lead switch
@@ -250,7 +251,8 @@ public sealed class FileValidationService(
         while (read < buffer.Length)
         {
             var n = await stream.ReadAsync(buffer.AsMemory(read), ct);
-            if (n == 0) break;
+            if (n == 0)
+                break;
             read += n;
         }
 
@@ -276,7 +278,8 @@ public sealed class FileValidationService(
 
     private static string NormalizeContentType(string? contentType)
     {
-        if (string.IsNullOrWhiteSpace(contentType)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(contentType))
+            return string.Empty;
         var semicolon = contentType.IndexOf(';');
         return (semicolon >= 0 ? contentType[..semicolon] : contentType).Trim().ToLowerInvariant();
     }

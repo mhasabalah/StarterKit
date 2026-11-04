@@ -16,7 +16,8 @@ public sealed class OutboxRegistry
 
     internal void Add(Type contextType)
     {
-        if (!_contextTypes.Contains(contextType)) _contextTypes.Add(contextType);
+        if (!_contextTypes.Contains(contextType))
+            _contextTypes.Add(contextType);
     }
 }
 
@@ -34,7 +35,8 @@ public sealed class OutboxMessagesSavedHandler(IUnitOfWorkRunner runner, ILogger
 {
     public async Task Handle(OutboxMessagesSaved notification, CancellationToken cancellationToken)
     {
-        if (notification.MessageIds.Count == 0) return;
+        if (notification.MessageIds.Count == 0)
+            return;
 
         try
         {
@@ -148,7 +150,8 @@ public static class OutboxServiceCollectionExtensions
     /// <summary>Shared outbox services (idempotent). Called by <see cref="AddOutbox{TContext}"/> and <c>AddCustomDbContext</c>.</summary>
     public static IServiceCollection AddOutboxCore(this IServiceCollection services)
     {
-        if (services.Any(d => d.ServiceType == typeof(OutboxRegistry))) return services;
+        if (services.Any(d => d.ServiceType == typeof(OutboxRegistry)))
+            return services;
 
         services.AddSingleton(new OutboxRegistry());
         services.AddOptions<OutboxOptions>()

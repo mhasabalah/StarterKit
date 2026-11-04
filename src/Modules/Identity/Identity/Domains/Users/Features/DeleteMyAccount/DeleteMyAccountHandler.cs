@@ -46,7 +46,8 @@ public class DeleteMyAccountHandler(
     {
         var user = await userManager.FindByIdAsync(command.UserId.ToString())
                    ?? throw new UnauthorizedException("Not authenticated");
-        if (!user.IsActive) throw new UnauthorizedException("Account is disabled.");
+        if (!user.IsActive)
+            throw new UnauthorizedException("Account is disabled.");
 
         var roles = await userManager.GetRolesAsync(user);
         if (RoleHierarchy.IsAdminOrAbove(roles))

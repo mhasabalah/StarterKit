@@ -50,7 +50,8 @@ public sealed class OutboxAdminService(
                 : RequeueAsync<OutboxMessage>(db, id, ct),
             cancellationToken);
 
-        if (outcome == RequeueOutcome.NotFound) throw new NotFoundException("Outbox message", id);
+        if (outcome == RequeueOutcome.NotFound)
+            throw new NotFoundException("Outbox message", id);
         if (outcome == RequeueOutcome.NotDeadLettered)
         {
             throw new ConflictException($"Outbox message {id} is not dead-lettered; nothing to requeue.");
@@ -109,7 +110,8 @@ public sealed class OutboxAdminService(
         where TMessage : OutboxMessageBase
     {
         var updated = await Requeue(db.Set<TMessage>().Where(m => m.Id == id && m.DeadLetteredAt != null), ct);
-        if (updated > 0) return RequeueOutcome.Requeued;
+        if (updated > 0)
+            return RequeueOutcome.Requeued;
         return await db.Set<TMessage>().AnyAsync(m => m.Id == id, ct) ? RequeueOutcome.NotDeadLettered : RequeueOutcome.NotFound;
     }
 

@@ -86,7 +86,8 @@ public static class MultiTenancyServiceCollectionExtensions
     /// </summary>
     private static void AddLocalCacheInvalidation(IServiceCollection services)
     {
-        if (services.Any(d => d.ServiceType == typeof(ILocalCacheInvalidationBus))) return;
+        if (services.Any(d => d.ServiceType == typeof(ILocalCacheInvalidationBus)))
+            return;
 
         services.AddSingleton<ILocalCacheInvalidationBus>(sp =>
             sp.GetService<StackExchange.Redis.IConnectionMultiplexer>() is null

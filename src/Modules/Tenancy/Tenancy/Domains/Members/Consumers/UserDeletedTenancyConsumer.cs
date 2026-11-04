@@ -28,7 +28,8 @@ public sealed class UserDeletedTenancyConsumer(
             var memberships = await dbContext.Memberships
                 .Where(m => m.UserId == userId)
                 .ToListAsync(context.CancellationToken);
-            if (memberships.Count == 0) return;
+            if (memberships.Count == 0)
+                return;
 
             foreach (var membership in memberships)
             {

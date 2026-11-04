@@ -18,7 +18,8 @@ public sealed class PoolingSafetyCheck(
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!options.Value.Database.EnableRowLevelSecurity) return Task.CompletedTask;
+        if (!options.Value.Database.EnableRowLevelSecurity)
+            return Task.CompletedTask;
 
         var candidates = configuration.GetSection("ConnectionStrings").GetChildren()
             .Concat(configuration.GetSection(options.Value.Database.ConnectionsSection).GetChildren())
@@ -44,7 +45,8 @@ public sealed class PoolingSafetyCheck(
     /// <summary>True for port 6432 or a host name containing "pgbouncer". Unparseable values are ignored.</summary>
     public static bool LooksLikeTransactionPooler(string? connectionString)
     {
-        if (string.IsNullOrWhiteSpace(connectionString)) return false;
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return false;
 
         try
         {

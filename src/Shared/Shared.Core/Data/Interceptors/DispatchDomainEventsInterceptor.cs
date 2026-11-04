@@ -131,7 +131,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
 
     void IDbTransactionInterceptor.TransactionFailed(DbTransaction transaction, TransactionErrorEventData eventData)
     {
-        if (EndsTransaction(eventData)) collector.TransactionRolledBack(transaction);
+        if (EndsTransaction(eventData))
+            collector.TransactionRolledBack(transaction);
     }
 
     Task IDbTransactionInterceptor.TransactionFailedAsync(
@@ -139,7 +140,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
         TransactionErrorEventData eventData,
         CancellationToken cancellationToken)
     {
-        if (EndsTransaction(eventData)) collector.TransactionRolledBack(transaction);
+        if (EndsTransaction(eventData))
+            collector.TransactionRolledBack(transaction);
         return Task.CompletedTask;
     }
 
@@ -151,7 +153,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
 
     private void Stage(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
 
         var aggregates = context.ChangeTracker
             .Entries<IAggregate>()
@@ -159,7 +162,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
             .Select(a => a.Entity)
             .ToList();
 
-        if (aggregates.Count == 0) return;
+        if (aggregates.Count == 0)
+            return;
 
         var events = aggregates
             .SelectMany(a => a.ClearDomainEvents())
@@ -171,13 +175,15 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
 
     private void Saved(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
         collector.SaveSucceeded(context, OpenTransactionKey(context));
     }
 
     private void Failed(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
         collector.SaveFailed(context);
     }
 
@@ -188,7 +194,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
     private static object? OpenTransactionKey(DbContext context)
     {
         var transaction = context.Database.CurrentTransaction;
-        if (transaction is null) return null;
+        if (transaction is null)
+            return null;
 
         return transaction is IInfrastructure<DbTransaction> relational ? relational.Instance : transaction;
     }

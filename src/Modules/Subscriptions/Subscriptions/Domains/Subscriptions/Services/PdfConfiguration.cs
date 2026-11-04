@@ -26,11 +26,13 @@ public static class PdfConfiguration
     public static void Configure(string? license = null)
     {
         var licenseType = ParseLicense(license); // validated even when already configured: a typo fails fast
-        if (_configured) return;
+        if (_configured)
+            return;
 
         lock (Gate)
         {
-            if (_configured) return;
+            if (_configured)
+                return;
 
             QuestPDF.Settings.License = licenseType;
             QuestPDF.Settings.UseSystemFonts = false;

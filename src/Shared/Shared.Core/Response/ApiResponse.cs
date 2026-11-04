@@ -45,7 +45,7 @@ public class ApiResponse : ApiResponse<object>
     {
     }
 
-    public ApiResponse(bool isSuccess, int statusCode, object? data = default, string? successMessage = null, List<string>? errors = null) 
+    public ApiResponse(bool isSuccess, int statusCode, object? data = default, string? successMessage = null, List<string>? errors = null)
         : base(isSuccess, statusCode, data, successMessage, errors)
     {
     }

@@ -173,7 +173,8 @@ public sealed class RecordingPublisher
                 await Task.Yield(); // let concurrent relays interleave
 
                 var failure = Failure?.Invoke(message);
-                if (failure is not null) throw failure;
+                if (failure is not null)
+                    throw failure;
 
                 var tenant = tenantContext();
                 _published.Enqueue(new PublishedMessage(message, type, context.Object.MessageId, tenant.TenantId,
@@ -270,7 +271,8 @@ public sealed class OutboxFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_provider is not null) await _provider.DisposeAsync();
+        if (_provider is not null)
+            await _provider.DisposeAsync();
         await _container.DisposeAsync();
     }
 

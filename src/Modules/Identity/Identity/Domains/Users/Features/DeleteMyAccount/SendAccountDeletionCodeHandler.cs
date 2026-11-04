@@ -27,7 +27,8 @@ public class SendAccountDeletionCodeHandler(
     {
         var user = await userManager.FindByIdAsync(command.UserId.ToString())
                    ?? throw new UnauthorizedException("Not authenticated");
-        if (!user.IsActive) throw new UnauthorizedException("Account is disabled.");
+        if (!user.IsActive)
+            throw new UnauthorizedException("Account is disabled.");
 
         if (await userManager.HasPasswordAsync(user))
             throw new BadRequestException(localizer["Account.Delete.CodeNotNeeded"]);

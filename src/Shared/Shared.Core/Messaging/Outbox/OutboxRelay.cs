@@ -91,7 +91,8 @@ public sealed class OutboxRelay(
         while (true)
         {
             var claimed = await ClaimAsync<TMessage>(context, messageIds, settings, cancellationToken);
-            if (claimed.Count == 0) return published;
+            if (claimed.Count == 0)
+                return published;
 
             var delivered = new List<Guid>(claimed.Count);
             foreach (var row in claimed)
@@ -123,7 +124,8 @@ public sealed class OutboxRelay(
             }
 
             // Targeted delivery handles its ids in one round; a partial batch means the backlog is drained.
-            if (messageIds is not null || claimed.Count < settings.BatchSize) return published;
+            if (messageIds is not null || claimed.Count < settings.BatchSize)
+                return published;
         }
     }
 
@@ -138,7 +140,8 @@ public sealed class OutboxRelay(
                         (m.LockedUntil == null || m.LockedUntil < now));
         if (messageIds is not null)
         {
-            if (messageIds.Count == 0) return [];
+            if (messageIds.Count == 0)
+                return [];
             pending = pending.Where(m => messageIds.Contains(m.Id));
         }
 
@@ -147,7 +150,8 @@ public sealed class OutboxRelay(
             .Select(m => m.Id)
             .Take(settings.BatchSize)
             .ToListAsync(cancellationToken);
-        if (candidates.Count == 0) return [];
+        if (candidates.Count == 0)
+            return [];
 
         // The lease predicate is repeated on the target rows: under concurrency Postgres re-checks it after waiting
         // for the competing UPDATE, so a row leased by someone else in the meantime is skipped, never stolen.
@@ -159,7 +163,8 @@ public sealed class OutboxRelay(
             .ExecuteUpdateAsync(s => s
                 .SetProperty(m => m.LockToken, token)
                 .SetProperty(m => m.LockedUntil, leaseUntil), cancellationToken);
-        if (count == 0) return [];
+        if (count == 0)
+            return [];
 
         return await set.AsNoTracking()
             .Where(m => m.LockToken == token)

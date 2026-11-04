@@ -195,7 +195,8 @@ public sealed class BackgroundJobEventDispatchTests
             yield break;
         }
 
-        if (il is null) yield break;
+        if (il is null)
+            yield break;
 
         var position = 0;
         while (position < il.Length)
@@ -223,7 +224,8 @@ public sealed class BackgroundJobEventDispatchTests
                     // Unresolvable (e.g. open generic context) - ignore.
                 }
 
-                if (target is not null) yield return target;
+                if (target is not null)
+                    yield return target;
             }
 
             position += OperandSize(opCode, il, position);

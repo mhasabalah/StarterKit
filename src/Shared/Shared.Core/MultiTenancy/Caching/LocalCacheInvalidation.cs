@@ -40,7 +40,8 @@ public sealed class RedisLocalCacheInvalidationBus(
 
     public async Task PublishAsync(IReadOnlyCollection<string> memoryCacheKeys, CancellationToken cancellationToken = default)
     {
-        if (memoryCacheKeys.Count == 0 || !options.Value.Cache.BroadcastInvalidation) return;
+        if (memoryCacheKeys.Count == 0 || !options.Value.Cache.BroadcastInvalidation)
+            return;
 
         try
         {
@@ -55,7 +56,8 @@ public sealed class RedisLocalCacheInvalidationBus(
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!options.Value.Cache.BroadcastInvalidation) return;
+        if (!options.Value.Cache.BroadcastInvalidation)
+            return;
 
         try
         {

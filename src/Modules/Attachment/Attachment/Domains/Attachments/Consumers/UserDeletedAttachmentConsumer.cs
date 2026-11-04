@@ -39,12 +39,15 @@ public sealed class UserDeletedAttachmentConsumer(
             {
                 var repository = services.GetRequiredService<IAttachmentRepository>();
                 var files = await repository.GetUploadedByForErasureAsync(userId, token);
-                foreach (var file in files) file.RequestDeletion(now);
-                if (files.Count > 0) await repository.SaveChangesAsync(token);
+                foreach (var file in files)
+                    file.RequestDeletion(now);
+                if (files.Count > 0)
+                    await repository.SaveChangesAsync(token);
                 return files.Select(f => f.Id).ToList();
             }, ct);
 
-            if (ids.Count == 0) return;
+            if (ids.Count == 0)
+                return;
 
             backgroundJobs.EnqueueFileDeletion(ids);
             logger.LogInformation("Erasure of user {UserId}: {Count} file(s) of tenant {Tenant} queued for deletion",

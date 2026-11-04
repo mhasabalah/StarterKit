@@ -1,4 +1,4 @@
-﻿using Shared.Contracts.Messaging;
+using Shared.Contracts.Messaging;
 
 namespace Shared.Core.DDD;
 

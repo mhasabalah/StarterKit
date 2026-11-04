@@ -85,7 +85,8 @@ public sealed class DomainEventCollectorTests
             {
                 var ping = (Ping)e;
                 published.Add(ping);
-                if (ping.N < 3) _collector.Collect([new Ping(ping.N + 1)]); // handler raised (and committed) a new event
+                if (ping.N < 3)
+                    _collector.Collect([new Ping(ping.N + 1)]); // handler raised (and committed) a new event
             })
             .Returns(Task.CompletedTask);
 

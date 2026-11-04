@@ -62,12 +62,14 @@ public abstract class TenantMessagingBusTests : IAsyncLifetime
         // As the host does: transport migration (PostgreSql) first, then the bus.
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         _hosted = _provider.GetServices<IHostedService>().ToList();
-        foreach (var service in _hosted) await service.StartAsync(cts.Token);
+        foreach (var service in _hosted)
+            await service.StartAsync(cts.Token);
     }
 
     public async Task DisposeAsync()
     {
-        for (var i = _hosted.Count - 1; i >= 0; i--) await _hosted[i].StopAsync(CancellationToken.None);
+        for (var i = _hosted.Count - 1; i >= 0; i--)
+            await _hosted[i].StopAsync(CancellationToken.None);
         await _provider.DisposeAsync();
         await CleanupAsync();
     }
@@ -145,7 +147,8 @@ public abstract class TenantMessagingBusTests : IAsyncLifetime
         using (TenantScope.Begin(TenantA))
         {
             // Far more than the endpoint's concurrency limit (2 x CPU cores by default).
-            for (var i = 0; i < 200; i++) await _bus.Publish(new TenantProbe(Guid.NewGuid()));
+            for (var i = 0; i < 200; i++)
+                await _bus.Publish(new TenantProbe(Guid.NewGuid()));
         }
 
         var other = await PublishAsync(() => TenantScope.Begin(TenantB));

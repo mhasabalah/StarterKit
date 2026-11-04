@@ -150,7 +150,7 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         {
             var result = await AssociateHandler(ctx, owner).Handle(
                 new AssociatePendingAttachmentsCommand(session, EntityType.User, entityId, owner.UserId!.Value)
-                    { EnforceEntityAccessPolicy = true }, default);
+                { EnforceEntityAccessPolicy = true }, default);
 
             result.TotalAssociated.Should().Be(2);
             result.Metadata.Should().OnlyContain(m => m.FileUrl.StartsWith("/api/v1/attachments/"));
@@ -177,7 +177,7 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         await using var ctx = db.CreateContext(owner);
         await FluentActions.Awaiting(() => AssociateHandler(ctx, owner).Handle(
                 new AssociatePendingAttachmentsCommand(session, EntityType.Company, Guid.NewGuid(), owner.UserId!.Value)
-                    { EnforceEntityAccessPolicy = true }, default))
+                { EnforceEntityAccessPolicy = true }, default))
             .Should().ThrowAsync<ForbiddenException>();
     }
 
@@ -209,7 +209,8 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
     {
         var caller = Caller.Anonymous("3.3.3.3", "cleanup");
         var session = TestServices.Sessions(caller).IssueForCurrentCaller();
-        for (var i = 0; i < 3; i++) await UploadAs(caller, session, i);
+        for (var i = 0; i < 3; i++)
+            await UploadAs(caller, session, i);
 
         await using var ctx = db.CreateContext(caller);
         var handler = new CleanupExpiredPendingAttachmentsHandler(new PendingAttachmentRepository(ctx), Storage(),

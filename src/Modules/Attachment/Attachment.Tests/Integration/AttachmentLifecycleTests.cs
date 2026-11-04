@@ -322,11 +322,13 @@ public sealed class AttachmentLifecycleTests : IDisposable
         var me = Caller.User(userId);
 
         var first = await _host.SendAsync(me, new UploadAttachmentCommand("a.png", "image/png", TestFiles.Png().Length,
-            new MemoryStream(TestFiles.Png()), AttachmentType.Image, EntityType.User, userId) { EnforceEntityAccessPolicy = true });
+            new MemoryStream(TestFiles.Png()), AttachmentType.Image, EntityType.User, userId)
+        { EnforceEntityAccessPolicy = true });
         _host.Jobs.Clear();
 
         var second = await _host.SendAsync(me, new UploadAttachmentCommand("b.png", "image/png", TestFiles.Png().Length,
-            new MemoryStream(TestFiles.Png()), AttachmentType.Image, EntityType.User, userId) { EnforceEntityAccessPolicy = true });
+            new MemoryStream(TestFiles.Png()), AttachmentType.Image, EntityType.User, userId)
+        { EnforceEntityAccessPolicy = true });
 
         (await Row(first.Id))!.Status.Should().Be(AttachmentStatus.PendingDeletion);
         (await Row(second.Id))!.Status.Should().Be(AttachmentStatus.Ready);

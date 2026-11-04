@@ -60,7 +60,7 @@ public sealed class TenantBillingStatusConsumerTests
     {
         var context = new Mock<ConsumeContext<SubscriptionExpiredIntegrationEvent>>();
         context.SetupGet(c => c.Message).Returns(new SubscriptionExpiredIntegrationEvent
-            { SubscriberId = subscriberId, SubscriptionId = Guid.NewGuid() });
+        { SubscriberId = subscriberId, SubscriptionId = Guid.NewGuid() });
         context.SetupGet(c => c.CancellationToken).Returns(CancellationToken.None);
 
         await using var db = NewContext();
@@ -71,7 +71,7 @@ public sealed class TenantBillingStatusConsumerTests
     {
         var context = new Mock<ConsumeContext<SubscriptionActivatedIntegrationEvent>>();
         context.SetupGet(c => c.Message).Returns(new SubscriptionActivatedIntegrationEvent
-            { SubscriberId = subscriberId, SubscriptionId = Guid.NewGuid() });
+        { SubscriberId = subscriberId, SubscriptionId = Guid.NewGuid() });
         context.SetupGet(c => c.CancellationToken).Returns(CancellationToken.None);
 
         await using var db = NewContext();

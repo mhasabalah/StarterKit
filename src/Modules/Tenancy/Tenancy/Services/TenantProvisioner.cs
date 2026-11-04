@@ -77,7 +77,8 @@ public sealed class TenantProvisioner(
             {
                 var db = sp.GetRequiredService<TenancyDbContext>();
                 var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-                if (tenant is null) return;
+                if (tenant is null)
+                    return;
                 change(tenant);
                 await db.SaveChangesAsync(ct);
             }
@@ -108,8 +109,10 @@ public sealed class DedicatedTenantDatabaseMigrator(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!Shared.Core.Data.DatabaseMigrationOptions.From(configuration).MigrateOnStartup) return;
-        if (configuration.GetValue("MultiTenancy:Database:MigrateDedicatedOnStartup", true) is false) return;
+        if (!Shared.Core.Data.DatabaseMigrationOptions.From(configuration).MigrateOnStartup)
+            return;
+        if (configuration.GetValue("MultiTenancy:Database:MigrateDedicatedOnStartup", true) is false)
+            return;
 
         await MigrateAllAsync(stoppingToken);
     }
@@ -117,7 +120,8 @@ public sealed class DedicatedTenantDatabaseMigrator(
     /// <summary>Migrates + seeds every active/suspended dedicated tenant database; returns how many failed.</summary>
     public async Task<int> MigrateAllAsync(CancellationToken stoppingToken)
     {
-        if (!options.Value.Enabled || registry.ContextTypes.Count == 0) return 0;
+        if (!options.Value.Enabled || registry.ContextTypes.Count == 0)
+            return 0;
 
         var tenants = await runner.RunAsync<IReadOnlyList<TenantInfo>>(async (sp, ct) =>
         {
@@ -131,7 +135,8 @@ public sealed class DedicatedTenantDatabaseMigrator(
             }
         }, stoppingToken);
 
-        if (tenants.Count == 0) return 0;
+        if (tenants.Count == 0)
+            return 0;
         logger.LogInformation("Migrating {Count} dedicated tenant database(s)", tenants.Count);
 
         var failed = 0;

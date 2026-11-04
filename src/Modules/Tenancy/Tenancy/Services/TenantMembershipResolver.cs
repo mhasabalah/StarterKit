@@ -75,7 +75,8 @@ public sealed class TenantMembershipResolver(
     public async Task InvalidateAsync(Guid? tenantId = null, Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
-        if (tenantId is null) return;
+        if (tenantId is null)
+            return;
 
         if (userId is null)
         {
@@ -109,7 +110,8 @@ public sealed class TenantMembershipResolver(
     private async Task<string> GetGenerationAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var key = GenerationPrefix + tenantId.ToString("N");
-        if (memoryCache.TryGetValue(key, out string? local) && local is not null) return local;
+        if (memoryCache.TryGetValue(key, out string? local) && local is not null)
+            return local;
 
         var generation = await TryReadAsync<string>(key, cancellationToken) ?? "0";
         if (options.Value.Cache.LocalSeconds > 0)
@@ -157,7 +159,8 @@ public sealed class TenantMembershipResolver(
     internal static async Task<Guid[]> ExpandBranchesAsync(TenancyDbContext db, Guid tenantId,
         IReadOnlyCollection<BranchAssignment> assignments, CancellationToken ct)
     {
-        if (assignments.Count == 0) return [];
+        if (assignments.Count == 0)
+            return [];
 
         var assignedIds = assignments.Select(a => a.BranchId).ToList();
         var assigned = await db.Branches.AsNoTracking()
@@ -196,7 +199,8 @@ public sealed class TenantMembershipResolver(
     private async Task TryWriteAsync<T>(string key, T value, CancellationToken cancellationToken, TimeSpan? ttl = null)
     {
         var seconds = options.Value.Cache.DistributedSeconds;
-        if (seconds <= 0 && ttl is null) return;
+        if (seconds <= 0 && ttl is null)
+            return;
         try
         {
             await distributedCache.SetStringAsync(key, JsonSerializer.Serialize(value, Json),

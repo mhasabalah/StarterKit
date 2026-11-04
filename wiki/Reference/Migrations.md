@@ -56,7 +56,7 @@ Postgres advisory lock. **When** that runs is configuration:
 | `Database:MigrateOnStartup` | `true` (default): every instance migrates + seeds at boot | `false`: the app never migrates or seeds |
 | `dotnet Api.dll --migrate-only` | optional | the compose `migrator` service runs it at deploy time |
 
-Details, roles and the migrator connection string: [Database-Migrations](../Deployment/Database-Migrations.md).
+Details, roles and the migrator connection string: [Database-Migrations](../deployment/Database-Migrations.md).
 To apply manually:
 
 ```bash

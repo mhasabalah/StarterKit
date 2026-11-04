@@ -88,7 +88,8 @@ public sealed class AttachmentHostFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_provider is not null) await _provider.DisposeAsync();
+        if (_provider is not null)
+            await _provider.DisposeAsync();
         await _container.DisposeAsync();
         _storageRoot.Dispose();
     }

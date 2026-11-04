@@ -18,7 +18,8 @@ public class AccountDeletion : Aggregate<Guid>
 
     public static AccountDeletion Create(Guid userId, DateTime utcNow)
     {
-        if (userId == Guid.Empty) throw new ArgumentException("User id is required.", nameof(userId));
+        if (userId == Guid.Empty)
+            throw new ArgumentException("User id is required.", nameof(userId));
 
         var deletion = new AccountDeletion { Id = userId, DeletedAt = utcNow };
         deletion.AddIntegrationEvent(new UserDeletedIntegrationEvent { UserId = userId });

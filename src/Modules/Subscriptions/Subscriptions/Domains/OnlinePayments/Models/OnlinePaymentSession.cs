@@ -31,17 +31,17 @@ public class OnlinePaymentSession
         string providerReference,
         decimal amount,
         DateTimeOffset now) => new()
-    {
-        Id = Guid.NewGuid(),
-        PaymentId = payment.Id,
-        SubscriptionId = payment.SubscriptionId,
-        Provider = provider,
-        ProviderReference = providerReference,
-        Amount = amount,
-        Currency = payment.Currency,
-        Status = OnlinePaymentSessionStatus.Created,
-        CreatedAt = now
-    };
+        {
+            Id = Guid.NewGuid(),
+            PaymentId = payment.Id,
+            SubscriptionId = payment.SubscriptionId,
+            Provider = provider,
+            ProviderReference = providerReference,
+            Amount = amount,
+            Currency = payment.Currency,
+            Status = OnlinePaymentSessionStatus.Created,
+            CreatedAt = now
+        };
 
     public void MarkSucceeded(DateTimeOffset now) => Complete(OnlinePaymentSessionStatus.Succeeded, now);
 

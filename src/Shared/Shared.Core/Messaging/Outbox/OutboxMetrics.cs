@@ -39,7 +39,8 @@ public sealed class OutboxMetrics
         var now = _time.GetUtcNow();
         foreach (var (context, snapshot) in _snapshots)
         {
-            if (now - snapshot.At > StaleAfter) continue;
+            if (now - snapshot.At > StaleAfter)
+                continue;
             yield return new Measurement<long>(value(snapshot), new KeyValuePair<string, object?>("context", context));
         }
     }

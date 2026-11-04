@@ -20,7 +20,8 @@ public class ExportMyDataHandler(
     {
         var user = await userManager.FindByIdAsync(query.UserId.ToString())
                    ?? throw new UserNotFoundException(query.UserId);
-        if (!user.IsActive) throw new UnauthorizedException("Account is disabled.");
+        if (!user.IsActive)
+            throw new UnauthorizedException("Account is disabled.");
 
         var now = timeProvider.GetUtcNow();
         var nowUtc = now.UtcDateTime;

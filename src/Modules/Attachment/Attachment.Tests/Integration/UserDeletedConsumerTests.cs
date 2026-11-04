@@ -43,7 +43,8 @@ public sealed class UserDeletedConsumerTests : IDisposable
         var attachment = AttachmentFile.StartUpload(id, $"{id:N}.png", "seed.png", "image/png", content.Length, path,
             $"/api/v1/attachments/{id}/download", AttachmentType.Image, owner,
             avatar ? EntityType.User : entityType, avatar ? owner : entityId, null, true);
-        if (status != AttachmentStatus.Uploading) attachment.MarkReady(content.Length, null, null, null);
+        if (status != AttachmentStatus.Uploading)
+            attachment.MarkReady(content.Length, null, null, null);
 
         await _host.DbAsync(async db =>
         {

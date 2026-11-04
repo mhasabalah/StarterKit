@@ -247,7 +247,8 @@ public sealed class InvitationDeliveryTests
 
             public Task<Guid> SendAsync(NotificationChannel? forcedChannel = null, CancellationToken ct = default)
             {
-                if (owner.Failure is not null) throw owner.Failure;
+                if (owner.Failure is not null)
+                    throw owner.Failure;
                 owner.Sent.Add(new SentNotification(email, userId, culture, _template, _model, forcedChannel));
                 return Task.FromResult(Guid.NewGuid());
             }

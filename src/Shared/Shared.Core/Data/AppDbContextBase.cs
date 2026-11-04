@@ -82,7 +82,8 @@ public abstract class AppDbContextBase : DbContext, IDbContext
     private static void EnsureTenantIndex(IMutableEntityType entityType)
     {
         var tenantId = entityType.FindProperty(nameof(IMustHaveTenant.TenantId));
-        if (tenantId is null) return;
+        if (tenantId is null)
+            return;
 
         var hasLeadingIndex = entityType.GetIndexes().Any(i => i.Properties[0] == tenantId)
                               || entityType.FindPrimaryKey()?.Properties[0] == tenantId;

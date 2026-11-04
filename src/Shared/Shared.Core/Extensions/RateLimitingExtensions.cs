@@ -188,7 +188,8 @@ public static class RateLimitingExtensions
         var configured = configuration.GetSection($"{SectionName}:Policies").Get<List<RateLimitPolicyOptions>>() ?? [];
 
         var result = new Dictionary<string, RateLimitPolicyOptions>(StringComparer.OrdinalIgnoreCase);
-        foreach (var policy in DefaultPolicies) result[policy.Name] = policy;
+        foreach (var policy in DefaultPolicies)
+            result[policy.Name] = policy;
 
         foreach (var policy in configured)
         {
@@ -222,7 +223,8 @@ public static class RateLimitingExtensions
 
     private static string? GetUserId(HttpContext ctx)
     {
-        if (ctx.User.Identity?.IsAuthenticated != true) return null;
+        if (ctx.User.Identity?.IsAuthenticated != true)
+            return null;
         var id = ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? ctx.User.FindFirstValue("sub");
         return string.IsNullOrWhiteSpace(id) ? null : id;
     }
@@ -244,7 +246,8 @@ public static class RateLimitingExtensions
     public static string GetIpKey(HttpContext ctx)
     {
         var ip = ClientIp.GetRemoteIp(ctx);
-        if (ip is null) return "ip:unknown";
+        if (ip is null)
+            return "ip:unknown";
 
         if (ip.AddressFamily == AddressFamily.InterNetworkV6)
         {
@@ -259,7 +262,8 @@ public static class RateLimitingExtensions
     private static string? GetIdentifier(HttpContext ctx)
     {
         var userId = GetUserId(ctx);
-        if (userId is not null) return $"user:{userId}";
+        if (userId is not null)
+            return $"user:{userId}";
 
         foreach (var key in IdentifierRouteKeys)
         {

@@ -38,7 +38,8 @@ public sealed class DomainEventDispatcher(
             for (var round = 1; ; round++)
             {
                 var events = collector.DequeueAll();
-                if (events.Count == 0) return;
+                if (events.Count == 0)
+                    return;
 
                 if (round > MaxRounds)
                 {
