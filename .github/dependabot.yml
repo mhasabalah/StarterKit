@@ -1,0 +1,54 @@
+# Weekly, grouped dependency updates. NuGet versions live in Directory.Packages.props (central package management).
+# Major versions of deliberately pinned packages (licensing / breaking changes, see wiki/Reference/Template-Backlog.md
+# "P1 - Licensing decisions") are ignored here and upgraded by hand with tests.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      microsoft:
+        patterns: ["Microsoft.*", "System.*", "Aspire.*"]
+      opentelemetry:
+        patterns: ["OpenTelemetry*", "Grafana.OpenTelemetry*"]
+      testing:
+        patterns: ["xunit*", "Moq", "FluentAssertions", "Testcontainers*", "coverlet*", "Bogus"]
+      other-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned to the last free major (licensing) - upgrade deliberately.
+      - dependency-name: "MediatR"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "MassTransit*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "FluentAssertions"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "SixLabors.*"
+        update-types: ["version-update:semver-major"]
+      # Breaking API in the next major - upgrade separately (Directory.Packages.props notes).
+      - dependency-name: "Mapster*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories: ["/src/Api", "/infra/nginx"]
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /tests/e2e
+    schedule:
+      interval: monthly
+    groups:
+      playwright:
+        patterns: ["*"]

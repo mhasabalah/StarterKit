@@ -1,0 +1,56 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security vulnerabilities must not be filed here** - see SECURITY.md.
+        Never paste secrets, tokens, real hostnames or personal data.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Actual behaviour, including the HTTP status and the error envelope (`errors`, `traceId`) if it is an API call.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps. Endpoint + request body, or the failing test name (`dotnet test ... --filter ...`).
+      placeholder: |
+        1. docker compose up -d
+        2. POST /api/v1/products with ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Identity, Tenancy, Attachment, Subscriptions, Catalog, Notification, Shared / platform, Deployment / CI, Docs, Claude Code plugin]
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Multi-tenancy
+      options: [Disabled (single tenant), Enabled - shared database, Enabled - dedicated database, Not relevant]
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: How you ran it (Aspire / docker compose / VPS), messaging transport, commit SHA.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traces
+      description: Relevant log lines from Seq or the Aspire dashboard (search by traceId). Redact secrets.
+      render: text

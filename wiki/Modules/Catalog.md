@@ -70,7 +70,7 @@ admins at any status.
 | Join/child following the parent's soft delete (non-`IEntity` with its own filter) | `WishlistItemConfiguration` in `Data/Configurations/LookupConfigurations.cs` |
 | Enums stored as strings, explicit unique index names | `Data/Configurations/*.cs` |
 | Repository per aggregate root (+ `IgnoreQueryFilters` variants for restore/purge) | `Catalog/Data/Repository/ProductRepository.cs`, `CategoryRepository.cs`, `WishlistRepository.cs` |
-| Postgres `23505` (unique violation) → HTTP 409, matched by index name | `Catalog/Common/PostgresErrors.cs`, used in the repositories and lookup handlers |
+| Postgres `23505` (unique violation) → HTTP 409, matched by index name | `Shared.Core/Data/PostgresErrors.cs` (`ex.IsUniqueViolation(<Configuration>.<Index>Name)`), used in the repositories and lookup handlers |
 | Idempotent seeder (`IgnoreQueryFilters().AnyAsync()` guard, fixed ids) | `Catalog/Data/Seed/CatalogDataSeeder.cs` |
 | Design-time factory for `dotnet ef` (connection name `starterkit`) | `Catalog/Data/CatalogDbContextFactory.cs` |
 
@@ -176,7 +176,10 @@ Why attachments are cleaned up on **purge**, not on soft delete: a restored prod
 1. Remove `AddCatalogModule` / `UseCatalogModule`, `CatalogRoot` (MassTransit) and `CatalogContractsRoot` (enum lookup) from `src/Api/Program.cs`.
 2. Remove the product stats from `src/Api/Endpoints/DashboardEndPoint.cs` and the `Catalog` section from `src/Api/appsettings.json`.
 3. Remove the `Catalog` references from `src/Api/Api.csproj` and `src/Api.E2ETests/Api.E2ETests.csproj`; delete `src/Api.E2ETests/Catalog/`.
-4. Remove `"Catalog"` from `ModuleBoundaryTests.Modules` in `src/Api.Tests`.
+4. In `src/Api.Tests/Architecture`: remove `"Catalog"` from `ModuleBoundaryTests.Modules`; remove
+   `ProductPublishedIntegrationEvent` from the expected list and `CatalogDbContext` from the outbox expectation in
+   `MessagingArchitectureTests`; adjust `TenantIsolationArchitectureTests.Catalog_and_Attachment_are_tenant_data_contexts`.
+   Optionally remove `Permissions.CatalogModerate` / `TenantPermissions.ProductsManage` and their grants.
 5. Remove the `/src/Modules/Catalog/` folder from `StarterKit.slnx` and delete `src/Modules/Catalog/`.
 6. Drop the schema from existing databases (`DROP SCHEMA catalog CASCADE;`) and the Hangfire job `catalog-purge-soft-deleted-products`.
 7. Run `dotnet build StarterKit.slnx`.

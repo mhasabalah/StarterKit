@@ -1,0 +1,8 @@
+{
+  "name": "starterkit",
+  "version": "1.0.0",
+  "description": "Scaffolding and review skills for the StarterKit ASP.NET Core 10 modular monolith: modules, vertical slices, aggregates, migrations, integration events, jobs, permissions, email templates, tests, docs and architecture review.",
+  "author": { "name": "StarterKit maintainers" },
+  "license": "MIT",
+  "keywords": ["dotnet", "aspnetcore", "modular-monolith", "vertical-slice", "ddd", "multi-tenancy"]
+}

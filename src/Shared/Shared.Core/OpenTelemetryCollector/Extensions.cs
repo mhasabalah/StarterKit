@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shared.Core.OpenTelemetryCollector.Behaviors;
 using Grafana.OpenTelemetry;
 using MassTransit.Logging;
 using MassTransit.Monitoring;
@@ -13,8 +15,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Shared.Core.Extensions;
-using Shared.Core.OpenTelemetryCollector.CoreDiagnostics.Commands;
-using Shared.Core.OpenTelemetryCollector.CoreDiagnostics.Query;
 using Shared.Core.OpenTelemetryCollector.DiagnosticsProvider;
 using HealthEndpoints = Shared.Core.HealthCheck.Extensions;
 
@@ -165,7 +165,7 @@ public static class Extensions
             {
                 var metricsFeature = context.Features.Get<IHttpMetricsTagsFeature>();
                 if (metricsFeature != null && context.Request.Path is
-                        { Value: "/metrics" or HealthEndpoints.HealthEndpointPath or HealthEndpoints.AlivenessEndpointPath })
+                    { Value: "/metrics" or HealthEndpoints.HealthEndpointPath or HealthEndpoints.AlivenessEndpointPath })
                 {
                     metricsFeature.MetricsDisabled = true;
                 }
@@ -282,12 +282,16 @@ public static class Extensions
                ?? "unknown";
     }
 
+    /// <summary>
+    /// MediatR request telemetry (span + duration histogram per command/query). Registered here - before any module's
+    /// <c>AddMediatR</c> - so it is the OUTERMOST pipeline behavior, and only in the host (module test fixtures that do
+    /// not add observability stay unaffected).
+    /// </summary>
     private static WebApplicationBuilder AddCoreDiagnostics(this WebApplicationBuilder builder)
     {
-        builder.Services.AddTransient<CommandHandlerActivity>();
-        builder.Services.AddTransient<CommandHandlerMetrics>();
-        builder.Services.AddTransient<QueryHandlerActivity>();
-        builder.Services.AddTransient<QueryHandlerMetrics>();
+        builder.Services.TryAddSingleton<RequestTelemetryMetrics>();
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Transient(typeof(IPipelineBehavior<,>), typeof(RequestTelemetryBehavior<,>)));
 
         return builder;
     }

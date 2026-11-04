@@ -81,6 +81,6 @@ Thumbnails are generated in the background after the upload; read the attachment
 - [Security.md](Security.md) - access model, validation, downloads, consistency, config keys, tests
 - [Reliability.md](Reliability.md) - upload/delete lifecycle, background deletion, reconciliation sweeper, schema
 - [Configuration.md](Configuration.md) - option reference (see Security.md section 8 for new keys)
-- [PENDING-ATTACHMENTS-API-GUIDE.md](PENDING-ATTACHMENTS-API-GUIDE.md) - pending upload flow for frontends
-- [Implementation.md](Implementation.md) - endpoint internals (historical; Security.md wins on conflicts)
-- [STORAGE-PROVIDERS-COMPARISON.md](STORAGE-PROVIDERS-COMPARISON.md), [AWS-S3-STORAGE-IMPLEMENTATION.md](AWS-S3-STORAGE-IMPLEMENTATION.md)
+- [Uploads.md](Uploads.md) - direct uploads and the pending (session) upload flow for frontends (Security.md wins on conflicts)
+- [Storage-Providers.md](Storage-Providers.md) - Local / Azure Blob / S3: choosing, configuring, operating
+- [appsettings.Attachment.example.json](appsettings.Attachment.example.json) - complete example configuration section

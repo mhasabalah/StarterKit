@@ -20,10 +20,9 @@ public class MyHandler(IHttpContextService httpContextService)
 
 ### 2. Check Authorization
 ```csharp
+// Prefer endpoint policies (.RequirePermission / .RequireTenantPermission). In-handler checks are for row-level rules:
 if (!httpContextService.HasAnyRole("Admin", "Manager"))
-{
-    return Result.Failure(Error.Forbidden());
-}
+    throw new ForbiddenException("Insufficient permissions");
 ```
 
 ### 3. Get Audit Information
@@ -83,15 +82,15 @@ var requestContext = httpContextService.GetRequestContext(); // Request metadata
 
 ### Pattern 1: Authorization Check
 ```csharp
-public async Task<Result> Handle(DeleteCommand command, CancellationToken ct)
+// Row-level ownership rule (endpoint already requires authentication). Catalog wraps this in IProductAuthorizationService.
+public async Task<DeleteThingResult> Handle(DeleteThingCommand command, CancellationToken ct)
 {
-    if (!httpContextService.HasAnyRole("Admin", "Manager"))
-        return Result.Failure(Error.Forbidden("Insufficient permissions"));
-    
-    var currentUserId = httpContextService.GetUserId();
+    var entity = await repository.GetByIdAsync(command.Id, ct) ?? throw new ThingNotFoundException(command.Id);
+
+    var currentUserId = httpContextService.GetUserIdAsGuid();
     if (entity.OwnerId != currentUserId && !httpContextService.HasRole("Admin"))
-        return Result.Failure(Error.Forbidden("Can only delete own records"));
-    
+        throw new ForbiddenException("You can only delete your own records.");
+
     // Proceed with deletion
 }
 ```
@@ -109,21 +108,17 @@ public void LogAction(string action, string entityType, string entityId)
 }
 ```
 
-### Pattern 3: Tenant Filtering
-```csharp
-public async Task<List<AgentDto>> Handle(GetAgentsQuery query, CancellationToken ct)
-{
-    var tenantId = httpContextService.GetTenantId();
-    var agents = await repository.GetAllAsync(a => a.TenantId == tenantId, ct);
-    return agents.Adapt<List<AgentDto>>();
-}
-```
+### Pattern 3: Tenant data - do NOT filter by hand
+
+Never read a tenant id from the HTTP context to filter queries. The resolved tenant is `ITenantContext`
+(`Shared.Core.MultiTenancy`), and tenant-data DbContexts apply the named `Tenant` filter and Postgres RLS
+automatically. See [../MultiTenancy/Overview.md](../MultiTenancy/Overview.md).
 
 ### Pattern 4: Owner Check
 ```csharp
 var currentUserId = httpContextService.GetUserId();
 if (entity.OwnerId != currentUserId && !httpContextService.HasAnyRole("Admin"))
-    return Result.Failure(Error.Forbidden());
+    throw new ForbiddenException();
 ```
 
 ## Automatic Auditing
@@ -177,7 +172,7 @@ mockService.Setup(x => x.GetIpAddress()).Returns("192.168.1.100");
 var handler = new MyHandler(repository, mockService.Object);
 ```
 
-See [Examples.md](Examples.md) for complete test examples.
+For test doubles, see `TestSupport.Http(userId, roles)` in `src/Modules/Catalog/Catalog.Tests/TestSupport.cs` and `FakeHttpContextService` in `Catalog.IntegrationTests`.
 
 ## Background Jobs
 
@@ -222,7 +217,7 @@ All methods return nullable values - always check for null in background operati
 
 ## Related Documentation
 
-- [Examples](Examples.md) - Real-world usage examples and tests
+- [Catalog tests](../../src/Modules/Catalog/Catalog.Tests/TestSupport.cs) - how to fake the current user in tests
 - [Notification module](../Modules/Notification.md) - email + WhatsApp delivery, templates, retries, OTP and admin APIs
 - Source: `src/Shared/Shared.Core/Web/IHttpContextService.cs`
 - Implementation: `src/Shared/Shared.Core/Web/HttpContextService.cs`

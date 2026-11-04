@@ -59,7 +59,7 @@
 
 ## Data Layer
 
-### Entity Framework Core 9
+### Entity Framework Core 10
 - **Purpose**: ORM and data access
 - **Features Used**:
   - Code-first approach
@@ -69,7 +69,7 @@
   - Query filters
 
 ### PostgreSQL
-- **Version**: 14+
+- **Version**: 16 (Docker images `postgres:16-alpine`)
 - **Features Used**:
   - Schema support for modules
   - JSON/JSONB columns
