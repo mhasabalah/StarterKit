@@ -3,7 +3,7 @@
 # ==============================================
 # Production-optimized Nginx with custom configs
 
-FROM nginx:1.25-alpine
+FROM nginx:1.31-alpine
 
 LABEL maintainer="StarterKit Team"
 LABEL description="Nginx reverse proxy for StarterKit API"
