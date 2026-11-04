@@ -32,7 +32,7 @@ jobs:
     runs-on: [self-hosted, deploy-only]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Determine backup type
         id: backup_type
