@@ -1,7 +1,7 @@
 using System.Reflection;
 using Carter;
 using FluentValidation;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Shared.Contracts.CQRS;
 using Shared.Contracts.Events;
 
@@ -27,7 +27,7 @@ public sealed class NamingConventionTests
     public void Command_and_query_handlers_end_with_Handler()
     {
         var offenders = ConcreteTypes
-            .Where(t => Implements(t, typeof(IRequestHandler<,>)) || Implements(t, typeof(IRequestHandler<>)))
+            .Where(t => Implements(t, typeof(IRequestHandler<,>)))
             .Where(t => !t.Name.EndsWith("Handler", StringComparison.Ordinal))
             .Select(t => t.FullName);
 
@@ -97,7 +97,7 @@ public sealed class NamingConventionTests
             .Where(a => a.GetName().Name!.EndsWith(".Contracts", StringComparison.Ordinal))
             .SelectMany(SafeGetTypes)
             .Where(t => t is { IsClass: true, IsAbstract: false } &&
-                        (Implements(t, typeof(IRequestHandler<,>)) || Implements(t, typeof(IRequestHandler<>))))
+                        (Implements(t, typeof(IRequestHandler<,>))))
             .Select(t => t.FullName);
 
         offenders.Should().BeEmpty(".Contracts holds commands/queries/DTOs only; handlers belong to the module");

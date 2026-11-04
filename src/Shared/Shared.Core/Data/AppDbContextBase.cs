@@ -82,7 +82,8 @@ public abstract class AppDbContextBase : DbContext, IDbContext
     private static void EnsureTenantIndex(IMutableEntityType entityType)
     {
         var tenantId = entityType.FindProperty(nameof(IMustHaveTenant.TenantId));
-        if (tenantId is null) return;
+        if (tenantId is null)
+            return;
 
         var hasLeadingIndex = entityType.GetIndexes().Any(i => i.Properties[0] == tenantId)
                               || entityType.FindPrimaryKey()?.Properties[0] == tenantId;
@@ -174,7 +175,7 @@ public abstract class AppDbContextBase : DbContext, IDbContext
     // NOTE: SaveChangesAsync is deliberately NOT overridden to translate DbUpdateConcurrencyException.
     // EF's exception propagates unchanged so that background code can catch it per item
     // (catch (Exception ex) when (ex.IsConcurrencyConflict())). The ONE translation to the domain
-    // ConcurrencyConflictException (HTTP 409) happens in ConcurrencyHandlingBehavior (MediatR), and
+    // ConcurrencyConflictException (HTTP 409) happens in ConcurrencyHandlingBehavior (mediator), and
     // ExceptionStatusMapper maps a raw DbUpdateConcurrencyException to 409 as well.
 
     public IReadOnlyList<IDomainEvent> GetDomainEvents()

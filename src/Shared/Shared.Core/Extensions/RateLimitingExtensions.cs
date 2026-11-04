@@ -33,6 +33,9 @@ public static class RateLimitPolicyNames
     /// Identifiers that only exist in the request body must additionally be throttled in the handler.
     /// </summary>
     public const string Otp = "otp";
+
+    /// <summary>Inbound provider webhooks (anonymous, signature-verified). Partitioned per IP, generous: providers burst and retry.</summary>
+    public const string Webhook = "webhook";
 }
 
 /// <summary>How requests are grouped into independent buckets.</summary>
@@ -101,7 +104,8 @@ public static class RateLimitingExtensions
         new(RateLimitPolicyNames.Create, 10, 60),
         new(RateLimitPolicyNames.Search, 60, 60),
         new(RateLimitPolicyNames.Auth, 10, 60, partitionBy: RateLimitPartitionBy.Ip),
-        new(RateLimitPolicyNames.Otp, 3, 600, partitionBy: RateLimitPartitionBy.IpAndUser)
+        new(RateLimitPolicyNames.Otp, 3, 600, partitionBy: RateLimitPartitionBy.IpAndUser),
+        new(RateLimitPolicyNames.Webhook, 300, 60, partitionBy: RateLimitPartitionBy.Ip)
     ];
 
     private static readonly string[] IdentifierRouteKeys = ["userId", "phoneNumber", "phone", "email"];
@@ -184,7 +188,8 @@ public static class RateLimitingExtensions
         var configured = configuration.GetSection($"{SectionName}:Policies").Get<List<RateLimitPolicyOptions>>() ?? [];
 
         var result = new Dictionary<string, RateLimitPolicyOptions>(StringComparer.OrdinalIgnoreCase);
-        foreach (var policy in DefaultPolicies) result[policy.Name] = policy;
+        foreach (var policy in DefaultPolicies)
+            result[policy.Name] = policy;
 
         foreach (var policy in configured)
         {
@@ -218,7 +223,8 @@ public static class RateLimitingExtensions
 
     private static string? GetUserId(HttpContext ctx)
     {
-        if (ctx.User.Identity?.IsAuthenticated != true) return null;
+        if (ctx.User.Identity?.IsAuthenticated != true)
+            return null;
         var id = ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? ctx.User.FindFirstValue("sub");
         return string.IsNullOrWhiteSpace(id) ? null : id;
     }
@@ -240,7 +246,8 @@ public static class RateLimitingExtensions
     public static string GetIpKey(HttpContext ctx)
     {
         var ip = ClientIp.GetRemoteIp(ctx);
-        if (ip is null) return "ip:unknown";
+        if (ip is null)
+            return "ip:unknown";
 
         if (ip.AddressFamily == AddressFamily.InterNetworkV6)
         {
@@ -255,7 +262,8 @@ public static class RateLimitingExtensions
     private static string? GetIdentifier(HttpContext ctx)
     {
         var userId = GetUserId(ctx);
-        if (userId is not null) return $"user:{userId}";
+        if (userId is not null)
+            return $"user:{userId}";
 
         foreach (var key in IdentifierRouteKeys)
         {

@@ -24,6 +24,18 @@ public sealed class ProductionConfigurationGuardTests
             .WithMessage("*Jwt:SecretKey*");
     }
 
+    [Fact]
+    public void Rotation_keys_are_covered_a_placeholder_previous_key_blocks_startup()
+    {
+        var config = Config(
+            ("JwtSettings:SecretKey", "a-real-secret-from-docker-secrets-0123456789"),
+            ("JwtSettings:PreviousSecretKeys:0", "CHANGE_ME_OLD_KEY"));
+
+        var act = () => ProductionConfigurationGuard.EnsureNoPlaceholders(config, "Production");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*JwtSettings:PreviousSecretKeys:0*");
+    }
+
     [Theory]
     [InlineData("Development")]
     [InlineData("Testing")]
@@ -77,5 +89,32 @@ public sealed class ProductionConfigurationGuardTests
         ProductionConfigurationGuard.FindPlaceholders(config)
             .Should().Contain(k => k.StartsWith("ConnectionStrings:", StringComparison.Ordinal))
             .And.Contain(k => k.Contains("SecretKey", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Production", null)]
+    [InlineData("Docker", "InMemory")]
+    [InlineData("Staging", "inmemory")]
+    public void Refuses_in_memory_messaging_outside_dev(string environment, string? transport)
+    {
+        var config = Config(("Messaging:Transport", transport));
+
+        var act = () => ProductionConfigurationGuard.EnsureDurableMessaging(config, environment);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*InMemory*");
+    }
+
+    [Theory]
+    [InlineData("Production", "PostgreSql")]
+    [InlineData("Docker", "RabbitMq")]
+    [InlineData("Development", "InMemory")]
+    [InlineData("Testing", null)]
+    public void Allows_durable_transport_or_relaxed_environment(string environment, string? transport)
+    {
+        var config = Config(("Messaging:Transport", transport));
+
+        var act = () => ProductionConfigurationGuard.EnsureDurableMessaging(config, environment);
+
+        act.Should().NotThrow();
     }
 }

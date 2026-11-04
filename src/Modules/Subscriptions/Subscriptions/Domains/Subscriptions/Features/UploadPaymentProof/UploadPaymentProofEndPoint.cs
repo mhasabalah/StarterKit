@@ -33,6 +33,7 @@ public class UploadPaymentProofEndPoint : ICarterModule
                 })
             .RequireAuthorization()
             .RequireRateLimiting("upload")
+            .WithIdempotency()
             .WithName("UploadPaymentProof")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

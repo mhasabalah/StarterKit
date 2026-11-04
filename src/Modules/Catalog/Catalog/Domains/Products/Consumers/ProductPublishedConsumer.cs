@@ -7,7 +7,7 @@ namespace Catalog.Domains.Products.Consumers;
 /// SAMPLE consumer. Shows the receiving side of an integration event: registered automatically because
 /// <c>CatalogRoot.AssemblyName</c> is passed to <c>AddMassTransitWithAssemblies(...)</c> in Program.cs.
 /// In a real system it lives in the module that reacts (search indexing, notifications, ...). No existing
-/// module publishes a bus event Catalog could react to (Identity raises in-process MediatR events only),
+/// module publishes a bus event Catalog could react to (Identity raises in-process mediator events only),
 /// so the sample consumes Catalog's own event and just logs it.
 /// </summary>
 public class ProductPublishedConsumer(ILogger<ProductPublishedConsumer> logger)

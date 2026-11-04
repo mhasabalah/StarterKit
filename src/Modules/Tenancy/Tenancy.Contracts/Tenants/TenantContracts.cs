@@ -63,3 +63,12 @@ public sealed record GetTenantByIdQuery(Guid TenantId) : IQuery<TenantDto?>;
 
 /// <summary>Active tenants of a user (tenant switcher; Identity login).</summary>
 public sealed record GetUserTenantsQuery(Guid UserId) : IQuery<IReadOnlyList<UserTenantDto>>;
+
+/// <summary>A live tenant (not deleted / pending deletion) whose owner is the given user.</summary>
+public sealed record OwnedTenantDto(Guid TenantId, string Identifier, string Name);
+
+/// <summary>
+/// Tenants owned by <paramref name="UserId"/>. For account deletion: an owner must transfer ownership first.
+/// Internal, cross-module: Identity asks, Tenancy answers across all tenants (no ambient tenant needed).
+/// </summary>
+public sealed record GetOwnedTenantsQuery(Guid UserId) : IQuery<IReadOnlyList<OwnedTenantDto>>;

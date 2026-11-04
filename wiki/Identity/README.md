@@ -24,7 +24,7 @@ The **Identity** module handles authentication, authorization, user management, 
 - **JWT Bearer**: Token-based authentication
 - **BCrypt/PBKDF2**: Password hashing
 - **Redis**: Session and token storage
-- **MediatR**: Command/query handling
+- **Mediator** (`Shared.Contracts.Mediation`, owned): command/query handling
 
 ## Domain Model
 

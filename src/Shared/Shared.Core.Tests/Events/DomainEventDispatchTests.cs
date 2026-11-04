@@ -1,4 +1,4 @@
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Core.Data;
@@ -7,7 +7,7 @@ namespace Shared.Core.Tests.Events;
 
 /// <summary>
 /// Domain-event delivery rules, end to end against real PostgreSQL with the real interceptor, collector, dispatcher,
-/// MediatR behavior and <see cref="IUnitOfWorkRunner"/>:
+/// mediator behavior and <see cref="IUnitOfWorkRunner"/>:
 /// <list type="bullet">
 /// <item>published exactly once, after the OUTERMOST unit of work commits (nested Send included);</item>
 /// <item>events of failed saves / rolled-back transactions / failed units of work are discarded and never leak into
@@ -21,7 +21,7 @@ public sealed class DomainEventDispatchTests(DomainEventFixture fx)
 {
     private PublishedEvents Published => fx.Published;
 
-    // ----- MediatR path -----
+    // ----- mediator path -----
 
     [Fact]
     public async Task Nested_send_dispatches_once_after_the_outermost_command_commits()
@@ -136,7 +136,7 @@ public sealed class DomainEventDispatchTests(DomainEventFixture fx)
         await winnerDb.SaveChangesAsync();
         loser.Rename(DomainEventFixture.UniqueName("loser"));
 
-        // The DbContext throws EF's exception unchanged (translation to 409 is the MediatR behavior's job).
+        // The DbContext throws EF's exception unchanged (translation to 409 is the mediator behavior's job).
         await FluentActions.Invoking(() => loserDb.SaveChangesAsync()).Should().ThrowAsync<DbUpdateConcurrencyException>();
 
         loserScope.ServiceProvider.GetRequiredService<IDomainEventCollector>().ReadyCount.Should().Be(0);

@@ -20,6 +20,9 @@ public class E2ETestFactory : WebApplicationFactory<Program>
     /// <summary>Connection-string name used by every module's AddCustomDbContext.</summary>
     public const string ConnectionStringName = "starterkit";
 
+    /// <summary>Signing secret of the Fake payment gateway enabled for the test host.</summary>
+    public const string FakeGatewaySecret = "e2e-fake-gateway-secret-0123456789";
+
     private readonly string _connectionString;
 
     public E2ETestFactory(string connectionString)
@@ -55,6 +58,10 @@ public class E2ETestFactory : WebApplicationFactory<Program>
             {
                 [$"ConnectionStrings:{ConnectionStringName}"] = _connectionString,
                 ["Redis:Enabled"] = "false",
+
+                // Online payments: the Fake gateway signs webhooks with this secret (see Subscriptions/OnlinePaymentWebhookTests).
+                ["Subscriptions:PaymentGateways:Fake:Enabled"] = "true",
+                ["Subscriptions:PaymentGateways:Fake:Secret"] = FakeGatewaySecret,
 
                 // Ensure JWT registration succeeds at startup (real values are
                 // irrelevant — the test auth scheme replaces JWT for requests).

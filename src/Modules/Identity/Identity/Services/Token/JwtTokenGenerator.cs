@@ -97,8 +97,7 @@ public class JwtTokenGenerator(
             claims.Add(new Claim(IdentityClaimTypes.IsAdmin, "true"));
         }
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SecretKey));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var credentials = new SigningCredentials(JwtSigningKeys.Current(_jwtOptions), SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
             issuer: _jwtOptions.Issuer,

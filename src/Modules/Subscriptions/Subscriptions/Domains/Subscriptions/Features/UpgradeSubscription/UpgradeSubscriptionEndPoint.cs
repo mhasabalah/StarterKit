@@ -24,6 +24,7 @@ public class UpgradeSubscriptionEndPoint : ICarterModule
                 })
             .RequireAuthorization()
             .RequireRateLimiting("create")
+            .WithIdempotency()
             .WithName("UpgradeSubscription")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

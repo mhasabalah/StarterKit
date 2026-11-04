@@ -20,13 +20,9 @@ updates:
         update-types: [minor, patch]
     ignore:
       # Pinned to the last free major (licensing) - upgrade deliberately.
-      - dependency-name: "MediatR"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "MassTransit*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "FluentAssertions"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "SixLabors.*"
         update-types: ["version-update:semver-major"]
       # Breaking API in the next major - upgrade separately (Directory.Packages.props notes).
       - dependency-name: "Mapster*"

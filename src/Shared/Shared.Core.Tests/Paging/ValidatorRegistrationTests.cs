@@ -1,5 +1,5 @@
 using FluentValidation;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Contracts.CQRS;
 using Shared.Core.Pagination;
@@ -9,7 +9,7 @@ namespace Shared.Core.Tests.Paging;
 
 /// <summary>
 /// Regression: BaseQueryValidator&lt;TQuery&gt; is an open generic base class inside Shared.Core. Assembly scanning
-/// (AddPhoneValidationFeature / AddMediatR) once registered it as a service. After that, EVERY
+/// (AddPhoneValidationFeature / AddMediator) once registered it as a service. After that, EVERY
 /// IValidator&lt;T&gt; resolution in every module threw "Cannot instantiate implementation type".
 /// </summary>
 public sealed class ValidatorRegistrationTests
@@ -22,7 +22,7 @@ public sealed class ValidatorRegistrationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddPhoneValidationFeature();
-        Extensions.MediatRExtentions.AddMediatR(services, typeof(BaseQueryValidator<>).Assembly);
+        Extensions.MediatorExtensions.AddMediator(services, typeof(BaseQueryValidator<>).Assembly);
 
         services.Should().NotContain(d =>
             d.ImplementationType != null && d.ImplementationType.IsGenericTypeDefinition &&

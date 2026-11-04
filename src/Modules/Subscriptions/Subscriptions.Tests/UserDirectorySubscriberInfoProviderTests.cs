@@ -1,5 +1,5 @@
 using FluentAssertions;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Subscriptions.Infrastructure.Subscribers;
 using UserDirectory.Contracts.Queries;
@@ -70,18 +70,5 @@ public class UserDirectorySubscriberInfoProviderTests
             LastRequest = request;
             return Task.FromResult((TResponse)respond(request)!);
         }
-
-        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default)
-            where TRequest : IRequest
-            => throw new NotSupportedException();
-
-        public Task<object?> Send(object request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(IStreamRequest<TResponse> request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
     }
 }

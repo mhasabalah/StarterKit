@@ -5,8 +5,8 @@ using Shared.Core.OpenTelemetryCollector.DiagnosticsProvider;
 namespace Shared.Core.OpenTelemetryCollector.Behaviors;
 
 /// <summary>
-/// One span and one duration measurement per MediatR request (command / query / other), as the OUTERMOST behavior
-/// (registered by <c>AddCustomObservability</c>, before any module's <c>AddMediatR</c>), so validation, concurrency
+/// One span and one duration measurement per mediator request (command / query / other), as the OUTERMOST behavior
+/// (registered by <c>AddCustomObservability</c>, before any module's <c>AddMediator</c>), so validation, concurrency
 /// handling and domain-event dispatch are inside the span.
 /// <list type="bullet">
 /// <item>Span: <c>{InstrumentationName}.{kind} {RequestName}</c> on the shared <see cref="IDiagnosticsProvider.ActivitySource"/>
@@ -73,7 +73,7 @@ public sealed class RequestTelemetryMetrics
 
     public RequestTelemetryMetrics(IDiagnosticsProvider diagnostics) =>
         _duration = diagnostics.Meter.CreateHistogram<double>(
-            DurationInstrument, unit: "s", description: "Duration of MediatR requests (commands and queries)");
+            DurationInstrument, unit: "s", description: "Duration of mediator requests (commands and queries)");
 
     public void Record(string name, string kind, string outcome, TimeSpan elapsed)
     {

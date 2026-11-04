@@ -11,8 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using Shared.Core.Web;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using AttachmentEntityType = Attachment.Contracts.Attachments.Dtos.EntityType;
 
 namespace Attachment.Tests.TestSupport;
@@ -92,26 +91,55 @@ public sealed class TempDirectory : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(Path, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        try
+        { Directory.Delete(Path, recursive: true); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }
 
 public static class TestFiles
 {
-    public static byte[] Png(int width = 32, int height = 24)
+    public static byte[] Png(int width = 32, int height = 24) =>
+        Encode(width, height, new SKColor(10, 120, 200), SKEncodedImageFormat.Png);
+
+    public static byte[] Jpeg(int width = 32, int height = 24) =>
+        Encode(width, height, new SKColor(200, 10, 10), SKEncodedImageFormat.Jpeg);
+
+    public static byte[] Webp(int width = 32, int height = 24) =>
+        Encode(width, height, new SKColor(10, 200, 10), SKEncodedImageFormat.Webp);
+
+    /// <summary>A fully transparent PNG (thumbnails must flatten it onto white, not black).</summary>
+    public static byte[] TransparentPng(int width = 32, int height = 24) =>
+        Encode(width, height, SKColors.Transparent, SKEncodedImageFormat.Png);
+
+    /// <summary>A 1x1 GIF89a (Skia has no GIF encoder).</summary>
+    public static byte[] Gif() => Convert.FromBase64String("R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==");
+
+    /// <summary>An uncompressed 24-bit BMP of the given size (Skia has no BMP encoder).</summary>
+    public static byte[] Bmp(int width = 4, int height = 3)
     {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(10, 120, 200));
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
+        var rowSize = (width * 3 + 3) & ~3;
+        var bytes = new byte[54 + rowSize * height];
+        bytes[0] = (byte)'B';
+        bytes[1] = (byte)'M';
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(2), bytes.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(10), 54);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(14), 40);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(18), width);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(22), height);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(26), 1);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(28), 24);
+        return bytes;
     }
 
-    public static byte[] Jpeg(int width = 32, int height = 24)
+    private static byte[] Encode(int width, int height, SKColor color, SKEncodedImageFormat format)
     {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(200, 10, 10));
-        using var ms = new MemoryStream();
-        image.SaveAsJpeg(ms);
-        return ms.ToArray();
+        using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        bitmap.Erase(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(format, 90);
+        return data.ToArray();
     }
 
     public static byte[] Pdf() => Encoding.ASCII.GetBytes("%PDF-1.7\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n");

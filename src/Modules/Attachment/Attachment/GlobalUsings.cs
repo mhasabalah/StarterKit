@@ -3,7 +3,7 @@ global using Carter;
 global using FluentValidation;
 global using Mapster;
 global using MassTransit;
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.Routing;

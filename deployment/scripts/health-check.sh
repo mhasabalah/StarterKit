@@ -41,8 +41,11 @@ fi
 # Check API instances
 echo "🚀 API Health:"
 for PORT in 5000 5001; do
+    # /alive = process up (liveness); /health = ready to serve (Postgres + Redis reachable).
     if curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; then
-        log_info "API on port ${PORT}: Healthy"
+        log_info "API on port ${PORT}: Ready (/health)"
+    elif curl -sf "http://localhost:${PORT}/alive" > /dev/null 2>&1; then
+        log_warn "API on port ${PORT}: Alive but NOT ready (/health failing: check Postgres/Redis)"
     else
         log_error "API on port ${PORT}: Not responding"
     fi

@@ -872,6 +872,20 @@ Authorization: Bearer eyJhbGc...
 }
 ```
 
+### Signing key rotation
+
+Access tokens are HS256. New tokens are signed with `JwtSettings:SecretKey` and carry a `kid` header (first 8 bytes of
+SHA-256 of the key, hex; a fingerprint, not the key). Validation accepts the current key plus
+`JwtSettings:PreviousSecretKeys` (array, optional, each at least 32 bytes; placeholders are rejected in production by
+`ProductionConfigurationGuard`). With only `SecretKey` configured nothing changes.
+
+To rotate: (1) move the old value to `PreviousSecretKeys` (`JwtSettings__PreviousSecretKeys__0`) and set a new
+`SecretKey`; (2) deploy; (3) after the access-token lifetime (`AccessTokenExpirationMinutes`) remove the old key.
+Removing a previous key at once revokes every token it signed. Refresh tokens are opaque and unaffected. Keys derived
+from `SecretKey` (2FA challenge tokens, the attachment download-signing fallback) change with it: in-flight 2FA
+challenges (minutes) must be restarted and unsigned download links expire; set `Attachment:Download:SigningKey`
+explicitly to avoid the latter.
+
 ### docker-compose.override.yml
 ```yaml
 environment:

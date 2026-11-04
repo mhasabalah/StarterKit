@@ -283,8 +283,8 @@ public static class Extensions
     }
 
     /// <summary>
-    /// MediatR request telemetry (span + duration histogram per command/query). Registered here - before any module's
-    /// <c>AddMediatR</c> - so it is the OUTERMOST pipeline behavior, and only in the host (module test fixtures that do
+    /// mediator request telemetry (span + duration histogram per command/query). Registered here - before any module's
+    /// <c>AddMediator</c> - so it is the OUTERMOST pipeline behavior, and only in the host (module test fixtures that do
     /// not add observability stay unaffected).
     /// </summary>
     private static WebApplicationBuilder AddCoreDiagnostics(this WebApplicationBuilder builder)

@@ -22,10 +22,13 @@ The wiring lives in `Shared.Core/OpenTelemetryCollector/Extensions.cs` (`AddCust
 `src/Aspire/ServiceDefaults`. It covers:
 - **Traces:** ASP.NET Core, HttpClient, EF Core/Npgsql, MassTransit (`DiagnosticHeaders.DefaultListenerName`), and the
   outbox relay (`StarterKit.Outbox`; the `outbox publish` producer span continues the originating request's trace).
-  Every MediatR request gets a span `{InstrumentationName}.{command|query} {RequestName}` and a
+  Every mediator request gets a span `{InstrumentationName}.{command|query} {RequestName}` and a
   `mediatr.request.duration` histogram (tags: name, kind, outcome) from `RequestTelemetryBehavior`, the outermost
   pipeline behavior (registered by `AddCustomObservability`, host only).
-- **Metrics:** ASP.NET Core and Kestrel, `System.Runtime`, the instrumentation meter, plus Prometheus scraping.
+- **Metrics:** ASP.NET Core and Kestrel, `System.Runtime`, the instrumentation meter, plus Prometheus scraping. The
+  outbox backlog gauges `outbox.messages.pending` / `outbox.messages.dead_lettered` (tag `context`) are on the instrumentation
+  meter, fed by the outbox sweep (see `wiki/Architecture/Messaging.md`); alert rules live in
+  `infra/observability/configs/alerts.yaml`.
 - **Logs:** structured `ILogger` output exported through OpenTelemetry (OTLP) to Seq, the Aspire dashboard or Loki.
 - **Health:** `/health` checks dependencies (Postgres, Redis; Seq is deliberately excluded). `/alive` is liveness.
 

@@ -77,7 +77,8 @@ public sealed class TenantProvisioner(
             {
                 var db = sp.GetRequiredService<TenancyDbContext>();
                 var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-                if (tenant is null) return;
+                if (tenant is null)
+                    return;
                 change(tenant);
                 await db.SaveChangesAsync(ct);
             }
@@ -93,8 +94,9 @@ public sealed class ProvisionTenantJob(TenantProvisioner provisioner)
 }
 
 /// <summary>
-/// Startup migrator for DEDICATED tenant databases (the shared database is migrated by <c>UseMigration</c>).
-/// Bounded parallelism (<c>MultiTenancy:Database:MigrationParallelism</c>); one tenant's failure is logged and does
+/// Migrator for DEDICATED tenant databases (the shared database is migrated by <c>UseMigration</c>). Runs in the
+/// background at startup unless <c>Database:MigrateOnStartup=false</c>, and is invoked directly by the
+/// <c>--migrate-only</c> run (<see cref="MigrateAllAsync"/>). Bounded parallelism (<c>MultiTenancy:Database:MigrationParallelism</c>); one tenant's failure is logged and does
 /// not stop the others or the app. Runs in the background so a large fleet does not delay startup.
 /// </summary>
 public sealed class DedicatedTenantDatabaseMigrator(
@@ -107,8 +109,19 @@ public sealed class DedicatedTenantDatabaseMigrator(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!options.Value.Enabled || registry.ContextTypes.Count == 0) return;
-        if (configuration.GetValue("MultiTenancy:Database:MigrateDedicatedOnStartup", true) is false) return;
+        if (!Shared.Core.Data.DatabaseMigrationOptions.From(configuration).MigrateOnStartup)
+            return;
+        if (configuration.GetValue("MultiTenancy:Database:MigrateDedicatedOnStartup", true) is false)
+            return;
+
+        await MigrateAllAsync(stoppingToken);
+    }
+
+    /// <summary>Migrates + seeds every active/suspended dedicated tenant database; returns how many failed.</summary>
+    public async Task<int> MigrateAllAsync(CancellationToken stoppingToken)
+    {
+        if (!options.Value.Enabled || registry.ContextTypes.Count == 0)
+            return 0;
 
         var tenants = await runner.RunAsync<IReadOnlyList<TenantInfo>>(async (sp, ct) =>
         {
@@ -122,7 +135,8 @@ public sealed class DedicatedTenantDatabaseMigrator(
             }
         }, stoppingToken);
 
-        if (tenants.Count == 0) return;
+        if (tenants.Count == 0)
+            return 0;
         logger.LogInformation("Migrating {Count} dedicated tenant database(s)", tenants.Count);
 
         var failed = 0;
@@ -150,5 +164,6 @@ public sealed class DedicatedTenantDatabaseMigrator(
             });
 
         logger.LogInformation("Dedicated tenant databases migrated ({Failed} failed)", failed);
+        return failed;
     }
 }

@@ -45,12 +45,15 @@ public static class Permissions
     /// <summary>Support impersonation: act as a tenant member for a short, audited, read-mostly session.</summary>
     public const string TenantsImpersonate = "tenants.impersonate";
 
+    /// <summary>Platform operations: inspect and requeue dead-lettered outbox messages.</summary>
+    public const string OutboxManage = "outbox.manage";
+
     /// <summary>Every permission; used to register one policy per permission.</summary>
     public static IReadOnlyList<string> All { get; } =
     [
         BillingRead, BillingApprove, BillingRefund, BillingExport, PlansManage, PaymentSettingsManage,
         UsersRead, UsersManage, AdminsManage, AuditRead, CatalogModerate, TenantsRead, TenantsManage,
-        TenantsImpersonate
+        TenantsImpersonate, OutboxManage
     ];
 
     public static string PolicyName(string permission) => PolicyPrefix + permission;

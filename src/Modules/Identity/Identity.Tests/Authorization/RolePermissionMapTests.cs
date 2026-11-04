@@ -38,11 +38,13 @@ public sealed class RolePermissionMapTests
     }
 
     [Fact]
-    public void Admin_has_everything_except_admins_manage()
+    public void Admin_has_everything_except_admins_manage_and_outbox_manage()
     {
         RolePermissionMap.For(RoleConstants.Admin).Should()
-            .BeEquivalentTo(Permissions.All.Where(p => p != Permissions.AdminsManage).Concat(TenantPermissions.All))
-            .And.NotContain(Permissions.AdminsManage);
+            .BeEquivalentTo(Permissions.All
+                .Where(p => p != Permissions.AdminsManage && p != Permissions.OutboxManage)
+                .Concat(TenantPermissions.All))
+            .And.NotContain([Permissions.AdminsManage, Permissions.OutboxManage]);
     }
 
     [Fact]

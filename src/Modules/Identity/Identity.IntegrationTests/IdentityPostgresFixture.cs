@@ -4,7 +4,7 @@ using Identity.Domains.Audit.Services;
 using Identity.Domains.Auth.Services;
 using Identity.Domains.Users.Services;
 using Identity.Services.TwoFactor;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Identity.Data.Repository.RefreshTokens;
@@ -20,8 +20,10 @@ using Identity.Services.Token;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Core.Extensions;
 using Shared.Core.Phone;
 using Shared.Core.Web;
+using Tenancy.Contracts.Tenants;
 using Testcontainers.PostgreSql;
 
 namespace Identity.IntegrationTests;
@@ -118,10 +120,15 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
         services.AddScoped<IIdentityAuditWriter, IdentityAuditWriter>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
-        // Real MediatR pipeline incl. the audited-command transaction behavior (as registered by IdentityModule).
-        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(IdentityRoot.AssemblyName));
+        // Real mediator pipeline incl. the audited-command transaction behavior (as registered by IdentityModule).
+        services.AddMediatorHandlers(IdentityRoot.AssemblyName);
         services.TryAddEnumerable(ServiceDescriptor.Transient(
             typeof(IPipelineBehavior<,>), typeof(AuditedCommandTransactionBehavior<,>)));
+
+        // Tenancy answers "which tenants does this user own" in production; here the test decides.
+        services.AddSingleton(OwnedTenants);
+        services.AddSingleton<IRequestHandler<GetOwnedTenantsQuery, IReadOnlyList<OwnedTenantDto>>>(
+            new StubOwnedTenantsHandler(OwnedTenants));
 
         services.AddSingleton<RecordingSmsService>();
         services.AddSingleton<ISmsService>(sp => sp.GetRequiredService<RecordingSmsService>());
@@ -147,6 +154,9 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
     }
 
     public const string Password = "Passw0rd!";
+
+    /// <summary>Tenants the stubbed Tenancy module reports as owned, per user.</summary>
+    public System.Collections.Concurrent.ConcurrentDictionary<Guid, IReadOnlyList<OwnedTenantDto>> OwnedTenants { get; } = new();
 
     public AsyncServiceScope NewScope() => Services.CreateAsyncScope();
 
@@ -180,6 +190,14 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
 public sealed class FixedHttpContextAccessor : IHttpContextAccessor
 {
     public HttpContext? HttpContext { get; set; }
+}
+
+public sealed class StubOwnedTenantsHandler(
+    System.Collections.Concurrent.ConcurrentDictionary<Guid, IReadOnlyList<OwnedTenantDto>> owned)
+    : IRequestHandler<GetOwnedTenantsQuery, IReadOnlyList<OwnedTenantDto>>
+{
+    public Task<IReadOnlyList<OwnedTenantDto>> Handle(GetOwnedTenantsQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult(owned.TryGetValue(request.UserId, out var tenants) ? tenants : []);
 }
 
 public sealed class RecordingSmsService : ISmsService

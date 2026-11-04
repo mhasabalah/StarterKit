@@ -45,7 +45,7 @@ public static class CatalogModule
         services.AddAttachmentEntityPolicy<ProductAttachmentAccessPolicy>(
             Attachment.Contracts.Attachments.Dtos.EntityType.Product);
 
-        services.AddMediatR(CatalogRoot.AssemblyName);
+        services.AddMediator(CatalogRoot.AssemblyName);
         services.AddCustomMapster(CatalogRoot.AssemblyName);
         services.AddCarterWithAssemblies(CatalogRoot.AssemblyName);
 

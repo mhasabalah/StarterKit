@@ -29,7 +29,7 @@ public static class RolePermissionMap
             // single-tenant mode (they manage the Default tenant without memberships); in multi-tenant mode tenant
             // permissions come exclusively from memberships (see TenantPermissionHandler).
             [RoleConstants.SuperAdmin] = Set(Permissions.All.Concat(TenantPermissions.All)),
-            [RoleConstants.Admin] = Set(Permissions.All.Where(p => p != Permissions.AdminsManage)
+            [RoleConstants.Admin] = Set(Permissions.All.Where(p => p != Permissions.AdminsManage && p != Permissions.OutboxManage)
                 .Concat(TenantPermissions.All)),
             [RoleConstants.Finance] = Set(BillingAll.Concat(
             [

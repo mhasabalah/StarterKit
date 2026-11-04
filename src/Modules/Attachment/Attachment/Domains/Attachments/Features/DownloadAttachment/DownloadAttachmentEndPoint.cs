@@ -40,6 +40,7 @@ public class DownloadAttachmentEndPoint : ICarterModule
                 "or streams the file. Files are served with nosniff and Content-Disposition: attachment " +
                 "(inline only for safe image types).")
             .AllowAnonymous()
+            .DisableRequestTimeout()
             .HasApiVersion(1.0);
     }
 }

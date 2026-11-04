@@ -1,7 +1,7 @@
 # StarterKit Wiki
 
 Developer documentation for **StarterKit**, a production-ready ASP.NET Core 10 modular monolith template: vertical
-slices, CQRS with MediatR, Carter endpoints, EF Core 10 + PostgreSQL, Redis, MassTransit with a transactional
+slices, CQRS through an owned mediator port, Carter endpoints, EF Core 10 + PostgreSQL, Redis, MassTransit with a transactional
 outbox, Hangfire, optional multi-tenancy, and .NET Aspire.
 
 **Every page is listed in [INDEX.md](INDEX.md).** Rules for humans and agents are in the repo-root

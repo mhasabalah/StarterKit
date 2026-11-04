@@ -43,7 +43,8 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
                 mapping.StatusCode, exception.Message, traceId);
         }
 
-        if (context.Response.HasStarted) return false;
+        if (context.Response.HasStarted)
+            return false;
 
         await WriteAsync(context, mapping, traceId, cancellationToken);
         return true;
@@ -64,6 +65,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
             SuccessMessage = null,
             Errors = mapping.Errors.ToList(),
             Code = mapping.Code,
+            ErrorCode = mapping.ErrorCode,
             TraceId = traceId
         };
 

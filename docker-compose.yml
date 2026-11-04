@@ -48,6 +48,10 @@ secrets:
     file: ./secrets/jwt_secret.txt
   identity_otp_hmac_key:
     file: ./secrets/identity_otp_hmac_key.txt
+  # Optional privileged (DDL) connection string for the migrator only. May be an empty file (then the runtime
+  # connection is used). Mounted as /run/secrets/Database__MigrationConnectionString -> Database:MigrationConnectionString.
+  migration_connection_string:
+    file: ./secrets/migration_connection_string.txt
 
 # ==============================================
 # Services
@@ -343,7 +347,7 @@ services:
       - redis_password
       - jwt_secret
       - identity_otp_hmac_key
-    environment:
+    environment: &api-environment
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: "http://+:80"
       # Client IP: forwarded headers are trusted only from ForwardedHeaders:KnownProxies/KnownNetworks
@@ -386,7 +390,7 @@ services:
       MultiTenancy__Impersonation__Enabled: ${MULTITENANCY_IMPERSONATION_ENABLED:-true}
       RateLimiting__Tenant__PermitLimit: ${RATE_LIMIT_TENANT_PERMITS:-0}
       # Messaging transport: InMemory | PostgreSql | RabbitMq (RabbitMq: add docker-compose.rabbitmq.yml)
-      Messaging__Transport: ${MESSAGING_TRANSPORT:-InMemory}
+      Messaging__Transport: ${MESSAGING_TRANSPORT:-PostgreSql}
 
     ports:
       - "${API_PORT:-5000}:80"
@@ -400,6 +404,19 @@ services:
         condition: service_healthy
       seq:
         condition: service_started
+      # Schema is applied by the one-shot migrator BEFORE any API instance starts (appsettings.Docker.json sets
+      # Database:MigrateOnStartup=false, so the API never migrates or seeds on its own in production).
+      migrator:
+        condition: service_completed_successfully
+    # /alive = liveness (process only; the container must not flap when Redis/Postgres blip). Readiness (/health) is
+    # gated by the deploy scripts. The aspnet base image has no curl and its /bin/sh is dash (no /dev/tcp), so call
+    # bash explicitly and send a raw HTTP request.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/80 && printf 'GET /alive HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     logging:
       driver: "json-file"
       options:
@@ -426,3 +443,41 @@ services:
       rollback_config:
         parallelism: 1
         delay: 5s
+
+  # ==============================================
+  # Migrator - one-shot deploy-time migration + seeding (same image as the API)
+  # ==============================================
+  # `dotnet Api.dll --migrate-only` migrates and seeds every module database (shared + dedicated tenant databases)
+  # under a Postgres advisory lock, then exits 0 (non-zero on failure, which blocks `api` from starting).
+  # Optional privileged connection (DDL) so the API's runtime role can be DML-only: put it in
+  # secrets/migration_connection_string.txt (see wiki/Deployment/Database-Migrations.md).
+  migrator:
+    image: ${DOCKER_IMAGE}:${DOCKER_IMAGE_TAG}
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-migrator
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    restart: "no"
+    user: root  # Required to read Docker secrets from /run/secrets
+    command: ["--migrate-only"]  # image ENTRYPOINT is `dotnet Api.dll`
+    secrets:
+      - postgres_password
+      - redis_password
+      - jwt_secret
+      - identity_otp_hmac_key
+      - source: migration_connection_string
+        target: Database__MigrationConnectionString
+    environment: *api-environment
+    networks:
+      - backend
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

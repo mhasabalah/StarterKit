@@ -372,7 +372,7 @@ public sealed class OutboxRelayTests : IAsyncLifetime
         }
 
         // Dispatch happens after the unit of work: no ambient tenant any more.
-        await _fx.InScope(sp => sp.GetRequiredService<MediatR.INotificationHandler<OutboxMessagesSaved>>().Handle(notification!, CancellationToken.None));
+        await _fx.InScope(sp => sp.GetRequiredService<Shared.Contracts.Mediation.INotificationHandler<OutboxMessagesSaved>>().Handle(notification!, CancellationToken.None));
 
         var published = _fx.Bus.Published.Should().ContainSingle().Subject;
         published.MessageId.Should().Be(eventId);

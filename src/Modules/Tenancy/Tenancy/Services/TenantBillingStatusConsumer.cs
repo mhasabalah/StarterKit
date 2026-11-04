@@ -15,7 +15,7 @@ namespace Tenancy.Services;
 /// made from the subscriber's CURRENT status (<see cref="GetSubscriberSubscriptionStatusQuery"/>), so duplicates are
 /// no-ops and an old "expired" delivered after a newer "activated" cannot suspend a paying tenant.
 /// </para>
-/// Runs outside MediatR, so the tenant's domain events (cache invalidation, audit...) are dispatched explicitly after
+/// Runs outside the mediator, so the tenant's domain events (cache invalidation, audit...) are dispatched explicitly after
 /// the save.
 /// </summary>
 public sealed class TenantBillingStatusConsumer(
@@ -36,12 +36,14 @@ public sealed class TenantBillingStatusConsumer(
 
     private async Task ReconcileAsync(Guid subscriberId, Guid subscriptionId, CancellationToken cancellationToken)
     {
-        if (!options.Value.Enabled || subscriberId == TenantDefaults.DefaultTenantId) return;
+        if (!options.Value.Enabled || subscriberId == TenantDefaults.DefaultTenantId)
+            return;
 
         using (TenantScope.BeginHostScope())
         {
             var tenant = await dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == subscriberId, cancellationToken);
-            if (tenant is null) return; // the subscriber is not a tenant
+            if (tenant is null)
+                return; // the subscriber is not a tenant
 
             var status = (await sender.Send(new GetSubscriberSubscriptionStatusQuery(subscriberId), cancellationToken)).Status;
 
@@ -55,7 +57,7 @@ public sealed class TenantBillingStatusConsumer(
                     break;
 
                 case SubscriptionStatus.Active when tenant is
-                    { EffectiveStatus: TenantStatus.Suspended, StatusReason: BillingSuspensionReason }:
+                { EffectiveStatus: TenantStatus.Suspended, StatusReason: BillingSuspensionReason }:
                     tenant.Reactivate();
                     await dbContext.SaveChangesAsync(cancellationToken);
                     logger.LogInformation("Tenant {Tenant} reactivated: subscription {SubscriptionId} active",

@@ -79,6 +79,7 @@ public static class IdentityAuditActions
     public const string UserUnlocked = "user.unlocked";
     public const string UserStatusChanged = "user.status_changed";
     public const string UserDeleted = "user.deleted";
+    public const string AccountErased = "account.erased";
     public const string RoleAssigned = "role.assigned";
     public const string RoleRevoked = "role.revoked";
     public const string AdminPromoted = "admin.promoted";

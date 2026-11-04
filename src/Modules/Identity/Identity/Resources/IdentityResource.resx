@@ -118,4 +118,36 @@
   <data name="Auth.InvalidIdentifier" xml:space="preserve">
     <value>Identifier must be email or phone number.</value>
   </data>
+
+  <!-- Account deletion -->
+  <data name="Account.Delete.ReauthRequired" xml:space="preserve">
+    <value>Confirm with your password, or with the SMS code if your account has no password.</value>
+  </data>
+  <data name="Account.Delete.PasswordRequired" xml:space="preserve">
+    <value>Your password is required to delete your account.</value>
+  </data>
+  <data name="Account.Delete.WrongPassword" xml:space="preserve">
+    <value>The password is incorrect.</value>
+  </data>
+  <data name="Account.Delete.CodeRequired" xml:space="preserve">
+    <value>The SMS confirmation code is required to delete your account.</value>
+  </data>
+  <data name="Account.Delete.WrongCode" xml:space="preserve">
+    <value>The confirmation code is invalid or expired.</value>
+  </data>
+  <data name="Account.Delete.CodeNotNeeded" xml:space="preserve">
+    <value>Your account has a password; confirm the deletion with it instead of a code.</value>
+  </data>
+  <data name="Account.Delete.CodeSent" xml:space="preserve">
+    <value>A confirmation code was sent to your phone.</value>
+  </data>
+  <data name="Account.Delete.OwnsTenants" xml:space="preserve">
+    <value>You own the tenant(s) {0}. Transfer ownership before deleting your account.</value>
+  </data>
+  <data name="Account.Delete.PrivilegedAccount" xml:space="preserve">
+    <value>Administrator accounts cannot be deleted here. Ask a super admin to remove the admin role first.</value>
+  </data>
+  <data name="Account.Delete.Done" xml:space="preserve">
+    <value>Your account was deleted.</value>
+  </data>
 </root>

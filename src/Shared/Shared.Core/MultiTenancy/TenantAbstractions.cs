@@ -45,6 +45,13 @@ public interface ITenantStore
 
     /// <summary>Tenants that background fan-out must visit (Active and Suspended - suspension stops users, not upkeep).</summary>
     Task<IReadOnlyList<TenantInfo>> GetServiceableTenantsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tenants whose data is being moved (<see cref="TenantStatus.Migrating"/>): fan-out skips them, so work that must
+    /// not be silently dropped (e.g. account erasure) uses this to know it is incomplete and retry later.
+    /// </summary>
+    Task<IReadOnlyList<TenantInfo>> GetMigratingTenantsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<TenantInfo>>([]);
 }
 
 /// <summary>Membership lookup (implemented and cached by the Tenancy module; returns <c>null</c> otherwise).</summary>

@@ -36,11 +36,49 @@ derived per request. The rate-limit policies (`auth`, `otp`, `search`) are confi
 | POST | `/api/identity/onboarding/verify-phone` | anonymous | auth |
 | GET | `api/identity/profile` | signed in | - |
 | PUT | `/api/identity/profile/complete` | signed in | - |
+| GET | `api/identity/profile/export` | signed in | auth |
+| POST | `api/identity/profile/delete-code` | signed in, not impersonating | otp |
+| DELETE | `api/identity/profile` | signed in, not impersonating | auth |
 | POST | `/api/identity/phone/send-verification` | signed in | otp |
 | POST | `/api/identity/phone/verify` | signed in | auth |
 | POST | `/notifications/verification/send` | signed in | otp |
 | POST | `/notifications/verification/validate` | signed in | auth |
 | GET | `/api/identity/auth/external-login`, `/api/identity/auth/challenge/{provider}`, `/api/identity/auth/external-callback` | anonymous (login flow) | callback: auth |
+
+### Account deletion and data export (store / GDPR)
+
+`DELETE api/identity/profile` (body `{ "password": "..." }` or `{ "otpCode": "..." }`) erases the caller's own account.
+It is irreversible, rejects impersonation tokens and is rate limited.
+
+- **Re-authentication.** Accounts with a password must send it (a wrong one counts as a failed access attempt). Phone-only
+  accounts call `POST api/identity/profile/delete-code` first (SMS, `OtpPurpose.AccountDeletion`) and send the code.
+- **Refused with 409** while the user owns a tenant (Tenancy `GetOwnedTenantsQuery`; transfer ownership first) or holds
+  an admin role (an admin is demoted first, as for the staff delete).
+- **Effect (one unit of work).** All sessions end (stamp rotated, refresh tokens deleted, access tokens blacklisted).
+  External logins, claims, roles, 2FA key and recovery codes and pending OTPs are deleted. The user row is kept for
+  referential integrity and financial records but anonymized in place: user name and e-mail become
+  `deleted-<id>` / `deleted-<id>@deleted.invalid`, phone, names, avatar and OAuth ids are cleared, the password hash is
+  removed, the account is deactivated and locked forever. An `AccountDeletion` tombstone (no PII) and an audit entry
+  `account.erased` (actor = target, no snapshot, no IP / user agent) are saved with it.
+- **Fan-out.** The tombstone raises `UserDeletedIntegrationEvent` (`userdirectory.user-deleted.v1`, ids only) through the
+  Identity outbox, in the same transaction. Consumers, each idempotent: Attachment (`UserDeletedAttachmentConsumer`)
+  hides and deletes every file the user uploaded, in every tenant, through the normal deletion job; Tenancy
+  (`UserDeletedTenancyConsumer`) removes the user's memberships; Notification (`UserDeletedNotificationConsumer`)
+  deletes the delivery log and preferences. New modules holding personal data subscribe to the same event.
+- **Not erased.**
+  - Notification logs sent with `.ToEmail(addr)` and **no user id** (for example mail to an address that is not tied to
+    an account) are not found by `UserDeletedNotificationConsumer`, which deletes by user id. Prefer `.For(userId)` for
+    anything personal, or purge by address in your own job.
+  - Earlier identity audit rows about the user are **retained**: the table is append-only by design and holds admin-action
+    snapshots (`user.edited`, `user.status_changed`, ...). Tenant audit trails also keep their ids.
+  - Retention basis to state in the privacy policy: security and fraud-prevention records kept for the legitimate
+    interest of protecting accounts and for accountability of administrative actions (GDPR Art. 6(1)(f)); the rows hold
+    ids and action metadata, not the erased profile data. State the retention period you apply.
+
+`GET api/identity/profile/export` returns the caller's Identity data as JSON: profile, contact, roles, external login
+providers, security flags, active sessions (created / expires / IP / tenant) and the last 100 identity audit entries about
+them. No secrets. It covers Identity only; other modules can add their own sections later (extend `MyDataExportDto`
+or add a sibling query).
 
 ## User management (platform staff)
 

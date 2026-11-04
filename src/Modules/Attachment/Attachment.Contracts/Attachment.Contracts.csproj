@@ -8,6 +8,8 @@
     <ItemGroup>
         <!-- Thin contract: Shared.Contracts only (no Shared.Core / infrastructure; architecture test). -->
         <ProjectReference Include="..\..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
+        <!-- IServiceCollection for the entity-policy registration helper (was transitive through MediatR). -->
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     </ItemGroup>
 
 </Project>

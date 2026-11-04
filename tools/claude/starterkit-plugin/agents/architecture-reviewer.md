@@ -37,7 +37,7 @@ Look at each changed file and confirm each finding by reading the code.
      carries no entities and no `TenantId`.
    - The outbox is configured on both sides (`AddOutbox`/`AddTenantOutbox` + `services.AddOutbox<T>()` + migration).
    - Consumers are idempotent and re-read state through `ISender`.
-4. **Outside MediatR:**
+4. **Outside the mediator:**
    - Jobs, hosted services, orchestrators and consumers that save use `IUnitOfWorkRunner` or call
      `IDomainEventDispatcher.DispatchPendingAsync`.
    - They never hand-roll `IServiceScopeFactory` scopes for DB work.

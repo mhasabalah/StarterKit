@@ -2,7 +2,7 @@ using Attachment.Data;
 using Attachment.Infrastructure.Storage;
 using Attachment.Tests.TestSupport;
 using Hangfire;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

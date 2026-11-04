@@ -1,5 +1,5 @@
 using FluentAssertions;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Options;
@@ -80,18 +80,5 @@ public class AdminNotificationRecipientsTests
             Roles.Add(query.Role);
             return Task.FromResult((TResponse)(object)respond(query.Role));
         }
-
-        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default)
-            where TRequest : IRequest
-            => throw new NotSupportedException();
-
-        public Task<object?> Send(object request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(IStreamRequest<TResponse> request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
     }
 }

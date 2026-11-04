@@ -18,7 +18,7 @@ using Identity.Domains.Users.Models;
 using Identity.Domains.Users.Services;
 using Identity.Services.Phone;
 using Identity.Services.Sessions;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Core.Web;

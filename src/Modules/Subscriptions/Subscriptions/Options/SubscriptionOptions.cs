@@ -26,11 +26,30 @@ public class SubscriptionOptions
     /// <summary>Minutes the admin billing dashboard is cached per date range (no invalidation; KPIs may lag).</summary>
     public int BillingDashboardCacheMinutes { get; set; } = 5;
 
+    /// <summary>Plan entitlement enforcement (section <c>Subscriptions:Entitlements</c>).</summary>
+    public EntitlementOptions Entitlements { get; set; } = new();
+
     /// <summary>Manual / partial payments recorded by admins (section <c>Subscriptions:ManualPayments</c>).</summary>
     public ManualPaymentOptions ManualPayments { get; set; } = new();
 
     /// <summary>Who receives admin billing emails (section <c>Subscriptions:AdminNotifications</c>).</summary>
     public AdminNotificationOptions AdminNotifications { get; set; } = new();
+
+    /// <summary>
+    /// Online payment providers by name (section <c>Subscriptions:PaymentGateways:&lt;Name&gt;</c>). A gateway is usable
+    /// only when its adapter is registered AND <c>Enabled</c> is true here.
+    /// </summary>
+    public Dictionary<string, PaymentGatewayOptions> PaymentGateways { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Origins (scheme://host[:port]) a checkout's success/cancel URL may point to, so the hosted checkout can't be used
+    /// as an open redirect. Empty → <c>Cors:AllowedOrigins</c> (the front ends). Both empty (dev only) → any http(s) URL.
+    /// </summary>
+    public string[] OnlinePaymentReturnOrigins { get; set; } = [];
+
+    /// <summary>Inbound payment webhook inbox (section <c>Subscriptions:PaymentWebhooks</c>).</summary>
+    public PaymentWebhookOptions PaymentWebhooks { get; set; } = new();
 
     /// <summary>Tax configuration (section <c>Subscriptions:Tax</c>). The ONLY source of the tax rate.</summary>
     public TaxOptions Tax { get; set; } = new();
@@ -106,4 +125,42 @@ public class InvoiceBrandingOptions
 
     /// <summary>Prefix of invoice and credit note numbers (max 20 chars), e.g. <c>INV</c> gives <c>INV-2026-000001</c>.</summary>
     public string NumberPrefix { get; set; } = "INV";
+}
+
+/// <summary>Configuration section <c>Subscriptions:Entitlements</c>.</summary>
+public class EntitlementOptions
+{
+    /// <summary>
+    /// When false (default) <c>.RequireFeature(...)</c> allows every request and plan limits read as unlimited; the
+    /// would-be denial is logged at debug level. Turn on once plans carry the right features.
+    /// </summary>
+    public bool Enforce { get; set; }
+
+    /// <summary>Seconds a subscriber's entitlements stay cached (events invalidate sooner).</summary>
+    public int CacheSeconds { get; set; } = 60;
+}
+
+/// <summary>One entry of <c>Subscriptions:PaymentGateways</c>. Secrets come from user-secrets / env / Docker secrets.</summary>
+public class PaymentGatewayOptions
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>Webhook signing secret (and/or API key, per adapter).</summary>
+    public string? Secret { get; set; }
+
+    /// <summary>Provider base URL; the Fake adapter uses it for the hosted checkout page.</summary>
+    public string? BaseUrl { get; set; }
+}
+
+/// <summary>Section <c>Subscriptions:PaymentWebhooks</c>.</summary>
+public class PaymentWebhookOptions
+{
+    /// <summary>Processing attempts (inline + retries) before an event stays failed for an admin.</summary>
+    public int MaxAttempts { get; set; } = 5;
+
+    /// <summary>A failed event is retried by the job once its last attempt is older than attempts x this many minutes.</summary>
+    public int RetryBackoffMinutes { get; set; } = 2;
+
+    /// <summary>Cron (UTC) of the <c>retry-failed-payment-webhooks</c> job. Default every 5 minutes.</summary>
+    public string RetryCron { get; set; } = "*/5 * * * *";
 }

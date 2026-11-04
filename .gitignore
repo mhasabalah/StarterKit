@@ -404,5 +404,5 @@ deployment/github-runner/_diag/
 secrets/*
 !secrets/README.md
 
-# Six Labors (ImageSharp) license: pass as a secret, never commit
+# Commercial library license files: pass as a secret, never commit
 sixlabors.lic

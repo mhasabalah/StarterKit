@@ -13,7 +13,7 @@ namespace Subscriptions.IntegrationTests;
 
 /// <summary>
 /// Regression guard for the "domain events raised in Hangfire jobs are never published" bug: the jobs and the renewal
-/// orchestrator run outside MediatR, so before <c>IUnitOfWorkRunner</c> their events were collected and dropped
+/// orchestrator run outside the mediator, so before <c>IUnitOfWorkRunner</c> their events were collected and dropped
 /// (e.g. no "subscription expired" email ever left ProcessExpiredSubscriptionsJob).
 /// </summary>
 [Collection(SubscriptionsPostgresCollection.Name)]
@@ -67,7 +67,7 @@ public sealed class JobDomainEventTests(SubscriptionsPostgresFixture fx)
     public async Task Subscriptions_DbContext_lets_concurrency_exceptions_through_untranslated()
     {
         // SubscriptionsDbContext maps 23505 → ConflictException; it must not swallow or rewrap concurrency conflicts
-        // (jobs catch DbUpdateConcurrencyException per item; MediatR translates it to 409).
+        // (jobs catch DbUpdateConcurrencyException per item; the mediator pipeline translates it to 409).
         var plan = await fx.CreatePlanAsync("JobEvents-Race", 100m);
 
         await using var winnerScope = fx.Services.CreateAsyncScope();

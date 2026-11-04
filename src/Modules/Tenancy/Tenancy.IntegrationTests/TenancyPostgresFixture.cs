@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Hangfire;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +16,7 @@ namespace Tenancy.IntegrationTests;
 
 /// <summary>
 /// One real PostgreSQL (Testcontainers, postgres:16-alpine) per collection, wired with the REAL registrations:
-/// <c>AddMultiTenancy</c> (enabled) + <c>AddTenancyModule</c> - real TenancyDbContext and interceptors, real MediatR
+/// <c>AddMultiTenancy</c> (enabled) + <c>AddTenancyModule</c> - real TenancyDbContext and interceptors, real mediator
 /// pipeline (validation, concurrency, domain-event dispatch), real handlers, the tenant store and membership resolver.
 /// The schema comes from the module's MIGRATIONS (unique indexes with the names the handlers translate on).
 /// <para>

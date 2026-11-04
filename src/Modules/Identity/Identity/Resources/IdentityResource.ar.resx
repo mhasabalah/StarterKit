@@ -118,4 +118,36 @@
   <data name="Auth.InvalidIdentifier" xml:space="preserve">
     <value>يجب أن يكون المعرّف بريدًا إلكترونيًا أو رقم هاتف.</value>
   </data>
+
+  <!-- Account deletion -->
+  <data name="Account.Delete.ReauthRequired" xml:space="preserve">
+    <value>أكّد بكلمة المرور، أو برمز الرسالة النصية إذا لم يكن لحسابك كلمة مرور.</value>
+  </data>
+  <data name="Account.Delete.PasswordRequired" xml:space="preserve">
+    <value>كلمة المرور مطلوبة لحذف حسابك.</value>
+  </data>
+  <data name="Account.Delete.WrongPassword" xml:space="preserve">
+    <value>كلمة المرور غير صحيحة.</value>
+  </data>
+  <data name="Account.Delete.CodeRequired" xml:space="preserve">
+    <value>رمز التأكيد المرسل برسالة نصية مطلوب لحذف حسابك.</value>
+  </data>
+  <data name="Account.Delete.WrongCode" xml:space="preserve">
+    <value>رمز التأكيد غير صالح أو منتهي الصلاحية.</value>
+  </data>
+  <data name="Account.Delete.CodeNotNeeded" xml:space="preserve">
+    <value>حسابك له كلمة مرور؛ أكّد الحذف بها بدلًا من الرمز.</value>
+  </data>
+  <data name="Account.Delete.CodeSent" xml:space="preserve">
+    <value>تم إرسال رمز التأكيد إلى هاتفك.</value>
+  </data>
+  <data name="Account.Delete.OwnsTenants" xml:space="preserve">
+    <value>أنت مالك المستأجر/المستأجرين {0}. انقل الملكية قبل حذف حسابك.</value>
+  </data>
+  <data name="Account.Delete.PrivilegedAccount" xml:space="preserve">
+    <value>لا يمكن حذف حسابات المشرفين من هنا. اطلب من مدير أعلى إزالة دور المشرف أولًا.</value>
+  </data>
+  <data name="Account.Delete.Done" xml:space="preserve">
+    <value>تم حذف حسابك.</value>
+  </data>
 </root>

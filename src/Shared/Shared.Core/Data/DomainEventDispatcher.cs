@@ -1,11 +1,11 @@
 namespace Shared.Core.Data;
 
 /// <summary>
-/// Publishes (via MediatR <see cref="IPublisher"/>) the domain events of COMMITTED work collected in the current DI
-/// scope. The single implementation used by both <c>DispatchDomainEventsBehavior</c> (HTTP / MediatR commands) and
+/// Publishes (via the mediator <see cref="IPublisher"/>) the domain events of COMMITTED work collected in the current DI
+/// scope. The single implementation used by both <c>DispatchDomainEventsBehavior</c> (HTTP / mediator commands) and
 /// <see cref="IUnitOfWorkRunner"/> (Hangfire jobs, hosted services).
 /// <para>
-/// Call it directly only from code that runs outside MediatR in a scope you did not create (e.g. a Hangfire job
+/// Call it directly only from code that runs outside the mediator in a scope you did not create (e.g. a Hangfire job
 /// whose dependencies Hangfire injected): <c>await repository.SaveChangesAsync(ct); await dispatcher.DispatchPendingAsync(ct);</c>.
 /// Code that creates scopes should use <see cref="IUnitOfWorkRunner"/> instead.
 /// </para>
@@ -38,7 +38,8 @@ public sealed class DomainEventDispatcher(
             for (var round = 1; ; round++)
             {
                 var events = collector.DequeueAll();
-                if (events.Count == 0) return;
+                if (events.Count == 0)
+                    return;
 
                 if (round > MaxRounds)
                 {

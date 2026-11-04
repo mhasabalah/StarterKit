@@ -50,7 +50,7 @@ public class OnboardingTimeoutJob(
 
         logger.LogInformation("Onboarding process for user {UserId} timed out", userId);
 
-        // Outside MediatR: publish the events of the committed save (OnboardingTimedOutEvent, ...).
+        // Outside mediator: publish the events of the committed save (OnboardingTimedOutEvent, ...).
         await domainEvents.DispatchPendingAsync(ct);
     }
 }

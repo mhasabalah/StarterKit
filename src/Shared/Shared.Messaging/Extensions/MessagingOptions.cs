@@ -57,4 +57,11 @@ public sealed class RabbitMqTransportOptions
 
     /// <summary>Secret: Docker secret <c>rabbitmq_password</c> / env <c>Messaging__RabbitMq__Password</c>. Never commit it.</summary>
     public string Password { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The broker has the <c>rabbitmq_delayed_message_exchange</c> plugin: messages of a migrating tenant are then
+    /// redelivered later instead of retried in memory (which holds consumer slots and can stall other tenants).
+    /// Off by default because the stock <c>rabbitmq</c> image does not ship the plugin.
+    /// </summary>
+    public bool UseDelayedExchange { get; set; }
 }

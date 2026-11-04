@@ -18,7 +18,7 @@ StarterKit is built as a **Modular Monolith** using **Clean Architecture** and *
 ┌─────────────────────────────────────┐
 │         API Layer (Carter)          │
 ├─────────────────────────────────────┤
-│     Application Layer (MediatR)     │
+│     Application Layer (Mediator port)  │
 │  - Commands/Queries                 │
 │  - Handlers                         │
 │  - Validators (FluentValidation)    │
@@ -47,7 +47,7 @@ StarterKit is built as a **Modular Monolith** using **Clean Architecture** and *
 - **Commands**: Write operations (Create, Update, Delete)
 - **Queries**: Read operations (Get, List, Search)
 - Separation of read and write models
-- MediatR for command/query handling
+- Owned mediator port (`Shared.Contracts.Mediation`) for command/query handling
 
 ## Architectural Patterns
 

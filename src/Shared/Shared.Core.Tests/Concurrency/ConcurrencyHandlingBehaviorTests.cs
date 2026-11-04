@@ -1,4 +1,4 @@
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Core.Behaviors;
@@ -7,7 +7,7 @@ using Shared.Core.Exceptions;
 namespace Shared.Core.Tests.Concurrency;
 
 /// <summary>
-/// The MediatR pipeline turns EF's <see cref="DbUpdateConcurrencyException"/> into the domain
+/// The mediator pipeline turns EF's <see cref="DbUpdateConcurrencyException"/> into the domain
 /// <see cref="ConcurrencyConflictException"/>, which <c>GlobalExceptionHandler</c> maps to HTTP 409.
 /// </summary>
 public sealed class ConcurrencyHandlingBehaviorTests

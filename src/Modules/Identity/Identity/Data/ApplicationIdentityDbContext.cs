@@ -3,6 +3,7 @@ using Identity.Domains.Audit.Models;
 using Identity.Domains.Onboarding.Models;
 using Identity.Infrastructure.DataProtection;
 using Identity.Models;
+using Shared.Core.Messaging.Outbox;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
@@ -32,6 +33,7 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
     public DbSet<OnboardingProcess> OnboardingProcesses => Set<OnboardingProcess>();
     public DbSet<OtpCode> OtpCodes => Set<OtpCode>();
     public DbSet<AdminActionAuditLog> AdminAuditLogs => Set<AdminActionAuditLog>();
+    public DbSet<AccountDeletion> AccountDeletions => Set<AccountDeletion>();
     public DbSet<DataProtectionKeyEntry> DataProtectionKeys => Set<DataProtectionKeyEntry>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -102,6 +104,9 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
 
         // Apply configurations from assembly
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Transactional outbox (UserDeletedIntegrationEvent).
+        builder.AddOutbox();
 
         // Apply snake_case naming
         builder.ToSnakeCaseTables();
