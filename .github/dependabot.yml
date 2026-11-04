@@ -24,6 +24,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "FluentAssertions"
         update-types: ["version-update:semver-major"]
+      # Roslyn is pinned to the exact version EF Core Design requires (Directory.Packages.props). The four
+      # Microsoft.CodeAnalysis.* packages are a matched set (each requires the others at "= x.y.z"); a partial bump
+      # gives NU1608 and breaks `dotnet ef`. Upgrade them together with EF Core, by hand.
+      - dependency-name: "Microsoft.CodeAnalysis.*"
       # Breaking API in the next major - upgrade separately (Directory.Packages.props notes).
       - dependency-name: "Mapster*"
         update-types: ["version-update:semver-major"]
