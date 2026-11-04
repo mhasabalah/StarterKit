@@ -1,146 +1,119 @@
-# Wiki Index
+# Documentation index
 
-Index of every document in the StarterKit wiki. Start with [README.md](README.md) if you are new.
-
-## Directory Structure
+This page links every page of the wiki. Keep it complete; `bash scripts/check-docs.sh` reports pages missing from
+it. Conventions: `Title-Kebab.md` files, one canonical page per topic, placeholders only (`api.example.com`,
+`YOUR_SERVER_IP`, `CHANGE_ME`).
 
 ```
 wiki/
-├── README.md                         # Wiki home
-├── INDEX.md                          # This file
-├── Architecture/                     # Patterns, conventions, structure
-│   ├── Overview.md
-│   ├── ProjectStructure.md
-│   ├── TechnologyStack.md
-│   ├── DesignPatterns.md
-│   ├── CodingStandards.md
-│   ├── DatabaseConventions.md
-│   ├── ApiGuidelines.md
-│   └── Messaging.md                  # Domain vs integration events, outbox, transports
-├── Modules/
-│   └── Catalog.md                    # Sample module + "how to add a new module" checklist
-├── MultiTenancy/                     # Optional SaaS multi-tenancy (tenants, branches, isolation)
-│   ├── Overview.md                   # Requirements, architecture, NFRs, threat model
-│   ├── Isolation-and-Dedicated-Databases.md
-│   ├── Branches-and-Scoping.md
-│   ├── Adding-a-Tenant-Aware-Module.md
-│   └── Operations.md                 # Enabling, provisioning, purge, runbooks, config reference
-├── Identity/                         # Auth, users, admins, JWT
-│   ├── README.md
-│   ├── AdminManagement.md
-│   ├── AdminManagementAPI.md
-│   ├── AdminManagementImplementation.md
-│   ├── AdminUserManagementSummary.md
-│   ├── UserManagementAPI.md
-│   ├── UserManagementImplementation.md
-│   └── jwt/
-│       ├── JWT-AUTH-TECHNICAL-GUIDE.md
-│       ├── JWT-AUTH-FRONTEND-GUIDE.md
-│       └── TokenRefreshStrategies.md
-├── Attachment/                       # File uploads and storage providers
-│   ├── README.md
-│   ├── Configuration.md
-│   ├── Implementation.md
-│   ├── PENDING-ATTACHMENTS-API-GUIDE.md
-│   ├── PENDING-ATTACHMENTS-IMPLEMENTATION.md
-│   ├── STORAGE-PROVIDERS-COMPARISON.md
-│   └── AWS-S3-STORAGE-IMPLEMENTATION.md
-├── Subscriptions/
-│   └── PaymentMethods-Frontend-Integration.md
-├── Shared/                           # Shared.Core
-│   ├── README.md
-│   └── Examples.md
-├── Infrastructure/
-│   ├── Aspire.md
-│   └── Redis.md
-├── Reference/
-│   ├── README.md
-│   ├── Agents.md                     # Guidance for AI coding agents
-│   ├── Migrations.md
-│   └── DOCKER-MOUNT-EXPLAINED.md
-├── deployment/                       # Docker, Nginx, CI/CD, secrets, backups
-│   └── INDEX.md                      # Deployment docs index
-├── Troubleshooting-PostgreSQL-Authentication.md
-└── appsettings.Attachment.example.json
+├── README.md                     landing page (start here)
+├── Getting-Started/              new project from the template
+├── Architecture/                 overview, structure, standards, patterns, API, database, messaging, observability
+├── Decisions/                    ADRs
+├── Modules/                      one page per module (Catalog = reference)
+├── MultiTenancy/                 tenants, branches, isolation, operations
+├── Identity/                     auth, users/admins API, permissions/2FA, IdP replacement, JWT
+├── Attachment/                   uploads, storage providers, security, reliability, config
+├── Subscriptions/                billing deep dive, payment-method frontend guide
+├── Testing/                      testing strategy
+├── Infrastructure/               Aspire, Redis
+├── Shared/                       IHttpContextService
+├── Reference/                    migrations, backlog, troubleshooting
+└── deployment/                   VPS, CI/CD, runner, secrets, backups, compose, nginx, observability
 ```
 
-## By Topic
+## Getting started
 
-### Getting Started
-1. [Wiki Home](README.md)
-2. [Architecture Overview](Architecture/Overview.md)
-3. [Project Structure](Architecture/ProjectStructure.md)
-4. [Technology Stack](Architecture/TechnologyStack.md)
-5. [Catalog sample module + adding a new module](Modules/Catalog.md)
+- [README](README.md): wiki landing page (where to start, module table)
+- [Getting-Started/New-Project.md](Getting-Started/New-Project.md): start a product from the template (`/starterkit:new-project`)
 
-### Development
-- [Coding Standards](Architecture/CodingStandards.md)
-- [Design Patterns](Architecture/DesignPatterns.md)
-- [Database Conventions](Architecture/DatabaseConventions.md)
-- [API Guidelines](Architecture/ApiGuidelines.md)
-- [Messaging: domain vs integration events, outbox, transports](Architecture/Messaging.md)
-- [EF Core Migrations](Reference/Migrations.md)
+## Architecture
 
-### Modules
+- [Overview](Architecture/Overview.md): the big picture
+- [ProjectStructure](Architecture/ProjectStructure.md): solution and module layout
+- [CodingStandards](Architecture/CodingStandards.md): C# house style, errors, async, logging, localization
+- [DesignPatterns](Architecture/DesignPatterns.md): the patterns in use and the MediatR pipeline
+- [ApiGuidelines](Architecture/ApiGuidelines.md): routes, versioning, envelopes, errors, auth, rate limits
+- [DatabaseConventions](Architecture/DatabaseConventions.md): schemas, types, indexes, filters, transactions, RLS
+- [Messaging](Architecture/Messaging.md): domain vs integration events, outbox, transports
+- [Observability](Architecture/Observability.md): logs, traces, metrics for developers
+- [TechnologyStack](Architecture/TechnologyStack.md): libraries and versions
 
-#### Identity (authentication and authorization)
-- [Overview](Identity/README.md)
-- [Permissions, admin 2FA and admin audit](Identity/Permissions-2FA-and-Admin-Audit.md)
-- [JWT technical guide](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) | [JWT frontend guide](Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md) | [Token refresh strategies](Identity/jwt/TokenRefreshStrategies.md)
-- [Admin Management](Identity/AdminManagement.md) | [Admin API](Identity/AdminManagementAPI.md) | [Admin implementation](Identity/AdminManagementImplementation.md)
-- [User Management API](Identity/UserManagementAPI.md) | [User implementation](Identity/UserManagementImplementation.md) | [Summary](Identity/AdminUserManagementSummary.md)
+## Decisions (ADRs)
 
-#### Attachment (file management)
-- [Overview](Attachment/README.md)
-- [Configuration](Attachment/Configuration.md) | [Implementation](Attachment/Implementation.md)
-- [Pending (anonymous) uploads API](Attachment/PENDING-ATTACHMENTS-API-GUIDE.md) | [Implementation](Attachment/PENDING-ATTACHMENTS-IMPLEMENTATION.md)
-- [Storage providers comparison](Attachment/STORAGE-PROVIDERS-COMPARISON.md) | [AWS S3 storage](Attachment/AWS-S3-STORAGE-IMPLEMENTATION.md)
-- [Security](Attachment/Security.md) | [Reliability](Attachment/Reliability.md) — two-phase upload, async deletion, reconciliation sweeper
+- [Decisions/README](Decisions/README.md): the index and the [template](Decisions/0000-template.md)
+- [0001](Decisions/0001-modular-monolith-schema-per-module.md): modular monolith, schema per module
+- [0002](Decisions/0002-carter-minimal-apis.md): Carter minimal APIs
+- [0003](Decisions/0003-exceptions-not-result-type.md): typed exceptions, no Result type
+- [0004](Decisions/0004-outbox-and-messaging-transports.md): outbox and transports
+- [0005](Decisions/0005-tenant-isolation-model.md): tenant isolation model
+- [0006](Decisions/0006-identity-behind-userdirectory-port.md): UserDirectory port
 
-#### Subscriptions (subscribers, plans, subscriptions, payments)
-- [Billing rules](Subscriptions/Billing.md) — tax, proration, refunds, invoices and credit notes, renewal orchestrator
-- [Payment Methods - frontend integration](Subscriptions/PaymentMethods-Frontend-Integration.md)
+## Modules
 
-#### Catalog (sample module)
-- [Catalog sample + new module checklist](Modules/Catalog.md)
+- [Catalog](Modules/Catalog.md): the **reference module**; wiring checklist; removing the sample
+- [Tenancy](Modules/Tenancy.md): control plane
+- [Subscriptions](Modules/Subscriptions.md): plans, subscriptions, billing
+- [Notification](Modules/Notification.md): email and WhatsApp delivery
 
-### Shared Services
-- [HttpContext Service](Shared/README.md) and [Examples](Shared/Examples.md)
-- [Notification module (email, WhatsApp, OTP)](Modules/Notification.md)
-- [Replacing the identity provider (Keycloak, ...)](Identity/Replacing-the-Identity-Provider.md)
-- [Redis caching](Infrastructure/Redis.md)
-- [.NET Aspire local development (AppHost, dashboard, observability stack)](Infrastructure/Aspire.md)
+## Multi-tenancy
 
-### Deployment and Operations
-- **[Deployment docs index](deployment/INDEX.md)**
-- [Production deployment (generic)](deployment/Production-Deployment.md) | [Complete guide](deployment/Production-Deployment-Complete-Guide.md)
-- [Docker Compose](deployment/README.DockerCompose.md) | [Nginx](deployment/README.Nginx.md) | [Observability](deployment/README.Observability.md)
-- [GitHub Actions CI/CD](deployment/GitHub-Actions-CI-CD.md) | [CI/CD overview](deployment/README.CICD.md) | [GitHub secrets](deployment/GITHUB-SECRETS-SETUP.md)
-- [Secrets management](deployment/README.secrets.md) | [Production secrets](deployment/PRODUCTION-SECRETS-GUIDE.md)
-- [Backups and restore](deployment/BACKUP-RESTORE-GUIDE.md) | [pgBackRest](deployment/PGBACKREST-SETUP.md) | [S3 backups](deployment/S3-BACKUP-SETUP.md)
-- [Self-hosted runner](deployment/SELF-HOSTED-RUNNER-QUICKSTART.md) | [VPS runner](deployment/VPS-RUNNER-SETUP.md) | [Runner maintenance](deployment/RUNNER-MAINTENANCE.md)
+- [Overview](MultiTenancy/Overview.md)
+- [Branches and scoping](MultiTenancy/Branches-and-Scoping.md)
+- [Isolation and dedicated databases](MultiTenancy/Isolation-and-Dedicated-Databases.md)
+- [Operations](MultiTenancy/Operations.md)
+- [Adding a tenant-aware module](MultiTenancy/Adding-a-Tenant-Aware-Module.md)
 
-### Reference and Troubleshooting
-- [Agents (AI coding agent guidance)](Reference/Agents.md)
-- [Docker mounts explained](Reference/DOCKER-MOUNT-EXPLAINED.md)
-- [PostgreSQL authentication troubleshooting](Troubleshooting-PostgreSQL-Authentication.md)
+## Identity
 
-## Quick Lookup
+- [README](Identity/README.md): module overview, OTP, email confirmation, security configuration
+- [Users-and-Admins-API](Identity/Users-and-Admins-API.md): every Identity route with its authorization
+- [Permissions, 2FA and admin audit](Identity/Permissions-2FA-and-Admin-Audit.md)
+- [Replacing the identity provider](Identity/Replacing-the-Identity-Provider.md)
+- JWT: [technical guide](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) · [frontend guide](Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md) · [token refresh strategies](Identity/jwt/TokenRefreshStrategies.md)
 
-| I want to... | Read |
-|--------------|------|
-| Add a new module | [Modules/Catalog.md](Modules/Catalog.md) |
-| Add a feature to an aggregate | [Architecture/CodingStandards.md](Architecture/CodingStandards.md) |
-| Publish / consume an event across modules | [Architecture/Messaging.md](Architecture/Messaging.md) |
-| Add an EF migration | [Reference/Migrations.md](Reference/Migrations.md) |
-| Configure JWT / auth | [Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) |
-| Upload files | [Attachment/Implementation.md](Attachment/Implementation.md) |
-| Cache with Redis | [Infrastructure/Redis.md](Infrastructure/Redis.md) |
-| Run locally with Aspire | [Infrastructure/Aspire.md](Infrastructure/Aspire.md) |
-| Deploy to a VPS | [deployment/Production-Deployment.md](deployment/Production-Deployment.md) |
-| Manage secrets | [deployment/README.secrets.md](deployment/README.secrets.md) |
+## Attachment
 
-## Template Maintenance
+- [README](Attachment/README.md) · [Security](Attachment/Security.md) · [Reliability](Attachment/Reliability.md) · [Configuration](Attachment/Configuration.md)
+- [Uploads](Attachment/Uploads.md): direct and pending (session) uploads
+- [Storage providers](Attachment/Storage-Providers.md): Local / Azure Blob / S3
 
-- [Template Backlog](Reference/Template-Backlog.md) — prioritized fixes/upgrades for the StarterKit template itself
+## Subscriptions
 
+- [Billing](Subscriptions/Billing.md): lifecycle, ledger, invoices, refunds
+- [Payment methods: frontend integration](Subscriptions/PaymentMethods-Frontend-Integration.md)
+
+## Testing
+
+- [Testing strategy](Testing/Testing-Strategy.md): levels, what every feature needs, running tests (`/starterkit:write-tests`)
+
+## Infrastructure and shared
+
+- [Aspire](Infrastructure/Aspire.md) · [Redis](Infrastructure/Redis.md) · [IHttpContextService](Shared/README.md)
+
+## Reference
+
+- [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Template backlog](Reference/Template-Backlog.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
+
+## Deployment and operations
+
+- [deployment/README](deployment/README.md): overview and production checklist
+- [Deploy to VPS](deployment/Deploy-to-VPS.md) · [CI/CD](deployment/CI-CD.md) · [Self-hosted runner](deployment/Self-Hosted-Runner.md)
+- [Secrets](deployment/Secrets.md) · [Backups](deployment/Backups.md) · [Docker Compose](deployment/Docker-Compose.md)
+- [Nginx](deployment/Nginx.md) · [Observability stack](deployment/Observability.md) · [Seq security](deployment/Seq-Security.md) · [Production testing](deployment/Production-Testing.md)
+
+## By task (Claude Code skills)
+
+| Task | Skill | Read |
+|---|---|---|
+| New module | `/starterkit:new-module` | [Catalog](Modules/Catalog.md) |
+| New entity or aggregate | `/starterkit:add-aggregate` | [DatabaseConventions](Architecture/DatabaseConventions.md) |
+| New endpoint or slice | `/starterkit:add-feature` | [ApiGuidelines](Architecture/ApiGuidelines.md) |
+| Migration | `/starterkit:add-migration` | [Migrations](Reference/Migrations.md) |
+| Cross-module event | `/starterkit:add-integration-event` | [Messaging](Architecture/Messaging.md) |
+| Background job | `/starterkit:add-background-job` | [Messaging](Architecture/Messaging.md), CLAUDE.md |
+| Permission | `/starterkit:add-permission` | [Permissions-2FA](Identity/Permissions-2FA-and-Admin-Audit.md) |
+| Email | `/starterkit:add-email-template` | [Notification](Modules/Notification.md) |
+| Tests | `/starterkit:write-tests` | [Testing strategy](Testing/Testing-Strategy.md) |
+| Review | `/starterkit:review` | CLAUDE.md guardrails |
+| Docs | `/starterkit:update-docs` | this page |

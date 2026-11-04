@@ -1,425 +1,89 @@
-# Coding Standards
+# Coding standards
 
-## C# Language Features
+This is the house style for C# in StarterKit. The architecture rules (boundaries, tenancy, messaging) are in
+`CLAUDE.md`. Copy-ready templates are in the `tools/claude/starterkit-plugin/skills/*/references/templates.md` files.
+The reference implementation is `src/Modules/Catalog`.
 
-### File-Scoped Namespaces
-✅ **Use**:
+## Language and project settings
+
+- .NET 10 / C# latest, with `Nullable` and `ImplicitUsings` enabled (`Directory.Build.props`). Treat nullable
+  warnings as bugs.
+- File-scoped namespaces that match the folder (`Catalog.Domains.Products.Features.CreateProduct`).
+- Package versions live only in `Directory.Packages.props`.
+- Each module has a `GlobalUsings.cs` for its common namespaces. Don't repeat those `using`s in files.
+
+## Types
+
+| Use | For |
+|---|---|
+| `record` (positional) | Commands, queries, results, requests, responses, DTOs, domain events |
+| `sealed class` | Services, consumers, jobs, options, integration events (with `init` properties) |
+| Primary constructors | Handlers, services, repositories, endpoints' dependencies |
+| `private set` + factory method | Entities and aggregates (`static Create(...)`, private parameterless ctor for EF) |
+| `const` | Max lengths, index names (`ProductConfiguration.SkuIndexName`), job ids, permission values |
+
 ```csharp
-namespace Catalog.Domains.Products.Models;
+public record CreateProductCommand(LocalizedText Name, string? Description, string Sku /*...*/)
+    : ICommand<CreateProductResult>;
 
-public class Product : NamedAggregate
-{
-    // Implementation
-}
+public class CreateProductHandler(IProductRepository repository, ILogger<CreateProductHandler> logger)
+    : ICommandHandler<CreateProductCommand, CreateProductResult> { /* ... */ }
 ```
 
-❌ **Avoid**:
-```csharp
-namespace Catalog.Domains.Products.Models
-{
-    public class Product : NamedAggregate
-    {
-        // Implementation
-    }
-}
-```
+## Error handling
 
-### Primary Constructors
-✅ **Use for handlers and services**:
-```csharp
-public class CreateProductHandler(
-    IProductRepository repository, 
-    IProfileRepository profileRepository)
-    : ICommandHandler<CreateProductCommand, Result<Guid>>
-{
-    public async Task<Result<Guid>> Handle(CreateProductCommand command, CancellationToken ct)
-    {
-        // Use repository and profileRepository directly
-    }
-}
-```
+- **No Result type.** Code expresses failures by throwing typed exceptions: `NotFoundException` (404),
+  `BadRequestException` / `DomainException` (400), `ForbiddenException` (403), `ConflictException` (409),
+  `GoneException` (410), or a module subclass such as `ProductNotFoundException`.
+- `GlobalExceptionHandler` + `ExceptionStatusMapper` (`Shared.Core/Exceptions/Handler`) are the only place that turns
+  an exception into an HTTP response, in the `ApiResponse` error envelope. Don't build error responses in endpoints.
+- Validation lives in FluentValidation validators (`ValidationBehavior`). Domain invariants live in entities and
+  throw.
+- Don't swallow exceptions. A best-effort side effect (cache invalidation, an optional cross-module call) catches,
+  logs a warning with context, and continues, and says so in a comment.
+- `catch (Exception ex) when (ex is not OperationCanceledException)` is the pattern for best-effort handlers.
 
-### Record Types
-✅ **Use for DTOs, Commands, and Queries**:
-```csharp
-public record CreateProductCommand(
-    string ArabicName,
-    string EnglishName,
-    Guid ProfileId
-) : ICommand<Result<Guid>>;
+## Async and cancellation
 
-public record ProductDto(
-    Guid Id,
-    string ArabicName,
-    string EnglishName
-);
-```
+- Every I/O method is `async` and takes a `CancellationToken cancellationToken`; pass it all the way down.
+- No `.Result`, `.Wait()` or `async void`.
+- Hangfire jobs take `IJobCancellationToken?`.
 
-### Init-Only Properties
-✅ **Use for immutable data**:
-```csharp
-public class ProductDto
-{
-    public Guid Id { get; init; }
-    public string ArabicName { get; init; } = string.Empty;
-    public string EnglishName { get; init; } = string.Empty;
-}
-```
+## Time, ids and money
 
-## Naming Conventions
+- Inject `TimeProvider` in new handlers, services and jobs. `DateTime.UtcNow` stays acceptable inside entity
+  methods.
+- All timestamps are UTC `DateTime`.
+- Ids are `Guid` from `Guid.NewGuid()` in factories. Seed data uses fixed ids (`TenantSeedIds.For` per tenant).
+- Money is `decimal` with an explicit currency (see `Catalog/Domains/Products/Models/Pricing.cs`).
 
-### Classes and Interfaces
-```csharp
-// Pascal case
-public class Product { }
-public interface IProductRepository { }
-public record CreateProductCommand { }
-public class ProductDto { }
-```
+## Logging
 
-### Methods
-```csharp
-// Pascal case, descriptive verbs
-public async Task<Product?> GetByIdAsync(Guid id, CancellationToken ct)
-public void Delete(Product product)
-public static Product Create(Guid id, string name)
-```
+- Use structured logging with message templates: `logger.LogInformation("Product {ProductId} published", id)`.
+  No string interpolation in log calls.
+- Never log secrets, tokens, passwords, OTP codes or full PII.
+- Use `Warning` for handled, expected-but-notable cases, and `Error` for failures needing attention.
 
-### Variables and Parameters
-```csharp
-// Camel case
-var productId = Guid.NewGuid();
-string arabicName = command.ArabicName;
-CancellationToken cancellationToken = default;
-```
+## Localization
 
-### Private Fields
-```csharp
-// Underscore prefix, camel case
-private readonly IProductRepository _repository;
-private readonly List<ProductCategory> _categoryAssignments = new();
-```
+- Every user-facing message comes from the module resx through `IStringLocalizer<<Module>Resource>`, with keys in
+  **both** `.resx` and `.ar.resx`. Unit tests check that the key sets are identical (see Catalog `ValidatorTests`).
+- Bilingual data is `LocalizedText` (en/ar). Enums exposed to clients carry `[LocalizedDescription("en", "ar")]`.
 
-### Constants
-```csharp
-// Pascal case
-public const string DefaultCulture = "ar-SA";
-public const int MaxPageSize = 100;
-```
+## Naming
 
-## Entity Design
+The full table is in `CLAUDE.md` → *Naming*, enforced by `NamingConventionTests`. Highlights:
+- `<Feature>EndPoint` (capital P), `<Feature>CommandValidator` placed before `<Feature>Handler` in the same file.
+- Test methods are named `Scenario_Expectation`.
+- Private fields are `_camelCase`. Async methods end in `Async`. Constants are `PascalCase`.
 
-### Rich Domain Models
-✅ **Encapsulate business logic**:
-```csharp
-public class Product : NamedAggregate
-{
-    private readonly List<ProductCategory> _categoryAssignments = new();
-    public IReadOnlyCollection<ProductCategory> CategoryAssignments => 
-        _categoryAssignments.AsReadOnly();
-    
-    // Factory method
-    public static Product Create(Guid id, string arabicName, string englishName, Guid profileId)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(arabicName);
-        ArgumentException.ThrowIfNullOrEmpty(englishName);
-        
-        var product = new Product
-        {
-            Id = id,
-            ArabicName = arabicName,
-            EnglishName = englishName,
-            ProfileId = profileId
-        };
-        
-        product.AddDomainEvent(new ProductCreatedEvent(product));
-        return product;
-    }
-    
-    // Business logic methods
-    public void Update(string arabicName, string englishName)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(arabicName, nameof(arabicName));
-        ArgumentException.ThrowIfNullOrEmpty(englishName, nameof(englishName));
-        
-        ArabicName = arabicName;
-        EnglishName = englishName;
-        
-        AddDomainEvent(new ProductUpdatedEvent(this));
-    }
-    
-    public void AssignToServicePlace(Guid categoryId, bool isActive = true)
-    {
-        if (!_categoryAssignments.Any(asp => asp.CategoryId == categoryId))
-        {
-            var assignment = ProductCategory.Create(Id, categoryId, isActive);
-            _categoryAssignments.Add(assignment);
-        }
-    }
-}
-```
+## Comments
 
-### Private Collections
-```csharp
-// Private backing field (mutable)
-private readonly List<ProductCategory> _categoryAssignments = new();
+- Write XML doc comments (`///`) on public types whose *why* isn't obvious: invariants, concurrency, tenancy and
+  idempotency decisions. Catalog is the model.
+- Comment the reason, not the mechanics. No commented-out code; git has history.
 
-// Public read-only property
-public IReadOnlyCollection<ProductCategory> CategoryAssignments => 
-    _categoryAssignments.AsReadOnly();
-```
+## Formatting
 
-### Domain Events
-```csharp
-// Raise events on state changes
-product.AddDomainEvent(new ProductCreatedEvent(product));
-product.AddDomainEvent(new ProductUpdatedEvent(product));
-```
-
-## Handler Design
-
-### Structure
-```csharp
-// Validator first
-public class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
-{
-    public CreateProductCommandValidator()
-    {
-        RuleFor(e => e.ArabicName)
-            .NotEmpty().WithMessage("Arabic Name is required");
-        RuleFor(e => e.EnglishName)
-            .NotEmpty().WithMessage("English Name is required");
-    }
-}
-
-// Handler with primary constructor
-public class CreateProductHandler(
-    IProductRepository repository,
-    IProfileRepository profileRepository)
-    : ICommandHandler<CreateProductCommand, Result<Guid>>
-{
-    public async Task<Result<Guid>> Handle(
-        CreateProductCommand command, 
-        CancellationToken cancellationToken)
-    {
-        // 1. Validation (if not handled by pipeline)
-        
-        // 2. Business logic
-        var profile = await profileRepository.GetByIdAsync(command.ProfileId, cancellationToken);
-        if (profile is null)
-            return Result.Failure<Guid>(ProfileErrors.NotFound(command.ProfileId));
-        
-        // 3. Create entity
-        var product = Product.Create(
-            Guid.NewGuid(),
-            command.ArabicName,
-            command.EnglishName,
-            command.ProfileId
-        );
-        
-        // 4. Persist
-        repository.Add(product);
-        await repository.SaveChangesAsync(cancellationToken);
-        
-        // 5. Return result
-        return Result.Success(product.Id);
-    }
-}
-```
-
-### Error Handling
-✅ **Use Result pattern**:
-```csharp
-public record Result<T>
-{
-    public bool IsSuccess { get; }
-    public T? Value { get; }
-    public Error? Error { get; }
-    
-    public static Result<T> Success(T value) => new() { IsSuccess = true, Value = value };
-    public static Result<T> Failure(Error error) => new() { IsSuccess = false, Error = error };
-}
-
-// Usage
-if (product is null)
-    return Result.Failure<ProductDto>(ProductErrors.NotFound(id));
-
-return Result.Success(productDto);
-```
-
-## Endpoint Design
-
-### Carter Endpoints
-```csharp
-public class ProductEndpoints : ICarterModule
-{
-    public void AddRoutes(IEndpointRouteBuilder app)
-    {
-        var group = app.MapGroup("/api/products")
-            .WithTags("Products")
-            .RequireAuthorization();
-        
-        // POST /api/products
-        group.MapPost("/", CreateProduct)
-            .WithName("CreateProduct")
-            .Produces<Guid>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
-        
-        // GET /api/products/{id}
-        group.MapGet("/{id:guid}", GetProductById)
-            .WithName("GetProductById")
-            .Produces<ProductDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-    }
-    
-    private async Task<IResult> CreateProduct(
-        CreateProductCommand command,
-        ISender sender,
-        CancellationToken ct)
-    {
-        var result = await sender.Send(command, ct);
-        
-        return result.IsSuccess
-            ? Results.Created($"/api/products/{result.Value}", result.Value)
-            : Results.BadRequest(result.Error);
-    }
-    
-    private async Task<IResult> GetProductById(
-        Guid id,
-        ISender sender,
-        CancellationToken ct)
-    {
-        var query = new GetProductByIdQuery(id);
-        var result = await sender.Send(query, ct);
-        
-        return result.IsSuccess
-            ? Results.Ok(result.Value)
-            : Results.NotFound(result.Error);
-    }
-}
-```
-
-## Validation Rules
-
-### FluentValidation
-```csharp
-public class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
-{
-    public CreateProductCommandValidator()
-    {
-        // Required fields
-        RuleFor(x => x.Title)
-            .NotEmpty().WithMessage("Title is required")
-            .MaximumLength(200).WithMessage("Title must not exceed 200 characters");
-        
-        // Email validation
-        RuleFor(x => x.Email)
-            .EmailAddress().When(x => !string.IsNullOrEmpty(x.Email))
-            .WithMessage("Invalid email format");
-        
-        // Conditional validation
-        RuleFor(x => x.Price)
-            .GreaterThan(0).When(x => x.ListingType == ListingType.Sale)
-            .WithMessage("Price must be greater than 0 for sale listings");
-        
-        // Custom validation
-        RuleFor(x => x.StartDate)
-            .Must(BeValidDate).WithMessage("Start date must be in the future");
-        
-        // Nested validation
-        RuleFor(x => x.Address)
-            .SetValidator(new AddressValidator());
-    }
-    
-    private bool BeValidDate(DateTime date)
-    {
-        return date > DateTime.UtcNow;
-    }
-}
-```
-
-## Async/Await Guidelines
-
-### Always use CancellationToken
-```csharp
-✅ public async Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
-❌ public async Task<Product?> GetByIdAsync(Guid id)
-```
-
-### Avoid async void
-```csharp
-✅ public async Task DoWorkAsync() { }
-❌ public async void DoWorkAsync() { }
-```
-
-### ConfigureAwait
-```csharp
-// In library code (not needed in ASP.NET Core)
-var result = await SomeMethodAsync().ConfigureAwait(false);
-```
-
-## Exception Handling
-
-### Domain Exceptions
-```csharp
-public class ProductNotFoundException : NotFoundException
-{
-    public ProductNotFoundException(Guid id) 
-        : base($"Product with ID '{id}' was not found")
-    {
-    }
-}
-```
-
-### Guard Clauses
-```csharp
-ArgumentException.ThrowIfNullOrEmpty(arabicName, nameof(arabicName));
-ArgumentNullException.ThrowIfNull(profile, nameof(profile));
-```
-
-## Comments and Documentation
-
-### XML Documentation
-```csharp
-/// <summary>
-/// Creates a new product with the specified details
-/// </summary>
-/// <param name="id">Unique identifier for the product</param>
-/// <param name="arabicName">Arabic name of the product</param>
-/// <param name="englishName">English name of the product</param>
-/// <param name="profileId">Associated profile ID</param>
-/// <returns>A new product instance with domain event raised</returns>
-public static Product Create(Guid id, string arabicName, string englishName, Guid profileId)
-```
-
-### Code Comments
-```csharp
-// Only comment when necessary
-// ✅ Good: Explains WHY
-// Disable validation for system administrators as per business rule #123
-if (user.IsSystemAdmin)
-    bypassValidation = true;
-
-// ❌ Bad: Explains WHAT (obvious from code)
-// Set the name to the provided name
-this.Name = name;
-```
-
-## Global Usings
-
-### Per Module
-```csharp
-// GlobalUsings.cs
-global using StarterKit.Shared;
-global using StarterKit.Shared.Contracts;
-global using Catalog.Data;
-global using Catalog.Domains;
-global using MediatR;
-global using FluentValidation;
-global using Mapster;
-global using Carter;
-```
-
-## Next Steps
-- [Database Conventions](DatabaseConventions.md)
-- [API Guidelines](ApiGuidelines.md)
+Follow `.editorconfig`. Run `dotnet format StarterKit.slnx --verify-no-changes` before review if you touched many
+files.

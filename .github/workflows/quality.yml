@@ -1,0 +1,103 @@
+# ==============================================
+# Quality gates (fast, no deployment)
+# ==============================================
+# Runs on EVERY push and PR - including docs-only changes, which hybrid-ci-cd.yml deliberately ignores.
+#   docs     - scripts/check-docs.sh: relative links resolve, every wiki page is in wiki/INDEX.md, no leaked hosts/paths
+#   format   - whitespace ratchet: the C# files a change touches must satisfy .editorconfig (`dotnet format whitespace`).
+#              Untouched legacy files are not checked, so the codebase converges without a big-bang reformat.
+#   plugin   - the Claude Code plugin/marketplace manifests and hooks config are valid JSON with the required fields.
+# ==============================================
+
+name: Quality
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Docs links & placeholders
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check documentation
+        run: bash scripts/check-docs.sh
+
+  format:
+    name: C# whitespace (changed files)
+    runs-on: ubuntu-latest
+    steps:
+      # .editorconfig requires CRLF for *.cs; check out with CRLF so Linux sees the same bytes as Windows.
+      - name: Use CRLF working tree
+        run: git config --global core.autocrlf true
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Changed C# files
+        id: changed
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          fi
+          files=$(git diff --name-only --diff-filter=d "$base" HEAD -- '*.cs' | tr '\n' ' ')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          echo "Changed C# files: ${files:-<none>}"
+
+      - name: dotnet format whitespace --verify-no-changes
+        if: steps.changed.outputs.files != ''
+        run: |
+          dotnet format whitespace . --folder --verify-no-changes --include ${{ steps.changed.outputs.files }} \
+            || { echo "::error::Run: dotnet format whitespace . --folder --include <files>  (see .editorconfig)"; exit 1; }
+
+  plugin:
+    name: Claude Code plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON manifests
+        shell: bash
+        run: |
+          set -e
+          for f in .claude-plugin/marketplace.json \
+                   tools/claude/starterkit-plugin/.claude-plugin/plugin.json \
+                   tools/claude/starterkit-plugin/hooks/hooks.json \
+                   .claude/settings.json; do
+            jq empty "$f" && echo "ok  $f"
+          done
+          jq -e '.name and .version and .description' tools/claude/starterkit-plugin/.claude-plugin/plugin.json > /dev/null
+          jq -e '.plugins | length > 0' .claude-plugin/marketplace.json > /dev/null
+      - name: Every skill has a SKILL.md with name + description
+        shell: bash
+        run: |
+          set -e
+          for dir in tools/claude/starterkit-plugin/skills/*/; do
+            f="$dir/SKILL.md"
+            test -f "$f" || { echo "::error::missing $f"; exit 1; }
+            head -5 "$f" | grep -q '^name: ' || { echo "::error::$f has no name"; exit 1; }
+            head -5 "$f" | grep -q '^description: ' || { echo "::error::$f has no description"; exit 1; }
+          done
+          echo "skills ok"
+      - name: Hook scripts parse
+        run: for s in tools/claude/starterkit-plugin/hooks/*.sh scripts/*.sh; do bash -n "$s" && echo "ok  $s"; done

@@ -22,11 +22,10 @@ openssl rand -base64 24 | tr -d '\n' > secrets/rabbitmq_password.txt   # only fo
 chmod 600 secrets/*.txt
 
 # Data Protection key encryption certificate (only if it does not exist yet)
-openssl rand -base64 32 | tr -d '
-' > secrets/dataprotection_cert_password.txt
+openssl rand -base64 32 | tr -d '\n' > secrets/dataprotection_cert_password.txt
 openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 -nodes -subj "/CN=StarterKit Data Protection" -keyout /tmp/dp.key -out /tmp/dp.crt
 openssl pkcs12 -export -out secrets/dataprotection_cert.pfx -inkey /tmp/dp.key -in /tmp/dp.crt -passout file:secrets/dataprotection_cert_password.txt
 rm /tmp/dp.key /tmp/dp.crt && chmod 600 secrets/dataprotection_cert.pfx
 ```
 
-See `wiki/deployment/README.secrets.md` for details.
+See [wiki/deployment/Secrets.md](../wiki/deployment/Secrets.md) for how secrets map to configuration and how to rotate them.

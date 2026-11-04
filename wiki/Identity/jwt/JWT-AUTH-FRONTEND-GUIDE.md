@@ -44,7 +44,7 @@ npm install axios
 ### Base URL
 ```javascript
 const API_BASE_URL = 'http://localhost:5000/api';
-// Production: 'https://api.yourdomain.com/api'
+// Production: 'https://api.example.com/api'
 ```
 
 ### Available Endpoints
@@ -996,7 +996,7 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 // Production
 const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.yourdomain.com/api'
+  ? 'https://api.example.com/api'
   : 'http://localhost:5000/api';
 ```
 

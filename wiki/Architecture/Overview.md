@@ -57,14 +57,13 @@ Each feature is self-contained:
 Features/
 ├── CreateProduct/
 │   ├── CreateProductHandler.cs    # Business logic
-│   ├── CreateProductEndpoint.cs   # API endpoint
+│   ├── CreateProductEndPoint.cs   # Carter endpoint
 │   └── Validator (inline)       # Validation rules
 ```
 
 ### Repository Pattern
-- Interface in Domain layer
-- Implementation in Data layer
-- Generic base repository for common operations
+- One repository per aggregate root, interface and implementation in `Data/Repository/<X>Repository.cs`
+- Used by command handlers only; query handlers read the DbContext directly
 
 ### Factory Pattern
 Domain entities use static factory methods:

@@ -3,7 +3,7 @@
 # ==============================================
 # Professional commands for Docker management
 
-.PHONY: help build up down restart logs ps clean prune dev prod tools backup restore nginx-dev nginx-prod nginx-logs nginx-test nginx-reload
+.PHONY: help build up down restart logs ps clean prune dev prod tools backup restore nginx-dev nginx-prod nginx-logs nginx-test nginx-reload docs-check arch-test
 
 # Default target
 .DEFAULT_GOAL := help
@@ -368,3 +368,13 @@ urls: ## Show all service URLs
 	@echo "$(YELLOW)PgAdmin:$(NC)          http://localhost:5050"
 	@echo "$(YELLOW)Redis Commander:$(NC)  http://localhost:8081"
 	@echo "$(BLUE)═══════════════════════════════════════════════$(NC)"
+
+# ==============================================
+# Quality
+# ==============================================
+
+docs-check: ## Validate documentation links, INDEX coverage and placeholders
+	@bash scripts/check-docs.sh
+
+arch-test: ## Run the architecture guardrail tests (no Docker needed)
+	@dotnet test src/Api.Tests

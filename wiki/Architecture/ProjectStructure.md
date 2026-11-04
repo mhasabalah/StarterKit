@@ -6,10 +6,12 @@
 StarterKit/
 ├── src/
 │   ├── Api/                                 # ASP.NET Core host (Program.cs, appsettings, Dockerfile)
-│   ├── Api.E2ETests/                        # End-to-end API tests
+│   ├── Api.Tests/                           # Architecture tests (guardrails)
+│   ├── Api.E2ETests/                        # HTTP end-to-end tests (+ multi-tenant, pending-model-changes)
 │   ├── Aspire/
 │   │   ├── AppHost/                         # .NET Aspire orchestration (Postgres, Redis, Seq, observability)
-│   │   └── ServiceDefaults/                 # Shared OpenTelemetry / health defaults
+│   │   ├── ServiceDefaults/                 # Shared OpenTelemetry / health defaults
+│   │   └── AppHost.Tests/                   # Aspire orchestration tests
 │   ├── Modules/
 │   │   ├── Identity/                        # Auth, users, roles, JWT (+ UserDirectory.Contracts port)
 │   │   ├── Tenancy/                         # Tenants, branches, memberships (multi-tenancy control plane)
@@ -21,101 +23,43 @@ StarterKit/
 │       ├── Shared.Contracts/                # CQRS interfaces, pagination, enums
 │       ├── Shared.Core/                     # Base classes, behaviors, EF/Redis/web helpers
 │       └── Shared.Messaging/                # MassTransit configuration
-├── tests/                                   # Cross-cutting test projects (Shared, e2e)
+├── tests/e2e/                               # Playwright browser smoke tests (TypeScript)
+├── tools/claude/starterkit-plugin/          # Claude Code plugin: skills, reviewer agent, hooks
 ├── infra/                                   # Nginx, observability, pgAdmin configs
-├── deployment/                              # VPS deploy/rollback/backup scripts, prod Nginx
-├── wiki/                                    # This documentation
-├── StarterKit.slnx                          # Solution
-├── Directory.Build.props                    # Global MSBuild properties
-└── Directory.Packages.props                 # Centralized package versions
-```
+├── deployment/                              # VPS deploy/rollback/backup scr## Module Structure Template
 
-## Module Structure Template
-
-Each module follows this consistent structure:
+Every module follows the Catalog layout. To create one, use `/starterkit:new-module`.
 
 ```
-ModuleName/
-├── ModuleName/                              # Main implementation
-│   ├── Domains/                            # Domain layer
-│   │   ├── Aggregates/
-│   │   │   ├── Models/                     # Entity models
-│   │   │   ├── Features/                   # Vertical slices
-│   │   │   │   ├── CreateX/
-│   │   │   │   │   ├── CreateXHandler.cs
-│   │   │   │   │   └── CreateXEndpoint.cs
-│   │   │   │   ├── UpdateX/
-│   │   │   │   ├── DeleteX/
-│   │   │   │   └── GetX/
-│   │   │   ├── Events/                     # Domain events
-│   │   │   ├── EventHandler/               # Event handlers
-│   │   │   ├── Exceptions/                 # Domain exceptions
-│   │   │   └── Mappings/                   # Mapster configs
-│   ├── Data/                               # Data layer
-│   │   ├── Repository/
-│   │   │   ├── Interfaces/
-│   │   │   └── Implementations/
-│   │   ├── Configurations/                 # EF Core configs
-│   │   ├── Migrations/                     # EF migrations
-│   │   ├── Seed/                           # Data seeding
-│   │   └── ModuleDbContext.cs
-│   ├── ModuleModule.cs                     # Module registration
-│   ├── GlobalUsings.cs                     # Global using directives
-│   └── ModuleName.csproj
-└── ModuleName.Contracts/                   # Public contracts
-    ├── Commands/                           # Command DTOs
-    ├── Queries/                            # Query DTOs
-    ├── Dtos/                               # Response DTOs
-    └── ModuleName.Contracts.csproj
+src/Modules/<Module>/
+├── <Module>.Contracts/                      # Public surface: Shared.Contracts only
+│   ├── <Area>s/Commands/  Queries/  Dtos/  Enums/  IntegrationEvents/
+│   └── <Module>ContractsRoot.cs             # assembly marker (enum lookup)
+├── <Module>/                                # Implementation
+│   ├── Domains/<Aggregate>/
+│   │   ├── Models/                          # aggregate + children, factories, invariants
+│   │   ├── Features/<Feature>/              # <Feature>Handler.cs (validator + handler) + <Feature>EndPoint.cs
+│   │   ├── Events/  EventHandlers/  Exceptions/
+│   │   ├── Consumers/  Jobs/  Services/  Mappings/
+│   ├── Data/
+│   │   ├── <Module>DbContext.cs  <Module>DbContextFactory.cs (design time)
+│   │   ├── Configurations/                  # IEntityTypeConfiguration<T>
+│   │   ├── Repository/                      # I<X>Repository + <X>Repository (one file)
+│   │   ├── Migrations/  Seed/
+│   ├── Options/  Resources/ (<Module>Resource.resx + .ar.resx)  Common/
+│   ├── <Module>Module.cs                    # Add<Module>Module / Use<Module>Module
+│   └── GlobalUsings.cs                      # + <Module>Root assembly marker
+├── <Module>.Tests/                          # unit: Domain/, Features/, Services/, TestSupport.cs
+└── <Module>.IntegrationTests/               # Testcontainers Postgres + real Add<Module>Module
 ```
 
-## Layer Responsibilities
+### Contracts rules
+- Contracts hold no implementation logic: records, enums, integration events.
+- They depend only on `Shared.Contracts` (architecture test). The one whitelisted exception is
+  `Tenancy.Contracts → Shared.Core`.
+- Other modules may reference them. Identity is reached only through `UserDirectory.Contracts`.
 
-### Domain Layer (`Domains/`)
-**Purpose**: Core business logic and rules
-
-**Contains**:
-- Entity models with business logic
-- Domain events
-- Domain exceptions
-- Business validations
-- Aggregate roots
-
-**Rules**:
-- No infrastructure dependencies
-- Pure business logic
-- Entity factory methods for creation
-- Domain events for significant changes
-
-### Data Layer (`Data/`)
-**Purpose**: Data access and persistence
-
-**Contains**:
-- EF Core DbContext
-- Entity configurations
-- Repository implementations
-- Migrations
-- Data seeding
-
-**Rules**:
-- Implements repository interfaces from Domain
-- EF Core configurations (Fluent API)
-- Database-specific logic
-
-### Features (`Features/`)
-**Purpose**: Use case implementations (Vertical Slices)
-
-**Contains**:
-- Command/Query handlers
-- Validators (FluentValidation)
-- API endpoints (Carter)
-- Mapster mapping configurations
-
-**Rules**:
-- Each feature is self-contained
-- Handler contains business orchestration
-- Validator in same file as handler
-- Endpoint defines HTTP route
+HTTP route
 
 ### Contracts (`*.Contracts/`)
 **Purpose**: Public API contracts
@@ -135,8 +79,8 @@ ModuleName/
 ## Naming Conventions
 
 ### Files
-- `{Entity}Handler.cs` - MediatR handler
-- `{Entity}Endpoint.cs` - Carter endpoint
+- `{Feature}Handler.cs` - validator + MediatR handler
+- `{Feature}EndPoint.cs` - Carter endpoint (or grouped `{X}sModule.cs`)
 - `{Entity}Configuration.cs` - EF Core configuration
 - `{Entity}Repository.cs` - Repository implementation
 - `I{Entity}Repository.cs` - Repository interface

@@ -26,6 +26,7 @@
     <Project Path="src/Modules/Tenancy/Tenancy.Contracts/Tenancy.Contracts.csproj" />
     <Project Path="src/Modules/Tenancy/Tenancy/Tenancy.csproj" />
     <Project Path="src/Modules/Tenancy/Tenancy.Tests/Tenancy.Tests.csproj" />
+    <Project Path="src/Modules/Tenancy/Tenancy.IntegrationTests/Tenancy.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Catalog/">
     <Project Path="src/Modules/Catalog/Catalog.Contracts/Catalog.Contracts.csproj" />

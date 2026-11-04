@@ -9,9 +9,12 @@ All contexts share one database (connection string name `starterkit`).
 | Attachment | `AttachmentDbContext` | `attachment` | `src/Modules/Attachment/Attachment/Data/Migrations` |
 | Subscriptions | `SubscriptionsDbContext` | `subscriptions` | `src/Modules/Subscriptions/Subscriptions/Data/Migrations` |
 | Catalog | `CatalogDbContext` | `catalog` | `src/Modules/Catalog/Catalog/Data/Migrations` |
-| Notification | `NotificationDbContext` | `notification` | `src/Modules/Notification/Notification/Data/Migrations` |
+| Tenancy | `TenancyDbContext` | `tenancy` | `src/Modules/Tenancy/Tenancy/Data/Migrations` |
+| Notification | `NotificationDbContext` (in `Persistence/`) | `notification` | `src/Modules/Notification/Notification/Data/Migrations` |
 
-> Check each `DbContext.OnModelCreating` for the exact `HasDefaultSchema(...)` value.
+Catalog and Attachment are **tenant-data** contexts: every new table, and the first `outbox_messages` table, needs
+`migrationBuilder.EnableTenantRowLevelSecurity("<schema>", "<table>")` in the migration. The step-by-step checklist
+is `/starterkit:add-migration` (`tools/claude/starterkit-plugin/skills/add-migration/SKILL.md`).
 
 ## Prerequisites
 
@@ -49,27 +52,26 @@ Modules apply their migrations automatically at startup via `app.UseMigration<TD
 To apply manually:
 
 ```bash
-cd src/Api
-dotnet ef database update --context <ModuleDbContext>
+dotnet ef database update --context <ModuleDbContext> --project src/Modules/<Module>/<Module> --startup-project src/Api
 ```
 
 ## Generate SQL without applying
 
 ```bash
-cd src/Api
-dotnet ef migrations script --idempotent --context <ModuleDbContext> -o ./migrations-<module>.sql
+dotnet ef migrations script --idempotent --context <ModuleDbContext>   --project src/Modules/<Module>/<Module> --startup-project src/Api -o ./migrations-<module>.sql   # don't commit the .sql
 ```
 
 ## Roll back / remove
 
 ```bash
-cd src/Api
 # Roll the database back to a previous migration
-dotnet ef database update <PreviousMigrationName> --context <ModuleDbContext>
+dotnet ef database update <PreviousMigrationName> --context <ModuleDbContext> --project src/Modules/<Module>/<Module> --startup-project src/Api
 
 # Remove the last migration (only if it has NOT been applied anywhere)
-dotnet ef migrations remove --context <ModuleDbContext>
+dotnet ef migrations remove --context <ModuleDbContext> --project src/Modules/<Module>/<Module> --startup-project src/Api
 ```
+
+A migration already applied to a shared environment is never edited or deleted. Add a new migration that reverts it.
 
 ## Resetting migrations for a new project
 

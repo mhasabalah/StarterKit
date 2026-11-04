@@ -68,129 +68,19 @@ public class RefreshToken : BaseEntity
 
 ## Features
 
-### Authentication
+### Endpoints
 
-#### Login
-- **Endpoint**: `POST /api/identity/auth/login`
-- **Request**:
-```json
-{
-  "userName": "user@example.com",
-  "password": "SecurePassword123!",
-  "rememberMe": true
-}
-```
-- **Response**:
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "abc123...",
-  "expiresIn": 3600,
-  "user": {
-    "id": "123e4567-e89b-12d3-a456-426614174000",
-    "userName": "user@example.com",
-    "email": "user@example.com",
-    "roles": ["Agent"]
-  }
-}
-```
+The full, code-generated route table (auth, onboarding, profile, users, admins, impersonation, audit), with the
+authorization and rate limit of each route, is in **[Users-and-Admins-API.md](Users-and-Admins-API.md)**. In short:
 
-#### Register
-- **Endpoint**: `POST /api/identity/auth/register`
-- **Request**:
-```json
-{
-  "userName": "newuser",
-  "email": "newuser@example.com",
-  "password": "SecurePassword123!",
-  "arabicName": "مستخدم جديد",
-  "englishName": "New User",
-  "phoneNumber": "+966501234567"
-}
-```
-
-#### Refresh Token
-- **Endpoint**: `POST /api/identity/auth/refresh`
-- **Request**:
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "abc123..."
-}
-```
-
-#### Logout
-- **Endpoint**: `POST /api/identity/auth/logout`
-- **Authorization**: Required
-
-### User Management
-
-#### Get Users
-- **Endpoint**: `GET /api/identity/users?pageNumber=1&pageSize=10&searchTerm=john`
-- **Authorization**: Admin only
-
-#### Get User by ID
-- **Endpoint**: `GET /api/identity/users/{id}`
-- **Authorization**: Admin or self
-
-#### Update User
-- **Endpoint**: `PUT /api/identity/users/{id}`
-- **Request**:
-```json
-{
-  "arabicName": "أحمد محمد",
-  "englishName": "Ahmed Mohammed",
-  "email": "ahmed@example.com",
-  "phoneNumber": "+966501234567"
-}
-```
-
-#### Delete User (Soft Delete)
-- **Endpoint**: `DELETE /api/identity/users/{id}`
-- **Authorization**: Admin only
-
-### Role Management
-
-#### Get Roles
-- **Endpoint**: `GET /api/identity/roles`
-- **Authorization**: Admin only
-
-#### Create Role
-- **Endpoint**: `POST /api/identity/roles`
-- **Request**:
-```json
-{
-  "name": "PropertyManager",
-  "arabicName": "مدير العقارات",
-  "description": "Manages property listings"
-}
-```
-
-#### Assign Role to User
-- **Endpoint**: `POST /api/identity/users/{userId}/roles`
-- **Request**:
-```json
-{
-  "roleId": "123e4567-e89b-12d3-a456-426614174000"
-}
-```
-
-### Password Management
-
-#### Change Password
-- **Endpoint**: `POST /api/identity/auth/change-password`
-- **Request**:
-```json
-{
-  "currentPassword": "OldPassword123!",
-  "newPassword": "NewPassword123!"
-}
-```
-
-#### Forgot Password
-- **Endpoint**: `POST /api/auth/forgot-password`
-- **Request**: `{ "identifier": "user@example.com" }` (email or E.164 phone)
-- Sends ONLY to a **confirmed** email or a **verified** phone; the response is identical in every case.
+- **Auth:** `api/auth/{register,login,refresh,logout,change-password,forgot-password,verify-reset-otp,reset-password}`,
+  `api/auth/email/*`, `api/auth/2fa/*`, and `api/auth/switch-tenant` (multi-tenancy).
+- **Users and admins (platform staff, permission-gated):** `api/identity/users/*`, `api/identity/admins/*`.
+- **Roles:** there is no role CRUD API. Roles are seeded (`Domains/Roles/Constants/RoleConstants.cs`), assigned with
+  `POST api/identity/users/{id}/roles` and revoked with `DELETE api/identity/users/{id}/roles/{roleName}`.
+  Permissions per role are code (`RolePermissionMap`).
+- **Token flow details:** [jwt/JWT-AUTH-TECHNICAL-GUIDE.md](jwt/JWT-AUTH-TECHNICAL-GUIDE.md) and
+  [jwt/JWT-AUTH-FRONTEND-GUIDE.md](jwt/JWT-AUTH-FRONTEND-GUIDE.md).
 
 ### One-time codes (OTP)
 
@@ -244,7 +134,7 @@ part of onboarding.
 - Phone accounts carry a non-routable placeholder email. They get no confirmation mail until they add a real email.
 
 #### Reset Password
-- **Endpoint**: `POST /api/identity/auth/reset-password`
+- **Endpoint**: `POST api/auth/reset-password`
 - **Request**:
 ```json
 {
@@ -406,7 +296,7 @@ public async Task POST_Login_Returns_Token()
     var request = new LoginRequest("user@example.com", "password");
     
     // Act
-    var response = await _client.PostAsJsonAsync("/api/identity/auth/login", request);
+    var response = await _client.PostAsJsonAsync("/api/auth/login", request);
     
     // Assert
     response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -427,6 +317,7 @@ public async Task POST_Login_Returns_Token()
 **Solution**: Enforce strong password policy
 
 ## Next Steps
-- [Catalog Module](../Catalog/README.md)
-- [Properties Module](../Properties/README.md)
-- [Admin Management](AdminManagement.md)
+- [Users-and-Admins-API.md](Users-and-Admins-API.md): every Identity route with its authorization
+- [Permissions-2FA-and-Admin-Audit.md](Permissions-2FA-and-Admin-Audit.md): permissions, 2FA, audit, impersonation
+- [Replacing-the-Identity-Provider.md](Replacing-the-Identity-Provider.md): the `UserDirectory.Contracts` port
+- [Catalog module](../Modules/Catalog.md): the reference module for new work

@@ -33,6 +33,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Tenancy.Tests" />
+        <InternalsVisibleTo Include="Tenancy.IntegrationTests" />
         <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
     </ItemGroup>
 
