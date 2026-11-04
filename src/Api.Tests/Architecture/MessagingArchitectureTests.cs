@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using MassTransit;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +16,7 @@ namespace Api.Tests.Architecture;
 /// <list type="bullet">
 /// <item>An integration event is a published CONTRACT: it lives in a <c>*.Contracts</c> assembly, pins its wire name with
 /// <c>[MessageUrn("&lt;module&gt;.&lt;event&gt;.vN")]</c> (unique, versioned, never derived from the CLR name) and is
-/// never ALSO an in-process MediatR notification / domain event.</item>
+/// never ALSO an in-process mediator notification / domain event.</item>
 /// <item>MassTransit consumers belong to the module that reacts, i.e. to a module IMPLEMENTATION assembly.</item>
 /// <item>Every context that maps an outbox table is registered for delivery (<c>AddOutbox&lt;TContext&gt;()</c>),
 /// otherwise its rows are written and never published.</item>
@@ -53,7 +53,7 @@ public sealed class MessagingArchitectureTests
     {
         IntegrationEvents().Select(t => t.Name).Should().Contain(
         [
-            "ProductPublishedIntegrationEvent", "UserAvatarChangedIntegrationEvent",
+            "ProductPublishedIntegrationEvent", "UserAvatarChangedIntegrationEvent", "UserDeletedIntegrationEvent",
             "SubscriptionActivatedIntegrationEvent", "SubscriptionExpiredIntegrationEvent"
         ]);
     }
@@ -157,7 +157,7 @@ public sealed class MessagingArchitectureTests
     [Fact]
     public void Consumers_exist_and_are_found_by_the_scan()
     {
-        Consumers().Select(t => t.Name).Should().Contain(["UserAvatarChangedConsumer", "TenantBillingStatusConsumer"]);
+        Consumers().Select(t => t.Name).Should().Contain(["UserAvatarChangedConsumer", "TenantBillingStatusConsumer", "UserDeletedAttachmentConsumer", "UserDeletedTenancyConsumer", "UserDeletedNotificationConsumer"]);
     }
 
     [Fact]

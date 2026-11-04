@@ -6,6 +6,7 @@ using Subscriptions;
 using Catalog;
 using Catalog.Contracts;
 using Tenancy;
+using Tenancy.Services;
 using Shared.Messaging.Extensions;
 using Shared.Core.Extensions;
 using Shared.Core.Web;
@@ -15,10 +16,18 @@ using Aspire.Seq;
 using Hangfire;
 using Hangfire.Dashboard;
 using Attachment.Contracts.Attachments.Dtos;
+using Shared.Core.Data;
 using Shared.Core.MultiTenancy;
 using Shared.Core.MultiTenancy.Web;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// One-shot migrator run of the same image: `dotnet Api.dll --migrate-only` migrates + seeds every database, then exits.
+var migrateOnly = args.Contains(DatabaseMigrationOptions.MigrateOnlyArgument);
+if (migrateOnly)
+{
+    builder.Configuration[$"{DatabaseMigrationOptions.SectionName}:{nameof(DatabaseMigrationOptions.MigrateOnly)}"] = "true";
+}
 
 // Add Docker Secrets support (reads from /run/secrets/ if available)
 builder.Configuration.AddDockerSecrets();
@@ -95,11 +104,30 @@ app.UseHangfireDashboard(
         Authorization = [app.Services.GetRequiredService<HangfireDashboardAuthorizationFilter>()]
     });
 
+// Request timeouts AFTER the Hangfire dashboard (it short-circuits above, so it is exempt) and before the endpoints.
+app.UseRequestTimeouts();
+
 app.UseTenancyModule(); // control plane first: the Default tenant must exist before tenant-data seeding
 app.UseAttachmentModule();
 app.UseCatalogModule();
 app.UseSubscriptionsModule();
 app.UseNotificationModule();
+
+if (migrateOnly)
+{
+    // The module Use* calls above already migrated + seeded the shared database(s) (Identity, Tenancy, ...).
+    // Now the dedicated tenant databases; a failed tenant fails the run so the deploy stops before the new API starts.
+    // The PostgreSql message-transport schema (DDL + CREATE ROLE) is created here too: its hosted service never runs in
+    // this mode, and app instances with Database:MigrateOnStartup=false must not do it.
+    await app.Services.MigrateMessagingTransportAsync(CancellationToken.None);
+
+    var failedTenants = await app.Services.GetRequiredService<DedicatedTenantDatabaseMigrator>()
+        .MigrateAllAsync(CancellationToken.None);
+    Console.WriteLine(failedTenants == 0
+        ? "Migrate-only run completed."
+        : $"Migrate-only run FAILED: {failedTenants} dedicated tenant database(s) could not be migrated.");
+    return failedTenants == 0 ? 0 : 1;
+}
 
 // Transactional outbox safety net (delivers what immediate post-commit delivery missed; purges delivered rows).
 app.UseOutboxSweep();
@@ -107,5 +135,6 @@ app.UseOutboxSweep();
 app.UseSharedInfrastructure();
 
 await app.RunAsync();
+return 0;
 
 public partial class Program { }

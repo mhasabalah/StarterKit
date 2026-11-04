@@ -32,7 +32,7 @@ wiki/
 - [Overview](Architecture/Overview.md): the big picture
 - [ProjectStructure](Architecture/ProjectStructure.md): solution and module layout
 - [CodingStandards](Architecture/CodingStandards.md): C# house style, errors, async, logging, localization
-- [DesignPatterns](Architecture/DesignPatterns.md): the patterns in use and the MediatR pipeline
+- [DesignPatterns](Architecture/DesignPatterns.md): the patterns in use and the mediator pipeline
 - [ApiGuidelines](Architecture/ApiGuidelines.md): routes, versioning, envelopes, errors, auth, rate limits
 - [DatabaseConventions](Architecture/DatabaseConventions.md): schemas, types, indexes, filters, transactions, RLS
 - [Messaging](Architecture/Messaging.md): domain vs integration events, outbox, transports
@@ -48,6 +48,7 @@ wiki/
 - [0004](Decisions/0004-outbox-and-messaging-transports.md): outbox and transports
 - [0005](Decisions/0005-tenant-isolation-model.md): tenant isolation model
 - [0006](Decisions/0006-identity-behind-userdirectory-port.md): UserDirectory port
+- [0007](Decisions/0007-owned-mediator-port.md): owned mediator port (no MediatR)
 
 ## Modules
 
@@ -77,11 +78,13 @@ wiki/
 - [README](Attachment/README.md) · [Security](Attachment/Security.md) · [Reliability](Attachment/Reliability.md) · [Configuration](Attachment/Configuration.md)
 - [Uploads](Attachment/Uploads.md): direct and pending (session) uploads
 - [Storage providers](Attachment/Storage-Providers.md): Local / Azure Blob / S3
+- [Image processing](Attachment/Image-Processing.md): thumbnails and image validation behind `IImageProcessingService` (SkiaSharp), how to switch libraries
 
 ## Subscriptions
 
 - [Billing](Subscriptions/Billing.md): lifecycle, ledger, invoices, refunds
 - [Payment methods: frontend integration](Subscriptions/PaymentMethods-Frontend-Integration.md)
+- [Online payments](Subscriptions/Online-Payments.md): gateway port, idempotent webhook inbox, adding a real provider
 
 ## Testing
 
@@ -93,13 +96,14 @@ wiki/
 
 ## Reference
 
-- [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Template backlog](Reference/Template-Backlog.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
+- [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Template backlog](Reference/Template-Backlog.md) · [Third-party licenses](Reference/Third-Party-Licenses.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
 
 ## Deployment and operations
 
 - [deployment/README](deployment/README.md): overview and production checklist
 - [Deploy to VPS](deployment/Deploy-to-VPS.md) · [CI/CD](deployment/CI-CD.md) · [Self-hosted runner](deployment/Self-Hosted-Runner.md)
 - [Secrets](deployment/Secrets.md) · [Backups](deployment/Backups.md) · [Docker Compose](deployment/Docker-Compose.md)
+- [Database migrations](deployment/Database-Migrations.md): one-shot migrator, advisory lock, least-privilege roles
 - [Nginx](deployment/Nginx.md) · [Observability stack](deployment/Observability.md) · [Seq security](deployment/Seq-Security.md) · [Production testing](deployment/Production-Testing.md)
 
 ## By task (Claude Code skills)

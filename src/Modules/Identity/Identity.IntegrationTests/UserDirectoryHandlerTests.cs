@@ -1,6 +1,6 @@
 using Identity.Domains.Roles.Constants;
 using Identity.Domains.Users.Models;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using UserDirectory.Contracts.Queries;

@@ -17,7 +17,7 @@ namespace Shared.Core.Data.Interceptors;
 /// transaction behave correctly.</item>
 /// </list>
 /// Dispatching is intentionally NOT done here: <see cref="IDomainEventDispatcher"/> publishes the ready events once
-/// the outermost unit of work (root MediatR command via <c>DispatchDomainEventsBehavior</c>, or a background job via
+/// the outermost unit of work (root mediator command via <c>DispatchDomainEventsBehavior</c>, or a background job via
 /// <see cref="IUnitOfWorkRunner"/>) has completed. This guarantees that handlers see fully committed data, that
 /// several saves in one unit of work publish once, and that there is no re-entrant SaveChanges on the same context.
 /// </summary>
@@ -131,7 +131,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
 
     void IDbTransactionInterceptor.TransactionFailed(DbTransaction transaction, TransactionErrorEventData eventData)
     {
-        if (EndsTransaction(eventData)) collector.TransactionRolledBack(transaction);
+        if (EndsTransaction(eventData))
+            collector.TransactionRolledBack(transaction);
     }
 
     Task IDbTransactionInterceptor.TransactionFailedAsync(
@@ -139,7 +140,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
         TransactionErrorEventData eventData,
         CancellationToken cancellationToken)
     {
-        if (EndsTransaction(eventData)) collector.TransactionRolledBack(transaction);
+        if (EndsTransaction(eventData))
+            collector.TransactionRolledBack(transaction);
         return Task.CompletedTask;
     }
 
@@ -151,7 +153,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
 
     private void Stage(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
 
         var aggregates = context.ChangeTracker
             .Entries<IAggregate>()
@@ -159,7 +162,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
             .Select(a => a.Entity)
             .ToList();
 
-        if (aggregates.Count == 0) return;
+        if (aggregates.Count == 0)
+            return;
 
         var events = aggregates
             .SelectMany(a => a.ClearDomainEvents())
@@ -171,13 +175,15 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
 
     private void Saved(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
         collector.SaveSucceeded(context, OpenTransactionKey(context));
     }
 
     private void Failed(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
         collector.SaveFailed(context);
     }
 
@@ -188,7 +194,8 @@ public class DispatchDomainEventsInterceptor(IDomainEventCollector collector)
     private static object? OpenTransactionKey(DbContext context)
     {
         var transaction = context.Database.CurrentTransaction;
-        if (transaction is null) return null;
+        if (transaction is null)
+            return null;
 
         return transaction is IInfrastructure<DbTransaction> relational ? relational.Instance : transaction;
     }

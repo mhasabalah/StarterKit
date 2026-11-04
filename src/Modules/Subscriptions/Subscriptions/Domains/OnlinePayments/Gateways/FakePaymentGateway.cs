@@ -1,0 +1,79 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Subscriptions.Options;
+
+namespace Subscriptions.Domains.OnlinePayments.Gateways;
+
+/// <summary>
+/// Dev / test provider and the TEMPLATE for real adapters. No network: checkout returns a made-up hosted page URL and
+/// webhooks are JSON signed with HMAC-SHA256 over the raw body using <c>Subscriptions:PaymentGateways:Fake:Secret</c>,
+/// hex in the <c>X-Fake-Signature</c> header:
+/// <code>{ "id": "evt_1", "type": "payment.succeeded|payment.failed|refund.created", "reference": "session id", "amount": 100.00, "currency": "SAR" }</code>
+/// Never enable it in production (the options validator refuses an enabled gateway without a secret).
+/// </summary>
+internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) : IPaymentGateway
+{
+    public const string ProviderName = "Fake";
+    public const string SignatureHeader = "X-Fake-Signature";
+
+    public string Name => ProviderName;
+
+    public Task<CheckoutSession> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
+    {
+        var sessionId = $"fake_{Guid.NewGuid():N}";
+        var baseUrl = Settings.BaseUrl ?? "https://pay.fake.example.com";
+        return Task.FromResult(new CheckoutSession(sessionId, new Uri($"{baseUrl.TrimEnd('/')}/checkout/{sessionId}")));
+    }
+
+    public WebhookParseResult ParseWebhook(string rawBody, IReadOnlyDictionary<string, string> headers)
+    {
+        if (string.IsNullOrEmpty(Settings.Secret) ||
+            !headers.TryGetValue(SignatureHeader, out var signature) ||
+            !IsValid(Settings.Secret, rawBody, signature))
+        {
+            return WebhookParseResult.BadSignature();
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(rawBody);
+            var root = document.RootElement;
+            var type = root.GetProperty("type").GetString() switch
+            {
+                "payment.succeeded" => PaymentWebhookEventType.PaymentSucceeded,
+                "payment.failed" => PaymentWebhookEventType.PaymentFailed,
+                "refund.created" => PaymentWebhookEventType.Refunded,
+                _ => PaymentWebhookEventType.Other
+            };
+
+            var id = root.GetProperty("id").GetString();
+            var reference = root.GetProperty("reference").GetString();
+            var currency = root.GetProperty("currency").GetString();
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(reference) || string.IsNullOrWhiteSpace(currency))
+                return WebhookParseResult.Malformed();
+
+            return WebhookParseResult.Ok(new PaymentWebhookEvent(
+                id, type, reference, root.GetProperty("amount").GetDecimal(), currency.ToUpperInvariant()));
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
+        {
+            return WebhookParseResult.Malformed();
+        }
+    }
+
+    /// <summary>The signature a provider would send for <paramref name="rawBody"/> (tests and local tooling).</summary>
+    public static string Sign(string secret, string rawBody) =>
+        Convert.ToHexStringLower(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(rawBody)));
+
+    private static bool IsValid(string secret, string rawBody, string signature)
+    {
+        var expected = Encoding.ASCII.GetBytes(Sign(secret, rawBody));
+        var actual = Encoding.UTF8.GetBytes(signature.Trim().ToLower(CultureInfo.InvariantCulture));
+        return CryptographicOperations.FixedTimeEquals(expected, actual); // false (no throw) on a length mismatch
+    }
+
+    private PaymentGatewayOptions Settings =>
+        options.Value.PaymentGateways.TryGetValue(ProviderName, out var settings) ? settings : new PaymentGatewayOptions();
+}

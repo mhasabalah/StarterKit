@@ -1,5 +1,6 @@
 using Hangfire;
 using Hangfire.PostgreSql;
+using Shared.Core.Data;
 
 namespace Api.Infrastructure;
 
@@ -12,6 +13,15 @@ public static class HangfireConfiguration
         var connectionString = configuration.GetConnectionString("starterkit")
             ?? throw new InvalidOperationException("Database connection string 'starterkit' not found");
 
+        // Hangfire installs/upgrades its schema (DDL) on first use. With Database:MigrateOnStartup=false only the
+        // one-shot migrator (privileged Database:MigrationConnectionString) may do that; app instances just connect.
+        var migration = DatabaseMigrationOptions.From(configuration);
+        var prepareSchema = migration.ShouldMigrate;
+        if (migration.MigrateOnly && !string.IsNullOrWhiteSpace(migration.MigrationConnectionString))
+        {
+            connectionString = migration.MigrationConnectionString;
+        }
+
         services.Configure<HangfireDashboardAuthOptions>(
             configuration.GetSection(HangfireDashboardAuthOptions.SectionName));
 
@@ -19,8 +29,9 @@ public static class HangfireConfiguration
 
         services.AddHangfire((sp, config) =>
         {
-            config.UsePostgreSqlStorage(options =>
-                options.UseNpgsqlConnection(connectionString));
+            config.UsePostgreSqlStorage(
+                options => options.UseNpgsqlConnection(connectionString),
+                new PostgreSqlStorageOptions { PrepareSchemaIfNecessary = prepareSchema });
             config.UseRecommendedSerializerSettings();
 
             // Tenant propagation: the enqueuing flow's tenant is restored while the job runs.

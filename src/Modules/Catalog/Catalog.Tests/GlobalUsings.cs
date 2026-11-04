@@ -12,7 +12,7 @@ global using Catalog.Domains.Products.Services;
 global using Catalog.Domains.Tags.Models;
 global using Catalog.Tests;
 global using FluentAssertions;
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Moq;
 global using Shared.Contracts.Localization;
 global using Shared.Core.Exceptions;

@@ -13,7 +13,15 @@ public class JwtOptions
     /// <summary>HS256 needs a key of at least 256 bits.</summary>
     public const int MinSecretKeyBytes = 32;
 
+    /// <summary>Signs new tokens (with a <c>kid</c> header).</summary>
     public required string SecretKey { get; init; }
+
+    /// <summary>
+    /// Key rotation: former <see cref="SecretKey"/> values that still VALIDATE tokens (never sign). Optional; leave
+    /// empty when not rotating. Drop an entry once the tokens it signed have expired.
+    /// </summary>
+    public string[] PreviousSecretKeys { get; init; } = [];
+
     public required string Issuer { get; init; }
     public required string Audience { get; init; }
     public int AccessTokenExpirationMinutes { get; init; } = 60;
@@ -31,6 +39,14 @@ public sealed class JwtOptionsValidator : IValidateOptions<JwtOptions>
             Encoding.UTF8.GetByteCount(options.SecretKey) < JwtOptions.MinSecretKeyBytes)
         {
             errors.Add($"JwtSettings:SecretKey must be at least {JwtOptions.MinSecretKeyBytes} bytes.");
+        }
+
+        for (var i = 0; i < options.PreviousSecretKeys.Length; i++)
+        {
+            if (Encoding.UTF8.GetByteCount(options.PreviousSecretKeys[i] ?? string.Empty) < JwtOptions.MinSecretKeyBytes)
+            {
+                errors.Add($"JwtSettings:PreviousSecretKeys:{i} must be at least {JwtOptions.MinSecretKeyBytes} bytes.");
+            }
         }
 
         if (string.IsNullOrWhiteSpace(options.Issuer))

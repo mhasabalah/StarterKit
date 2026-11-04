@@ -66,7 +66,7 @@ The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md).
 | **Notification** | Every email (Liquid templates, en/ar) and WhatsApp delivery, user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md) |
 | **Catalog** (sample) | Products (moderation workflow, gallery, attributes, soft delete), categories, tags, wishlist: the **reference vertical slice** | [wiki/Modules/Catalog](wiki/Modules/Catalog.md) |
 
-**Tech stack:** .NET 10, ASP.NET Core minimal APIs (Carter), MediatR, FluentValidation, Mapster, EF Core 10 + Npgsql
+**Tech stack:** .NET 10, ASP.NET Core minimal APIs (Carter), an owned mediator (`Shared.Contracts.Mediation`), FluentValidation, Mapster, EF Core 10 + Npgsql
 (snake_case), PostgreSQL 16, Redis 7, MassTransit, Hangfire, OpenTelemetry, Seq, .NET Aspire, Docker, Nginx, and
 GitHub Actions. Details: [TechnologyStack](wiki/Architecture/TechnologyStack.md).
 
@@ -205,6 +205,11 @@ Pushing to `master` runs build and test, builds the image to GHCR, waits for man
 through a self-hosted runner with health checks and rollback. Backups use pgBackRest to S3. Start at
 [wiki/deployment](wiki/deployment/README.md).
 
+Production does not migrate on boot: `Database:MigrateOnStartup=false`, and the compose `migrator` service runs
+`dotnet Api.dll --migrate-only` once per deploy (under a Postgres advisory lock) before `api` starts
+([Database migrations](wiki/deployment/Database-Migrations.md)). The API refuses to start in production with the
+non-durable `InMemory` message transport.
+
 ## Documentation
 
 - [wiki/README.md](wiki/README.md): where to start
@@ -222,3 +227,5 @@ Contributions: [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 ## License
 
 [MIT](LICENSE). Projects created from the template may relicense their own code.
+Most dependencies are MIT/Apache-2.0. QuestPDF and the Seq container are free only below a revenue threshold or for a
+single user. Check [Third-party licenses](wiki/Reference/Third-Party-Licenses.md) before shipping a product.

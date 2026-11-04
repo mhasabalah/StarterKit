@@ -1,6 +1,6 @@
 using System.Net;
 using UserDirectory.Contracts.Queries;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Polly.Timeout;

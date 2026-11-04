@@ -36,7 +36,7 @@ public static class NotificationModule
         services.AddTransient<IOtpDeliveryService, OtpDeliveryService>();
 
         services.AddCarterWithAssemblies(NotificationRoot.AssemblyName);
-        services.AddMediatR(NotificationRoot.AssemblyName);
+        services.AddMediator(NotificationRoot.AssemblyName);
 
         return services;
     }

@@ -1,6 +1,6 @@
 # StarterKit: GitHub Copilot instructions
 
-StarterKit is an **ASP.NET Core 10 / .NET 10 / EF Core 10** modular monolith starter: Carter minimal APIs, MediatR,
+StarterKit is an **ASP.NET Core 10 / .NET 10 / EF Core 10** modular monolith starter: Carter minimal APIs, an owned mediator (`Shared.Contracts.Mediation`),
 FluentValidation, Mapster, PostgreSQL (snake_case), Redis, MassTransit with a transactional outbox, Hangfire,
 OpenTelemetry, .NET Aspire, and optional multi-tenancy.
 

@@ -143,6 +143,8 @@ stops working) and restarts the lifetime. Accepting still requires a signed-in u
 | `MultiTenancy:Database:MigrateDedicatedOnStartup` | `true` | |
 | `MultiTenancy:Connections:{ref}` | - | Dedicated connection strings (secrets!) |
 | `MultiTenancy:Cache:LocalSeconds` / `DistributedSeconds` | `30` / `600` | `0` disables a level (also the move's propagation wait) |
+| `MultiTenancy:Cache:BroadcastInvalidation` / `InvalidationChannel` | `true` / `starterkit:tenancy:invalidate` | Redis pub/sub L1 eviction across instances (no-op without Redis) |
+| `MultiTenancy:Database:RlsBypass` / `HostConnectionString` | `SessionVariable` / empty | `Role` = host scope connects as a BYPASSRLS role (see Isolation page) |
 | `MultiTenancy:Invitations:SendEmail` / `AcceptUrl` / `ReturnTokenInResponse` | `true` / `/invitations/accept?token={token}` / `false` | |
 | `MultiTenancy:Cors:Enabled` / `FrontendRootDomain` / `AllowVerifiedCustomDomains` | `true` / empty / `true` | Tenant-aware CORS |
 | `MultiTenancy:Impersonation:Enabled` / `MaxMinutes` | `true` / `30` | 5-60 |

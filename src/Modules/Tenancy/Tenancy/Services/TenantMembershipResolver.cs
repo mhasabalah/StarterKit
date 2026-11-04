@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Shared.Core.MultiTenancy.Caching;
 
 namespace Tenancy.Services;
 
@@ -21,6 +22,7 @@ public sealed class TenantMembershipResolver(
     IMemoryCache memoryCache,
     IDistributedCache distributedCache,
     IOptions<MultiTenancyOptions> options,
+    ILocalCacheInvalidationBus invalidationBus,
     ILogger<TenantMembershipResolver> logger) : ITenantMembershipResolver
 {
     private const string Prefix = "tenancy:m:";
@@ -73,7 +75,8 @@ public sealed class TenantMembershipResolver(
     public async Task InvalidateAsync(Guid? tenantId = null, Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
-        if (tenantId is null) return;
+        if (tenantId is null)
+            return;
 
         if (userId is null)
         {
@@ -81,6 +84,8 @@ public sealed class TenantMembershipResolver(
             var next = Guid.NewGuid().ToString("N")[..8];
             memoryCache.Set(GenerationPrefix + tenantId.Value.ToString("N"), next, GenerationTtl);
             await TryWriteAsync(GenerationPrefix + tenantId.Value.ToString("N"), next, cancellationToken, GenerationTtl);
+            // Other instances drop their L1 generation and re-read the new one from L2.
+            await invalidationBus.PublishAsync([GenerationPrefix + tenantId.Value.ToString("N")], cancellationToken);
             return;
         }
 
@@ -95,6 +100,9 @@ public sealed class TenantMembershipResolver(
         {
             logger.LogWarning(ex, "Could not invalidate cached membership {Key}", key);
         }
+
+        // Broadcast AFTER the L2 removal, so a peer re-reading on receipt cannot re-cache the stale entry.
+        await invalidationBus.PublishAsync([key], cancellationToken);
     }
 
     private static readonly TimeSpan GenerationTtl = TimeSpan.FromDays(30);
@@ -102,7 +110,8 @@ public sealed class TenantMembershipResolver(
     private async Task<string> GetGenerationAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var key = GenerationPrefix + tenantId.ToString("N");
-        if (memoryCache.TryGetValue(key, out string? local) && local is not null) return local;
+        if (memoryCache.TryGetValue(key, out string? local) && local is not null)
+            return local;
 
         var generation = await TryReadAsync<string>(key, cancellationToken) ?? "0";
         if (options.Value.Cache.LocalSeconds > 0)
@@ -150,7 +159,8 @@ public sealed class TenantMembershipResolver(
     internal static async Task<Guid[]> ExpandBranchesAsync(TenancyDbContext db, Guid tenantId,
         IReadOnlyCollection<BranchAssignment> assignments, CancellationToken ct)
     {
-        if (assignments.Count == 0) return [];
+        if (assignments.Count == 0)
+            return [];
 
         var assignedIds = assignments.Select(a => a.BranchId).ToList();
         var assigned = await db.Branches.AsNoTracking()
@@ -189,7 +199,8 @@ public sealed class TenantMembershipResolver(
     private async Task TryWriteAsync<T>(string key, T value, CancellationToken cancellationToken, TimeSpan? ttl = null)
     {
         var seconds = options.Value.Cache.DistributedSeconds;
-        if (seconds <= 0 && ttl is null) return;
+        if (seconds <= 0 && ttl is null)
+            return;
         try
         {
             await distributedCache.SetStringAsync(key, JsonSerializer.Serialize(value, Json),

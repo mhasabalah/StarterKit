@@ -69,8 +69,8 @@ To restore manually:
    `docker compose -f docker-compose.yml --env-file .env.prod run --rm pgbackrest pgbackrest --stanza=starterkit [--set=<label>] --delta restore`
 4. `docker compose -f docker-compose.yml --env-file .env.prod start postgres`, then check it with
    `psql -c "\dt"`.
-5. `docker compose -f docker-compose.yml --env-file .env.prod start api`. The API applies any newer migrations on
-   startup.
+5. `docker compose -f docker-compose.yml --env-file .env.prod run --rm migrator` to apply any newer migrations (the
+   production API does not migrate on startup), then `... start api`.
 
 Practise a restore into a scratch server at least once a quarter. A backup you have never restored is not a backup.
 

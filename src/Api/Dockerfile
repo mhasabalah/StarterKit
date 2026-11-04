@@ -47,19 +47,17 @@ COPY ["src/Modules/Notification/Notification.Contracts/Notification.Contracts.cs
 RUN dotnet restore "./src/Api/Api.csproj"
 COPY . .
 WORKDIR "/src/src/Api"
-# SixLabors.ImageSharp 3.2+ validates a license key at Release build time (Six Labors Split License). Pass the key as a
-# BuildKit secret so it never lands in an image layer or the build history:
-#   docker build --secret id=sixlabors_license,env=SIXLABORS_LICENSE_KEY -f src/Api/Dockerfile .
-RUN --mount=type=secret,id=sixlabors_license,required=false \
-    dotnet build "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/build \
-      "-p:SixLaborsLicenseKey=$(cat /run/secrets/sixlabors_license 2>/dev/null)"
+RUN dotnet build "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN --mount=type=secret,id=sixlabors_license,required=false \
+# Publish for the image's architecture only: native libraries (SkiaSharp ~12 MB each) for the other ~20 platforms
+# would add ~190 MB. TARGETARCH is set by BuildKit (amd64 / arm64).
+ARG TARGETARCH
+RUN case "$TARGETARCH" in arm64) RID=linux-arm64 ;; *) RID=linux-x64 ;; esac && \
     dotnet publish "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false \
-      "-p:SixLaborsLicenseKey=$(cat /run/secrets/sixlabors_license 2>/dev/null)"
+      -r "$RID" --self-contained false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final

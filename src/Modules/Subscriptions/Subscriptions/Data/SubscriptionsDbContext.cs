@@ -2,6 +2,7 @@ using System.Reflection;
 using Npgsql;
 using Shared.Core.Messaging.Outbox;
 using Subscriptions.Data.Configurations;
+using Subscriptions.Domains.OnlinePayments.Models;
 
 namespace Subscriptions.Data;
 
@@ -24,6 +25,10 @@ public class SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> opt
     public DbSet<PaymentInstructions> PaymentInstructions => Set<PaymentInstructions>();
     public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
     public DbSet<SubscriptionPaymentReceipt> PaymentReceipts => Set<SubscriptionPaymentReceipt>();
+    public DbSet<OnlinePaymentSession> OnlinePaymentSessions => Set<OnlinePaymentSession>();
+
+    /// <summary>Inbox of verified provider webhooks, unique by (provider, event_id). Inserted with ON CONFLICT DO NOTHING.</summary>
+    public DbSet<InboundWebhookEvent> InboundWebhookEvents => Set<InboundWebhookEvent>();
 
     /// <summary>Append-only money ledger. Read with no-tracking queries; write only through <c>ILedgerRepository</c>.</summary>
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();

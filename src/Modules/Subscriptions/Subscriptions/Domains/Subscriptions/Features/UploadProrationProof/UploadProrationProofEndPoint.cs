@@ -33,6 +33,7 @@ public class UploadProrationProofEndPoint : ICarterModule
                 })
             .RequireAuthorization()
             .RequireRateLimiting("upload")
+            .WithIdempotency()
             .WithName("UploadProrationProof")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

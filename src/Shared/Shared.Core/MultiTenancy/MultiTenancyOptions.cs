@@ -108,6 +108,16 @@ public sealed class TenantResolutionOptions
     public string[] ReservedSubdomains { get; set; } = ["www", "api", "app", "admin", "host", "status", "mail"];
 }
 
+/// <summary>How host scope bypasses Row-Level Security.</summary>
+public enum RlsBypassMode
+{
+    /// <summary>Session variable <c>app.bypass_rls = on</c> on the runtime connection (works with a single DB role).</summary>
+    SessionVariable = 0,
+
+    /// <summary>A separate <c>BYPASSRLS</c> database role for host scope; the runtime role cannot bypass.</summary>
+    Role = 1
+}
+
 /// <summary>Database-level isolation settings.</summary>
 public sealed class TenantDatabaseOptions
 {
@@ -117,6 +127,21 @@ public sealed class TenantDatabaseOptions
     /// RLS does not apply to superusers - run the app with a dedicated non-superuser role in production.
     /// </summary>
     public bool EnableRowLevelSecurity { get; set; } = true;
+
+    /// <summary>
+    /// How host-scope work bypasses RLS. <see cref="RlsBypassMode.SessionVariable"/> (default) sets
+    /// <c>app.bypass_rls</c> on the runtime connection. <see cref="RlsBypassMode.Role"/> connects host scope with the
+    /// credentials of <see cref="HostConnectionString"/> (a <c>BYPASSRLS</c> role) and never sets the variable on the
+    /// runtime role, which with the <c>tenant_rls_bypass</c> group role installed cannot switch RLS off itself.
+    /// </summary>
+    public RlsBypassMode RlsBypass { get; set; } = RlsBypassMode.SessionVariable;
+
+    /// <summary>
+    /// Role mode only: connection string of the host/bypass role. Its username and password replace the runtime
+    /// credentials on every host-scope connection (server and database stay those of the connection being opened,
+    /// so dedicated databases on the same server work; the role must exist there too).
+    /// </summary>
+    public string? HostConnectionString { get; set; }
 
     /// <summary>
     /// Configuration section that holds dedicated-tenant connection strings by
@@ -147,6 +172,15 @@ public sealed class TenantCacheOptions
 
     /// <summary>Distributed (L2, Redis) cache lifetime of tenant/membership snapshots.</summary>
     public int DistributedSeconds { get; set; } = 600;
+
+    /// <summary>
+    /// Broadcast L1 invalidations to the other instances over Redis pub/sub (no effect without Redis). Off = other
+    /// instances wait for <see cref="LocalSeconds"/>.
+    /// </summary>
+    public bool BroadcastInvalidation { get; set; } = true;
+
+    /// <summary>Redis pub/sub channel of the L1 invalidation broadcast.</summary>
+    public string InvalidationChannel { get; set; } = "starterkit:tenancy:invalidate";
 }
 
 /// <summary>Claim types used by multi-tenancy.</summary>

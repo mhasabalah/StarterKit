@@ -3,7 +3,7 @@ using Attachment.Contracts.Attachments.Queries;
 using Identity.Domains.Users.Consumers;
 using Identity.Domains.Users.Models;
 using MassTransit;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -38,7 +38,7 @@ public sealed class UserAvatarChangedConsumerTests
     {
         var context = new Mock<ConsumeContext<UserAvatarChangedIntegrationEvent>>();
         context.SetupGet(c => c.Message).Returns(new UserAvatarChangedIntegrationEvent
-            { UserId = userId, AttachmentId = Guid.NewGuid() });
+        { UserId = userId, AttachmentId = Guid.NewGuid() });
         context.SetupGet(c => c.CancellationToken).Returns(CancellationToken.None);
         return context.Object;
     }

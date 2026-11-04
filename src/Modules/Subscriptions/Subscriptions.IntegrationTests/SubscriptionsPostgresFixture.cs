@@ -6,7 +6,7 @@ using Attachment.Contracts.Attachments.Queries;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.States;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +30,7 @@ namespace Subscriptions.IntegrationTests;
 /// One real PostgreSQL (Testcontainers, postgres:16-alpine) for the collection, wired with the REAL module
 /// registration (<c>AddSubscriptionsModule</c>): real DbContext through Shared.Core AddCustomDbContext (Npgsql +
 /// snake_case + legacy-timestamp switch + AuditableEntityInterceptor + DispatchDomainEventsInterceptor), the real
-/// MediatR pipeline (validation, concurrency, domain-event dispatch), real repositories, issuer, orchestrator, jobs.
+/// mediator pipeline (validation, concurrency, domain-event dispatch), real repositories, issuer, orchestrator, jobs.
 /// Faked boundaries: HTTP user, subscriber directory (Identity), attachment upload (Attachment), Hangfire client
 /// (jobs are captured and run explicitly) and the notification queue. Schema from <c>EnsureCreatedAsync</c>.
 /// </summary>
@@ -57,6 +57,8 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
                 ["Subscriptions:Tax:PricesIncludeTax"] = "true",
                 ["Subscriptions:UpgradeSlaHours"] = "72",
                 ["Subscriptions:TrustMinCycles"] = "2",
+                ["Subscriptions:PaymentGateways:Fake:Enabled"] = "true",
+                ["Subscriptions:PaymentGateways:Fake:Secret"] = FakeGatewaySecret,
                 ["Subscriptions:Invoice:CompanyName"] = "Test Seller",
                 ["Subscriptions:Invoice:TaxId"] = "VAT-123",
                 ["Subscriptions:Invoice:NumberPrefix"] = "INV",
@@ -92,12 +94,15 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
 
     public Guid PaymentMethodId { get; private set; }
 
+    public const string FakeGatewaySecret = "fake-gateway-test-secret-0123456789";
+
     /// <summary>The configured admin notification recipient (Subscriptions:AdminNotifications:Emails).</summary>
     public const string BillingTeamEmail = "billing-team@example.com";
 
     public async Task DisposeAsync()
     {
-        if (_provider is not null) await _provider.DisposeAsync();
+        if (_provider is not null)
+            await _provider.DisposeAsync();
         await _container.DisposeAsync();
     }
 

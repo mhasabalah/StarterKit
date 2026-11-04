@@ -41,7 +41,7 @@ Templates: [references/templates.md](references/templates.md).
    - **Idempotent:** at-least-once delivery means duplicates happen. `context.MessageId` equals `EventId`.
    - **Order-independent:** treat the event as a trigger. Re-read the current state from the owner via
      `ISender` + `.Contracts`; don't trust the payload or the arrival order.
-   - **Outside MediatR:** if it saves, dispatch domain events with
+   - **Outside the mediator:** if it saves, dispatch domain events with
      `IDomainEventDispatcher.DispatchPendingAsync` after `SaveChangesAsync`, or do the work in
      `IUnitOfWorkRunner.RunAsync`.
    - **Errors:** throw to retry a transient failure. Return normally for "nothing to do".
@@ -61,7 +61,7 @@ Templates: [references/templates.md](references/templates.md).
 ## Guardrails (`src/Api.Tests/Architecture/`)
 
 - `MessagingArchitectureTests`: events live in `.Contracts` under an `IntegrationEvents` namespace with a unique,
-  valid URN; they are not MediatR notifications; consumers live in module implementations; outbox contexts and
+  valid URN; they are not mediator notifications; consumers live in module implementations; outbox contexts and
   registrations match.
 - `BackgroundJobEventDispatchTests`: a consumer that saves must take `IUnitOfWorkRunner` or `IDomainEventDispatcher`.
 

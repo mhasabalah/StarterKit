@@ -27,6 +27,10 @@ line of `Program.cs`) loads every file in `/run/secrets` into configuration:
   | `rabbitmq_password` | `Messaging:RabbitMq:Password` |
   | `dataprotection_cert_password` | `Identity:DataProtection:Certificate:Password` |
 
+- **Migration connection string.** Compose maps the secret `migration_connection_string`
+  (`secrets/migration_connection_string.txt`, may be empty) into the migrator container as
+  `/run/secrets/Database__MigrationConnectionString`, which becomes `Database:MigrationConnectionString`. It is a
+  secret, not an env var, so it does not show in `docker inspect`.
 - **Any other file** becomes a key from its name, with `__` turned into `:`. For example, `Storage__S3__SecretKey`
   maps to `Storage:S3:SecretKey`.
 - **Binary files** (`.pfx`, `.p12`) are not loaded as values. They are referenced by path, for example

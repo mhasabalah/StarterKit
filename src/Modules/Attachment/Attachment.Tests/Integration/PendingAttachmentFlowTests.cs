@@ -34,7 +34,8 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
     private UploadPendingAttachmentHandler UploadHandler(AttachmentDbContext context, Caller caller) =>
         new(new PendingAttachmentRepository(context),
             Storage(),
-            new FileValidationService(TestOptions.Wrap(_options), new NoOpMalwareScanner(), NullLogger<FileValidationService>.Instance),
+            new FileValidationService(TestOptions.Wrap(_options), new NoOpMalwareScanner(),
+                new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(TestOptions.Wrap(_options), NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Sessions(caller),
             new Mock<IBackgroundJobClient>().Object,
             TestOptions.Wrap(_options),
@@ -149,7 +150,7 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         {
             var result = await AssociateHandler(ctx, owner).Handle(
                 new AssociatePendingAttachmentsCommand(session, EntityType.User, entityId, owner.UserId!.Value)
-                    { EnforceEntityAccessPolicy = true }, default);
+                { EnforceEntityAccessPolicy = true }, default);
 
             result.TotalAssociated.Should().Be(2);
             result.Metadata.Should().OnlyContain(m => m.FileUrl.StartsWith("/api/v1/attachments/"));
@@ -176,7 +177,7 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         await using var ctx = db.CreateContext(owner);
         await FluentActions.Awaiting(() => AssociateHandler(ctx, owner).Handle(
                 new AssociatePendingAttachmentsCommand(session, EntityType.Company, Guid.NewGuid(), owner.UserId!.Value)
-                    { EnforceEntityAccessPolicy = true }, default))
+                { EnforceEntityAccessPolicy = true }, default))
             .Should().ThrowAsync<ForbiddenException>();
     }
 
@@ -188,7 +189,8 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         var options = TestOptions.Wrap(_options);
         var handler = new UploadAttachmentHandler(
             new AttachmentRepository(ctx), Storage(),
-            new FileValidationService(options, new NoOpMalwareScanner(), NullLogger<FileValidationService>.Instance),
+            new FileValidationService(options, new NoOpMalwareScanner(),
+                new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Access(caller), new AttachmentUrls(options), new Mock<IAttachmentBackgroundJobs>().Object,
             options, TimeProvider.System, TenantContext.SingleTenant, NullLogger<UploadAttachmentHandler>.Instance);
 
@@ -207,7 +209,8 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
     {
         var caller = Caller.Anonymous("3.3.3.3", "cleanup");
         var session = TestServices.Sessions(caller).IssueForCurrentCaller();
-        for (var i = 0; i < 3; i++) await UploadAs(caller, session, i);
+        for (var i = 0; i < 3; i++)
+            await UploadAs(caller, session, i);
 
         await using var ctx = db.CreateContext(caller);
         var handler = new CleanupExpiredPendingAttachmentsHandler(new PendingAttachmentRepository(ctx), Storage(),

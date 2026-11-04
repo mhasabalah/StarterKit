@@ -34,4 +34,7 @@ public class CustomException : Exception
     public HttpStatusCode StatusCode { get; }
 
     public int? Code { get; }
+
+    /// <summary>Optional stable machine-readable code (e.g. <c>feature_not_in_plan</c>), surfaced as <c>errorCode</c>.</summary>
+    public string? ErrorCode { get; init; }
 }

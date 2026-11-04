@@ -175,4 +175,8 @@ public sealed class RecordingAuditWriter : Identity.Domains.Audit.Services.IIden
         Entries.Add(new Entry(action, targetId, targetType, reason,
             Identity.Domains.Audit.Services.IdentityAuditWriter.Serialize(before),
             Identity.Domains.Audit.Services.IdentityAuditWriter.Serialize(after), actorId));
+
+    public void RecordAccountErasure(Guid userId) =>
+        Entries.Add(new Entry(Identity.Domains.Audit.Models.IdentityAuditActions.AccountErased, userId, "User",
+            null, null, null, userId));
 }

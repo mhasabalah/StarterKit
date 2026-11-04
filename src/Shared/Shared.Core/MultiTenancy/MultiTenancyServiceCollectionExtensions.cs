@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shared.Core.MultiTenancy.Authorization;
 using Shared.Core.MultiTenancy.BackgroundJobs;
+using Shared.Core.MultiTenancy.Caching;
 using Shared.Core.MultiTenancy.Data;
 using Shared.Core.MultiTenancy.Web;
 
@@ -21,12 +23,17 @@ public static class MultiTenancyServiceCollectionExtensions
             .Bind(configuration.GetSection(MultiTenancyOptions.SectionName))
             .Validate(o => o.MaxBranchDepth is >= 1 and <= 32, "MultiTenancy:MaxBranchDepth must be 1..32.")
             .Validate(o => o.Database.MigrationParallelism >= 1, "MultiTenancy:Database:MigrationParallelism must be >= 1.")
+            .Validate(o => o.Database.RlsBypass != RlsBypassMode.Role ||
+                           (o.Database.EnableRowLevelSecurity && !string.IsNullOrWhiteSpace(o.Database.HostConnectionString)),
+                "MultiTenancy:Database:RlsBypass=Role requires EnableRowLevelSecurity=true and a HostConnectionString.")
             .Validate(o => o.Impersonation.MaxMinutes is >= 5 and <= 60, "MultiTenancy:Impersonation:MaxMinutes must be 5..60.")
             .Validate(o => o.Invitations.AcceptUrl.Contains("{token}", StringComparison.Ordinal),
                 "MultiTenancy:Invitations:AcceptUrl must contain the {token} placeholder.")
             .ValidateOnStart();
 
         services.AddMultiTenancyCore();
+        services.AddHostedService<PoolingSafetyCheck>();
+        services.AddHostedService<RlsBypassRoleCheck>();
 
         services.AddAuthorization(options =>
         {
@@ -62,6 +69,8 @@ public static class MultiTenancyServiceCollectionExtensions
         services.TryAddSingleton<TenantSessionConnectionInterceptor>();
         services.TryAddSingleton<ITenantJobRunner, TenantJobRunner>();
         services.TryAddSingleton<ITenantCacheKeys, TenantCacheKeys>();
+        services.AddMemoryCache();
+        AddLocalCacheInvalidation(services);
 
         if (services.All(d => d.ServiceType != typeof(TenantDataContextRegistry)))
         {
@@ -69,6 +78,32 @@ public static class MultiTenancyServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Redis pub/sub bus when an <see cref="StackExchange.Redis.IConnectionMultiplexer"/> is registered (resolved lazily,
+    /// so registration order does not matter), otherwise a no-op. The hosted service starts the subscription.
+    /// </summary>
+    private static void AddLocalCacheInvalidation(IServiceCollection services)
+    {
+        if (services.Any(d => d.ServiceType == typeof(ILocalCacheInvalidationBus)))
+            return;
+
+        services.AddSingleton<ILocalCacheInvalidationBus>(sp =>
+            sp.GetService<StackExchange.Redis.IConnectionMultiplexer>() is null
+                ? new NoOpLocalCacheInvalidationBus()
+                : ActivatorUtilities.CreateInstance<RedisLocalCacheInvalidationBus>(sp));
+        services.AddHostedService<LocalCacheInvalidationHost>();
+    }
+
+    /// <summary>Starts/stops the bus subscription when the bus is the Redis implementation.</summary>
+    private sealed class LocalCacheInvalidationHost(ILocalCacheInvalidationBus bus) : IHostedService
+    {
+        public Task StartAsync(CancellationToken cancellationToken) =>
+            bus is IHostedService hosted ? hosted.StartAsync(cancellationToken) : Task.CompletedTask;
+
+        public Task StopAsync(CancellationToken cancellationToken) =>
+            bus is IHostedService hosted ? hosted.StopAsync(cancellationToken) : Task.CompletedTask;
     }
 
     internal static TenantDataContextRegistry GetTenantDataContextRegistry(this IServiceCollection services) =>

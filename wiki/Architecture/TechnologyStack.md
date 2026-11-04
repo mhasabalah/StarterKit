@@ -31,8 +31,9 @@
 
 ## Application Layer
 
-### MediatR
-- **Purpose**: CQRS pattern implementation
+### Mediator (owned port)
+- **Purpose**: CQRS dispatch. `Shared.Contracts.Mediation` (`ISender`, `IPublisher`, `IPipelineBehavior`, ...) is
+  implemented by `Shared.Core.Mediation.Mediator`; no third-party mediator ([ADR-0007](../Decisions/0007-owned-mediator-port.md))
 - **Usage**: Command/Query handlers
 - **Pattern**: Request/Response messaging
 - **Benefits**:
@@ -43,7 +44,7 @@
 ### FluentValidation
 - **Purpose**: Input validation
 - **Usage**: Command/Query validators
-- **Integration**: MediatR pipeline behavior
+- **Integration**: mediator pipeline behavior
 - **Benefits**:
   - Fluent API
   - Reusable rules
@@ -212,7 +213,7 @@
 | EF Core | 9.x |
 | PostgreSQL | 14+ |
 | Carter | Latest |
-| MediatR | Latest |
+| Mediator | Owned (`Shared.Contracts.Mediation`) |
 | FluentValidation | Latest |
 | Mapster | Latest |
 | MassTransit | Latest |

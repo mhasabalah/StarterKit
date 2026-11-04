@@ -21,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Core.Authorization;
+using Shared.Core.Messaging.Outbox;
 using AspNetIdentityOptions = Microsoft.AspNetCore.Identity.IdentityOptions;
 using RoleConstants = Identity.Domains.Roles.Constants.RoleConstants;
 
@@ -36,6 +37,7 @@ public static class IdentityModule
 
         services.ConfigureOptions(configuration);
         services.AddCustomDbContext<ApplicationIdentityDbContext>(configuration, "starterkit");
+        services.AddOutbox<ApplicationIdentityDbContext>(); // delivers UserDeletedIntegrationEvent
         services.ConfigureIdentity();
         // Data Protection key ring (encrypts authenticator keys, signs reset tokens): database-backed, shared
         // application name, optional at-rest encryption (Identity:DataProtection) + production guard.
@@ -63,7 +65,7 @@ public static class IdentityModule
         services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
         services.AddScoped<ILoginCompletionService, LoginCompletionService>();
 
-        // Admin audit: writer + one transaction per IAuditedCommand (registered after AddMediatR below).
+        // Admin audit: writer + one transaction per IAuditedCommand (registered after AddMediator below).
         services.AddScoped<IIdentityAuditWriter, IdentityAuditWriter>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
@@ -82,7 +84,7 @@ public static class IdentityModule
         services.AddScoped<RefreshTokenCleanupJob>();
         services.AddHostedService<IdentityJobSchedulerBootstrap>();
 
-        services.AddMediatR(IdentityRoot.AssemblyName);
+        services.AddMediator(IdentityRoot.AssemblyName);
         services.TryAddEnumerable(ServiceDescriptor.Transient(
             typeof(IPipelineBehavior<,>), typeof(AuditedCommandTransactionBehavior<,>)));
         services.AddCarterWithAssemblies(IdentityRoot.AssemblyName);
@@ -220,7 +222,7 @@ public static class IdentityModule
                     ValidIssuer = jwt.Issuer,
                     ValidAudience = jwt.Audience,
                     ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
+                    IssuerSigningKeys = JwtSigningKeys.ValidationKeys(jwt),
                     ClockSkew = TimeSpan.Zero
                 };
 

@@ -10,8 +10,8 @@ namespace Api.Tests.Architecture;
 /// <summary>
 /// RULE: background code that saves entities must publish their domain events.
 /// <para>
-/// Domain events are published by <c>DispatchDomainEventsBehavior</c> only for MediatR commands. Hangfire jobs, hosted
-/// services and orchestrators run OUTSIDE MediatR, so a job that calls <c>SaveChanges</c> without the dispatcher
+/// Domain events are published by <c>DispatchDomainEventsBehavior</c> only for mediator commands. Hangfire jobs, hosted
+/// services and orchestrators run OUTSIDE the mediator, so a job that calls <c>SaveChanges</c> without the dispatcher
 /// silently drops every event it raises (the original bug: ProcessExpiredSubscriptionsJob never sent the
 /// "subscription expired" email).
 /// </para>
@@ -54,7 +54,7 @@ public sealed class BackgroundJobEventDispatchTests
             .ToList();
 
         violations.Should().BeEmpty(
-            "background code runs outside MediatR, so it must take IUnitOfWorkRunner (or IDomainEventDispatcher) " +
+            "background code runs outside the mediator, so it must take IUnitOfWorkRunner (or IDomainEventDispatcher) " +
             "or the domain events it raises are never published");
     }
 
@@ -95,7 +95,7 @@ public sealed class BackgroundJobEventDispatchTests
     {
         var type = Assembly.Load(assembly).GetType(typeName, true)!;
 
-        IsBackgroundType(type).Should().BeTrue("consumers run on the bus, outside MediatR");
+        IsBackgroundType(type).Should().BeTrue("consumers run on the bus, outside the mediator");
         BackgroundTypes().Should().Contain(type);
     }
 
@@ -134,7 +134,7 @@ public sealed class BackgroundJobEventDispatchTests
          typeof(IHostedService).IsAssignableFrom(t) ||
          IsMassTransitConsumer(t));
 
-    /// <summary>MassTransit consumers run on the bus, outside MediatR: nothing publishes their domain events for them.</summary>
+    /// <summary>MassTransit consumers run on the bus, outside the mediator: nothing publishes their domain events for them.</summary>
     private static bool IsMassTransitConsumer(Type t) =>
         t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(MassTransit.IConsumer<>));
 
@@ -195,7 +195,8 @@ public sealed class BackgroundJobEventDispatchTests
             yield break;
         }
 
-        if (il is null) yield break;
+        if (il is null)
+            yield break;
 
         var position = 0;
         while (position < il.Length)
@@ -223,7 +224,8 @@ public sealed class BackgroundJobEventDispatchTests
                     // Unresolvable (e.g. open generic context) - ignore.
                 }
 
-                if (target is not null) yield return target;
+                if (target is not null)
+                    yield return target;
             }
 
             position += OperandSize(opCode, il, position);

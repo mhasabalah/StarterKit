@@ -155,7 +155,7 @@ services:
     # Override to use direct env vars (no secrets)
     secrets: []
     
-    environment:
+    environment: &dev-api-environment
       # Development environment
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: "http://+:80"
@@ -176,7 +176,6 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       
       # Logging (Microsoft.Extensions.Logging; exported to Seq over OTLP via ConnectionStrings:seq)
-      ConnectionStrings__seq: "http://seq:80"
       Logging__LogLevel__Default: "Debug"
       Logging__LogLevel__Microsoft: "Information"
       Logging__LogLevel__System: "Warning"
@@ -219,6 +218,19 @@ services:
         limits:
           cpus: '2.0'
           memory: 2g
+
+  # ==============================================
+  # Migrator - Development (same local image + settings as the API)
+  # ==============================================
+  migrator:
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Debug
+    image: starterkit-api:dev
+    secrets: []
+    environment: *dev-api-environment
 
   # ==============================================
   # Mailhog - Email Testing (Dev Only)

@@ -79,7 +79,7 @@ HTTP route
 ## Naming Conventions
 
 ### Files
-- `{Feature}Handler.cs` - validator + MediatR handler
+- `{Feature}Handler.cs` - validator + mediator handler
 - `{Feature}EndPoint.cs` - Carter endpoint (or grouped `{X}sModule.cs`)
 - `{Entity}Configuration.cs` - EF Core configuration
 - `{Entity}Repository.cs` - Repository implementation

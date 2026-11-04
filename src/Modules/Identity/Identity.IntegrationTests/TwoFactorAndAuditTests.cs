@@ -7,7 +7,7 @@ using Identity.Domains.Roles.Constants;
 using Identity.Domains.Users.Models;
 using Identity.Services.Sessions;
 using Identity.Services.TwoFactor;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +20,7 @@ namespace Identity.IntegrationTests;
 
 /// <summary>
 /// The full 2FA login and the admin audit against PostgreSQL: real UserManager/SignInManager, the encrypted
-/// authenticator key store, the MediatR pipeline with the audited-command transaction behavior.
+/// authenticator key store, the mediator pipeline with the audited-command transaction behavior.
 /// </summary>
 [Collection(IdentityPostgresCollection.Name)]
 public sealed class TwoFactorAndAuditTests(IdentityPostgresFixture fixture)
@@ -144,9 +144,9 @@ public sealed class TwoFactorAndAuditTests(IdentityPostgresFixture fixture)
         fixture.CurrentUserId = admin.Id;
 
         await FluentActions.Awaiting(() => SendAsync(new LockUserCommand
-            {
-                UserId = superAdmin.Id, Reason = "admin cannot lock a superadmin", LockedByAdminId = admin.Id
-            }))
+        {
+            UserId = superAdmin.Id, Reason = "admin cannot lock a superadmin", LockedByAdminId = admin.Id
+        }))
             .Should().ThrowAsync<ForbiddenException>();
 
         (await WithDbAsync(db => db.AdminAuditLogs.CountAsync(a => a.TargetId == superAdmin.Id))).Should().Be(0);
@@ -182,6 +182,7 @@ public sealed class TwoFactorAndAuditTests(IdentityPostgresFixture fixture)
         rows[1].AdminId.Should().Be(superAdmin.Id);
         var json = string.Concat(rows.Select(r => r.BeforeJson + r.AfterJson));
         json.Should().NotContain(key);
-        foreach (var code in enabled.RecoveryCodes) json.Should().NotContain(code);
+        foreach (var code in enabled.RecoveryCodes)
+            json.Should().NotContain(code);
     }
 }

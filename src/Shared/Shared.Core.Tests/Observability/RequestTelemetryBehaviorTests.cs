@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +12,7 @@ using Shared.Core.OpenTelemetryCollector.DiagnosticsProvider;
 namespace Shared.Core.Tests.Observability;
 
 /// <summary>
-/// MediatR request telemetry: one span + one duration measurement per request, correct command/query
+/// mediator request telemetry: one span + one duration measurement per request, correct command/query
 /// classification, error status on failure, and never touching the caller's span when tracing is off.
 /// </summary>
 public sealed class RequestTelemetryBehaviorTests : IDisposable

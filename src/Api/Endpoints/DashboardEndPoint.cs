@@ -1,7 +1,7 @@
 using Carter;
 using Catalog.Contracts.Products.Queries;
 using UserDirectory.Contracts.Queries;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

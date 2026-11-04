@@ -169,7 +169,8 @@ public sealed class OtpCodeService(
             OtpPurpose.PhoneVerification or
             OtpPurpose.OnboardingPhoneVerification or
             OtpPurpose.EmailVerification or
-            OtpPurpose.TwoFactorLogin => new OtpPolicy(codeLength, phoneLifetime, phoneAttempts, cooldown, dailyCap),
+            OtpPurpose.TwoFactorLogin or
+            OtpPurpose.AccountDeletion => new OtpPolicy(codeLength, phoneLifetime, phoneAttempts, cooldown, dailyCap),
             OtpPurpose.PasswordReset => new OtpPolicy(
                 codeLength,
                 TimeSpan.FromMinutes(Math.Max(1, resetOptions.Value.OtpExpiryMinutes)),

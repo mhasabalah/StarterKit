@@ -1,4 +1,4 @@
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.Extensions.Logging;
 using Shared.Core.Behaviors;
 using Shared.Contracts.Events;

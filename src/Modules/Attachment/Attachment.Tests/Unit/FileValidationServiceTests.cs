@@ -10,9 +10,14 @@ namespace Attachment.Tests.Unit;
 
 public sealed class FileValidationServiceTests
 {
-    private static FileValidationService Create(AttachmentOptions? options = null, IMalwareScanner? scanner = null) =>
-        new(TestOptions.Wrap(options ?? TestOptions.Create()), scanner ?? new NoOpMalwareScanner(),
+    private static FileValidationService Create(AttachmentOptions? options = null, IMalwareScanner? scanner = null)
+    {
+        var wrapped = TestOptions.Wrap(options ?? TestOptions.Create());
+        return new(wrapped, scanner ?? new NoOpMalwareScanner(),
+            new Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService(
+                wrapped, NullLogger<Attachment.Infrastructure.ImageProcessing.SkiaImageProcessingService>.Instance),
             NullLogger<FileValidationService>.Instance);
+    }
 
     private static Task<FileValidationResult> Validate(
         byte[] content, string fileName, string declared, AttachmentType type = AttachmentType.Other,

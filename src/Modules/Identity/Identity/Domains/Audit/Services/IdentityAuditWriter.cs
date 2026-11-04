@@ -20,6 +20,12 @@ public interface IIdentityAuditWriter
         object? before = null,
         object? after = null,
         Guid? actorId = null);
+
+    /// <summary>
+    /// Self-service erasure: the user as actor and target, NO snapshot, reason, IP, user agent or correlation id.
+    /// The entry itself must not keep personal data of the person who just erased theirs.
+    /// </summary>
+    void RecordAccountErasure(Guid userId);
 }
 
 public sealed class IdentityAuditWriter(
@@ -53,6 +59,11 @@ public sealed class IdentityAuditWriter(
             httpContextService.GetCorrelationId(),
             timeProvider.GetUtcNow()));
     }
+
+    public void RecordAccountErasure(Guid userId) =>
+        dbContext.AdminAuditLogs.Add(AdminActionAuditLog.Create(
+            userId, IdentityAuditActions.AccountErased, IdentityAuditTargets.User, userId,
+            null, null, null, null, null, null, timeProvider.GetUtcNow()));
 
     public static string? Serialize(object? value) =>
         value is null ? null : JsonSerializer.Serialize(value, value.GetType(), JsonOptions);

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Shared.Core.MultiTenancy.Caching;
 
 namespace Tenancy.Services;
 
@@ -9,7 +10,8 @@ namespace Tenancy.Services;
 /// <see cref="ITenantStore"/> backed by <see cref="TenancyDbContext"/> with a two-level cache: in-process
 /// (<c>MultiTenancy:Cache:LocalSeconds</c>) over distributed/Redis (<c>DistributedSeconds</c>). Misses are cached
 /// briefly too (unknown hosts are probed on every request otherwise). <see cref="TenantChangedEvent"/> invalidates
-/// both levels; other instances' L1 entries expire within LocalSeconds.
+/// both levels and is broadcast (<see cref="ILocalCacheInvalidationBus"/>, Redis pub/sub) so other instances evict their
+/// L1 entry immediately; without Redis or when the broadcast fails they expire within LocalSeconds.
 /// Cache failures never fail a request: the database is the fallback.
 /// </summary>
 public sealed class TenantStore(
@@ -17,6 +19,7 @@ public sealed class TenantStore(
     IMemoryCache memoryCache,
     IDistributedCache distributedCache,
     IOptions<MultiTenancyOptions> options,
+    ILocalCacheInvalidationBus invalidationBus,
     ILogger<TenantStore> logger) : ITenantStore
 {
     private const string Prefix = "tenancy:tenant:";
@@ -62,7 +65,8 @@ public sealed class TenantStore(
         CancellationToken cancellationToken = default)
     {
         var keys = new List<string> { $"id:{tenantId:N}" };
-        if (!string.IsNullOrEmpty(identifier)) keys.Add($"ident:{identifier}");
+        if (!string.IsNullOrEmpty(identifier))
+            keys.Add($"ident:{identifier}");
         keys.AddRange(hosts.Select(h => $"host:{h}"));
 
         foreach (var key in keys)
@@ -77,7 +81,24 @@ public sealed class TenantStore(
                 logger.LogWarning(ex, "Could not invalidate cached tenant {Key}", key);
             }
         }
+
+        // Broadcast LAST: peers that evict L1 on receipt re-read L2, which must already be gone, or they would
+        // re-cache the stale value.
+        await invalidationBus.PublishAsync(keys.Select(k => Prefix + k).ToList(), cancellationToken);
     }
+
+    /// <summary>Tenants whose data is being moved: background fan-out skips them (see <see cref="GetServiceableTenantsAsync"/>).</summary>
+    public Task<IReadOnlyList<TenantInfo>> GetMigratingTenantsAsync(CancellationToken cancellationToken = default) =>
+        runner.RunAsync<IReadOnlyList<TenantInfo>>(async (services, ct) =>
+        {
+            using (TenantScope.BeginHostScope())
+            {
+                var tenants = await services.GetRequiredService<TenancyDbContext>().Tenants.AsNoTracking()
+                    .Where(t => t.Status == TenantStatus.Migrating)
+                    .ToListAsync(ct);
+                return tenants.Select(t => t.ToInfo()).ToList();
+            }
+        }, cancellationToken);
 
     private async Task<TenantInfo?> GetAsync(string key, Func<TenancyDbContext, IQueryable<Tenant>> query,
         CancellationToken cancellationToken)
@@ -115,7 +136,8 @@ public sealed class TenantStore(
     private void SetLocal(string key, CachedTenant entry)
     {
         var seconds = options.Value.Cache.LocalSeconds;
-        if (seconds <= 0) return;
+        if (seconds <= 0)
+            return;
         var ttl = entry.Tenant is null ? TimeSpan.FromSeconds(Math.Min(seconds, MissTtl.TotalSeconds)) : TimeSpan.FromSeconds(seconds);
         memoryCache.Set(key, entry, ttl);
     }
@@ -137,7 +159,8 @@ public sealed class TenantStore(
     private async Task WriteDistributedAsync(string key, CachedTenant entry, CancellationToken cancellationToken)
     {
         var seconds = options.Value.Cache.DistributedSeconds;
-        if (seconds <= 0) return;
+        if (seconds <= 0)
+            return;
         try
         {
             var ttl = entry.Tenant is null ? MissTtl : TimeSpan.FromSeconds(seconds);

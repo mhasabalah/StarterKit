@@ -12,3 +12,4 @@ link it here.
 | [0004](0004-outbox-and-messaging-transports.md) | Transactional outbox, pluggable MassTransit transport | Accepted |
 | [0005](0005-tenant-isolation-model.md) | Tenant isolation: named filters + RLS, shared or dedicated DBs | Accepted |
 | [0006](0006-identity-behind-userdirectory-port.md) | Users only through the UserDirectory port | Accepted |
+| [0007](0007-owned-mediator-port.md) | Own the mediator port; do not depend on MediatR | Accepted |

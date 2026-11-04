@@ -24,7 +24,7 @@ public interface ITenantJobRunner
 
     /// <summary>
     /// Runs <paramref name="work"/> once per serviceable tenant inside its <see cref="TenantScope"/> only (no unit of
-    /// work) - for job bodies that already manage their own units of work / MediatR commands. Failures are logged
+    /// work) - for job bodies that already manage their own units of work / mediator commands. Failures are logged
     /// per tenant and counted; the other tenants still run.
     /// </summary>
     /// <returns>Number of tenants whose work failed.</returns>

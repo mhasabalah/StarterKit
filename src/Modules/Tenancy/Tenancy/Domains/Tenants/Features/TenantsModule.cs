@@ -123,7 +123,9 @@ public class TenantsModule : ICarterModule
             .WithDescription("Owner only. Zip: control-plane data as JSON + every tenant table as CSV. Audited.")
             .RequireTenantMember()
             .DisallowImpersonation()
-            .RequireRateLimiting(RateLimitPolicyNames.Create);
+            .RequireRateLimiting(RateLimitPolicyNames.Create)
+            // Builds the whole archive before responding: allowed to outlive the default request timeout.
+            .WithRequestTimeout(Shared.Core.Web.RequestTimeoutPolicies.LongRunning);
 
         current.MapPost("/deletion", async (TenantReasonRequest request, ISender sender, CancellationToken ct) =>
                 Results.Ok(ApiResponseExtensions.Success(await sender.Send(new RequestTenantDeletionCommand(request.Reason), ct))))

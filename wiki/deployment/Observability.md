@@ -53,6 +53,7 @@ infra/observability/
 ├── configs/
 │   ├── otel-collector-config.yaml    # OpenTelemetry Collector
 │   ├── prometheus.yaml                # Prometheus scrape config
+│   ├── alerts.yaml                    # Prometheus alert rules (outbox dead letters / backlog)
 │   ├── tempo.yaml                     # Tempo tracing config
 │   ├── loki-config.yaml              # Loki log config
 │   └── grafana/

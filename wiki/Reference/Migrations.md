@@ -48,7 +48,15 @@ For every other `dotnet ef` command below, add the same `--project <module> --st
 
 ## Apply migrations
 
-Modules apply their migrations automatically at startup via `app.UseMigration<TDbContext>()` in `Use<Module>Module()`.
+Modules apply their migrations through `app.UseMigration<TDbContext>()` in `Use<Module>Module()`, serialized by a
+Postgres advisory lock. **When** that runs is configuration:
+
+| Setting | Dev / Aspire / tests | Production (`appsettings.Docker.json`) |
+|---|---|---|
+| `Database:MigrateOnStartup` | `true` (default): every instance migrates + seeds at boot | `false`: the app never migrates or seeds |
+| `dotnet Api.dll --migrate-only` | optional | the compose `migrator` service runs it at deploy time |
+
+Details, roles and the migrator connection string: [Database-Migrations](../deployment/Database-Migrations.md).
 To apply manually:
 
 ```bash

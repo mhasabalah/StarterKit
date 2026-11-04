@@ -41,7 +41,8 @@ public static class TenancyModule
         services.AddSingleton<TenantMover>();
         services.AddTransient<MoveTenantJob>();
         services.AddTransient<PurgeDeletedTenantsJob>();
-        services.AddHostedService<DedicatedTenantDatabaseMigrator>();
+        services.AddSingleton<DedicatedTenantDatabaseMigrator>(); // also resolved by the --migrate-only run
+        services.AddHostedService(sp => sp.GetRequiredService<DedicatedTenantDatabaseMigrator>());
         services.AddHttpClient<ITenantDomainVerifier, DnsOverHttpsDomainVerifier>(c => c.Timeout = TimeSpan.FromSeconds(10));
 
         // Billing: subscriber = the tenant in multi-tenant mode, the user otherwise (decided per request from
@@ -51,7 +52,7 @@ public static class TenancyModule
         // Notifications addressed to a tenant subscriber reach its owner.
         services.AddScoped<Notification.Contracts.INotificationRecipientResolver, TenantNotificationRecipientResolver>();
 
-        services.AddMediatR(TenancyRoot.AssemblyName);
+        services.AddMediator(TenancyRoot.AssemblyName);
         services.AddCustomMapster(TenancyRoot.AssemblyName);
         services.AddCarterWithAssemblies(TenancyRoot.AssemblyName);
 

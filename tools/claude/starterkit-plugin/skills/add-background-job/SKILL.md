@@ -5,7 +5,7 @@ description: Add a Hangfire recurring or fire-and-forget background job to a Sta
 
 # Add a background job (Hangfire)
 
-**Main rule:** jobs, hosted services and orchestrators run **outside MediatR**, so nothing publishes their domain
+**Main rule:** jobs, hosted services and orchestrators run **outside the mediator**, so nothing publishes their domain
 events unless you do. All DB work goes through `IUnitOfWorkRunner.RunAsync`, one call per item. Don't hand-roll
 `IServiceScopeFactory` scopes; `BackgroundJobEventDispatchTests` enforces this by IL scan.
 

@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using MassTransit;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -173,7 +173,8 @@ public sealed class RecordingPublisher
                 await Task.Yield(); // let concurrent relays interleave
 
                 var failure = Failure?.Invoke(message);
-                if (failure is not null) throw failure;
+                if (failure is not null)
+                    throw failure;
 
                 var tenant = tenantContext();
                 _published.Enqueue(new PublishedMessage(message, type, context.Object.MessageId, tenant.TenantId,
@@ -241,7 +242,7 @@ public sealed class OutboxFixture : IAsyncLifetime
         services.AddSingleton<ITenantStore>(new TestTenantStore(TenantA, TenantB));
         services.Configure<MultiTenancyOptions>(o => o.Enabled = true);
         services.AddSingleton<IOptions<OutboxOptions>>(Microsoft.Extensions.Options.Options.Create(Options));
-        services.AddSingleton<IPublisher>(sp => new Mediator(sp));
+        Shared.Core.Extensions.MediatorExtensions.AddMediatorHandlers(services);
         services.AddSingleton(sp =>
         {
             Bus = new RecordingPublisher(() => sp.GetRequiredService<ITenantContext>());
@@ -270,7 +271,8 @@ public sealed class OutboxFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_provider is not null) await _provider.DisposeAsync();
+        if (_provider is not null)
+            await _provider.DisposeAsync();
         await _container.DisposeAsync();
     }
 

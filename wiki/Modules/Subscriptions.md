@@ -28,6 +28,46 @@ Payment-method UX for frontends is in [../Subscriptions/PaymentMethods-Frontend-
 | `admin/payment-methods`, `admin/payment-instructions` | `payment-settings.manage` | Payment configuration |
 | `admin/billing/dashboard`, `admin/billing/ledger` | `billing.read` | Finance views |
 
+## Idempotency-Key (money-moving POSTs)
+
+`.WithIdempotency()` (Shared.Core, `Web/Idempotency`) is applied to: create subscription, upload payment / renewal /
+proration proof, record manual payment, request refund, upgrade, issue credit note. The `Idempotency-Key` header is
+optional; without it nothing changes. With it, scope = tenant + user + method + route template + key.
+
+| Situation | Result |
+|---|---|
+| First request | runs; a 2xx/4xx response is stored for `Idempotency:Ttl` (default 24 h) |
+| Duplicate while the first runs | 409, `errorCode: idempotency_in_progress` |
+| Duplicate after completion | stored status + body, header `Idempotency-Replayed: true` |
+| Same key, different body | 422, `errorCode: idempotency_key_reused` (multipart bodies are hashed part by part, so a new boundary does not matter) |
+| 5xx or exception | key released, a retry runs again |
+| Redis unavailable | warning logged, request processed normally |
+
+Reservation is Redis `SET NX` (in-process fallback when `Redis:Enabled=false`). Other settings:
+`Idempotency:InFlightTtl` (5 min), `Idempotency:MaxStoredBodyBytes` (256 KB; larger responses are not stored).
+
+## Entitlements (plan features and limits)
+
+`IEntitlementService` (Shared.Core) answers `HasFeatureAsync(key)` / `GetLimitAsync(key)` for the current subscriber
+(tenant in multi-tenant mode). Shared.Core registers a permissive default; Subscriptions replaces it with
+`PlanEntitlementService`, which reads the active/past-due subscription's snapshotted features and limits through
+`EntitlementCache` (`IDistributedCache`, key via `ITenantCacheKeys`, TTL `Subscriptions:Entitlements:CacheSeconds`,
+default 60). Status/plan changes (activated, cancelled, expired, past due, rejected, renewed, upgraded, upgrade
+reverted, downgrade applied) invalidate it from `EntitlementCacheInvalidationHandler`.
+
+`Subscriptions:Entitlements:Enforce` defaults to `false`: features are allowed and limits read as unlimited, and the
+would-be denial is logged at debug level. Set it to `true` to enforce.
+
+Gate an endpoint (not wired to any existing endpoint yet):
+
+```csharp
+app.MapGet(EndpointConfig.BaseApiPath + "/reports/advanced", handler)
+   .RequireAuthorization()
+   .RequireFeature("advanced-reports");   // 403, errorCode "feature_not_in_plan" when the plan lacks it
+```
+
+Error responses may now carry a string `errorCode` next to the numeric `code` (`CustomException.ErrorCode`).
+
 ## Jobs (Hangfire, recurring)
 
 `ProcessExpiredSubscriptionsJob`, `ProcessPastDueSubscriptionsJob`, `ProcessRenewalRemindersJob`,

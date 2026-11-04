@@ -5,6 +5,10 @@ using Shared.Core.Extensions;
 using Shared.Core.Mapster;
 using Shared.Core.Messaging.Outbox;
 using Subscriptions.Data.Repositories;
+using Subscriptions.Domains.Subscriptions.Entitlements;
+using Subscriptions.Domains.OnlinePayments.Gateways;
+using Subscriptions.Domains.OnlinePayments.Jobs;
+using Subscriptions.Domains.OnlinePayments.Services;
 using Subscriptions.Domains.Subscriptions.Jobs;
 using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Infrastructure;
@@ -19,11 +23,13 @@ public static class SubscriptionsModule
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        PdfConfiguration.Configure();
+        PdfConfiguration.Configure(configuration["Subscriptions:Pdf:License"]);
 
         services.AddScoped<IPlanRepository, PlanRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IFeatureService, FeatureService>();
+        services.AddScoped<IEntitlementCache, EntitlementCache>();
+        services.AddScoped<IEntitlementService, PlanEntitlementService>(); // replaces the permissive Shared.Core default
         services.AddScoped<IInvoiceIssuer, InvoiceIssuer>();
         services.AddScoped<IUpgradeTrustService, UpgradeTrustService>();
         services.AddScoped<IAdminAuditWriter, AdminAuditWriter>();
@@ -32,6 +38,8 @@ public static class SubscriptionsModule
         services.AddScoped<IPaymentInstructionsRepository, PaymentInstructionsRepository>();
         services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
         services.AddScoped<ILedgerRepository, LedgerRepository>();
+        services.AddScoped<IOnlinePaymentSessionRepository, OnlinePaymentSessionRepository>();
+        services.AddScoped<IInboundWebhookEventRepository, InboundWebhookEventRepository>();
         services.AddScoped<IPaymentSettlementService, PaymentSettlementService>();
         services.AddScoped<IComplimentaryActivationService, ComplimentaryActivationService>();
         services.AddScoped<IAdminNotificationRecipients, AdminNotificationRecipients>();
@@ -48,15 +56,24 @@ public static class SubscriptionsModule
         services.AddOptions<SubscriptionOptions>()
             .Bind(configuration.GetSection("Subscriptions"))
             .Validate(o => o.Tax.Rate is >= 0m and <= 1m, "Subscriptions:Tax:Rate must be a fraction between 0 and 1 (e.g. 0.15).")
+            .Validate(o => o.Entitlements.CacheSeconds > 0, "Subscriptions:Entitlements:CacheSeconds must be positive.")
             .Validate(o => o.ReactivationWindowDays >= 0, "Subscriptions:ReactivationWindowDays must not be negative.")
             .Validate(o => o.AdminNotifications.DigestStaleProofHours > 0,
                 "Subscriptions:AdminNotifications:DigestStaleProofHours must be positive.")
             .Validate(o => !string.IsNullOrWhiteSpace(o.Invoice.NumberPrefix) &&
                            o.Invoice.NumberPrefix.Length <= Domains.Subscriptions.Billing.InvoiceNumberFormat.MaxPrefixLength,
                 "Subscriptions:Invoice:NumberPrefix must be 1-20 characters.")
+            .Validate(o => o.PaymentGateways.All(g => !g.Value.Enabled || !string.IsNullOrWhiteSpace(g.Value.Secret)),
+                "Subscriptions:PaymentGateways:<Name>:Secret is required when the gateway is enabled.")
+            .Validate(o => o.PaymentWebhooks.MaxAttempts > 0 && o.PaymentWebhooks.RetryBackoffMinutes >= 0,
+                "Subscriptions:PaymentWebhooks:MaxAttempts must be positive.")
             .ValidateOnStart();
 
-        services.AddMediatR(SubscriptionsRoot.AssemblyName);
+        services.AddScoped<IPaymentGateway, FakePaymentGateway>(); // template adapter; real providers register next to it
+        services.AddScoped<IPaymentGatewayRegistry, PaymentGatewayRegistry>();
+        services.AddScoped<IInboundWebhookProcessor, InboundWebhookProcessor>();
+
+        services.AddMediator(SubscriptionsRoot.AssemblyName);
         services.AddCustomMapster(SubscriptionsRoot.AssemblyName);
         services.AddCarterWithAssemblies(SubscriptionsRoot.AssemblyName);
 
@@ -74,6 +91,7 @@ public static class SubscriptionsModule
         services.AddTransient<ProcessPlanPriceChangesJob>();
         services.AddTransient<InvoiceDeliveryJob>();
         services.AddTransient<AdminBillingDigestJob>();
+        services.AddTransient<RetryFailedPaymentWebhooksJob>();
 
         return services;
     }
@@ -124,6 +142,12 @@ public static class SubscriptionsModule
             "process-plan-price-changes",
             x => x.ExecuteAsync(JobCancellationToken.Null),
             "0 * * * *");
+
+        var webhookOptions = app.ApplicationServices.GetRequiredService<IOptions<SubscriptionOptions>>().Value.PaymentWebhooks;
+        recurringJobManager.AddOrUpdate<RetryFailedPaymentWebhooksJob>(
+            "retry-failed-payment-webhooks",
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            webhookOptions.RetryCron);
 
         var digestCron = app.ApplicationServices.GetRequiredService<IOptions<SubscriptionOptions>>()
             .Value.AdminNotifications.DigestCron;

@@ -4,7 +4,7 @@ using Identity.Domains.Users.Models;
 using Identity.Services.Sessions;
 using Identity.Services.Token;
 using Identity.Services.TwoFactor;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Core.Exceptions;

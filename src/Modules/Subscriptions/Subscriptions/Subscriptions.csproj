@@ -4,7 +4,6 @@
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="Mapster" />
         <PackageReference Include="MassTransit" />
-        <PackageReference Include="MediatR" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
@@ -23,6 +22,11 @@
     <ItemGroup>
         <!-- Arabic-capable font bundled for deterministic invoice rendering (Noto Sans Arabic, OFL 1.1) -->
         <EmbeddedResource Include="Resources/Fonts/NotoSansArabic-Regular.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Subscriptions.Tests" />
+        <InternalsVisibleTo Include="Subscriptions.IntegrationTests" />
     </ItemGroup>
 
     <ItemGroup>

@@ -53,7 +53,7 @@ migration per DbContext ([Reference/Migrations](../Reference/Migrations.md)). Fo
 
 1. Create the `production` environment with required reviewers.
 2. Add the repository variables (`APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_USER`, `POSTGRES_DB`,
-   `BACKUP_BUCKET`) and the optional secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `SIXLABORS_LICENSE_KEY`,
+   `BACKUP_BUCKET`) and the optional secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
    `CLAUDE_CODE_OAUTH_TOKEN`). See [CI-CD](../deployment/CI-CD.md#github-setup).
 3. Register the self-hosted runner with the `deploy-only` label; see
    [Self-Hosted-Runner](../deployment/Self-Hosted-Runner.md).
