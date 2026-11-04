@@ -34,7 +34,8 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
     private UploadPendingAttachmentHandler UploadHandler(AttachmentDbContext context, Caller caller) =>
         new(new PendingAttachmentRepository(context),
             Storage(),
-            new FileValidationService(TestOptions.Wrap(_options), new NoOpMalwareScanner(), NullLogger<FileValidationService>.Instance),
+            new FileValidationService(TestOptions.Wrap(_options), new NoOpMalwareScanner(),
+                new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(TestOptions.Wrap(_options), NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Sessions(caller),
             new Mock<IBackgroundJobClient>().Object,
             TestOptions.Wrap(_options),
@@ -188,7 +189,8 @@ public sealed class PendingAttachmentFlowTests(AttachmentPostgresFixture db) : I
         var options = TestOptions.Wrap(_options);
         var handler = new UploadAttachmentHandler(
             new AttachmentRepository(ctx), Storage(),
-            new FileValidationService(options, new NoOpMalwareScanner(), NullLogger<FileValidationService>.Instance),
+            new FileValidationService(options, new NoOpMalwareScanner(),
+                new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Access(caller), new AttachmentUrls(options), new Mock<IAttachmentBackgroundJobs>().Object,
             options, TimeProvider.System, TenantContext.SingleTenant, NullLogger<UploadAttachmentHandler>.Instance);
 

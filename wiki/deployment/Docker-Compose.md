@@ -62,8 +62,12 @@ the firewall.
 - Non-secret settings come from `.env` (dev) or `.env.prod` (server). The templates are `.env.example` and
   `deployment/.env.production.example`.
 - Secrets are Docker secrets from `./secrets/*.txt`, mounted at `/run/secrets/`. See [Secrets.md](Secrets.md).
-- `MESSAGING_TRANSPORT` defaults to `InMemory`. That is **not durable**, so set `PostgreSql` or use the RabbitMQ
-  overlay in production.
+- `MESSAGING_TRANSPORT` defaults to `PostgreSql`. `InMemory` is not durable and the API **refuses to boot** with it
+  outside Development/Testing (`ProductionConfigurationGuard`). Use the RabbitMQ overlay for a broker.
+- The base file has a one-shot `migrator` service (same image, `--migrate-only`); `api` waits for it with
+  `service_completed_successfully`. See [Database-Migrations.md](Database-Migrations.md).
+- The `api` healthcheck probes `/health` (readiness: Postgres + Redis). `/alive` is liveness only (process); use it
+  for restart decisions, never for "ready to serve".
 
 ## Troubleshooting
 

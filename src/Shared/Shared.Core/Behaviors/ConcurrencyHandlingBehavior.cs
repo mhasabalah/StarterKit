@@ -5,7 +5,7 @@ namespace Shared.Core.Behaviors;
 /// <summary>
 /// The ONE place an optimistic-concurrency failure is translated: EF's <see cref="DbUpdateConcurrencyException"/>
 /// (thrown unchanged by every DbContext) becomes the domain <see cref="ConcurrencyConflictException"/>, which
-/// <c>GlobalExceptionHandler</c> maps to HTTP 409. Code outside MediatR (jobs) sees the raw EF exception and should
+/// <c>GlobalExceptionHandler</c> maps to HTTP 409. Code outside the mediator (jobs) sees the raw EF exception and should
 /// use <see cref="ConcurrencyExceptionExtensions.IsConcurrencyConflict"/> to catch either form.
 /// </summary>
 public class ConcurrencyHandlingBehavior<TRequest, TResponse>(

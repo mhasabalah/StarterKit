@@ -17,6 +17,7 @@ public class RequestRefundEndPoint : ICarterModule
                     return Results.Ok(ApiResponseExtensions.Success(refundId));
                 })
             .RequireAuthorization()
+            .WithIdempotency()
             .WithName("RequestRefund")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

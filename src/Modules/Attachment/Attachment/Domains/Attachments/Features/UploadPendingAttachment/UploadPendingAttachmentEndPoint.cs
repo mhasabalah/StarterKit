@@ -123,6 +123,7 @@ public class UploadPendingAttachmentEndPoint : ICarterModule
                 "start a new session (returned in the response).")
             .AllowAnonymous()
             .RequireRateLimiting("upload")
+            .WithRequestTimeout(Shared.Core.Web.RequestTimeoutPolicies.LongRunning)
             .HasApiVersion(1.0);
     }
 }

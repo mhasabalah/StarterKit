@@ -17,6 +17,10 @@ public class ApiResponse<TData> : IApiResponse
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Code { get; set; }
 
+    /// <summary>Error responses only: stable string error code (<c>CustomException.ErrorCode</c>). Omitted when null.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ErrorCode { get; set; }
+
     /// <summary>Error responses only: trace id to quote to support / find the server log entry. Omitted when null.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TraceId { get; set; }

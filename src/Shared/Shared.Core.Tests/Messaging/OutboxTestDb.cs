@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using MassTransit;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -241,7 +241,7 @@ public sealed class OutboxFixture : IAsyncLifetime
         services.AddSingleton<ITenantStore>(new TestTenantStore(TenantA, TenantB));
         services.Configure<MultiTenancyOptions>(o => o.Enabled = true);
         services.AddSingleton<IOptions<OutboxOptions>>(Microsoft.Extensions.Options.Options.Create(Options));
-        services.AddSingleton<IPublisher>(sp => new Mediator(sp));
+        Shared.Core.Extensions.MediatorExtensions.AddMediatorHandlers(services);
         services.AddSingleton(sp =>
         {
             Bus = new RecordingPublisher(() => sp.GetRequiredService<ITenantContext>());

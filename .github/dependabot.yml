@@ -20,8 +20,6 @@ updates:
         update-types: [minor, patch]
     ignore:
       # Pinned to the last free major (licensing) - upgrade deliberately.
-      - dependency-name: "MediatR"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "MassTransit*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "FluentAssertions"

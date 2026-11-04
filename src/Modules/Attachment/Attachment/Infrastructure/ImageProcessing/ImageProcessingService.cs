@@ -10,19 +10,44 @@ namespace Attachment.Infrastructure.ImageProcessing;
 public interface IImageProcessingService
 {
     /// <summary>
-    /// Creates a JPEG thumbnail. The image is decoded directly at (about) the target size
-    /// (<see cref="DecoderOptions.TargetSize"/>) and only the first frame is read, so large images and
-    /// animated GIFs never get fully decoded into memory. Callers must validate the megapixels first.
+    /// Creates a JPEG thumbnail. The image is decoded directly at (about) the target size and only the first frame
+    /// is read, so large images and animated GIFs never get fully decoded into memory. Callers must validate the
+    /// megapixels first (<see cref="IdentifyAsync"/>).
     /// </summary>
     Task<ThumbnailResult> GenerateThumbnailAsync(Stream imageStream, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads only the image header (no pixel decode): detected MIME type and dimensions, or <c>null</c> when the
+    /// content is not an image this processor understands.
+    /// </summary>
+    Task<ImageIdentity?> IdentifyAsync(Stream imageStream, CancellationToken cancellationToken = default);
 }
 
 public record ThumbnailResult(Stream ThumbnailStream, int Width, int Height);
+
+public record ImageIdentity(string? MimeType, int Width, int Height);
+
+// The ONLY file that references SixLabors.ImageSharp (Six Labors Split License: free below USD 1M annual revenue or
+// for open source, commercial otherwise). Swapping the library means a new IImageProcessingService adapter;
+// ThirdPartyIsolationTests keeps the package inside the Attachment module.
 
 public sealed class ImageProcessingService(
     IOptions<AttachmentOptions> options,
     ILogger<ImageProcessingService> logger) : IImageProcessingService
 {
+    public async Task<ImageIdentity?> IdentifyAsync(Stream imageStream, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var info = await Image.IdentifyAsync(imageStream, cancellationToken);
+            return new ImageIdentity(info.Metadata.DecodedImageFormat?.DefaultMimeType, info.Width, info.Height);
+        }
+        catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     public async Task<ThumbnailResult> GenerateThumbnailAsync(
         Stream imageStream,
         CancellationToken cancellationToken = default)

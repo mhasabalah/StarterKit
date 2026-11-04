@@ -33,6 +33,7 @@ public class UploadRenewalProofEndPoint : ICarterModule
                 })
             .RequireAuthorization()
             .RequireRateLimiting("upload")
+            .WithIdempotency()
             .WithName("UploadRenewalProof")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

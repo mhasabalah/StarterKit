@@ -5,7 +5,7 @@ using Subscriptions.Domains.Subscriptions.Models;
 
 namespace Subscriptions.IntegrationTests;
 
-/// <summary>Reusable flows driven through the real MediatR pipeline.</summary>
+/// <summary>Reusable flows driven through the real mediator pipeline.</summary>
 public sealed class Scenario(SubscriptionsPostgresFixture fx)
 {
     public async Task<CreateSubscriptionResult> CreateAsync(Guid subscriberId, Plan plan) =>

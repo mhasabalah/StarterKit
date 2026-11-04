@@ -1,18 +1,19 @@
 using System.Text;
 using Attachment.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
-using SixLabors.ImageSharp;
+using Attachment.Infrastructure.ImageProcessing;
 
 namespace Attachment.Infrastructure.Validation;
 
 /// <summary>
 /// Upload validation: extension allow/block lists, magic-byte content detection (server decides the type),
 /// declared-type consistency, per-type size limits, image megapixel cap (checked with
-/// <c>Image.IdentifyAsync</c>, i.e. before any decoding) and optional malware scanning.
+/// <see cref="IImageProcessingService.IdentifyAsync"/>, i.e. before any decoding) and optional malware scanning.
 /// </summary>
 public sealed class FileValidationService(
     IOptions<AttachmentOptions> options,
     IMalwareScanner malwareScanner,
+    IImageProcessingService images,
     ILogger<FileValidationService> logger) : IFileValidationService
 {
     private const int HeaderLength = 8 * 1024;
@@ -117,20 +118,12 @@ public sealed class FileValidationService(
         if (rule.Type == AttachmentType.Image)
         {
             stream.Position = 0;
-            ImageInfo? info;
-            try
-            {
-                info = await Image.IdentifyAsync(stream, cancellationToken);
-            }
-            catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException or NotSupportedException)
-            {
-                info = null;
-            }
+            var info = await images.IdentifyAsync(stream, cancellationToken);
 
             if (info is null)
                 return FileValidationResult.Invalid(safeName, "File is not a valid image.");
 
-            if (!string.Equals(info.Metadata.DecodedImageFormat?.DefaultMimeType, rule.ContentType, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(info.MimeType, rule.ContentType, StringComparison.OrdinalIgnoreCase))
                 return FileValidationResult.Invalid(safeName, $"Image content is not a {rule.ContentType} image.");
 
             var megapixels = (double)info.Width * info.Height / 1_000_000d;

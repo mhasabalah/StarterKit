@@ -198,7 +198,7 @@ public sealed class InvitationDeliveryTests
 
     private static TenantInvitationMailer Mailer(TenantInvitationOptions invitations, INotificationSender notifications)
     {
-        var sender = new Mock<MediatR.ISender>();
+        var sender = new Mock<Shared.Contracts.Mediation.ISender>();
         sender.Setup(s => s.Send(It.IsAny<UserDirectory.Contracts.Queries.GetUserSummariesQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 

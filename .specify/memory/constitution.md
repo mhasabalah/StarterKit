@@ -83,7 +83,7 @@ architecture tests must stay green.
 
 ## Technology Constraints
 
-- .NET 10, ASP.NET Core minimal APIs with Carter, MediatR, FluentValidation, Mapster, EF Core 10 + Npgsql
+- .NET 10, ASP.NET Core minimal APIs with Carter, an owned mediator (`Shared.Contracts.Mediation`), FluentValidation, Mapster, EF Core 10 + Npgsql
   (snake_case), PostgreSQL 16, Redis, MassTransit (InMemory / PostgreSql / RabbitMq), Hangfire, OpenTelemetry, .NET
   Aspire.
 - All package versions are in `Directory.Packages.props`. Introducing a new library needs a reason and an ADR in

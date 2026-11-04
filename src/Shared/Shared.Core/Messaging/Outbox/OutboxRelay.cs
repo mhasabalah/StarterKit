@@ -61,6 +61,27 @@ public sealed class OutboxRelay(
                 .ExecuteDeleteAsync(cancellationToken);
     }
 
+    /// <summary>Backlog of <paramref name="context"/> as the filters/scope of the caller see it (feeds <see cref="OutboxMetrics"/>).</summary>
+    public async Task<(long Pending, long DeadLettered)> CountBacklogAsync(DbContext context,
+        CancellationToken cancellationToken = default)
+    {
+        return context.FindOutboxMessageType() == typeof(TenantOutboxMessage)
+            ? await CountAsync<TenantOutboxMessage>(context, cancellationToken)
+            : await CountAsync<OutboxMessage>(context, cancellationToken);
+
+        static async Task<(long, long)> CountAsync<TMessage>(DbContext db, CancellationToken ct)
+            where TMessage : OutboxMessageBase
+        {
+            var counts = await db.Set<TMessage>().AsNoTracking()
+                .Where(m => m.ProcessedAt == null)
+                .GroupBy(m => m.DeadLetteredAt != null)
+                .Select(g => new { DeadLettered = g.Key, Count = g.LongCount() })
+                .ToListAsync(ct);
+            return (counts.Where(c => !c.DeadLettered).Sum(c => c.Count),
+                counts.Where(c => c.DeadLettered).Sum(c => c.Count));
+        }
+    }
+
     private async Task<int> DeliverAsync<TMessage>(DbContext context, IReadOnlyCollection<Guid>? messageIds,
         CancellationToken cancellationToken) where TMessage : OutboxMessageBase
     {

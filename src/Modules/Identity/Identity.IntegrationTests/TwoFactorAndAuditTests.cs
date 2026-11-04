@@ -7,7 +7,7 @@ using Identity.Domains.Roles.Constants;
 using Identity.Domains.Users.Models;
 using Identity.Services.Sessions;
 using Identity.Services.TwoFactor;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +20,7 @@ namespace Identity.IntegrationTests;
 
 /// <summary>
 /// The full 2FA login and the admin audit against PostgreSQL: real UserManager/SignInManager, the encrypted
-/// authenticator key store, the MediatR pipeline with the audited-command transaction behavior.
+/// authenticator key store, the mediator pipeline with the audited-command transaction behavior.
 /// </summary>
 [Collection(IdentityPostgresCollection.Name)]
 public sealed class TwoFactorAndAuditTests(IdentityPostgresFixture fixture)

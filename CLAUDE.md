@@ -31,6 +31,8 @@ cd src/Aspire/AppHost && dotnet run -- Observability:FullStack=true   # + Grafan
 cp .env.example .env && docker compose up -d         # dev via compose (override with dev tools merged automatically)
 make help                                            # docker/db/cache/nginx shortcuts
 
+dotnet run --project src/Api -- --migrate-only       # apply all migrations + seeds (shared + dedicated tenant DBs), then exit
+
 # Migrations: from the repo root; --project MUST be the module owning the context
 dotnet ef migrations add <Name> --context <Ctx> --project src/Modules/<M>/<M> --startup-project src/Api --output-dir Data/Migrations
 ```
@@ -47,8 +49,8 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 | `src/Modules/<M>/<M>`, `<M>.Contracts` | Module implementation + its public contracts |
 | `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, Identity, Subscriptions, Tenancy; Attachment's live in `Attachment.Tests/Integration`) |
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
-| `src/Shared/Shared.Contracts` | CQRS interfaces, pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
-| `src/Shared/Shared.Core` | Base classes, MediatR behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
+| `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
+| `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
 | `src/Shared/Shared.Messaging` | MassTransit bus + transport selection |
 | `src/Api.Tests` | **Architecture tests** (guardrails below) |
 | `src/Api.E2ETests` | HTTP end-to-end tests (`E2ETestFixture`, `MultiTenantE2EFixture`, `PendingModelChangesTests`) |
@@ -145,13 +147,24 @@ Notification is the exception: its context is in `Persistence/`.
   `BadRequest`, `Conflict`, `Forbidden`, `Unauthorized`, `Gone`, `Domain`) or a module subclass.
   `GlobalExceptionHandler` + `ExceptionStatusMapper`, the only exception handler, turn them into the `ApiResponse` error
   envelope (`isSuccess=false, statusCode, errors[], traceId, code?`; 5xx gets a generic message and the full exception
-  is logged). Successful responses use `ApiResponseExtensions.Success(...)`.
-- **MediatR pipeline.** It runs `RequestTelemetryBehavior` (span + duration metric; host only) → `ValidationBehavior` →
+  is logged). Successful responses use `ApiResponseExtensions.Success(...)`. A `CustomException.ErrorCode` string
+  (e.g. `feature_not_in_plan`) is returned as `errorCode` for clients to branch on.
+- **Idempotency and plan entitlements** (opt-in endpoint filters in Shared.Core):
+  - `.WithIdempotency()` on money-moving POSTs honors an optional `Idempotency-Key` header (replay, 409 in flight,
+    422 on a reused key with a different body; fails open when Redis is down).
+  - `.RequireFeature("key")` checks `IEntitlementService` (Subscriptions implements it from the active plan; enforced
+    only when `Subscriptions:Entitlements:Enforce=true`).
+- **Migrations run at deploy, not boot, in production.** `Database:MigrateOnStartup` (true in dev/tests, false in
+  Docker production); `--migrate-only` applies them under a Postgres advisory lock, optionally with
+  `Database:MigrationConnectionString`. Never add migrate/seed work elsewhere in startup.
+- **Mediator pipeline.** The mediator is OURS (`Shared.Contracts.Mediation`, adapter `Shared.Core.Mediation.Mediator`,
+  registered by `AddMediator(assembly)`); never reference MediatR or another mediator package
+  ([ADR-0007](wiki/Decisions/0007-owned-mediator-port.md)). It runs `RequestTelemetryBehavior` (span + duration metric; host only) → `ValidationBehavior` →
   `ConcurrencyHandlingBehavior` → `LoggingBehavior` → `DispatchDomainEventsBehavior`. Validators are discovered automatically; don't validate by hand in handlers.
 - **Domain events.** Raise them with `AddDomainEvent(...)` in the entity. `DispatchDomainEventsInterceptor` keeps only
-  the events of COMMITTED saves; `IDomainEventDispatcher.DispatchPendingAsync` publishes them via MediatR after the
+  the events of COMMITTED saves; `IDomainEventDispatcher.DispatchPendingAsync` publishes them via `IPublisher` after the
   outermost unit of work.
-- **Outside MediatR** (jobs, hosted services, orchestrators, consumers), nothing publishes events unless you do.
+- **Outside the mediator** (jobs, hosted services, orchestrators, consumers), nothing publishes events unless you do.
   - Do DB work via `IUnitOfWorkRunner.RunAsync((services, ct) => ..., ct)`, one call per item. Alternatively, call
     `IDomainEventDispatcher.DispatchPendingAsync` after `SaveChanges`.
   - Never hand-roll `IServiceScopeFactory` scopes for DB work.
@@ -208,6 +221,10 @@ Notification is the exception: its context is in `Persistence/`.
     - `ApplyTenantFilters(builder)` is the LAST line of `OnModelCreating`.
     - Every new table gets `EnableTenantRowLevelSecurity` in its migration.
     - Never set `TenantId`; `TenantEntityInterceptor` stamps it and blocks cross-tenant writes.
+    - Production should run `MultiTenancy:Database:RlsBypass=Role` (host scope connects as a `BYPASSRLS` role; the
+      runtime role can't lift RLS with `app.bypass_rls`; startup fails if the `tenant_rls_bypass` group role is
+      missing). Tenant-data connections must never go through PgBouncer transaction pooling.
+    - Tenant/membership L1 caches broadcast evictions over Redis pub/sub so every replica drops them.
   - **Filters.** All query filters are named. Never call the parameterless `IgnoreQueryFilters()` in production
     code; use `IgnoreNonIsolationFilters()` or `IgnoreBranchScope()`.
   - **Ambient tenant.** The tenant is `ITenantContext` (AsyncLocal `TenantScope`).
@@ -233,6 +250,8 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Catalog `ProductPublishedIntegrationEvent` → any | Integration |
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
+| Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
+| Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |
 
@@ -246,9 +265,15 @@ The full guide is `wiki/Architecture/Messaging.md`.
 - Consumers are idempotent and order-independent: they re-read the current state through `ISender`. Throw to retry;
   return for "nothing to do".
 - Delivery is at-least-once (`MessageId` = `EventId`). Failed rows are dead-lettered after
-  `Messaging:Outbox:MaxAttempts`.
+  `Messaging:Outbox:MaxAttempts`; inspect/requeue them via `/api/v1/admin/outbox/{context}/dead-letters`
+  (`outbox.manage`, SuperAdmin). Gauges `outbox.messages.pending` / `.dead_lettered` feed the Prometheus alerts.
 - `Messaging:Transport` is `InMemory` (dev/tests, NOT durable), `PostgreSql` or `RabbitMq`. Production must not run
-  `InMemory`.
+  `InMemory`; `ProductionConfigurationGuard` refuses to boot with it.
+- Bus behavior is pinned by `Shared.Core.Tests/Messaging/TenantMessagingBusTests`, which runs on InMemory AND
+  PostgreSql: tenant propagation, purged-tenant drop, migrating-tenant redelivery, no noisy-neighbor starvation. Never
+  remove `WaitUntilStarted` (lost messages at startup) or swap the migrating-tenant delayed redelivery back to an
+  in-memory retry (starves other tenants). Messages that fail every retry go to `<endpoint>_error`; the
+  `MessageConsumerFaults` alert reports them.
 
 ## Architecture guardrails (`src/Api.Tests/Architecture/`; run `dotnet test src/Api.Tests`)
 
@@ -256,7 +281,8 @@ The full guide is `wiki/Architecture/Messaging.md`.
 |---|---|
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. **Register new modules in `Modules`.** |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
-| `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also MediatR notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
+| `ThirdPartyIsolationTests` | MediatR is referenced; ImageSharp leaves Attachment or QuestPDF leaves Subscriptions (revenue-gated licenses, `wiki/Reference/Third-Party-Licenses.md`); a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+| `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
 | `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id`; parameterless `IgnoreQueryFilters()` appears |
 | `AdminEndpointAuthorizationTests` | An `/admin` or `/superadmin` route has no admin or permission policy; a used permission policy is unregistered; **any endpoint declares no authorization at all** |

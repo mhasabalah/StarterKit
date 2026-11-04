@@ -1,0 +1,49 @@
+# Prometheus alert rules (loaded via rule_files in prometheus.yaml). Metric names are the OTel instruments
+# `outbox.messages.pending` / `outbox.messages.dead_lettered` as exported by the collector (dots -> underscores).
+# `max by (context)` collapses instances: only the server that ran the last outbox sweep reports a value.
+groups:
+  - name: outbox
+    rules:
+      - alert: OutboxDeadLetters
+        expr: max by (context) (outbox_messages_dead_lettered) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead-lettered outbox messages in {{ $labels.context }}"
+          description: "{{ $value }} message(s) were given up on. List them with GET /api/v1/admin/outbox/{{ $labels.context }}/dead-letters, fix the cause, then requeue (wiki/Architecture/Messaging.md)."
+
+      - alert: OutboxBacklogGrowing
+        # Pending keeps rising for 15m: positive slope AND a non-trivial backlog (a healthy outbox drains within a sweep).
+        expr: max by (context) (outbox_messages_pending) > 10 and deriv(max by (context) (outbox_messages_pending)[15m:1m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox backlog of {{ $labels.context }} keeps growing"
+          description: "{{ $value }} pending message(s); the bus or a consumer is likely down, or the outbox sweep is not running."
+
+      - alert: OutboxMetricsMissing
+        # OutboxDeadLetters self-resolves if its series disappears (sweep stopped, telemetry pipeline broken).
+        # Fire when neither outbox gauge has been reported for 15m.
+        expr: absent_over_time(outbox_messages_dead_lettered[15m]) and absent_over_time(outbox_messages_pending[15m])
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox metrics are missing"
+          description: "No outbox_messages_* samples for 15m: the outbox sweep is not running or telemetry export is broken, so dead letters and backlog would go unnoticed."
+
+  - name: message-consumers
+    rules:
+      - alert: MessageConsumerFaults
+        # MassTransit `messaging.masstransit.receive.errors`: a message failed every retry and was moved to its
+        # endpoint's `_error` queue. The outbox counts it as DELIVERED, so OutboxDeadLetters never sees it.
+        # Name matched with and without the `_total` suffix the exporter may add to counters.
+        expr: sum by (messaging_masstransit_input_address) (increase({__name__=~"messaging_masstransit_receive_errors(_total)?"}[15m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Messages faulted on {{ $labels.messaging_masstransit_input_address }}"
+          description: "{{ $value }} message(s) failed all retries in the last 15m and sit in the endpoint's _error queue (the consumer will not see them again). Fix the consumer, then move them back from the _error queue (wiki/Architecture/Messaging.md)."

@@ -15,7 +15,7 @@ namespace Tenancy.Services;
 /// made from the subscriber's CURRENT status (<see cref="GetSubscriberSubscriptionStatusQuery"/>), so duplicates are
 /// no-ops and an old "expired" delivered after a newer "activated" cannot suspend a paying tenant.
 /// </para>
-/// Runs outside MediatR, so the tenant's domain events (cache invalidation, audit...) are dispatched explicitly after
+/// Runs outside the mediator, so the tenant's domain events (cache invalidation, audit...) are dispatched explicitly after
 /// the save.
 /// </summary>
 public sealed class TenantBillingStatusConsumer(

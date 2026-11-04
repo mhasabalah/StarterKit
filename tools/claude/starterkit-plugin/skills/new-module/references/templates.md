@@ -20,7 +20,7 @@ These are trimmed from `src/Modules/Catalog`. If a template and Catalog disagree
 ## {{Module}}.Contracts/GlobalUsings.cs + {{Module}}ContractsRoot.cs
 
 ```csharp
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Shared.Contracts.CQRS;
 global using Shared.Contracts.Localization;
 global using Shared.Contracts.Pagination;
@@ -54,7 +54,6 @@ Versions are central in `Directory.Packages.props`, so never put `Version=` on a
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="Mapster" />
         <PackageReference Include="MassTransit" />
-        <PackageReference Include="MediatR" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
@@ -97,7 +96,7 @@ global using System.Reflection;
 global using Carter;
 global using FluentValidation;
 global using Mapster;
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.Mvc;
@@ -227,7 +226,7 @@ public static class {{Module}}Module
         // One repository per aggregate root:
         // services.AddScoped<I{{Aggregate}}Repository, {{Aggregate}}Repository>();
 
-        services.AddMediatR({{Module}}Root.AssemblyName);
+        services.AddMediator({{Module}}Root.AssemblyName);
         services.AddCustomMapster({{Module}}Root.AssemblyName);
         services.AddCarterWithAssemblies({{Module}}Root.AssemblyName);
         services.AddCustomDbContext<{{Module}}DbContext>(configuration, "starterkit");

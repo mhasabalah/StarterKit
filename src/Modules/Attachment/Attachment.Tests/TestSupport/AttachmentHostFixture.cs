@@ -5,7 +5,7 @@ using Attachment.Infrastructure.Storage;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.States;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +16,7 @@ using Testcontainers.PostgreSql;
 namespace Attachment.Tests.TestSupport;
 
 /// <summary>
-/// The real Attachment module composition (<c>AddAttachmentModule</c>: MediatR pipeline, repositories, jobs,
+/// The real Attachment module composition (<c>AddAttachmentModule</c>: mediator pipeline, repositories, jobs,
 /// reaper, sweeper, unit-of-work runner, domain-event dispatch) over a Testcontainers PostgreSQL database, with:
 /// <list type="bullet">
 /// <item>Local storage in a temp folder, wrapped by <see cref="FlakyStorage"/> (inject upload/delete failures,
@@ -103,7 +103,7 @@ public sealed class AttachmentHostFixture : IAsyncLifetime
         Callers.Current = Caller.Anonymous();
     }
 
-    /// <summary>Sends a MediatR request as <paramref name="caller"/> in its own scope (= one HTTP request).</summary>
+    /// <summary>Sends a mediator request as <paramref name="caller"/> in its own scope (= one HTTP request).</summary>
     public async Task<T> SendAsync<T>(Caller caller, IRequest<T> request)
     {
         Callers.Current = caller;

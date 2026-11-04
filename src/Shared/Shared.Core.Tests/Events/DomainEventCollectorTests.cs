@@ -1,4 +1,4 @@
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Shared.Core.Data;

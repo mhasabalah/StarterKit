@@ -71,6 +71,12 @@ public class AttachmentRepository(AttachmentDbContext context) : IAttachmentRepo
     public Task<AttachmentFile?> GetForMaintenanceAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.Attachments.IgnoreNonIsolationFilters().FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
+    public Task<List<AttachmentFile>> GetUploadedByForErasureAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        context.Attachments.IgnoreNonIsolationFilters()
+            .Where(a => a.EntityType == EntityType.User && a.EntityId == userId &&
+                        a.Status != AttachmentStatus.PendingDeletion)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(AttachmentFile attachment, CancellationToken cancellationToken = default) =>
         await context.Attachments.AddAsync(attachment, cancellationToken);
 

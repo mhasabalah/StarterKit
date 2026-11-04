@@ -170,6 +170,12 @@ CREATE TRIGGER ledger_entries_no_update_delete
 No backfill: the template starts empty. A project adopting this on existing data must backfill Payment entries from
 Paid payments and Refund entries from Processed refunds first, or the KPIs undercount history.
 
+## Online payments (gateway + webhook)
+
+A subscriber can pay a pending activation / renewal / proration payment through a payment provider instead of
+uploading a proof. The provider's signed webhook settles it through the same path as a manual receipt. Flow, config,
+failure handling and how to add a real provider: [Online-Payments.md](Online-Payments.md).
+
 ## Manual / partial payments
 
 `POST /admin/subscriptions/{id}/payments/manual` `{ amount, method, reference?, receivedAt?, note?, paymentId?, version? }`

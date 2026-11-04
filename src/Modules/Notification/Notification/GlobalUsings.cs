@@ -4,7 +4,7 @@ global using System.Text.Json;
 global using Carter;
 global using FluentValidation;
 global using Hangfire;
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.Routing;

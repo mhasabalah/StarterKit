@@ -3,7 +3,7 @@ using Attachment.Contracts.Attachments.Queries;
 using Identity.Domains.Users.Consumers;
 using Identity.Domains.Users.Models;
 using MassTransit;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 

@@ -7,6 +7,33 @@ BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
 > Waves: 0 BateCom hotfix (owner handles) → **1 security ✅** → 2 money correctness → 3 reliability →
 > 4 admin-portal P0 → 5 tests/quality → 6 portal P1/P2.
 
+## 2026-11-04 — Production-readiness wave
+
+Implemented:
+- Deploy-time migrator (`Api.dll --migrate-only`) under a Postgres advisory lock, plus `Database:MigrateOnStartup`
+  (off in `appsettings.Docker.json`). The migration connection string is a Docker secret.
+- Production guard against the `InMemory` messaging transport.
+- Request timeouts (`RequestTimeouts:DefaultSeconds` / `LongRunningSeconds`, 504 on expiry).
+- Health wiring: `/health` readiness gates deploys, `/alive` liveness backs the container healthcheck (#19).
+- CI variables fail fast when missing (#18).
+- RLS bypass by role (`RlsBypass=Role`, `tenant_rls_bypass`), PgBouncer pooling warning, and a startup check of the
+  runtime role.
+- Redis-based L1 cache invalidation broadcast across instances (#26).
+- Online payment gateway port with a webhook inbox.
+- `Idempotency-Key` filter for unsafe endpoints.
+- Entitlements: `.RequireFeature(...)` on endpoints.
+- Self-service account deletion and data export, with `UserDeletedIntegrationEvent` fan-out.
+- JWT signing key rotation.
+- Outbox metrics, dead-letter admin endpoints and Prometheus alerts, including "outbox metrics missing" (#28).
+
+Marked done: #18, #19, #26, #28.
+
+Still open:
+- ✅ Licensing decisions made 2026-11-04 (see "Licensing decisions" and [Third-Party-Licenses](Third-Party-Licenses.md)).
+- A real payment provider adapter per project (the template ships only the port and the inbox).
+- Refund webhook posting to the ledger.
+- Analyzers and `TreatWarningsAsErrors` (#8).
+
 ## ✅ Wave 5 — Identity hardening + platform correctness (2026-11-03) — Catalog items deferred by owner
 
 - **Email confirmation:**
@@ -84,7 +111,7 @@ BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
   - Every background job uses `IUnitOfWorkRunner` / `IDomainEventDispatcher`, enforced by
     `Api.Tests/Architecture/BackgroundJobEventDispatchTests` (IL scan).
   - Job-raised events now fire (e.g. SubscriptionExpired email).
-- **Concurrency** is translated in one place (the MediatR behavior). Jobs skip a conflicting item with
+- **Concurrency** is translated in one place (the mediator behavior). Jobs skip a conflicting item with
   `IsConcurrencyConflict()` instead of aborting the batch.
 - **TimeProvider** is used by the interceptor and jobs. Cache helpers take a `CancellationToken`.
 - **Attachment:**
@@ -197,10 +224,13 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 
 ## P1 — Licensing decisions (deliberately pinned to the last free major)
 
-2. **MediatR 12.5** (13+ commercial), **MassTransit 8.5** (9+ commercial), **FluentAssertions 7.2** (8+ commercial).
-   Revisit per project: buy licenses, or migrate. MediatR → a source-generated mediator such as `Mediator`
-   (martinothamar). FluentAssertions → `AwesomeAssertions` (Apache fork, near drop-in) or Shouldly.
-   MassTransit 8 receives security fixes into 2026; plan the decision before it reaches end of life.
+2. ✅ **Decided 2026-11-04** ([Third-Party-Licenses](Third-Party-Licenses.md)):
+   - **MediatR: removed.** It is replaced by the owned port `Shared.Contracts.Mediation` and its adapter
+     `Shared.Core.Mediation.Mediator` ([ADR-0007](../Decisions/0007-owned-mediator-port.md)).
+   - **MassTransit 8.5: kept** (Apache-2.0). Publishing is already behind the outbox, and only 6 consumers touch it.
+     Re-decide (buy v9, or move to Wolverine/Rebus) when 8.x stops getting security fixes.
+   - **FluentAssertions 7.2: kept** (Apache-2.0, test-only). The exit is `AwesomeAssertions`.
+   - **QuestPDF:** the license is now configuration (`Subscriptions:Pdf:License`), no longer hard-coded `Community`.
 2b. **SixLabors.ImageSharp 3.2** (Six Labors Split License) validates a license key in **Release** builds (Debug only
    warns), so `docker build` and the CI Release build fail without one.
    - 3.1.12, the last version that doesn't check a key, has several high-severity advisories. It's not an option for a module that parses user uploads.
@@ -272,22 +302,22 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 
 ## P1 — Messaging follow-ups (integration events + outbox, 2026-11-03)
 
-26. **Cross-instance L1 cache invalidation.** `TenantStore` / `TenantMembershipResolver` keep an in-process L1 cache;
+26. ✅ **Cross-instance L1 cache invalidation** (2026-11-04: Redis broadcast). `TenantStore` / `TenantMembershipResolver` keep an in-process L1 cache;
     invalidation reaches only the instance that made the change, the others wait `MultiTenancy:Cache:LocalSeconds`
     (e.g. a suspended tenant keeps working there until then). Broadcast invalidations (Redis pub/sub or a per-instance
     bus endpoint) once the app runs multiple replicas.
 27. **Durable saga repository.** The bus uses the in-memory saga repository (no sagas yet). The first real saga needs
     the EF Core saga repository.
-28. **Outbox admin tooling.** Dead letters are inspected/requeued with SQL (`wiki/Architecture/Messaging.md`). Add a
+28. ✅ **Outbox admin tooling** (2026-11-04: endpoint, metrics, alerts). Dead letters are inspected/requeued with SQL (`wiki/Architecture/Messaging.md`). Add a
     platform-admin endpoint + metric (pending / dead-lettered per context) and alert on dead letters.
 29. **Production transport.** `Messaging:Transport` defaults to `InMemory` (not durable). Choose `PostgreSql` or
     `RabbitMq` per deployment and decide who runs the SQL-transport migration (`Messaging:PostgreSql:CreateInfrastructure`).
 
 ## P2 — Ops
 
-18. **CI variables.** The workflows read `vars.APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_*` and `BACKUP_BUCKET`.
-    They are now documented in `wiki/deployment/CI-CD.md#github-setup`. Still open: fail fast when they are missing.
-19. **Health / readiness.** Split `/health/live` and `/health/ready` (DB, Redis, Seq) for compose and K8s, and wire them into the deploy health check.
+18. ✅ **CI variables** (2026-11-04: fail-fast added). The workflows read `vars.APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_*` and `BACKUP_BUCKET`.
+    They are documented in `wiki/deployment/CI-CD.md#github-setup` and the deploy job fails immediately when one is missing.
+19. ✅ **Health / readiness** (2026-11-04). Split `/health/live` and `/health/ready` (DB, Redis, Seq) for compose and K8s, and wire them into the deploy health check.
 20. **Nginx admin allow-list.** `deployment/nginx/conf.d/app-production.conf` allows only `127.0.0.1` for admin paths. Set it per deployment.
 21. **Observability stack** is heavy (otel-collector, prometheus, grafana, tempo, loki, jaeger, exporters). Consider an
     "observability-lite" compose profile.

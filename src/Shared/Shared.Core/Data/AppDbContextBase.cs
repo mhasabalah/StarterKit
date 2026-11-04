@@ -174,7 +174,7 @@ public abstract class AppDbContextBase : DbContext, IDbContext
     // NOTE: SaveChangesAsync is deliberately NOT overridden to translate DbUpdateConcurrencyException.
     // EF's exception propagates unchanged so that background code can catch it per item
     // (catch (Exception ex) when (ex.IsConcurrencyConflict())). The ONE translation to the domain
-    // ConcurrencyConflictException (HTTP 409) happens in ConcurrencyHandlingBehavior (MediatR), and
+    // ConcurrencyConflictException (HTTP 409) happens in ConcurrencyHandlingBehavior (mediator), and
     // ExceptionStatusMapper maps a raw DbUpdateConcurrencyException to 409 as well.
 
     public IReadOnlyList<IDomainEvent> GetDomainEvents()

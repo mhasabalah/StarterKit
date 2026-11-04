@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Shared.Core.MultiTenancy.Caching;
 
 namespace Tenancy.Services;
 
@@ -21,6 +22,7 @@ public sealed class TenantMembershipResolver(
     IMemoryCache memoryCache,
     IDistributedCache distributedCache,
     IOptions<MultiTenancyOptions> options,
+    ILocalCacheInvalidationBus invalidationBus,
     ILogger<TenantMembershipResolver> logger) : ITenantMembershipResolver
 {
     private const string Prefix = "tenancy:m:";
@@ -81,6 +83,8 @@ public sealed class TenantMembershipResolver(
             var next = Guid.NewGuid().ToString("N")[..8];
             memoryCache.Set(GenerationPrefix + tenantId.Value.ToString("N"), next, GenerationTtl);
             await TryWriteAsync(GenerationPrefix + tenantId.Value.ToString("N"), next, cancellationToken, GenerationTtl);
+            // Other instances drop their L1 generation and re-read the new one from L2.
+            await invalidationBus.PublishAsync([GenerationPrefix + tenantId.Value.ToString("N")], cancellationToken);
             return;
         }
 
@@ -95,6 +99,9 @@ public sealed class TenantMembershipResolver(
         {
             logger.LogWarning(ex, "Could not invalidate cached membership {Key}", key);
         }
+
+        // Broadcast AFTER the L2 removal, so a peer re-reading on receipt cannot re-cache the stale entry.
+        await invalidationBus.PublishAsync([key], cancellationToken);
     }
 
     private static readonly TimeSpan GenerationTtl = TimeSpan.FromDays(30);

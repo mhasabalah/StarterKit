@@ -21,6 +21,7 @@ public class IssueCreditNoteEndPoint : ICarterModule
                 })
             .RequirePermission(Permissions.BillingRefund)
             .RequireRateLimiting("create")
+            .WithIdempotency()
             .WithName("IssueCreditNote")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

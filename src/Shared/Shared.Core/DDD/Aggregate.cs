@@ -25,7 +25,7 @@ public class Aggregate<TId> : Entity<TId>, IAggregate<TId>
         return events;
     }
 
-    /// <summary>In-process event, handled by MediatR handlers (any module) after the unit of work commits.</summary>
+    /// <summary>In-process event, handled by mediator handlers (any module) after the unit of work commits.</summary>
     protected void AddDomainEvent(IDomainEvent domainEvent)
     {
         _domainEvents.Add(domainEvent);

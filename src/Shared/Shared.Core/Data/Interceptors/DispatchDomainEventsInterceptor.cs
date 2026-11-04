@@ -17,7 +17,7 @@ namespace Shared.Core.Data.Interceptors;
 /// transaction behave correctly.</item>
 /// </list>
 /// Dispatching is intentionally NOT done here: <see cref="IDomainEventDispatcher"/> publishes the ready events once
-/// the outermost unit of work (root MediatR command via <c>DispatchDomainEventsBehavior</c>, or a background job via
+/// the outermost unit of work (root mediator command via <c>DispatchDomainEventsBehavior</c>, or a background job via
 /// <see cref="IUnitOfWorkRunner"/>) has completed. This guarantees that handlers see fully committed data, that
 /// several saves in one unit of work publish once, and that there is no re-entrant SaveChanges on the same context.
 /// </summary>

@@ -48,7 +48,8 @@ public class RecordManualPaymentHandler(
         if (subscription.SubscriberId == command.AdminId)
             throw new SelfApprovalNotAllowedException();
 
-        var payment = await ResolveOwedPaymentAsync(subscription, command.PaymentId, cancellationToken);
+        var payment = await PaymentSelection.ResolveOwedAsync(
+            subscriptionRepository, subscription, command.PaymentId, cancellationToken);
         settlement.EnsureSettleable(subscription, payment);
 
         var now = timeProvider.GetUtcNow();
@@ -129,45 +130,5 @@ public class RecordManualPaymentHandler(
             subscription.Status.ToString(),
             result?.Invoice.Id,
             result?.Invoice.InvoiceNumber);
-    }
-
-    /// <summary>
-    /// The payment the subscription owes in its current status (activation / renewal / proration). An explicit id
-    /// must belong to the subscription; without one exactly one owed payment of that purpose must exist.
-    /// </summary>
-    private async Task<SubscriptionPayment> ResolveOwedPaymentAsync(
-        Subscription subscription,
-        Guid? paymentId,
-        CancellationToken ct)
-    {
-        if (paymentId is { } id && id != Guid.Empty)
-        {
-            var explicitPayment = await subscriptionRepository.GetPaymentAsync(subscription.Id, id, ct)
-                ?? throw new PaymentNotFoundException(id);
-
-            if (!explicitPayment.IsAwaitingPayment)
-                throw new ConflictException($"Payment is {explicitPayment.Status}; no amount is outstanding.");
-
-            return explicitPayment;
-        }
-
-        var purpose = subscription.Status switch
-        {
-            SubscriptionStatus.PendingApproval => PaymentPurpose.Activation,
-            SubscriptionStatus.PastDue => PaymentPurpose.Renewal,
-            SubscriptionStatus.Active => PaymentPurpose.Proration,
-            _ => throw new ConflictException($"A {subscription.Status} subscription owes no payment.")
-        };
-
-        var owed = (await subscriptionRepository.GetAwaitingPaymentsAsync(subscription.Id, ct))
-            .Where(x => x.Purpose == purpose)
-            .ToList();
-
-        return owed.Count switch
-        {
-            0 => throw new ConflictException($"No {purpose} payment is outstanding."),
-            1 => owed[0],
-            _ => throw new AmbiguousPaymentException()
-        };
     }
 }

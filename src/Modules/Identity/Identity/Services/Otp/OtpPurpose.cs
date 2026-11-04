@@ -26,5 +26,9 @@ public enum OtpPurpose
 
     /// <summary>Standalone two-factor check (/api/notifications/verification/* TwoFactorLogin).</summary>
     [LocalizedDescription("Two-factor login", "تسجيل الدخول بعاملين")]
-    TwoFactorLogin = 5
+    TwoFactorLogin = 5,
+
+    /// <summary>Re-authentication for self-service account deletion of accounts without a password (SMS).</summary>
+    [LocalizedDescription("Account deletion", "حذف الحساب")]
+    AccountDeletion = 6
 }

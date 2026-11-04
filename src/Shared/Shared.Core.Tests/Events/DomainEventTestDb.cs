@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -147,7 +147,7 @@ public sealed class CreateGadgetHandler(DomainEventTestDbContext db, ISender sen
 
 /// <summary>
 /// Real PostgreSQL + the real Shared.Core wiring: <c>AddCustomDbContext</c> (interceptors, collector, dispatcher,
-/// runner) and <c>AddMediatR</c> (validation, concurrency, logging and DispatchDomainEvents behaviors).
+/// runner) and <c>AddMediator</c> (validation, concurrency, logging and DispatchDomainEvents behaviors).
 /// </summary>
 public sealed class DomainEventFixture : IAsyncLifetime
 {
@@ -176,7 +176,7 @@ public sealed class DomainEventFixture : IAsyncLifetime
         services.AddSingleton<IConfiguration>(configuration);
         services.AddSingleton(http.Object);
         services.AddSingleton(Published);
-        Extensions.MediatRExtentions.AddMediatR(services, typeof(DomainEventFixture).Assembly);
+        Extensions.MediatorExtensions.AddMediator(services, typeof(DomainEventFixture).Assembly);
         services.AddCustomDbContext<DomainEventTestDbContext>(configuration, "starterkit");
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

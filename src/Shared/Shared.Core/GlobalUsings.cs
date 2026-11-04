@@ -1,7 +1,7 @@
 ﻿global using System.Diagnostics;
 global using System.Reflection;
 global using FluentValidation;
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.EntityFrameworkCore.ChangeTracking;
 global using Microsoft.EntityFrameworkCore.Diagnostics;

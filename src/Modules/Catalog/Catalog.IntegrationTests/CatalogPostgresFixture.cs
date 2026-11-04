@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Catalog.Data;
 using Catalog.Data.Seed;
-using MediatR;
+using Shared.Contracts.Mediation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +16,7 @@ namespace Catalog.IntegrationTests;
 /// One real PostgreSQL (Testcontainers, postgres:16-alpine) for the whole collection, wired with the REAL
 /// module registration (<c>AddCatalogModule</c>): real DbContext through Shared.Core AddCustomDbContext
 /// (Npgsql + snake_case + legacy-timestamp switch + AuditableEntityInterceptor + DispatchDomainEventsInterceptor),
-/// real MediatR pipeline (validation, concurrency, domain-event dispatch), real repositories and services.
+/// real mediator pipeline (validation, concurrency, domain-event dispatch), real repositories and services.
 /// Faked boundary: the HTTP user (<see cref="FakeHttpContextService"/>). No bus: integration events stay in the
 /// Catalog outbox table, which the tests assert on.
 /// The schema comes from the module's migrations (<c>MigrateAsync</c>).

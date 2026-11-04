@@ -32,7 +32,7 @@ public static class AttachmentModule
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<IPendingAttachmentRepository, PendingAttachmentRepository>();
 
-        services.AddMediatR(AttachmentRoot.AssemblyName);
+        services.AddMediator(AttachmentRoot.AssemblyName);
         services.AddCustomMapster(AttachmentRoot.AssemblyName);
         services.AddCarterWithAssemblies(AttachmentRoot.AssemblyName);
 

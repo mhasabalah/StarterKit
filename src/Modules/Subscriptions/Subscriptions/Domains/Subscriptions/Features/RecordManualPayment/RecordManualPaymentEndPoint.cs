@@ -34,6 +34,7 @@ public class RecordManualPaymentEndPoint : ICarterModule
                 })
             .RequirePermission(Permissions.BillingApprove)
             .RequireRateLimiting("create")
+            .WithIdempotency()
             .WithName("RecordManualPayment")
             .WithApiVersionSet(app.NewApiVersionSet("Subscriptions").Build())
             .WithTags("Subscriptions")

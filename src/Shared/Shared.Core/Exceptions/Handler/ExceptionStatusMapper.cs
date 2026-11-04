@@ -6,7 +6,9 @@ namespace Shared.Core.Exceptions.Handler;
 /// <param name="StatusCode">HTTP status code.</param>
 /// <param name="Errors">Client-safe messages (never internal details for 5xx).</param>
 /// <param name="Code">Optional application error code (<see cref="CustomException.Code"/>).</param>
-public sealed record ExceptionMapping(int StatusCode, IReadOnlyList<string> Errors, int? Code = null)
+/// <param name="ErrorCode">Optional string error code (<see cref="CustomException.ErrorCode"/>).</param>
+public sealed record ExceptionMapping(int StatusCode, IReadOnlyList<string> Errors, int? Code = null,
+    string? ErrorCode = null)
 {
     public bool IsServerError => StatusCode >= 500;
 }
@@ -49,7 +51,7 @@ public static class ExceptionStatusMapper
                 badRequest.StatusCode, [badRequest.Message]),
 
             CustomException custom => new ExceptionMapping(
-                NormalizeStatus((int)custom.StatusCode), [custom.Message], custom.Code),
+                NormalizeStatus((int)custom.StatusCode), [custom.Message], custom.Code, custom.ErrorCode),
 
             _ => new ExceptionMapping(StatusCodes.Status500InternalServerError, [GenericServerError])
         };

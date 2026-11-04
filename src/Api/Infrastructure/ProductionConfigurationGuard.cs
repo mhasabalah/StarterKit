@@ -50,9 +50,33 @@ public static class ProductionConfigurationGuard
             string.Join(", ", offending));
     }
 
+    /// <summary>
+    /// Throws if the environment is not relaxed and <c>Messaging:Transport</c> is <c>InMemory</c> (explicit or the
+    /// default when missing): in-memory messaging is not durable, so integration events and outbox deliveries in
+    /// flight would be lost on every restart or deploy.
+    /// </summary>
+    public static void EnsureDurableMessaging(IConfiguration configuration, string environmentName)
+    {
+        if (RelaxedEnvironments.Contains(environmentName))
+        {
+            return;
+        }
+
+        var transport = configuration["Messaging:Transport"];
+        if (string.IsNullOrWhiteSpace(transport) ||
+            string.Equals(transport, nameof(Shared.Messaging.Extensions.MessagingTransport.InMemory),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start in '{environmentName}': Messaging:Transport is InMemory (not durable). " +
+                "Set Messaging:Transport to PostgreSql or RabbitMq (env MESSAGING_TRANSPORT).");
+        }
+    }
+
     public static WebApplicationBuilder EnsureProductionReadyConfiguration(this WebApplicationBuilder builder)
     {
         EnsureNoPlaceholders(builder.Configuration, builder.Environment.EnvironmentName);
+        EnsureDurableMessaging(builder.Configuration, builder.Environment.EnvironmentName);
         return builder;
     }
 }

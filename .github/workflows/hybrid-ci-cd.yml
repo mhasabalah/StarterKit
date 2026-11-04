@@ -180,6 +180,33 @@ jobs:
       url: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}
 
     steps:
+      # Fail fast: the workflow-level env falls back to template defaults when a repository variable is unset, which
+      # would deploy to the wrong directory/URL. Check the raw variables here, before anything touches the server.
+      - name: Verify required repository variables
+        env:
+          V_APP_NAME: ${{ vars.APP_NAME }}
+          V_DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+          V_PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          V_POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          V_POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          V_BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: |
+          missing=""
+          for name in APP_NAME DEPLOY_DIR PUBLIC_API_URL POSTGRES_USER POSTGRES_DB BACKUP_BUCKET; do
+            ref="V_$name"
+            value="${!ref}"
+            if [ -z "$value" ]; then
+              missing="$missing $name"
+            elif [ "$name" = "PUBLIC_API_URL" ] && echo "$value" | grep -q "example.com"; then
+              missing="$missing $name(still the template placeholder)"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing or placeholder repository variables:$missing. Set them under Settings > Secrets and variables > Actions > Variables (see wiki/Deployment/CI-CD.md)."
+            exit 1
+          fi
+          echo "All required repository variables are set"
+
       - name: Checkout deployment config
         uses: actions/checkout@v4
         with:
@@ -246,10 +273,14 @@ jobs:
           # Deploy
           if ! docker compose ps postgres | grep -q "Up"; then
             echo "🆕 First deployment"
+            # depends_on starts postgres, runs the migrator once (must complete successfully), then starts the API.
             docker compose -f docker-compose.yml --env-file .env.prod up -d
             sleep 30
           else
             echo "🔄 Rolling update"
+            # --no-deps below skips the migrator, so apply migrations explicitly BEFORE the new API starts.
+            # A non-zero exit (failed migration) aborts the deploy and leaves the old API running.
+            docker compose -f docker-compose.yml --env-file .env.prod run --rm migrator
             docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps api
             sleep 15
           fi
@@ -286,7 +317,9 @@ jobs:
       - name: Update supporting services
         run: |
           cd ${{ env.DEPLOY_DIR }}
-          docker compose -f docker-compose.yml --env-file .env.prod up -d
+          # Explicit list WITHOUT the migrator and with --no-deps: a plain `up -d` would re-run the exited migrator.
+          SERVICES=$(docker compose -f docker-compose.yml --env-file .env.prod config --services | grep -vx migrator | tr '\n' ' ')
+          docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps $SERVICES
           echo "✅ All services updated"
 
       - name: Cleanup old images

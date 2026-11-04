@@ -108,6 +108,7 @@ public class UploadAttachmentEndPoint : ICarterModule
                 "Uploads a file. The real type is detected from the content; attaching to an entity requires " +
                 "the entity type's access policy to allow the caller.")
             .RequireAuthorization()
+            .WithRequestTimeout(Shared.Core.Web.RequestTimeoutPolicies.LongRunning)
             .HasApiVersion(1.0);
     }
 }

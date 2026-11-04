@@ -2,6 +2,9 @@ using System.Reflection;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Shared.Core.Data;
 using Shared.Core.MultiTenancy;
@@ -32,6 +35,16 @@ public static class MassTransitExtensions
 
         services.Configure<MessagingOptions>(configuration.GetSection(MessagingOptions.SectionName));
 
+        // The host is "started" only once every receive endpoint is bound. Otherwise anything published right after
+        // startup (the outbox relay, a request) can reach a topic whose subscription does not exist yet: the
+        // PostgreSql transport accepts it, routes it to nobody, and the outbox marks it delivered - a silent loss.
+        services.AddOptions<MassTransitHostOptions>().Configure(o =>
+        {
+            o.WaitUntilStarted = true;
+            o.StartTimeout = TimeSpan.FromMinutes(1);
+            o.StopTimeout = TimeSpan.FromSeconds(30);
+        });
+
         if (messaging.Transport == MessagingTransport.PostgreSql)
         {
             ConfigurePostgresTransport(services, configuration, messaging.PostgreSql);
@@ -51,7 +64,7 @@ public static class MassTransitExtensions
             switch (messaging.Transport)
             {
                 case MessagingTransport.PostgreSql:
-                    config.UsingPostgres((context, cfg) => ConfigureBus(context, cfg));
+                    config.UsingPostgres((context, cfg) => ConfigureBus(context, cfg, delayedRedelivery: true));
                     break;
 
                 case MessagingTransport.RabbitMq:
@@ -78,12 +91,17 @@ public static class MassTransitExtensions
                             });
                         }
 
-                        ConfigureBus(context, cfg);
+                        if (rabbit.UseDelayedExchange)
+                        {
+                            cfg.UseDelayedMessageScheduler();
+                        }
+
+                        ConfigureBus(context, cfg, delayedRedelivery: rabbit.UseDelayedExchange);
                     });
                     break;
 
                 default:
-                    config.UsingInMemory((context, cfg) => ConfigureBus(context, cfg));
+                    config.UsingInMemory((context, cfg) => ConfigureBus(context, cfg, delayedRedelivery: true));
                     break;
             }
         });
@@ -92,16 +110,34 @@ public static class MassTransitExtensions
     }
 
     /// <summary>Transport-independent bus configuration (identical for every transport, so behavior never drifts).</summary>
-    private static void ConfigureBus<TEndpoint>(IBusRegistrationContext context, IBusFactoryConfigurator<TEndpoint> cfg)
+    private static void ConfigureBus<TEndpoint>(IBusRegistrationContext context, IBusFactoryConfigurator<TEndpoint> cfg,
+        bool delayedRedelivery)
         where TEndpoint : IReceiveEndpointConfigurator
     {
         // OUTER: a tenant whose data is being moved defers its messages (TenantConsumeFilter throws
-        // TenantMigratingException): retried with back-off for ~30 minutes.
-        cfg.UseMessageRetry(r =>
+        // TenantMigratingException) for up to ~1 hour. Delayed REDELIVERY hands the message back to the transport, so
+        // it does not occupy a consumer slot while it waits. An in-memory retry holds one slot per waiting message and
+        // starves every other tenant on the endpoint (TenantMessagingBusTests.A_migrating_tenant_does_not_block_other_tenants).
+        // InMemory and PostgreSql deliver delayed messages natively; RabbitMQ needs the delayed-message exchange plugin
+        // (Messaging:RabbitMq:UseDelayedExchange), otherwise it falls back to the in-memory retry and its starvation risk.
+        if (delayedRedelivery)
         {
-            r.Handle<TenantMigratingException>();
-            r.Exponential(12, TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(10));
-        });
+            cfg.UseDelayedRedelivery(r =>
+            {
+                r.Handle<TenantMigratingException>();
+                r.Intervals(
+                    TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2),
+                    TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(30));
+            });
+        }
+        else
+        {
+            cfg.UseMessageRetry(r =>
+            {
+                r.Handle<TenantMigratingException>();
+                r.Exponential(12, TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(10));
+            });
+        }
 
         // INNER: transient consumer failures (database blips, lock timeouts...). After the last attempt the message
         // faults: durable transports move it to the endpoint's _error queue for inspection/replay.
@@ -133,6 +169,13 @@ public static class MassTransitExtensions
 
         var builder = new NpgsqlConnectionStringBuilder(connectionString);
 
+        // Who may create the transport schema/role (DDL + CREATE ROLE): see Database:MigrateOnStartup. The one-shot
+        // migrator (--migrate-only) uses the privileged Database:MigrationConnectionString when one is configured.
+        var database = DatabaseMigrationOptions.From(configuration);
+        var admin = database.MigrateOnly && !string.IsNullOrWhiteSpace(database.MigrationConnectionString)
+            ? new NpgsqlConnectionStringBuilder(database.MigrationConnectionString)
+            : builder;
+
         services.AddOptions<SqlTransportOptions>().Configure(o =>
         {
             o.Host = builder.Host;
@@ -142,14 +185,52 @@ public static class MassTransitExtensions
             o.Password = builder.Password;
             o.Schema = options.Schema;
             o.Role = options.Role;
-            o.AdminUsername = string.IsNullOrWhiteSpace(options.AdminUsername) ? builder.Username : options.AdminUsername;
-            o.AdminPassword = string.IsNullOrWhiteSpace(options.AdminUsername) ? builder.Password : options.AdminPassword;
+            o.AdminUsername = string.IsNullOrWhiteSpace(options.AdminUsername) ? admin.Username : options.AdminUsername;
+            o.AdminPassword = string.IsNullOrWhiteSpace(options.AdminUsername) ? admin.Password : options.AdminPassword;
         });
 
-        if (options.CreateInfrastructure)
+        if (!options.CreateInfrastructure)
         {
-            // Must be registered before the bus hosted service: creates/upgrades the transport schema first.
+            return;
+        }
+
+        if (database.MigrateOnStartup && !database.MigrateOnly)
+        {
+            // Boot-time migration (dev, Aspire, tests). Must be registered before the bus hosted service: creates/upgrades
+            // the transport schema first.
             services.AddPostgresMigrationHostedService(create: true, delete: false);
         }
+
+        // Otherwise (production): app instances with MigrateOnStartup=false never run DDL / CREATE ROLE; the one-shot
+        // migrator does it explicitly through MigrateMessagingTransportAsync (hosted services never run in --migrate-only).
+    }
+
+    /// <summary>
+    /// Creates/upgrades the PostgreSql transport schema, role and functions explicitly. For the <c>--migrate-only</c>
+    /// run, where hosted services never start. A no-op unless the PostgreSql transport with CreateInfrastructure is on.
+    /// </summary>
+    /// <returns>True when the transport infrastructure was migrated.</returns>
+    public static async Task<bool> MigrateMessagingTransportAsync(
+        this IServiceProvider services, CancellationToken cancellationToken = default)
+    {
+        var messaging = services.GetService<IOptions<MessagingOptions>>()?.Value;
+        if (messaging is not { Transport: MessagingTransport.PostgreSql } || !messaging.PostgreSql.CreateInfrastructure)
+        {
+            return false;
+        }
+
+        // Run the very same hosted service the boot-time path registers (same steps, same order), against the already
+        // configured transport options, in a private container so it never runs in an app instance.
+        var isolated = new ServiceCollection();
+        isolated.AddLogging();
+        isolated.AddSingleton(services.GetRequiredService<IOptions<SqlTransportOptions>>());
+        isolated.AddPostgresMigrationHostedService(create: true, delete: false);
+        await using var provider = isolated.BuildServiceProvider();
+        foreach (var hosted in provider.GetServices<IHostedService>())
+        {
+            await hosted.StartAsync(cancellationToken);
+        }
+
+        return true;
     }
 }

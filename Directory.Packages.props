@@ -3,7 +3,8 @@
     Version policy (see wiki/Reference/Template-Backlog.md):
     - Latest STABLE for everything, on .NET 10 LTS.
     - Pinned to the last OSS (free) major on purpose — newer majors are commercially licensed:
-        MediatR 12.x (13+ commercial), MassTransit 8.x (9+ commercial), FluentAssertions 7.x (8+ commercial).
+        MassTransit 8.x (9+ commercial), FluentAssertions 7.x (8+ commercial). MediatR was removed (owned mediator port,
+        wiki/Decisions/0007-owned-mediator-port.md). Licenses of everything: wiki/Reference/Third-Party-Licenses.md.
       Mapster 7.x kept (10.x has breaking API; upgrade separately). ImageSharp 3.x kept (4.x breaking).
     - Roslyn (Microsoft.CodeAnalysis.*) pinned to 5.0.0 = the exact version EF Core 10 Design (Workspaces.MSBuild 5.0.0) requires.
     - OpenTelemetry Process/GrpcNetClient/Prometheus have no stable release yet → latest pre-release.
@@ -28,7 +29,6 @@
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Figgle" Version="0.6.6" />
     <PackageVersion Include="Figgle.Fonts" Version="0.6.6" />
-    <PackageVersion Include="MediatR" Version="12.5.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="5.0.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />

@@ -33,6 +33,9 @@ public static class RateLimitPolicyNames
     /// Identifiers that only exist in the request body must additionally be throttled in the handler.
     /// </summary>
     public const string Otp = "otp";
+
+    /// <summary>Inbound provider webhooks (anonymous, signature-verified). Partitioned per IP, generous: providers burst and retry.</summary>
+    public const string Webhook = "webhook";
 }
 
 /// <summary>How requests are grouped into independent buckets.</summary>
@@ -101,7 +104,8 @@ public static class RateLimitingExtensions
         new(RateLimitPolicyNames.Create, 10, 60),
         new(RateLimitPolicyNames.Search, 60, 60),
         new(RateLimitPolicyNames.Auth, 10, 60, partitionBy: RateLimitPartitionBy.Ip),
-        new(RateLimitPolicyNames.Otp, 3, 600, partitionBy: RateLimitPartitionBy.IpAndUser)
+        new(RateLimitPolicyNames.Otp, 3, 600, partitionBy: RateLimitPartitionBy.IpAndUser),
+        new(RateLimitPolicyNames.Webhook, 300, 60, partitionBy: RateLimitPartitionBy.Ip)
     ];
 
     private static readonly string[] IdentifierRouteKeys = ["userId", "phoneNumber", "phone", "email"];

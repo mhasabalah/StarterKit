@@ -22,7 +22,7 @@ namespace Shared.Core.Data;
 ///     await repository.SaveChangesAsync(ct);
 /// }, cancellationToken);   // SubscriptionExpiredEvent handlers run here, after the commit
 /// </code></example>
-/// MediatR commands sent inside the work (<c>ISender.Send</c>) do not dispatch on their own: the runner is the root
+/// mediator commands sent inside the work (<c>ISender.Send</c>) do not dispatch on their own: the runner is the root
 /// unit of work and dispatches everything once at the end.
 /// </summary>
 public interface IUnitOfWorkRunner

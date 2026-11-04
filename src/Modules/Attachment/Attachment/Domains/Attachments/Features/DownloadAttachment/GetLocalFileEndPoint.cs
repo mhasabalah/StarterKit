@@ -36,6 +36,7 @@ public class GetLocalFileEndPoint : ICarterModule
             .AllowAnonymous()
             // The HMAC-signed path (already under the tenant's t/{id}/ root) is the authorization: no tenant lookup.
             .HostOnly()
+            .DisableRequestTimeout()
             .HasApiVersion(1.0);
     }
 }

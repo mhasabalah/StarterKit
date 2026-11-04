@@ -107,7 +107,7 @@ pull_image() {
         echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
     fi
     
-    docker compose -f "$COMPOSE_FILE" pull api
+    docker compose -f "$COMPOSE_FILE" pull api migrator
     
     success "Image pulled successfully"
 }
@@ -118,6 +118,7 @@ pull_image() {
 health_check() {
     local max_attempts=30
     local attempt=1
+    # /health = readiness (Postgres + Redis); /alive = liveness only and would pass while the DB is down.
     local url="http://localhost:5000/health"
     
     log "Performing health check on $url..."
@@ -154,8 +155,18 @@ deploy() {
     
     log "Deploying image tag: $IMAGE_TAG"
     
-    # Rolling update: recreate containers one by one
-    docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans
+    # Apply migrations first (one-shot migrator, advisory-locked). Abort before touching the API if it fails.
+    log "Running database migrator..."
+    if ! docker compose -f "$COMPOSE_FILE" run --rm migrator; then
+        error "Migration failed - the running API was not touched"
+        return 1
+    fi
+
+    # Rolling update. The migrator already ran above (exactly once per deploy), so start every OTHER service with
+    # --no-deps; a plain `up -d` would start the migrator a second time through depends_on.
+    SERVICES=$(docker compose -f "$COMPOSE_FILE" config --services | grep -vx 'migrator' | tr '\n' ' ')
+    # shellcheck disable=SC2086
+    docker compose -f "$COMPOSE_FILE" up -d --no-build --no-deps --remove-orphans $SERVICES
     
     # Wait for containers to stabilize
     log "Waiting for containers to stabilize..."

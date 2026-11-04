@@ -32,7 +32,8 @@ public sealed class ConsistencyTests : IDisposable
         var options = TestOptions.Wrap(TestOptions.Create());
         return new UploadAttachmentHandler(
             repo, storage ?? TestServices.LocalStorage(_dir.Path),
-            new FileValidationService(options, new NoOpMalwareScanner(), NullLogger<FileValidationService>.Instance),
+            new FileValidationService(options, new NoOpMalwareScanner(),
+                new Attachment.Infrastructure.ImageProcessing.ImageProcessingService(options, NullLogger<Attachment.Infrastructure.ImageProcessing.ImageProcessingService>.Instance), NullLogger<FileValidationService>.Instance),
             TestServices.Access(caller),
             new AttachmentUrls(options),
             _jobs.Object,

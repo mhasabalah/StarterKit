@@ -1,7 +1,7 @@
 global using System.Reflection;
 global using Carter;
 global using FluentValidation;
-global using MediatR;
+global using Shared.Contracts.Mediation;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.Routing;

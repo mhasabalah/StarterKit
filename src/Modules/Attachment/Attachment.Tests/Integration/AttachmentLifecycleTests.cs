@@ -21,7 +21,7 @@ namespace Attachment.Tests.Integration;
 
 /// <summary>
 /// Two-phase upload, Ready-only reads, async deletion, thumbnails in the background, streaming downloads and
-/// paging - through the real MediatR pipeline, jobs and PostgreSQL.
+/// paging - through the real mediator pipeline, jobs and PostgreSQL.
 /// </summary>
 [Collection(AttachmentHostCollection.Name)]
 public sealed class AttachmentLifecycleTests : IDisposable
@@ -87,7 +87,7 @@ public sealed class AttachmentLifecycleTests : IDisposable
             midUpload = await _host.DbAsync(db => db.Attachments.IgnoreQueryFilters().AsNoTracking()
                 .FirstOrDefaultAsync(a => a.StoragePath == path));
             readWhileUploading = await Record.ExceptionAsync(() =>
-                _host.InScopeAsync(sp => sp.GetRequiredService<MediatR.ISender>().Send(new GetAttachmentByIdQuery(midUpload!.Id))));
+                _host.InScopeAsync(sp => sp.GetRequiredService<Shared.Contracts.Mediation.ISender>().Send(new GetAttachmentByIdQuery(midUpload!.Id))));
         };
 
         var result = await Upload(me, png);

@@ -7,12 +7,12 @@ Decisions behind the big ones are in [../Decisions/](../Decisions/README.md).
 |---|---|---|
 | **Modular monolith** | `src/Modules/*`, one schema per module | Independent bounded contexts in one deployable ([ADR-0001](../Decisions/0001-modular-monolith-schema-per-module.md)) |
 | **Vertical slice** | `Domains/<Aggregate>/Features/<Feature>/` | One use case = validator + handler + endpoint in one folder |
-| **CQRS (MediatR)** | `ICommand`/`IQuery` + `ICommandHandler`/`IQueryHandler` (`Shared.Contracts.CQRS`) | Commands change state through aggregates; queries project from the DbContext |
+| **CQRS (owned mediator)** | `ICommand`/`IQuery` + `ICommandHandler`/`IQueryHandler` (`Shared.Contracts.CQRS`) | Commands change state through aggregates; queries project from the DbContext |
 | **Aggregate + factory** | `Product.Create(...)`, `Aggregate<Guid>` | Invariants in one place; private setters |
-| **Domain events** | `AddDomainEvent` → `DispatchDomainEventsInterceptor` → MediatR after commit | Same-module reactions (cache invalidation, logging, emails) |
+| **Domain events** | `AddDomainEvent` → `DispatchDomainEventsInterceptor` → `IPublisher` after commit | Same-module reactions (cache invalidation, logging, emails) |
 | **Integration events + transactional outbox** | `AddIntegrationEvent` → `outbox_messages` → MassTransit | Cross-module facts, at-least-once ([Messaging.md](Messaging.md)) |
 | **Repository** | `Data/Repository/<X>Repository.cs`, one per aggregate root | Loading and saving aggregates with their children |
-| **Unit of work runner** | `IUnitOfWorkRunner` (`Shared.Core/Data`) | DB work outside MediatR (jobs, consumers) with event dispatch |
+| **Unit of work runner** | `IUnitOfWorkRunner` (`Shared.Core/Data`) | DB work outside the mediator (jobs, consumers) with event dispatch |
 | **Pipeline behaviors** | `Shared.Core/Behaviors` | Cross-cutting concerns around every request (see below) |
 | **Options** | `<M>Options` + `services.Configure<T>(section)` | Typed configuration per module |
 | **Strategy / provider** | Storage providers (Local/Azure/S3), email providers, messaging transports | Swappable infrastructure behind one interface |
@@ -21,10 +21,10 @@ Decisions behind the big ones are in [../Decisions/](../Decisions/README.md).
 | **Optimistic concurrency** | `Version` + `ExpectVersion` + `AuditableEntityInterceptor` | Lost-update protection, 409 on stale writes |
 | **Ambient context** | `ITenantContext` / `TenantScope` (AsyncLocal) | The current tenant flows through requests, jobs and messages |
 
-## MediatR pipeline
+## mediator pipeline
 
 Outermost first. `RequestTelemetryBehavior` is registered by `AddCustomObservability` (host); the others by
-`Shared.Core/Extensions/MediatRExtentions.cs` (every module, including test fixtures):
+`Shared.Core/Extensions/MediatorExtensions.cs` (every module, including test fixtures):
 
 ```
 Request → RequestTelemetryBehavior → ValidationBehavior → ConcurrencyHandlingBehavior → LoggingBehavior → DispatchDomainEventsBehavior → Handler

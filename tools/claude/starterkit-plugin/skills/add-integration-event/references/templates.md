@@ -42,7 +42,7 @@ namespace {{Reactor}}.Domains.{{Area}}.Consumers;
 
 /// <summary>
 /// At-least-once, possibly out of order: the event is only a trigger. The decision is made from the publisher's
-/// CURRENT state, so a duplicate is a no-op. Runs outside MediatR, so domain events are dispatched explicitly.
+/// CURRENT state, so a duplicate is a no-op. Runs outside the mediator, so domain events are dispatched explicitly.
 /// </summary>
 public sealed class {{Aggregate}}ActivatedConsumer(
     {{Reactor}}DbContext dbContext,

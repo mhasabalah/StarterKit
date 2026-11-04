@@ -18,7 +18,7 @@ Catalog/                    implementation (internal to the module)
   Domains/<Aggregate>/      Models, Features/<Feature>/{Handler,EndPoint}, Events, EventHandlers, Services, ...
   Options/  Resources/      bound options; en/ar resx
 Catalog.Tests/              unit tests (xUnit + FluentAssertions 7 + Moq)
-Catalog.IntegrationTests/   Testcontainers Postgres tests through the real DI + MediatR pipeline
+Catalog.IntegrationTests/   Testcontainers Postgres tests through the real DI + mediator pipeline
 src/Api.E2ETests/Catalog/   HTTP end-to-end flows against the booted Api
 ```
 
@@ -163,7 +163,7 @@ Why attachments are cleaned up on **purge**, not on soft delete: a restored prod
    Business data is tenant data: implement `ITenantDataContext`, make every entity `IMustHaveTenant`, end
    `OnModelCreating` with `ApplyTenantFilters(builder)` and enable RLS in the migration - checklist in
    `wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md`. Add the module to `ModuleBoundaryTests.Modules`.
-5. `<M>Module.cs` like `CatalogModule.cs` (repositories, services, `AddMediatR`, `AddCustomMapster`, `AddCarterWithAssemblies`,
+5. `<M>Module.cs` like `CatalogModule.cs` (repositories, services, `AddMediator`, `AddCustomMapster`, `AddCarterWithAssemblies`,
    `AddCustomDbContext(..., "starterkit")`, seeder, jobs; `Use<M>Module` migrates and schedules jobs).
 6. `src/Api/Program.cs`: `AddMassTransitWithAssemblies(configuration, <M>Root...)` (consumers), `AddEnumLookup(<M>ContractsRoot...)`,
    `Add<M>Module(configuration)`, `Use<M>Module()`; `src/Api/Api.csproj` → `<M>`.

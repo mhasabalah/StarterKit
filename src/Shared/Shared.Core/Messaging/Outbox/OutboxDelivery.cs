@@ -2,6 +2,8 @@ using Microsoft.Extensions.Options;
 using Shared.Core.Data;
 using Shared.Core.MultiTenancy;
 using Shared.Core.MultiTenancy.BackgroundJobs;
+using Shared.Core.OpenTelemetryCollector.DiagnosticsProvider;
+using System.Diagnostics.Metrics;
 
 namespace Shared.Core.Messaging.Outbox;
 
@@ -71,6 +73,7 @@ public sealed class OutboxSweepJob(
     OutboxRegistry registry,
     IUnitOfWorkRunner runner,
     ITenantJobRunner tenantJobs,
+    OutboxMetrics metrics,
     ILogger<OutboxSweepJob> logger)
 {
     public const string RecurringJobId = "outbox-sweep";
@@ -83,8 +86,15 @@ public sealed class OutboxSweepJob(
 
             if (contextType.IsAssignableTo(typeof(ITenantDataContext)))
             {
-                await tenantJobs.ForEachTenantScopeAsync(
-                    (_, ct) => SweepAsync(contextType, ct), $"{nameof(OutboxSweepJob)}:{contextType.Name}", cancellationToken);
+                // Summed over the tenants (each in its own database / filters); a failed tenant is logged and missing.
+                long pending = 0, deadLettered = 0;
+                await tenantJobs.ForEachTenantScopeAsync(async (_, ct) =>
+                {
+                    var backlog = await SweepAsync(contextType, ct);
+                    pending += backlog.Pending;
+                    deadLettered += backlog.DeadLettered;
+                }, $"{nameof(OutboxSweepJob)}:{contextType.Name}", cancellationToken);
+                metrics.Record(contextType.Name, pending, deadLettered);
                 continue;
             }
 
@@ -92,7 +102,8 @@ public sealed class OutboxSweepJob(
             {
                 using (TenantScope.BeginHostScope())
                 {
-                    await SweepAsync(contextType, cancellationToken);
+                    var backlog = await SweepAsync(contextType, cancellationToken);
+                    metrics.Record(contextType.Name, backlog.Pending, backlog.DeadLettered);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -102,7 +113,7 @@ public sealed class OutboxSweepJob(
         }
     }
 
-    private Task SweepAsync(Type contextType, CancellationToken cancellationToken) =>
+    private Task<(long Pending, long DeadLettered)> SweepAsync(Type contextType, CancellationToken cancellationToken) =>
         runner.RunAsync(async (services, ct) =>
         {
             var context = (DbContext)services.GetRequiredService(contextType);
@@ -116,6 +127,8 @@ public sealed class OutboxSweepJob(
                 logger.LogInformation("Outbox sweep {Context}: {Published} published, {Purged} delivered row(s) purged",
                     contextType.Name, published, purged);
             }
+
+            return await relay.CountBacklogAsync(context, ct);
         }, cancellationToken);
 }
 
@@ -145,7 +158,11 @@ public static class OutboxServiceCollectionExtensions
         services.AddScoped<OutboxInterceptor>();
         services.AddScoped<OutboxRelay>();
         services.AddScoped<OutboxSweepJob>();
-        // Explicit (MediatR only scans module assemblies): immediate delivery after commit.
+        services.AddSingleton(sp => new OutboxMetrics(
+            sp.GetService<IDiagnosticsProvider>()?.Meter ?? new Meter("StarterKit.Outbox"),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System));
+        services.AddScoped<OutboxAdminService>();
+        // Explicit (the mediator only scans module assemblies): immediate delivery after commit.
         services.AddTransient<INotificationHandler<OutboxMessagesSaved>, OutboxMessagesSavedHandler>();
         return services;
     }

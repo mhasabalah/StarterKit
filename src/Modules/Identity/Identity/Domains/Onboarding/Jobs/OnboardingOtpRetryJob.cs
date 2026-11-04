@@ -61,7 +61,7 @@ public class OnboardingOtpRetryJob(
         process.MarkOtpSent(jobId);
         await repository.SaveChangesAsync(ct);
 
-        // Hangfire job = outside MediatR: publish the events of the committed save ourselves.
+        // Hangfire job = outside the mediator: publish the events of the committed save ourselves.
         await domainEvents.DispatchPendingAsync(ct);
 
         logger.LogInformation(

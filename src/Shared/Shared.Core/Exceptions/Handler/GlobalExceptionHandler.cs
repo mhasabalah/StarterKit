@@ -64,6 +64,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
             SuccessMessage = null,
             Errors = mapping.Errors.ToList(),
             Code = mapping.Code,
+            ErrorCode = mapping.ErrorCode,
             TraceId = traceId
         };
 

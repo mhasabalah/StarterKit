@@ -121,6 +121,14 @@ for KEY in identity_otp_hmac_key; do
     echo "  ✅ $KEY.txt"
 done
 
+# Optional privileged (DDL) connection string for the one-shot migrator. Never overwritten; an EMPTY file means
+# "migrate with the API connection". Fill it by hand (Host=postgres;Database=...;Username=starterkit_migrator;Password=...).
+if [ ! -f "$SECRETS_DIR/migration_connection_string.txt" ]; then
+    : > "$SECRETS_DIR/migration_connection_string.txt"
+    chmod 600 "$SECRETS_DIR/migration_connection_string.txt"
+    echo "  ✅ migration_connection_string.txt (empty; optional, fill in to use a separate migration role)"
+fi
+
 # Data Protection key-ring encryption certificate (used by docker-compose.dataprotection.yml).
 # NEVER regenerated when it already exists: the key ring in the database is encrypted with it, and replacing it
 # would make every authenticator (TOTP) key unreadable. Rotate deliberately (see the wiki), not through this script.
