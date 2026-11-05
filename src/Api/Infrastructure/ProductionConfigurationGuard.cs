@@ -73,10 +73,33 @@ public static class ProductionConfigurationGuard
         }
     }
 
+    /// <summary>
+    /// Throws if the environment is not relaxed and <c>BotProtection:Enabled=true</c> without a real
+    /// <c>BotProtection:SecretKey</c> (empty or still the placeholder): CAPTCHA would silently reject every request.
+    /// </summary>
+    public static void EnsureBotProtectionConfigured(IConfiguration configuration, string environmentName)
+    {
+        if (RelaxedEnvironments.Contains(environmentName))
+        {
+            return;
+        }
+
+        var enabled = configuration.GetValue<bool>("BotProtection:Enabled");
+        var secret = configuration["BotProtection:SecretKey"];
+        if (enabled && (string.IsNullOrWhiteSpace(secret) ||
+                        secret.Contains(Placeholder, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start in '{environmentName}': BotProtection:Enabled is true but BotProtection:SecretKey " +
+                "is empty or a placeholder. Set it via env BotProtection__SecretKey or a Docker secret.");
+        }
+    }
+
     public static WebApplicationBuilder EnsureProductionReadyConfiguration(this WebApplicationBuilder builder)
     {
         EnsureNoPlaceholders(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureDurableMessaging(builder.Configuration, builder.Environment.EnvironmentName);
+        EnsureBotProtectionConfigured(builder.Configuration, builder.Environment.EnvironmentName);
         return builder;
     }
 }

@@ -1,3 +1,4 @@
+using Shared.Core.BotProtection;
 using Identity.Contracts.Auth.Commands;
 
 namespace Identity.Domains.Auth.Features.Login;
@@ -9,7 +10,7 @@ public class LoginEndPoint : ICarterModule
         app.MapPost("api/auth/login", async (LoginCommand command, ISender sender) =>
         {
             var result = await sender.Send(command);
-            
+
             return Results.Ok(new ApiResponse<LoginResult>(
                 true,
                 StatusCodes.Status200OK,
@@ -24,6 +25,7 @@ public class LoginEndPoint : ICarterModule
         .WithDescription("Authenticate user with email and password, returns JWT token")
         .AllowAnonymous()
         .RequireRateLimiting("auth")
+        .RequireHumanVerification("login")
         .HasApiVersion(1.0);
     }
 }

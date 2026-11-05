@@ -28,6 +28,7 @@ public class DockerSecretsConfigurationProvider(string secretsPath, string? envi
             ["redis_password"] = ["REDIS_PASSWORD"],
             ["identity_otp_hmac_key"] = ["Identity:OtpHmacKey"],
             ["hangfire_dashboard_password"] = ["Hangfire:Dashboard:Password"],
+            ["turnstile_secret"] = ["BotProtection:SecretKey"],
             ["smtp_password"] = ["Email:SmtpPassword"],
             ["rabbitmq_password"] = ["Messaging:RabbitMq:Password"],
             // Data Protection key-ring encryption (docker-compose.dataprotection.yml). The PFX itself is mounted as
