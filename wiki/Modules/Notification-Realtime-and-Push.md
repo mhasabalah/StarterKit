@@ -41,6 +41,40 @@ await notifications
 
 ## Delivery
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant M as Any module (handler / consumer)
+    participant S as INotificationSender
+    participant H as Hangfire (queue notification)
+    participant DB as Postgres (notification schema)
+    participant HUB as NotificationHub (+ Redis backplane)
+    participant ID as Identity (UserDirectory.Contracts)
+    participant FCM as FCM (→ APNs / Web Push)
+    participant C as User's tabs / apps / devices
+
+    M->>S: For(user).WithEmail(..).WithInApp(..).WithPush().SendAsync()
+    S->>H: enqueue chain job, InAppDeliveryJob, PushDeliveryJob (one correlation id)
+    par in-app
+        H->>DB: INSERT inbox_notification ON CONFLICT DO NOTHING
+        H->>HUB: NotificationReceived + UnreadCountChanged (best effort)
+        HUB-->>C: event on every open session of the user
+        H->>DB: notification_log (InApp, Sent)
+    and push
+        H->>DB: push enabled? load devices
+        H->>ID: GetActiveSessionIdsQuery(user)
+        H->>DB: delete devices of ended sessions
+        H->>FCM: multicast (collapse key = correlation id)
+        FCM-->>C: OS notification
+        H->>DB: delete dead tokens, notification_log (Push, Sent/Failed)
+        H-->>H: schedule follow-up for transient failures only
+    and email / WhatsApp
+        H->>DB: NotificationDispatchJob (fallback chain, own rows only)
+    end
+    C->>HUB: reconnect (token expired / network)
+    C->>DB: GET /inbox/unread-count (resync)
+```
+
 `NotificationJobEnqueuer` turns one notification into up to three Hangfire jobs (queue `notification`) that share ONE
 correlation id: the chain (`NotificationDispatchJob`), `InAppDeliveryJob` and `PushDeliveryJob`. Separate jobs keep
 failure domains apart: an FCM outage never re-runs (re-sends) the email, and an inbox `Sent` row never stops the email
@@ -131,6 +165,44 @@ await hub.start();
 await badge.refresh();
 ```
 
+### Android client (Kotlin, `com.google.firebase:firebase-messaging`)
+
+```kotlin
+class AppMessagingService : FirebaseMessagingService() {
+    // FCM rotated the token: refresh the registration (only when signed in).
+    override fun onNewToken(token: String) { if (session.isSignedIn) api.registerDevice(token) }
+
+    // Data / notification while the app is in the foreground. Route on tap with data["category"] / data["actionUrl"];
+    // data["correlationId"] is the inbox entry's correlation id.
+    override fun onMessageReceived(message: RemoteMessage) = notifications.show(message)
+}
+
+// After sign-in (Android 13+: request POST_NOTIFICATIONS first).
+val token = FirebaseMessaging.getInstance().token.await()
+deviceId = api.registerDevice(token)   // PUT /api/v1/notifications/devices {token, platform:"Android", appVersion, locale}
+
+// Sign-out: unregister while the access token is still valid, then drop the FCM token.
+api.unregisterDevice(deviceId)         // DELETE /api/v1/notifications/devices/{deviceId}
+FirebaseMessaging.getInstance().deleteToken().await()
+```
+
+### iOS client (Swift, `FirebaseMessaging`)
+
+```swift
+// AppDelegate: UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { ... }
+// then UIApplication.shared.registerForRemoteNotifications(). FirebaseMessaging maps the APNs token to an FCM token.
+extension AppDelegate: MessagingDelegate {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let fcmToken, session.isSignedIn else { return }
+        Task { deviceId = try await api.registerDevice(token: fcmToken, platform: "Ios") }
+    }
+}
+// Sign-out: try await api.unregisterDevice(deviceId); try await Messaging.messaging().deleteToken()
+```
+
+The server sets `apns-collapse-id` and `thread-id` (= category); notifications of one category are grouped and a
+duplicate replaces the shown one. Silent/background pushes are not used.
+
 ## Push devices (mobile / web app)
 
 1. After sign-in, on every app start and whenever FCM rotates the token (`onTokenRefresh`):
@@ -195,8 +267,33 @@ index, so an environment file could never remove a transport from one.
   `notification.realtime.sent{method,result}`; open sockets: `signalr.server.active_connections`
   (meter `Microsoft.AspNetCore.Http.Connections`).
 - Delivery history: `GET /api/v1/notifications/history?channel=Push&status=Failed`.
+- Alerts (`infra/observability/configs/alerts.yaml`, group `notification`): `PushDeliveryFailing` (> 20% of device
+  sends failing), `PushRejectedByProvider` (configuration problem), `RealtimeSendErrors` (backplane).
 - Nginx: `location /hubs/` (upgrade headers, no buffering, 3600s read timeout, its own per-IP connection budget, a log
   format without the query string) - [Nginx](../deployment/Nginx.md).
+
+## Troubleshooting
+
+| Symptom | Likely cause | Check / fix |
+|---|---|---|
+| Hub connect returns 401 | token missing/expired, or sent in the URL on a non-hub route | the client must use `accessTokenFactory` (query string `access_token`) and connect to `/hubs/notifications`; a logged-out or revoked token is refused by design |
+| Hub connect returns 403 `api_key_restricted` | an API key was used | hubs are for signed-in people only (`DisallowApiKey`) |
+| WebSocket fails behind nginx, works locally | `location /hubs/` missing or no upgrade headers | `deployment/nginx/conf.d/app-production.conf`; `curl -i -H "Connection: Upgrade" -H "Upgrade: websocket" https://api.example.com/hubs/notifications?access_token=...` should not be 400/404 |
+| Works with 1 replica, events lost with 2+ | negotiate and connect hit different replicas, or no backplane | clients: WebSockets + `skipNegotiation: true`; server: `Redis:Enabled=true`, `Realtime:UseRedisBackplane=true` |
+| Socket closes every ~15 minutes | access-token expiry (`CloseOnAuthenticationExpiration`) | expected: `withAutomaticReconnect` + a fresh token from `accessTokenFactory` |
+| Events arrive, badge wrong in another tenant | `UnreadCountChanged.tenantId` is a different tenant | the client compares `tenantId` with its current tenant and ignores or refreshes |
+| No push at all, log says `Push provider: NoOp` | no credentials (`Push:Provider=Auto`) | mount `secrets/fcm_service_account.json` with `docker-compose.push.yml` |
+| Boot fails: `Push:Provider is Fcm but no credentials` | `Push__Provider=Fcm` without a key | set `Push__CredentialsFile` (or the `fcm_service_account_json` secret) |
+| Every push `Failed [transient]`, log shows 401/403 from Google | the service account lacks the FCM role, or the FCM API (V1) is disabled | grant "Firebase Cloud Messaging API Admin"; enable the API in Google Cloud Console |
+| `rejected` with `THIRD_PARTY_AUTH_ERROR` (iOS only) | APNs key missing/expired in Firebase | upload a valid `.p8` key in Firebase → Cloud Messaging |
+| `rejected` with `INVALID_ARGUMENT` for every device | payload too large (4 KB limit) or bad data | shorten `Data`; the devices are kept on purpose |
+| Browser: `messaging/token-subscribe-failed` | FCM API disabled, or a VAPID key from another project | enable the API; use the project's own Web Push certificate |
+| Push `Skipped: No active push device` right after login | the device was registered under an older session | register again after every sign-in (the device follows the latest session) |
+| Hub events stop, inbox fine; alert `RealtimeSendErrors` | Redis down (backplane) | restore Redis; clients resync over REST |
+
+Logs to search (Seq / Loki): `Push delivery`, `Push to device`, `Dropped ... push device(s)`, `Real-time ... failed`,
+`In-app notification delivered`. Alerts: `PushDeliveryFailing`, `PushRejectedByProvider`, `RealtimeSendErrors`
+(`infra/observability/configs/alerts.yaml`).
 
 ## Tests
 
