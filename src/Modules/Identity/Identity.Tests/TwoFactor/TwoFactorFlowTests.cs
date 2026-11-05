@@ -233,7 +233,8 @@ public sealed class TwoFactorFlowTests : IAsyncLifetime
         rows.Select(r => r.Action).Should().Contain([IdentityAuditActions.TwoFactorEnabled, IdentityAuditActions.TwoFactorDisabled]);
         var json = string.Join("\n", rows.Select(r => r.BeforeJson + r.AfterJson));
         json.Should().NotContain(key).And.NotContain(TwoFactorTestHost.Password);
-        foreach (var code in enabled.RecoveryCodes) json.Should().NotContain(code);
+        foreach (var code in enabled.RecoveryCodes)
+            json.Should().NotContain(code);
         json.Should().NotContainEquivalentOf("passwordHash").And.NotContainEquivalentOf("securityStamp");
     }
 }

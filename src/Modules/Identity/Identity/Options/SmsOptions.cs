@@ -6,7 +6,7 @@ namespace Identity.Options;
 public class SmsOptions
 {
     public const string SectionName = "SmsSettings";
-    
+
     public SmsProvider Provider { get; init; } = SmsProvider.Mock;
     public TwilioOptions Twilio { get; init; } = new();
     public AwsSnsOptions AwsSns { get; init; } = new();

@@ -66,7 +66,7 @@ public sealed class AuditedCommandTransactionBehavior<TRequest, TResponse>(IServ
     {
         if (request is not IAuditedCommand)
         {
-            return next();
+            return next(cancellationToken);
         }
 
         return services.GetRequiredService<IIdentityUnitOfWork>()

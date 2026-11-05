@@ -36,7 +36,7 @@ public class RedisOptions
     /// Whether the first connect failure aborts (default: false). Keep false: the multiplexer then retries in the
     /// background, so a Redis restart degrades the cache instead of failing application startup.
     /// </summary>
-    public bool AbortOnConnectFail { get; set; } = false;
+    public bool AbortOnConnectFail { get; set; }
 
     /// <summary>Connection timeout in milliseconds (default: 5000).</summary>
     public int ConnectTimeout { get; set; } = 5000;
@@ -48,10 +48,10 @@ public class RedisOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>Use TLS when no connection string is configured (default: false).</summary>
-    public bool UseSsl { get; set; } = false;
+    public bool UseSsl { get; set; }
 
     /// <summary>Database number when no connection string is configured (default: 0).</summary>
-    public int Database { get; set; } = 0;
+    public int Database { get; set; }
 
     /// <summary>True when <see cref="Host"/> and <see cref="Port"/> describe a usable endpoint.</summary>
     public bool IsValid() => !string.IsNullOrWhiteSpace(Host) && Port is > 0 and < 65536;

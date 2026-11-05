@@ -21,10 +21,15 @@ public class GetHostTenantsHandler(TenancyDbContext dbContext)
             if (!string.IsNullOrWhiteSpace(query.Search))
             {
                 var term = query.Search.Trim().ToLowerInvariant();
+                // Server-side SQL: Contains(string) becomes LIKE/strpos and ToLower() becomes lower(). The culture-aware overloads
+                // (StringComparison, ToLowerInvariant) are not translated by Npgsql, so the analyzer advice does not apply here.
+#pragma warning disable CA1862, CA1304, CA1311 // Server-side translation: see the comment above.
                 tenants = tenants.Where(t => t.Identifier.Contains(term) || t.Name.ToLower().Contains(term));
+#pragma warning restore CA1862, CA1304, CA1311
             }
 
-            if (query.Status is { } status) tenants = tenants.Where(t => t.Status == status);
+            if (query.Status is { } status)
+                tenants = tenants.Where(t => t.Status == status);
 
             return await tenants
                 .OrderByDescending(t => t.CreatedAt)

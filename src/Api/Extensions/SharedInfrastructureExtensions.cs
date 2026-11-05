@@ -15,6 +15,7 @@ using Shared.Core.Pagination;
 using Shared.Core.Phone;
 using Shared.Core.ProblemDetails;
 using Shared.Core.Web;
+using Shared.Core.BotProtection;
 using Shared.Core.Web.Idempotency;
 using static Shared.Core.OpenTelemetryCollector.TelemetryTags.Tracing;
 
@@ -45,6 +46,7 @@ public static class SharedInfrastructureExtensions
 
         builder.Services.AddRedisCache(builder.Configuration);
         builder.Services.AddIdempotency(builder.Configuration);
+        builder.Services.AddBotProtection(builder.Configuration); // CAPTCHA port; NoOp unless BotProtection:Enabled
         builder.Services.AddEntitlements();
         builder.Services.AddFeatureFlags(); // config-backed IFeatureFlags; the Tenancy module replaces it with the stored one
 

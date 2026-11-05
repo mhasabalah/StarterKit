@@ -18,7 +18,8 @@ public class AddPaymentMethodCommandValidator : AbstractValidator<AddPaymentMeth
 
     private static bool IsValidJson(string value)
     {
-        try { JsonDocument.Parse(value); return true; }
+        try
+        { JsonDocument.Parse(value); return true; }
         catch { return false; }
     }
 }

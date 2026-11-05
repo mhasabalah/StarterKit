@@ -43,15 +43,15 @@ public sealed class NotificationLogRepositoryPostgresTests : IAsyncLifetime
 
     private static NotificationLog Row(Guid correlation, NotificationDeliveryStatus status, DateTime createdAt,
         NotificationChannel channel = NotificationChannel.Email) => new()
-    {
-        Id = Guid.NewGuid(),
-        CorrelationId = correlation,
-        UserId = Guid.NewGuid(),
-        Channel = channel,
-        TemplateName = "WelcomeUser",
-        Status = status,
-        CreatedAt = createdAt
-    };
+        {
+            Id = Guid.NewGuid(),
+            CorrelationId = correlation,
+            UserId = Guid.NewGuid(),
+            Channel = channel,
+            TemplateName = "WelcomeUser",
+            Status = status,
+            CreatedAt = createdAt
+        };
 
     [Fact]
     public async Task Migration_creates_the_schema_and_its_history_table()

@@ -22,8 +22,6 @@ public class CurrentUserProvider : ICurrentUserProvider
         var nameIdentifier =
             _httpContextAccessor?.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        long.TryParse(nameIdentifier, out var userId);
-
-        return userId;
+        return long.TryParse(nameIdentifier, out var userId) ? userId : 0;
     }
 }

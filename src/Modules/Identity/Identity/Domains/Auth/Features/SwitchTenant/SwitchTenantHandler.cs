@@ -24,7 +24,8 @@ public class SwitchTenantHandler(
     {
         var userId = httpContextService.GetUserId() ?? throw new UnauthorizedException("Authentication is required.");
         var user = await userManager.FindByIdAsync(userId);
-        if (user is not { IsActive: true }) throw new UnauthorizedException("Authentication is required.");
+        if (user is not { IsActive: true })
+            throw new UnauthorizedException("Authentication is required.");
 
         // JwtBearer maps inbound "amr" to its long claim type: IsMultiFactor checks both (a raw "amr" check is always false).
         var multiFactor = AuthenticationMethods.IsMultiFactor(httpContextService.GetAllClaims());

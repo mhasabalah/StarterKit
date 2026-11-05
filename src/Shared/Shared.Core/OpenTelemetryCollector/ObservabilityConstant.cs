@@ -2,7 +2,7 @@ namespace Shared.Core.OpenTelemetryCollector;
 
 public static class ObservabilityConstant
 {
-    public static string InstrumentationName = default!;
+    public static string InstrumentationName { get; set; } = default!;
 
     public static class Components
     {

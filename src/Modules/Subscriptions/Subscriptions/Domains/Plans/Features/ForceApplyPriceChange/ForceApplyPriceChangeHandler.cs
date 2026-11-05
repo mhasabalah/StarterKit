@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 using Subscriptions.Domains.Subscriptions.Services;
@@ -80,10 +81,10 @@ public class ForceApplyPriceChangeHandler(
                 {
                     SubscriberName = subscriber?.DisplayName ?? string.Empty,
                     PlanName = plan.Name.En,
-                    OldPrice = oldPrice.ToString("F2"),
-                    NewPrice = plan.Price.ToString("F2"),
+                    OldPrice = oldPrice.ToString("F2", CultureInfo.InvariantCulture),
+                    NewPrice = plan.Price.ToString("F2", CultureInfo.InvariantCulture),
                     Currency = plan.Currency,
-                    EffectiveAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd"),
+                    EffectiveAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     DaysUntilEffective = "0",
                     PortalUrl = $"{frontendBaseUrl}/subscription"
                 };

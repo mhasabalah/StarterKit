@@ -29,12 +29,15 @@ public sealed class TenantCorsPolicyProvider(
     {
         var policy = await _inner.GetPolicyAsync(context, policyName);
         var options = tenancyOptions.Value;
-        if (policy is null || !options.Enabled || !options.Cors.Enabled || policy.AllowAnyOrigin) return policy;
+        if (policy is null || !options.Enabled || !options.Cors.Enabled || policy.AllowAnyOrigin)
+            return policy;
 
         var origin = context.Request.Headers.Origin.ToString();
-        if (string.IsNullOrEmpty(origin) || policy.IsOriginAllowed(origin)) return policy;
+        if (string.IsNullOrEmpty(origin) || policy.IsOriginAllowed(origin))
+            return policy;
 
-        if (!await IsTenantOriginAsync(origin, options.Cors, context.RequestAborted)) return policy;
+        if (!await IsTenantOriginAsync(origin, options.Cors, context.RequestAborted))
+            return policy;
 
         // CorsPolicyBuilder(policy) copies the ORIGINAL IsOriginAllowed delegate (bound to the original origin list),
         // so the tenant origin must be allowed explicitly as well.
@@ -63,13 +66,15 @@ public sealed class TenantCorsPolicyProvider(
         if (!string.IsNullOrEmpty(root) && host.EndsWith("." + root, StringComparison.Ordinal))
         {
             var label = host[..^(root.Length + 1)];
-            if (label.Length == 0 || label.Contains('.')) return false;
+            if (label.Length == 0 || label.Contains('.'))
+                return false;
 
             var tenant = await store.FindByIdentifierAsync(label, ct);
             return tenant is { Status: not TenantStatus.Deleted };
         }
 
-        if (!cors.AllowVerifiedCustomDomains) return false;
+        if (!cors.AllowVerifiedCustomDomains)
+            return false;
 
         // FindByHostAsync only knows VERIFIED custom domains.
         var byDomain = await store.FindByHostAsync(host, ct);

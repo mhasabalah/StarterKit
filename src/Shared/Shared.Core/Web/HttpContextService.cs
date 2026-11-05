@@ -36,21 +36,22 @@ public class HttpContextService : IHttpContextService
 
     public string? GetUserName()
     {
-        return User?.FindFirstValue(ClaimTypes.Name) 
-               ?? User?.FindFirstValue("username") 
+        return User?.FindFirstValue(ClaimTypes.Name)
+               ?? User?.FindFirstValue("username")
                ?? User?.Identity?.Name;
     }
 
     public string? GetEmail()
     {
-        return User?.FindFirstValue(ClaimTypes.Email) 
+        return User?.FindFirstValue(ClaimTypes.Email)
                ?? User?.FindFirstValue("email");
     }
 
     public IEnumerable<string> GetRoles()
     {
-        if (User == null) return Enumerable.Empty<string>();
-        
+        if (User == null)
+            return Enumerable.Empty<string>();
+
         return User.FindAll(ClaimTypes.Role)
             .Select(c => c.Value)
             .Union(User.FindAll("role").Select(c => c.Value))
@@ -69,8 +70,9 @@ public class HttpContextService : IHttpContextService
 
     public IEnumerable<string> GetClaimValues(string claimType)
     {
-        if (User == null) return Enumerable.Empty<string>();
-        
+        if (User == null)
+            return Enumerable.Empty<string>();
+
         return User.FindAll(claimType).Select(c => c.Value);
     }
 
@@ -81,10 +83,11 @@ public class HttpContextService : IHttpContextService
 
     public bool HasClaim(string claimType, string? claimValue = null)
     {
-        if (User == null) return false;
-        
-        return claimValue == null 
-            ? User.HasClaim(c => c.Type == claimType) 
+        if (User == null)
+            return false;
+
+        return claimValue == null
+            ? User.HasClaim(c => c.Type == claimType)
             : User.HasClaim(claimType, claimValue);
     }
 
@@ -112,7 +115,8 @@ public class HttpContextService : IHttpContextService
 
     public string? GetCorrelationId()
     {
-        if (Context == null) return null;
+        if (Context == null)
+            return null;
 
         return Context.Items.TryGetValue(CorrelationExtensions.ItemKey, out var id) && id is string s
             ? s
@@ -136,7 +140,8 @@ public class HttpContextService : IHttpContextService
 
     public string? GetRequestUrl()
     {
-        if (Context == null) return null;
+        if (Context == null)
+            return null;
 
         var request = Context.Request;
         return $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}{request.QueryString}";

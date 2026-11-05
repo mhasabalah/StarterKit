@@ -130,7 +130,7 @@ public sealed class OutboxSweepJob(
                     contextType.Name, published, purged);
             }
 
-            return await relay.CountBacklogAsync(context, ct);
+            return await OutboxRelay.CountBacklogAsync(context, ct);
         }, cancellationToken);
 }
 

@@ -38,6 +38,10 @@ dotnet_style_prefer_inferred_tuple_names = true:suggestion
 dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
 dotnet_style_namespace_match_folder = true:suggestion
 
+# EF Core migrations and model snapshots are tool-generated: never hand-edited, so analyzers skip them.
+[**/{Data,Persistence}/Migrations/*.cs]
+generated_code = true
+
 # JSON files
 [*.json]
 indent_size = 2
@@ -283,27 +287,63 @@ dotnet_naming_style.ends_with_async.word_separator =
 dotnet_naming_style.ends_with_async.capitalization = pascal_case
 
 #### Code Quality Rules ####
+# Policy: AnalysisLevel=latest-recommended + TreatWarningsAsErrors (Directory.Build.props), so every rule below is
+# either fixed in code or relaxed here WITH a reason. Never #pragma / blanket NoWarn without a justification.
+# See wiki/Architecture/CodingStandards.md (Analyzers).
 
 # CA1031: Do not catch general exception types
+# Relaxed: jobs, consumers and cache/fail-open paths deliberately catch Exception, log and continue (CLAUDE.md).
 dotnet_diagnostic.CA1031.severity = suggestion
 
 # CA1062: Validate arguments of public methods
+# Relaxed: nullable reference types already flag null misuse at compile time; null-guard boilerplate adds noise.
 dotnet_diagnostic.CA1062.severity = suggestion
 
 # CA1303: Do not pass literals as localized parameters
+# Relaxed: user-facing text goes through IStringLocalizer by project rule; the analyzer wants resx for every literal.
 dotnet_diagnostic.CA1303.severity = none
 
 # CA1707: Identifiers should not contain underscores
+# Relaxed (non-test code too): Scenario_Expectation test names are mandated by CLAUDE.md, and a few DTO/enum members mirror wire names.
 dotnet_diagnostic.CA1707.severity = none
+
+# CA1711: Identifiers should not have incorrect suffix
+# Relaxed: *EventHandler (project naming convention, enforced by NamingConventionTests), the Mediation
+# RequestHandlerDelegate (mirrors the mediator port), xUnit *Collection fixtures and the ProductAttribute domain concept.
+dotnet_diagnostic.CA1711.severity = none
 
 # CA1716: Identifiers should not match keywords
 dotnet_diagnostic.CA1716.severity = suggestion
 
-# CA2007: Consider calling ConfigureAwait on the awaited task
-dotnet_diagnostic.CA2007.severity = suggestion
+# CA1725: Parameter names should match base declaration
+# Relaxed: handler methods name the parameter after the message (command/query/e) instead of the generic `request`/`notification`.
+dotnet_diagnostic.CA1725.severity = none
 
-# IDE0005: Remove unnecessary using directives
-dotnet_diagnostic.IDE0005.severity = warning
+# CA1848 / CA1873: Use LoggerMessage delegates / avoid expensive logging argument evaluation
+# Relaxed to suggestion: a performance micro-optimisation, and hundreds of call sites would turn every log line into boilerplate.
+dotnet_diagnostic.CA1848.severity = suggestion
+dotnet_diagnostic.CA1873.severity = suggestion
+
+# CA1859: Use concrete types when possible for improved performance
+# Relaxed: contradicts the project's abstraction-first signatures (IReadOnlyList/IReadOnlyDictionary for private data).
+dotnet_diagnostic.CA1859.severity = suggestion
+
+# CA1826: Use property instead of Linq Enumerable method
+# Relaxed: FirstOrDefault()/First() on small IReadOnlyList results reads better than index + Count guards, with no measurable cost.
+dotnet_diagnostic.CA1826.severity = suggestion
+
+# CA2007: Consider calling ConfigureAwait on the awaited task
+# Relaxed: ASP.NET Core has no SynchronizationContext, so ConfigureAwait(false) buys nothing in an application.
+dotnet_diagnostic.CA2007.severity = none
+
+# IDE0011: Add braces
+# Relaxed: single-statement guard clauses (`if (x is null) return;`) are the codebase idiom; braces are enforced for everything else by review.
+dotnet_diagnostic.IDE0011.severity = suggestion
+
+# IDE0005: Remove unnecessary using directives.
+# Relaxed: the compiler only evaluates it in the build when GenerateDocumentationFile=true, which would also switch on the
+# OpenAPI XML-comment source generator (behaviour change) and flood CS1573. Kept clean by hand / IDE instead.
+dotnet_diagnostic.IDE0005.severity = suggestion
 
 # IDE0055: Fix formatting
 dotnet_diagnostic.IDE0055.severity = warning
@@ -423,3 +463,25 @@ csharp_style_prefer_top_level_statements = true:silent
 csharp_style_prefer_primary_constructors = true:suggestion
 csharp_prefer_system_threading_lock = true:suggestion
 csharp_style_prefer_simple_property_accessors = true:suggestion
+
+#### Test projects ####
+# Relaxed in *.Tests, *.IntegrationTests, *.E2ETests (also Api.Tests / AppHost.Tests): throwaway test scaffolding, not production code.
+[**/{*.Tests,*.IntegrationTests,*.E2ETests}/**.cs]
+# Scenario_Expectation names (CLAUDE.md).
+dotnet_diagnostic.CA1707.severity = none
+# Fixtures own IDisposable resources through xUnit IAsyncLifetime, which CA1001 does not recognise.
+dotnet_diagnostic.CA1001.severity = none
+# `throw new Exception("boom")` / `new Exception()` is the point of many failure-mode tests.
+dotnet_diagnostic.CA2201.severity = none
+# Perf / allocation micro-rules that are irrelevant for test helpers and inline literals.
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA1869.severity = none
+# Raw SQL in fixtures interpolates constants/identifiers owned by the test, never user input.
+dotnet_diagnostic.EF1002.severity = none
+# Culture-explicit parsing/comparison adds noise to assertions on ASCII test data.
+dotnet_diagnostic.CA1305.severity = none
+dotnet_diagnostic.CA1310.severity = none
+dotnet_diagnostic.CA1862.severity = none
+# Sync-over-async inside a few deliberately synchronous test seams.
+dotnet_diagnostic.xUnit1031.severity = suggestion

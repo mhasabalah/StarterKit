@@ -6,7 +6,7 @@ namespace Identity.Options;
 public class IdentityOptions
 {
     public const string SectionName = "IdentitySettings";
-    
+
     public PasswordOptions Password { get; init; } = new();
     public LockoutOptions Lockout { get; init; } = new();
     public UserOptions User { get; init; } = new();
@@ -33,12 +33,12 @@ public class LockoutOptions
 public class UserOptions
 {
     public bool RequireUniqueEmail { get; init; } = true;
-    public string AllowedUserNameCharacters { get; init; } = 
+    public string AllowedUserNameCharacters { get; init; } =
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
 }
 
 public class SignInOptions
 {
-    public bool RequireConfirmedEmail { get; init; } = false;
-    public bool RequireConfirmedPhoneNumber { get; init; } = false;
+    public bool RequireConfirmedEmail { get; init; }
+    public bool RequireConfirmedPhoneNumber { get; init; }
 }

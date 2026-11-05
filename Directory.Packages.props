@@ -130,6 +130,9 @@
   <ItemGroup Label="Security pins (transitive)">
     <!-- Pulled in by Aspire hosting; 15.0.1 has GHSA-w7r3-mgwf-4mqq. Remove once Aspire ships a fixed dependency. -->
     <PackageVersion Include="KubernetesClient" Version="21.0.8" />
+    <!-- Pulled in by Grafana.OpenTelemetry -> OpenTelemetry.Instrumentation.Wcf -> System.ServiceModel (8.0.x): GHSA-w3x6-4m5h-cxqf and others (Xml), GHSA-846f-f764-76mx (Pkcs). Remove once the Wcf instrumentation ships a fixed dependency. -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup Label="Aspire Hosting">
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.4" />

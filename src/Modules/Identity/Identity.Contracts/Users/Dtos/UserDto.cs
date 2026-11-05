@@ -13,10 +13,10 @@ public record UserDto
     public string? LastName { get; init; }
     public string FullName { get; init; } = default!;
     public string? ProfilePictureUrl { get; init; }
-    
+
     // OAuth
     public string? OAuthProvider { get; init; }
-    
+
     // Status
     public bool IsActive { get; init; }
     public bool IsLocked { get; init; }
@@ -25,14 +25,14 @@ public record UserDto
     public bool PhoneNumberConfirmed { get; init; }
     public bool TwoFactorEnabled { get; init; }
     public int AccessFailedCount { get; init; }
-    
+
     // Profile
     public bool IsProfileComplete { get; init; }
     public DateTime? ProfileCompletedAt { get; init; }
-    
+
     // Roles
     public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
-    
+
     // Audit
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }

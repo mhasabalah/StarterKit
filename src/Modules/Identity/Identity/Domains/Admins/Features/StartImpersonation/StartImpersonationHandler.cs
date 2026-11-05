@@ -50,10 +50,12 @@ public class StartImpersonationHandler(
     public async Task<StartImpersonationResult> Handle(StartImpersonationCommand command, CancellationToken cancellationToken)
     {
         var settings = options.Value;
-        if (!settings.Impersonation.Enabled) throw new ForbiddenException("Impersonation is disabled.");
+        if (!settings.Impersonation.Enabled)
+            throw new ForbiddenException("Impersonation is disabled.");
 
         var actorId = httpContextService.GetUserIdAsGuid() ?? throw new UnauthorizedException("Authentication is required.");
-        if (actorId == command.UserId) throw new BadRequestException("You cannot impersonate yourself.");
+        if (actorId == command.UserId)
+            throw new BadRequestException("You cannot impersonate yourself.");
         if (!string.IsNullOrEmpty(httpContextService.GetClaimValue(TenantClaimTypes.Actor)))
             throw new ForbiddenException("Impersonation sessions cannot start another impersonation.");
 

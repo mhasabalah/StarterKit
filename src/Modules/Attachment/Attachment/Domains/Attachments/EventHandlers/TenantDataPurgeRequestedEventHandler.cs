@@ -15,7 +15,8 @@ public sealed class TenantDataPurgeRequestedEventHandler(
 
     public async Task Handle(TenantDataPurgeRequestedEvent notification, CancellationToken cancellationToken)
     {
-        if (notification.TenantId == TenantDefaults.DefaultTenantId) return;
+        if (notification.TenantId == TenantDefaults.DefaultTenantId)
+            return;
 
         if (storage is not IStorageListing listing)
         {
@@ -31,13 +32,15 @@ public sealed class TenantDataPurgeRequestedEventHandler(
         await foreach (var item in listing.ListAsync(root, cancellationToken))
         {
             batch.Add(item.StoragePath);
-            if (batch.Count < BatchSize) continue;
+            if (batch.Count < BatchSize)
+                continue;
 
             deleted += await DeleteAsync(batch, cancellationToken);
             batch.Clear();
         }
 
-        if (batch.Count > 0) deleted += await DeleteAsync(batch, cancellationToken);
+        if (batch.Count > 0)
+            deleted += await DeleteAsync(batch, cancellationToken);
 
         logger.LogWarning("Tenant purge: {Count} blob(s) of tenant {TenantId} deleted", deleted, notification.TenantId);
     }

@@ -16,7 +16,8 @@ public sealed class NotificationFailedStateFilter(
             return;
 
         NotificationMessage? message = null;
-        try { message = context.BackgroundJob.Job.Args.FirstOrDefault() as NotificationMessage; }
+        try
+        { message = context.BackgroundJob.Job?.Args is { Count: > 0 } args ? args[0] as NotificationMessage : null; }
         catch { }
 
         logger.LogCritical(

@@ -31,19 +31,19 @@ public class TenantAuditLog : IMustHaveTenant
     public static TenantAuditLog Create(Guid tenantId, Guid? actorUserId, Guid? impersonatorUserId, string action,
         string targetType, string? targetId, string? dataJson, string? ipAddress, string? correlationId,
         DateTime utcNow) => new()
-    {
-        Id = Guid.CreateVersion7(),
-        TenantId = tenantId,
-        ActorUserId = actorUserId,
-        ImpersonatorUserId = impersonatorUserId,
-        Action = action.Length <= ActionMaxLength ? action : action[..ActionMaxLength],
-        TargetType = targetType,
-        TargetId = targetId,
-        DataJson = dataJson,
-        IpAddress = ipAddress,
-        CorrelationId = correlationId,
-        OccurredAt = utcNow
-    };
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            ImpersonatorUserId = impersonatorUserId,
+            Action = action.Length <= ActionMaxLength ? action : action[..ActionMaxLength],
+            TargetType = targetType,
+            TargetId = targetId,
+            DataJson = dataJson,
+            IpAddress = ipAddress,
+            CorrelationId = correlationId,
+            OccurredAt = utcNow
+        };
 }
 
 /// <summary>Stable audit action names.</summary>

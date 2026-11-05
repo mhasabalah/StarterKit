@@ -118,7 +118,8 @@ public static class QueryExtensions
                       ?? FindSortableProperty<T>(CreatedAtProperty)
                       ?? idProperty;
 
-        if (primary is null) return query;
+        if (primary is null)
+            return query;
 
         var ordered = ApplyOrder(query, primary, descending, thenBy: false);
 
@@ -135,7 +136,8 @@ public static class QueryExtensions
 
     private static PropertyInfo? FindSortableProperty<T>(string? name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
 
         var property = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .FirstOrDefault(p => string.Equals(p.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));

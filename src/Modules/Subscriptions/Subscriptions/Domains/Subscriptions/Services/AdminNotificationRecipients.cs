@@ -34,7 +34,7 @@ public sealed class AdminNotificationRecipients(
             return configured;
         }
 
-        var emails = new List<string>();
+        var emails = new List<string?>();
         foreach (var role in settings.EffectiveRoles)
         {
             try

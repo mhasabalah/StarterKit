@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionRenewedEventHandler(
@@ -23,7 +24,7 @@ public class SubscriptionRenewedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = planName,
-            NewRenewalDate = notification.NewRenewalDate.ToString("yyyy-MM-dd"),
+            NewRenewalDate = notification.NewRenewalDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             DashboardUrl = $"{frontendBaseUrl}/dashboard"
         };
 

@@ -32,7 +32,8 @@ public class TenantMembership : Aggregate<Guid>, IMustHaveTenant
     public static TenantMembership Create(Guid tenantId, Guid userId, IEnumerable<Guid> roleIds,
         IEnumerable<BranchAssignment> branches, DateTime utcNow, bool isOwner = false, Guid? invitedBy = null)
     {
-        if (userId == Guid.Empty) throw new InvalidMembershipException("User id is required.");
+        if (userId == Guid.Empty)
+            throw new InvalidMembershipException("User id is required.");
 
         var membership = new TenantMembership
         {
@@ -66,7 +67,8 @@ public class TenantMembership : Aggregate<Guid>, IMustHaveTenant
 
     public void Suspend()
     {
-        if (IsOwner) throw new InvalidMembershipException("The owner cannot be suspended; transfer ownership first.");
+        if (IsOwner)
+            throw new InvalidMembershipException("The owner cannot be suspended; transfer ownership first.");
         Status = TenantMembershipStatus.Suspended;
         Changed();
     }
@@ -93,7 +95,8 @@ public class TenantMembership : Aggregate<Guid>, IMustHaveTenant
     /// <summary>Marks the membership as removed (the row is deleted by the caller) and notifies cache owners.</summary>
     public void Remove()
     {
-        if (IsOwner) throw new InvalidMembershipException("The owner cannot leave or be removed; transfer ownership first.");
+        if (IsOwner)
+            throw new InvalidMembershipException("The owner cannot leave or be removed; transfer ownership first.");
         AddDomainEvent(new TenantMembershipChangedEvent(TenantId, UserId, Removed: true));
     }
 

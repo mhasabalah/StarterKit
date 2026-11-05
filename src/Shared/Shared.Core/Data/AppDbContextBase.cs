@@ -16,7 +16,7 @@ public abstract class AppDbContextBase : DbContext, IDbContext
     private static readonly MethodInfo BranchFilterMethod = typeof(AppDbContextBase)
         .GetMethod(nameof(ConfigureBranchFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-    private IDbContextTransaction _currentTransaction;
+    private IDbContextTransaction? _currentTransaction;
     private ITenantContext? _tenantContext;
 
     protected AppDbContextBase(DbContextOptions options) : base(options)
@@ -141,7 +141,8 @@ public abstract class AppDbContextBase : DbContext, IDbContext
     {
         try
         {
-            await _currentTransaction?.RollbackAsync(cancellationToken)!;
+            if (_currentTransaction is not null)
+                await _currentTransaction.RollbackAsync(cancellationToken);
         }
         finally
         {
@@ -192,6 +193,6 @@ public abstract class AppDbContextBase : DbContext, IDbContext
 
         domainEntities.ForEach(entity => entity.ClearDomainEvents());
 
-        return domainEvents.ToImmutableList();
+        return domainEvents;
     }
 }
