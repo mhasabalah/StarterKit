@@ -33,7 +33,8 @@ public sealed class DnsOverHttpsDomainVerifier(
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Accept.ParseAdd("application/dns-json");
             using var response = await httpClient.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode) return false;
+            if (!response.IsSuccessStatusCode)
+                return false;
 
             var body = await response.Content.ReadFromJsonAsync<DohResponse>(cancellationToken);
             return body?.Answer?.Any(a => a.Data?.Trim('"') == expectedValue) == true;

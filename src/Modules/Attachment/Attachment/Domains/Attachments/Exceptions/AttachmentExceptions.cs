@@ -19,7 +19,7 @@ public class StoredFileNotFoundException(string storagePath)
 
 /// <summary>The storage provider failed (network, permissions, ...). 500 with a generic message.</summary>
 public class FileStorageException(string message, Exception? innerException = null)
-    : CustomException(message, innerException ?? new Exception(message), HttpStatusCode.InternalServerError);
+    : CustomException(message, innerException ?? new InvalidOperationException(message), HttpStatusCode.InternalServerError);
 
 // Pending Attachment Exceptions
 public class PendingAttachmentNotFoundException(Guid id)

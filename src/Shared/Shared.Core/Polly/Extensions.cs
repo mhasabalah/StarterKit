@@ -1,9 +1,8 @@
 using Polly;
 using Shared.Core.Exceptions;
+using Exception = System.Exception;
 
 namespace Shared.Core.Polly;
-
-using Exception = Exception;
 
 public static class Extensions
 {
@@ -22,8 +21,8 @@ public static class Extensions
                 && ex is not UnauthorizedException)
             .Retry(retryCount, (exception, retryAttempt, context) =>
             {
-                Logger.LogInformation($"Retry attempt: {retryAttempt}");
-                Logger.LogError($"Exception: {exception.Message}");
+                Logger.LogInformation("Retry attempt: {RetryAttempt}", retryAttempt);
+                Logger.LogError("Exception: {Message}", exception.Message);
             });
 
         return retryPolicy.Execute(action);

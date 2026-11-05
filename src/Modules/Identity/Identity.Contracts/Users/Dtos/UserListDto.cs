@@ -11,13 +11,13 @@ public record UserListDto
     public string? PhoneNumber { get; init; }
     public string FullName { get; init; } = default!;
     public string? ProfilePictureUrl { get; init; }
-    
+
     public bool IsActive { get; init; }
     public bool IsLocked { get; init; }
     public bool EmailConfirmed { get; init; }
-    
+
     public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
-    
+
     public DateTime CreatedAt { get; init; }
     public DateTime? LastLoginAt { get; init; }
 }

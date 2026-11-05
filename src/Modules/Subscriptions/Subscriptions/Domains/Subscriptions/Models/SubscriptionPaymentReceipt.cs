@@ -33,17 +33,17 @@ public class SubscriptionPaymentReceipt
         string? note,
         Guid recordedBy,
         DateTimeOffset now) => new()
-    {
-        Id = Guid.NewGuid(),
-        PaymentId = paymentId,
-        SubscriptionId = subscriptionId,
-        Amount = amount,
-        Currency = currency,
-        Method = method.Trim(),
-        Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim(),
-        ReceivedAt = receivedAt.ToUniversalTime(), // timestamptz: Npgsql only writes offset 0
-        Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
-        RecordedBy = recordedBy,
-        RecordedAt = now
-    };
+        {
+            Id = Guid.NewGuid(),
+            PaymentId = paymentId,
+            SubscriptionId = subscriptionId,
+            Amount = amount,
+            Currency = currency,
+            Method = method.Trim(),
+            Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim(),
+            ReceivedAt = receivedAt.ToUniversalTime(), // timestamptz: Npgsql only writes offset 0
+            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+            RecordedBy = recordedBy,
+            RecordedAt = now
+        };
 }

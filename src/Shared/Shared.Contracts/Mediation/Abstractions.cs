@@ -59,7 +59,7 @@ public interface IPublisher
 /// <summary>The "void" response of commands that return nothing.</summary>
 public readonly record struct Unit
 {
-    public static readonly Unit Value = default;
+    public static readonly Unit Value;
 
     public static Task<Unit> Task { get; } = System.Threading.Tasks.Task.FromResult(Value);
 

@@ -104,7 +104,8 @@ public static class TrustedForwardedHeadersExtensions
     public static IApplicationBuilder UseTrustedForwardedHeaders(this IApplicationBuilder app, IConfiguration configuration)
     {
         var enabled = configuration.GetValue($"{ForwardedHeadersSettings.SectionName}:Enabled", true);
-        if (!enabled) return app;
+        if (!enabled)
+            return app;
 
         return app.UseForwardedHeaders(BuildForwardedHeadersOptions(configuration));
     }

@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.Jobs;
 
 [DisableConcurrentExecution(60)]
@@ -76,11 +77,11 @@ public class ProcessPriceChangeNotificationsJob(
                     {
                         SubscriberName = subscriber?.DisplayName ?? string.Empty,
                         PlanName = plan.Name,
-                        OldPrice = plan.Price.ToString("F2"),
-                        NewPrice = plan.PendingPrice.ToString("F2"),
+                        OldPrice = plan.Price.ToString("F2", CultureInfo.InvariantCulture),
+                        NewPrice = plan.PendingPrice.ToString("F2", CultureInfo.InvariantCulture),
                         Currency = plan.Currency,
-                        EffectiveAt = plan.PriceEffectiveAt.ToString("yyyy-MM-dd"),
-                        DaysUntilEffective = daysUntilEffective.ToString(),
+                        EffectiveAt = plan.PriceEffectiveAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                        DaysUntilEffective = daysUntilEffective.ToString(CultureInfo.InvariantCulture),
                         PortalUrl = $"{frontendBaseUrl}/subscription"
                     };
 

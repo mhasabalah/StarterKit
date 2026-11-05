@@ -203,7 +203,11 @@ public static class Extensions
 
         if (options.UseZipkinExporter)
         {
+            // Opt-in and obsolete upstream (OTel deprecated the Zipkin exporter in favour of OTLP, which Zipkin itself cannot
+            // ingest). Kept for deployments that already run Zipkin; remove together with ObservabilityOptions.UseZipkinExporter.
+#pragma warning disable CS0618 // Zipkin exporter is obsolete: deliberate, see the comment above.
             tracing.AddZipkinExporter(x => x.Endpoint = new Uri(options.ZipkinOptions.HttpExporterEndpoint));
+#pragma warning restore CS0618
         }
 
         if (options.UseConsoleExporter)

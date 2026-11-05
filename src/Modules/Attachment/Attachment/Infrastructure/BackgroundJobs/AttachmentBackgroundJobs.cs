@@ -22,7 +22,8 @@ public sealed class HangfireAttachmentBackgroundJobs(
 {
     public void EnqueueFileDeletion(IReadOnlyCollection<Guid> attachmentIds)
     {
-        if (attachmentIds.Count == 0) return;
+        if (attachmentIds.Count == 0)
+            return;
 
         var ids = attachmentIds.Distinct().ToArray();
         try

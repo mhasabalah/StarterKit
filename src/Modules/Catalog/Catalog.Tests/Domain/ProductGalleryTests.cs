@@ -56,7 +56,8 @@ public class ProductGalleryTests
     public void AddImage_BeyondMax_Throws()
     {
         var product = NewProduct();
-        for (var i = 0; i < Product.MaxImages; i++) Add(product);
+        for (var i = 0; i < Product.MaxImages; i++)
+            Add(product);
 
         product.CanAddImage.Should().BeFalse();
         product.Invoking(p => Add(p)).Should().Throw<InvalidProductException>().WithMessage("*at most*");

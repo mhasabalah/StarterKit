@@ -32,7 +32,8 @@ public sealed class ImpersonationGuardTests
         var http = new DefaultHttpContext();
         http.Request.Method = method;
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) };
-        if (impersonated) claims.Add(new Claim(TenantClaimTypes.Actor, Guid.NewGuid().ToString()));
+        if (impersonated)
+            claims.Add(new Claim(TenantClaimTypes.Actor, Guid.NewGuid().ToString()));
         http.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
         http.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(metadata), "test"));
 

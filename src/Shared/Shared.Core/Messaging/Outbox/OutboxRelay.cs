@@ -62,7 +62,7 @@ public sealed class OutboxRelay(
     }
 
     /// <summary>Backlog of <paramref name="context"/> as the filters/scope of the caller see it (feeds <see cref="OutboxMetrics"/>).</summary>
-    public async Task<(long Pending, long DeadLettered)> CountBacklogAsync(DbContext context,
+    public static async Task<(long Pending, long DeadLettered)> CountBacklogAsync(DbContext context,
         CancellationToken cancellationToken = default)
     {
         return context.FindOutboxMessageType() == typeof(TenantOutboxMessage)

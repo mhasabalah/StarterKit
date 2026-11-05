@@ -1,3 +1,4 @@
+using System.Globalization;
 using Subscriptions.Domains.Subscriptions.Services;
 
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
@@ -34,7 +35,7 @@ public class RefundRequestedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? "Unknown subscriber",
             PlanName = refund?.PlanName ?? "Plan",
-            Amount = notification.RequestedAmount.ToString("F2"),
+            Amount = notification.RequestedAmount.ToString("F2", CultureInfo.InvariantCulture),
             Currency = notification.Currency,
             RefundType = refund?.RefundType.ToString() ?? string.Empty
         };

@@ -38,7 +38,8 @@ public sealed class MultiTenantE2EFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (Factory is not null) await Factory.DisposeAsync();
+        if (Factory is not null)
+            await Factory.DisposeAsync();
         await _postgres.DisposeAsync();
     }
 
@@ -46,8 +47,10 @@ public sealed class MultiTenantE2EFixture : IAsyncLifetime
     public HttpClient Client(Guid userId, Guid? tenantId = null, string? email = null)
     {
         var client = Factory.CreateClientAs(userId);
-        if (tenantId is { } tid) client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, tid.ToString());
-        if (email is not null) client.DefaultRequestHeaders.Add(TestAuthHandler.EmailHeader, email);
+        if (tenantId is { } tid)
+            client.DefaultRequestHeaders.Add(TestAuthHandler.TenantHeader, tid.ToString());
+        if (email is not null)
+            client.DefaultRequestHeaders.Add(TestAuthHandler.EmailHeader, email);
         return client;
     }
 }

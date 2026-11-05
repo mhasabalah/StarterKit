@@ -89,7 +89,8 @@ public class DeleteTenantRoleHandler(TenancyDbContext dbContext, ITenantAuditWri
     {
         var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.Id == command.Id, cancellationToken)
                    ?? throw new NotFoundException(nameof(TenantRole), command.Id);
-        if (role.IsSystem) throw new InvalidMembershipException("System roles cannot be deleted.");
+        if (role.IsSystem)
+            throw new InvalidMembershipException("System roles cannot be deleted.");
         if (await dbContext.Memberships.AnyAsync(m => m.RoleIds.Contains(role.Id), cancellationToken))
             throw new ConflictException("The role is still assigned to members.");
 
@@ -106,11 +107,15 @@ public class GetTenantAuditLogHandler(TenancyDbContext dbContext)
     public Task<PaginatedResult<TenantAuditLogDto>> Handle(GetTenantAuditLogQuery query, CancellationToken cancellationToken)
     {
         var logs = dbContext.AuditLogs.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(query.Action)) logs = logs.Where(a => a.Action == query.Action);
-        if (query.ActorUserId is { } actor) logs = logs.Where(a => a.ActorUserId == actor);
+        if (!string.IsNullOrWhiteSpace(query.Action))
+            logs = logs.Where(a => a.Action == query.Action);
+        if (query.ActorUserId is { } actor)
+            logs = logs.Where(a => a.ActorUserId == actor);
         // timestamptz only accepts UTC DateTimes: a query-string date binds as Unspecified (taken as UTC).
-        if (query.From.AsUtc() is { } fromUtc) logs = logs.Where(a => a.OccurredAt >= fromUtc);
-        if (query.To.AsUtc() is { } toUtc) logs = logs.Where(a => a.OccurredAt <= toUtc);
+        if (query.From.AsUtc() is { } fromUtc)
+            logs = logs.Where(a => a.OccurredAt >= fromUtc);
+        if (query.To.AsUtc() is { } toUtc)
+            logs = logs.Where(a => a.OccurredAt <= toUtc);
 
         return logs.OrderByDescending(a => a.OccurredAt)
             .Select(a => new TenantAuditLogDto(a.Id, a.ActorUserId, a.ImpersonatorUserId, a.Action, a.TargetType,

@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionPastDueEventHandler(
@@ -26,7 +27,7 @@ public class SubscriptionPastDueEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = planName,
-            GraceDeadline = notification.GracePeriodEndsAt.ToString("yyyy-MM-dd"),
+            GraceDeadline = notification.GracePeriodEndsAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             RenewalUrl = $"{frontendBaseUrl}/subscription/renew",
             SupportWhatsApp = instructions?.SupportWhatsApp ?? string.Empty,
             SupportEmail = instructions?.SupportEmail ?? string.Empty

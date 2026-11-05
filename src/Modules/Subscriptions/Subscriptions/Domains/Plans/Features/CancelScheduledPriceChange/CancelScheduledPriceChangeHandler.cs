@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 using Subscriptions.Domains.Subscriptions.Services;
@@ -77,7 +78,7 @@ public class CancelScheduledPriceChangeHandler(
                 {
                     SubscriberName = subscriber?.DisplayName ?? string.Empty,
                     PlanName = plan.Name.En,
-                    CurrentPrice = plan.Price.ToString("F2"),
+                    CurrentPrice = plan.Price.ToString("F2", CultureInfo.InvariantCulture),
                     Currency = plan.Currency,
                     PortalUrl = $"{frontendBaseUrl}/subscription"
                 };

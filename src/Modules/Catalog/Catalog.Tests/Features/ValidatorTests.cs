@@ -101,7 +101,9 @@ public class CreateProductCommandValidatorTests
     {
         var result = _validator.TestValidate(Valid() with
         {
-            CategoryId = Guid.Empty, AttachmentSessionId = Guid.Empty, OwnerId = Guid.Empty
+            CategoryId = Guid.Empty,
+            AttachmentSessionId = Guid.Empty,
+            OwnerId = Guid.Empty
         });
         result.ShouldHaveValidationErrorFor(x => x.CategoryId);
         result.ShouldHaveValidationErrorFor(x => x.AttachmentSessionId);

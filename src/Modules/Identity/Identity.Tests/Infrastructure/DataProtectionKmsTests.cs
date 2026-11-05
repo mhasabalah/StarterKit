@@ -135,7 +135,7 @@ public sealed class DataProtectionKmsTests : IDisposable
 
         var info = new AwsKmsXmlEncryptor(kms.Client.Object, "key-1", "StarterKit").Encrypt(element);
 
-        info.DecryptorType.Should().Be(typeof(AwsKmsXmlDecryptor));
+        info.DecryptorType.Should().Be<AwsKmsXmlDecryptor>();
         info.EncryptedElement.Name.LocalName.Should().Be(AwsKmsXmlEncryptor.ElementName);
         info.EncryptedElement.ToString().Should().NotContain("c2VjcmV0", "no plaintext in the stored element");
 

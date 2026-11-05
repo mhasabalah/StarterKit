@@ -52,10 +52,10 @@ public sealed class TenancyDataSeeder(TenancyDbContext dbContext, IConfiguration
                 .ToHashSet();
 
             foreach (var tenantId in tenantIds)
-            foreach (var definition in SystemTenantRoles.All.Where(d => !existing.Contains((tenantId, d.Key))))
-            {
-                dbContext.Roles.Add(TenantRole.CreateSystem(tenantId, definition));
-            }
+                foreach (var definition in SystemTenantRoles.All.Where(d => !existing.Contains((tenantId, d.Key))))
+                {
+                    dbContext.Roles.Add(TenantRole.CreateSystem(tenantId, definition));
+                }
 
             await dbContext.SaveChangesAsync();
         }

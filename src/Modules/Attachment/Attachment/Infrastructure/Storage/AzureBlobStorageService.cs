@@ -214,6 +214,7 @@ public sealed class AzureBlobStorageService(
 /// container once; afterwards it is a no-op without any network call.
 /// </summary>
 public sealed class AzureBlobContainerGate(BlobServiceClient blobServiceClient, IOptions<AttachmentOptions> options)
+    : IDisposable
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
     private volatile bool _ensured;
@@ -225,12 +226,14 @@ public sealed class AzureBlobContainerGate(BlobServiceClient blobServiceClient, 
 
     public async Task EnsureCreatedAsync(CancellationToken cancellationToken)
     {
-        if (_ensured) return;
+        if (_ensured)
+            return;
 
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            if (_ensured) return;
+            if (_ensured)
+                return;
             await Container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
             _ensured = true;
         }
@@ -239,6 +242,8 @@ public sealed class AzureBlobContainerGate(BlobServiceClient blobServiceClient, 
             _lock.Release();
         }
     }
+
+    public void Dispose() => _lock.Dispose();
 }
 
 /// <summary>

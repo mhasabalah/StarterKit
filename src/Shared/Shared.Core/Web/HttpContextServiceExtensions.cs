@@ -10,34 +10,36 @@ public static class HttpContextServiceExtensions
     /// </summary>
     public static string GetUserDisplayName(this IHttpContextService service)
     {
-        return service.GetUserName() 
-               ?? service.GetEmail() 
-               ?? service.GetUserId() 
+        return service.GetUserName()
+               ?? service.GetEmail()
+               ?? service.GetUserId()
                ?? "Anonymous";
     }
-    
+
     /// <summary>
     /// Checks if the current user has any of the specified roles
     /// </summary>
     public static bool HasAnyRole(this IHttpContextService service, params string[] roles)
     {
-        if (roles == null || roles.Length == 0) return false;
-        
+        if (roles == null || roles.Length == 0)
+            return false;
+
         var userRoles = service.GetRoles().ToHashSet(StringComparer.OrdinalIgnoreCase);
         return roles.Any(role => userRoles.Contains(role));
     }
-    
+
     /// <summary>
     /// Checks if the current user has all of the specified roles
     /// </summary>
     public static bool HasAllRoles(this IHttpContextService service, params string[] roles)
     {
-        if (roles == null || roles.Length == 0) return true;
-        
+        if (roles == null || roles.Length == 0)
+            return true;
+
         var userRoles = service.GetRoles().ToHashSet(StringComparer.OrdinalIgnoreCase);
         return roles.All(role => userRoles.Contains(role));
     }
-    
+
     /// <summary>
     /// Gets audit information for the current user
     /// </summary>
@@ -53,7 +55,7 @@ public static class HttpContextServiceExtensions
             Timestamp = DateTime.UtcNow
         };
     }
-    
+
     /// <summary>
     /// Gets request context information
     /// </summary>
@@ -71,7 +73,7 @@ public static class HttpContextServiceExtensions
             Scheme = service.GetScheme()
         };
     }
-    
+
     /// <summary>
     /// Checks if the request is from a specific IP address or IP range
     /// </summary>
@@ -80,7 +82,7 @@ public static class HttpContextServiceExtensions
         var currentIp = service.GetIpAddress();
         return currentIp != null && currentIp.Equals(ipAddress, StringComparison.OrdinalIgnoreCase);
     }
-    
+
     /// <summary>
     /// Checks if the request is HTTPS
     /// </summary>

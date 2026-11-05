@@ -143,10 +143,13 @@ public sealed class AttachmentReconciler(
                     return await services.GetRequiredService<AttachmentFileReaper>().ReapAsync(id, ct);
                 }, cancellationToken);
 
-                if (outcome is null) return;
+                if (outcome is null)
+                    return;
                 claimed++;
-                if (outcome is ReapOutcome.Deleted or ReapOutcome.AlreadyGone) deleted++;
-                if (outcome == ReapOutcome.Failed) failed++;
+                if (outcome is ReapOutcome.Deleted or ReapOutcome.AlreadyGone)
+                    deleted++;
+                if (outcome == ReapOutcome.Failed)
+                    failed++;
             },
             cancellationToken);
 
@@ -178,8 +181,10 @@ public sealed class AttachmentReconciler(
                     (services, ct) => services.GetRequiredService<AttachmentFileReaper>().ReapAsync(id, ct),
                     cancellationToken);
 
-                if (outcome == ReapOutcome.Deleted) deleted++;
-                if (outcome == ReapOutcome.Failed) failed++;
+                if (outcome == ReapOutcome.Deleted)
+                    deleted++;
+                if (outcome == ReapOutcome.Failed)
+                    failed++;
             },
             cancellationToken);
 
@@ -304,7 +309,8 @@ public sealed class AttachmentReconciler(
                     .Take(Options.BatchSize)
                     .ToListAsync(ct);
 
-                if (ids.Count == 0) return 0;
+                if (ids.Count == 0)
+                    return 0;
 
                 // Set-based: these rows raise no events and their blobs are already deleted or moved.
                 return await db.PendingAttachments.IgnoreNonIsolationFilters()
@@ -313,7 +319,8 @@ public sealed class AttachmentReconciler(
             }, cancellationToken);
 
             purged += count;
-            if (count < Options.BatchSize) break;
+            if (count < Options.BatchSize)
+                break;
         }
 
         if (purged > 0)
@@ -343,7 +350,8 @@ public sealed class AttachmentReconciler(
                 (services, ct) => nextBatch(services.GetRequiredService<AttachmentDbContext>(), exclude, ct),
                 cancellationToken);
 
-            if (ids.Count == 0) return;
+            if (ids.Count == 0)
+                return;
 
             foreach (var id in ids)
             {

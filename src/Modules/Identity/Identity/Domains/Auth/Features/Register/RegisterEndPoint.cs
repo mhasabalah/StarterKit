@@ -9,7 +9,7 @@ public class RegisterEndPoint : ICarterModule
         app.MapPost("api/auth/register", async (RegisterCommand command, ISender sender) =>
         {
             var result = await sender.Send(command);
-            
+
             return Results.Ok(new ApiResponse<RegisterResult>(
                 true,
                 StatusCodes.Status200OK,

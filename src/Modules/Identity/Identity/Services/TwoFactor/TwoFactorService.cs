@@ -156,7 +156,8 @@ public sealed class TwoFactorService(
         var builder = new StringBuilder();
         for (var i = 0; i < key.Length; i += 4)
         {
-            if (i > 0) builder.Append(' ');
+            if (i > 0)
+                builder.Append(' ');
             builder.Append(key.AsSpan(i, Math.Min(4, key.Length - i)));
         }
 

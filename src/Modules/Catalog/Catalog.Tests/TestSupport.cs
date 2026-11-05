@@ -35,15 +35,36 @@ public static class TestSupport
         var reviewer = AdminId;
         switch (status)
         {
-            case ProductStatus.Draft: break;
-            case ProductStatus.PendingReview: p.SubmitForReview(); break;
-            case ProductStatus.Approved: p.SubmitForReview(); p.Approve(reviewer); break;
-            case ProductStatus.Published: p.SubmitForReview(); p.Approve(reviewer); p.Publish(); break;
-            case ProductStatus.Rejected: p.SubmitForReview(); p.Reject(reviewer, "Not good enough"); break;
-            case ProductStatus.ChangesRequested: p.SubmitForReview(); p.RequestChanges(reviewer, "Add photos"); break;
+            case ProductStatus.Draft:
+                break;
+            case ProductStatus.PendingReview:
+                p.SubmitForReview();
+                break;
+            case ProductStatus.Approved:
+                p.SubmitForReview();
+                p.Approve(reviewer);
+                break;
+            case ProductStatus.Published:
+                p.SubmitForReview();
+                p.Approve(reviewer);
+                p.Publish();
+                break;
+            case ProductStatus.Rejected:
+                p.SubmitForReview();
+                p.Reject(reviewer, "Not good enough");
+                break;
+            case ProductStatus.ChangesRequested:
+                p.SubmitForReview();
+                p.RequestChanges(reviewer, "Add photos");
+                break;
             case ProductStatus.Archived:
-                p.SubmitForReview(); p.Approve(reviewer); p.Publish(); p.Archive(); break;
-            default: throw new ArgumentOutOfRangeException(nameof(status));
+                p.SubmitForReview();
+                p.Approve(reviewer);
+                p.Publish();
+                p.Archive();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(status));
         }
 
         p.ClearDomainEvents();

@@ -5,7 +5,7 @@ namespace Shared.Contracts.Pagination;
 
 public class PaginatedResult<T>
 {
-    public PageInfoResult PageInfoResult { get; set; }
+    public PageInfoResult PageInfoResult { get; set; } = new();
     public string? OrderBy { get; set; }
     public bool OrderByDesc { get; set; }
     public List<T>? Result { get; set; }

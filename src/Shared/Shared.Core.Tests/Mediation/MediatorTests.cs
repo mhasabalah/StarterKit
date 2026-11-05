@@ -36,7 +36,7 @@ public sealed class MediatorTests
         public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             journal.Add("outer>");
-            var response = await next();
+            var response = await next(cancellationToken);
             journal.Add("<outer");
             return response;
         }
@@ -189,6 +189,6 @@ public sealed class MediatorTests
     }
 
     [Fact]
-    public void Unit_IsASingleValue() =>
-        (Unit.Value == default(Unit) && Unit.Task.Result == Unit.Value).Should().BeTrue();
+    public async Task Unit_IsASingleValue() =>
+        (Unit.Value == default && await Unit.Task == Unit.Value).Should().BeTrue();
 }

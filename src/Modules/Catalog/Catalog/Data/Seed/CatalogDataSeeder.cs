@@ -47,7 +47,8 @@ public class CatalogDataSeeder(
 
     private async Task SeedCategoriesAsync()
     {
-        if (await context.Categories.IgnoreNonIsolationFilters().AnyAsync()) return;
+        if (await context.Categories.IgnoreNonIsolationFilters().AnyAsync())
+            return;
 
         context.Categories.AddRange(
             Category.Create(LocalizedText.Create("Electronics", "إلكترونيات"), "electronics", null, 0, Id(ElectronicsId)),
@@ -65,7 +66,8 @@ public class CatalogDataSeeder(
 
     private async Task SeedTagsAsync()
     {
-        if (await context.Tags.IgnoreNonIsolationFilters().AnyAsync()) return;
+        if (await context.Tags.IgnoreNonIsolationFilters().AnyAsync())
+            return;
 
         context.Tags.AddRange(
             Tag.Create(LocalizedText.Create("New Arrival", "وصل حديثاً"), Id(NewArrivalTagId)),
@@ -78,7 +80,8 @@ public class CatalogDataSeeder(
 
     private async Task SeedAttributeTypesAsync()
     {
-        if (await context.AttributeTypes.IgnoreNonIsolationFilters().AnyAsync()) return;
+        if (await context.AttributeTypes.IgnoreNonIsolationFilters().AnyAsync())
+            return;
 
         ProductType[] physical = [ProductType.Physical];
 
