@@ -43,7 +43,8 @@ public sealed class SessionManager(
         var revoked = await refreshTokens.RevokeUserFamilyAsync(
             userId, sessionId, reason, httpContextService.GetIpAddress(), ct);
 
-        if (revoked == 0) return false;
+        if (revoked == 0)
+            return false;
 
         await BlacklistAsync(sessionId);
         logger.LogInformation("Session {SessionId} of user {UserId} revoked. Reason: {Reason}", sessionId, userId, reason);

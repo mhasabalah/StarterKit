@@ -29,9 +29,12 @@ public class GetWebhookDeliveriesHandler(WebhooksDbContext dbContext)
         CancellationToken cancellationToken)
     {
         var deliveries = dbContext.Deliveries.AsNoTracking();
-        if (query.EndpointId is { } endpointId) deliveries = deliveries.Where(d => d.EndpointId == endpointId);
-        if (query.Status is { } status) deliveries = deliveries.Where(d => d.Status == status);
-        if (!string.IsNullOrWhiteSpace(query.EventType)) deliveries = deliveries.Where(d => d.EventType == query.EventType);
+        if (query.EndpointId is { } endpointId)
+            deliveries = deliveries.Where(d => d.EndpointId == endpointId);
+        if (query.Status is { } status)
+            deliveries = deliveries.Where(d => d.Status == status);
+        if (!string.IsNullOrWhiteSpace(query.EventType))
+            deliveries = deliveries.Where(d => d.EventType == query.EventType);
 
         return deliveries
             .OrderByDescending(d => d.CreatedAt).ThenBy(d => d.Id)

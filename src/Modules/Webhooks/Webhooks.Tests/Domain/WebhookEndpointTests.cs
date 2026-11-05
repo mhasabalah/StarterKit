@@ -123,7 +123,8 @@ public class WebhookEndpointTests
     public void Update_ReEnabling_ClearsTheDisabledState()
     {
         var endpoint = TestSupport.NewEndpoint();
-        for (var i = 0; i < 3; i++) endpoint.RecordFailure(TestSupport.Now, 3, "x");
+        for (var i = 0; i < 3; i++)
+            endpoint.RecordFailure(TestSupport.Now, 3, "x");
         endpoint.Enabled.Should().BeFalse();
 
         endpoint.Update("https://new.example.com", "d", ["b"], enabled: true, TestSupport.Now);

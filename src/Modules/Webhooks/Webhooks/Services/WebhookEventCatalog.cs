@@ -59,7 +59,8 @@ public sealed class WebhookEventCatalog : IWebhookEventCatalog
         foreach (var type in IntegrationEventTypes.Scan().Values)
         {
             var attribute = type.GetCustomAttribute<PublicWebhookEventAttribute>(inherit: false);
-            if (attribute is not null) marked[type] = attribute.Description;
+            if (attribute is not null)
+                marked[type] = attribute.Description;
         }
 
         return marked;
@@ -77,7 +78,8 @@ public sealed class WebhookEventCatalog : IWebhookEventCatalog
     {
         for (var t = type.BaseType; t is not null; t = t.BaseType)
         {
-            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(WebhookForwardingConsumer<>)) return t;
+            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(WebhookForwardingConsumer<>))
+                return t;
         }
 
         return null;

@@ -54,13 +54,15 @@ public sealed class DispatchDueWebhooksJob(
                 {
                     var db = services.GetRequiredService<WebhooksDbContext>();
                     var delivery = await db.Deliveries.FirstOrDefaultAsync(d => d.Id == id, ct);
-                    if (delivery is null || delivery.Status != WebhookDeliveryStatus.Pending) return false;
+                    if (delivery is null || delivery.Status != WebhookDeliveryStatus.Pending)
+                        return false;
                     delivery.MarkEnqueued(services.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime);
                     await db.SaveChangesAsync(ct);
                     return true;
                 }, CancellationToken.None);
 
-                if (!claimed) continue;
+                if (!claimed)
+                    continue;
                 jobs.Enqueue<DeliverWebhookJob>(job => job.ExecuteAsync(id, CancellationToken.None));
                 enqueued++;
             }

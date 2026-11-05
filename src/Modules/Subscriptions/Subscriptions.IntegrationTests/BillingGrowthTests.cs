@@ -254,7 +254,8 @@ public sealed class BillingGrowthTests(SubscriptionsPostgresFixture fx)
 
         static async Task<bool> Try(Func<Task<RedeemCouponResult>> act)
         {
-            try { await act(); return true; }
+            try
+            { await act(); return true; }
             catch (Exception ex) when (ex is ConflictException or ConcurrencyConflictException or InvalidCouponException) { return false; }
         }
     }

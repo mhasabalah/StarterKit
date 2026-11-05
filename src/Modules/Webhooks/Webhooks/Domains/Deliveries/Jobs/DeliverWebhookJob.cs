@@ -110,7 +110,8 @@ public sealed class DeliverWebhookJob(
         var now = time.GetUtcNow().UtcDateTime;
 
         var delivery = await db.Deliveries.FirstOrDefaultAsync(d => d.Id == deliveryId, ct);
-        if (delivery is null || !delivery.IsDue(now)) return null;
+        if (delivery is null || !delivery.IsDue(now))
+            return null;
 
         var endpoint = await db.Endpoints.FirstOrDefaultAsync(e => e.Id == delivery.EndpointId, ct);
         if (endpoint is null || !endpoint.Enabled)

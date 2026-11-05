@@ -40,8 +40,10 @@ public sealed class ApiKeyAuthenticator(
 
     public async Task<ApiKeyAuthResult> AuthenticateAsync(string rawKey, CancellationToken ct = default)
     {
-        if (!options.Value.Enabled) return ApiKeyAuthResult.Fail("API keys are disabled.");
-        if (!ApiKey.TryParsePrefix(rawKey, out var prefix)) return ApiKeyAuthResult.Fail("Invalid API key.");
+        if (!options.Value.Enabled)
+            return ApiKeyAuthResult.Fail("API keys are disabled.");
+        if (!ApiKey.TryParsePrefix(rawKey, out var prefix))
+            return ApiKeyAuthResult.Fail("Invalid API key.");
 
         var key = await keys.FindByPrefixAsync(prefix, ct);
         if (key is null)
@@ -50,11 +52,14 @@ public sealed class ApiKeyAuthenticator(
             return ApiKeyAuthResult.Fail("Invalid API key.");
         }
 
-        if (!key.Matches(rawKey)) return ApiKeyAuthResult.Fail("Invalid API key.");
+        if (!key.Matches(rawKey))
+            return ApiKeyAuthResult.Fail("Invalid API key.");
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        if (key.IsRevoked) return ApiKeyAuthResult.Fail("API key has been revoked.");
-        if (key.IsExpired(now)) return ApiKeyAuthResult.Fail("API key has expired.");
+        if (key.IsRevoked)
+            return ApiKeyAuthResult.Fail("API key has been revoked.");
+        if (key.IsExpired(now))
+            return ApiKeyAuthResult.Fail("API key has expired.");
 
         var user = await userManager.FindByIdAsync(key.UserId.ToString());
         if (user is null || !user.IsActive || await userManager.IsLockedOutAsync(user))
@@ -84,7 +89,8 @@ public sealed class ApiKeyAuthenticator(
     private async Task TouchThrottledAsync(ApiKey key, DateTime now, CancellationToken ct)
     {
         var interval = TimeSpan.FromMinutes(Math.Max(0, options.Value.LastUsedWriteIntervalMinutes));
-        if (key.LastUsedAt is { } last && now - last < interval) return;
+        if (key.LastUsedAt is { } last && now - last < interval)
+            return;
 
         try
         {

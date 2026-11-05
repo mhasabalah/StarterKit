@@ -148,7 +148,8 @@ public sealed class FeatureFlagStore(
     private async Task WriteDistributedAsync(Snapshot snapshot, CancellationToken cancellationToken)
     {
         var seconds = options.Value.Cache.DistributedSeconds;
-        if (seconds <= 0) return;
+        if (seconds <= 0)
+            return;
 
         try
         {

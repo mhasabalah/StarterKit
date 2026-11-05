@@ -29,7 +29,8 @@ public static class ApiKeyRequest
     public static string? SelectScheme(HttpContext context)
     {
         var authorization = context.Request.Headers.Authorization.ToString();
-        if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return null;
+        if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            return null;
         return Extract(context.Request) is not null ? ApiKeyClaimTypes.SchemeName : null;
     }
 }
@@ -42,7 +43,8 @@ public sealed class ApiKeyAuthenticationHandler(
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var rawKey = ApiKeyRequest.Extract(Request);
-        if (rawKey is null) return AuthenticateResult.NoResult();
+        if (rawKey is null)
+            return AuthenticateResult.NoResult();
 
         var authenticator = Context.RequestServices.GetRequiredService<IApiKeyAuthenticator>();
         var result = await authenticator.AuthenticateAsync(rawKey, Context.RequestAborted);

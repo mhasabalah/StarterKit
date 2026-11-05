@@ -1,4 +1,4 @@
-﻿using Identity.Data;
+using Identity.Data;
 using Identity.Data.Repository.Otp;
 using Identity.Domains.Audit.Services;
 using Identity.Domains.Auth.Services;

@@ -26,8 +26,8 @@ public class SubscriptionStateMachineTests
 
         var data = new TheoryData<SubscriptionStatus, SubscriptionStatus, bool>();
         foreach (var from in Enum.GetValues<SubscriptionStatus>())
-        foreach (var to in Enum.GetValues<SubscriptionStatus>())
-            data.Add(from, to, allowed.Contains((from, to)));
+            foreach (var to in Enum.GetValues<SubscriptionStatus>())
+                data.Add(from, to, allowed.Contains((from, to)));
         return data;
     }
 

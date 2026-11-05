@@ -1,4 +1,4 @@
-﻿namespace Identity.Options;
+namespace Identity.Options;
 
 /// <summary>How the Data Protection key ring is encrypted at rest (<c>identity.data_protection_keys</c>).</summary>
 public enum DataProtectionKeyEncryption

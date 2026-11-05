@@ -39,7 +39,8 @@ public abstract class WebhookForwardingConsumer<TEvent>(
         if (scopeTenant is { } tenantId && tenantId != tenantContext.TenantId)
         {
             var tenant = await tenantStore.FindByIdAsync(tenantId, context.CancellationToken);
-            if (tenant is null) return; // the subscriber is not a tenant
+            if (tenant is null)
+                return; // the subscriber is not a tenant
 
             using (TenantScope.Begin(tenant))
             {
@@ -50,7 +51,8 @@ public abstract class WebhookForwardingConsumer<TEvent>(
         }
 
         // No tenant on the message (host-level event): nothing tenant-owned to forward to.
-        if (tenantContext.TenantId is not { } ambient) return;
+        if (tenantContext.TenantId is not { } ambient)
+            return;
         await ForwardAsync(context, ambient);
     }
 

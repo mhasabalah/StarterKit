@@ -121,7 +121,8 @@ public sealed partial class TenantIsolationArchitectureTests
     private static string FindRepositoryRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !dir.EnumerateFiles("*.slnx").Any()) dir = dir.Parent;
+        while (dir is not null && !dir.EnumerateFiles("*.slnx").Any())
+            dir = dir.Parent;
         return dir?.FullName ?? throw new InvalidOperationException("Repository root (*.slnx) not found.");
     }
 

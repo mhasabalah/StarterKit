@@ -48,14 +48,16 @@ public partial class Category : Aggregate<Guid>, IMustHaveTenant, IAuditable
 
     public void Activate()
     {
-        if (IsActive) return;
+        if (IsActive)
+            return;
         IsActive = true;
         AddDomainEvent(new CategoryChangedEvent(Id));
     }
 
     public void Deactivate()
     {
-        if (!IsActive) return;
+        if (!IsActive)
+            return;
         IsActive = false;
         AddDomainEvent(new CategoryChangedEvent(Id));
     }
@@ -65,7 +67,8 @@ public partial class Category : Aggregate<Guid>, IMustHaveTenant, IAuditable
     /// <summary>Validates the normalized form (input is lower-cased and trimmed before storage).</summary>
     public static bool IsValidSlug(string? slug)
     {
-        if (string.IsNullOrWhiteSpace(slug)) return false;
+        if (string.IsNullOrWhiteSpace(slug))
+            return false;
         var normalized = NormalizeSlug(slug);
         return normalized.Length <= SlugMaxLength && SlugRegex().IsMatch(normalized);
     }

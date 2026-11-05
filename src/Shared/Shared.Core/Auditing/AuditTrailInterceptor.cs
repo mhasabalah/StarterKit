@@ -62,7 +62,8 @@ public sealed class AuditTrailInterceptor(
 
     private void Write(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
 
         EnsureAppendOnly(context);
 
@@ -70,7 +71,8 @@ public sealed class AuditTrailInterceptor(
             .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted ||
                         (e.State == EntityState.Unchanged && e.HasChangedOwnedEntities()))
             .ToList();
-        if (auditables.Count == 0) return;
+        if (auditables.Count == 0)
+            return;
 
         var entryType = context.FindAuditEntryType()
                         ?? throw new InvalidOperationException(
@@ -98,7 +100,8 @@ public sealed class AuditTrailInterceptor(
             };
 
             var changes = CollectChanges(entry, action, settings);
-            if (action == AuditAction.Modified && changes.Count == 0) continue;
+            if (action == AuditAction.Modified && changes.Count == 0)
+                continue;
 
             AuditEntryBase row;
             if (entryType == typeof(TenantAuditEntry))
@@ -130,7 +133,8 @@ public sealed class AuditTrailInterceptor(
 
     private void EnsureAppendOnly(DbContext context)
     {
-        if (tenantContext.IsHostScope) return;
+        if (tenantContext.IsHostScope)
+            return;
 
         var offender = context.ChangeTracker.Entries<AuditEntryBase>()
             .FirstOrDefault(e => e.State is EntityState.Modified or EntityState.Deleted);
@@ -147,8 +151,10 @@ public sealed class AuditTrailInterceptor(
         foreach (var reference in entry.References)
         {
             var target = reference.TargetEntry;
-            if (target is null || !target.Metadata.IsOwned()) continue;
-            if (target.State == EntityState.Unchanged && action == AuditAction.Modified) continue;
+            if (target is null || !target.Metadata.IsOwned())
+                continue;
+            if (target.State == EntityState.Unchanged && action == AuditAction.Modified)
+                continue;
 
             // A replaced owned value is tracked as Deleted(old) + Added(new) with the same key: diff the pair.
             var replaced = action == AuditAction.Modified && target.State == EntityState.Added
@@ -167,7 +173,8 @@ public sealed class AuditTrailInterceptor(
         foreach (var property in entry.Properties)
         {
             var metadata = property.Metadata;
-            if (IsSkipped(metadata, owned)) continue;
+            if (IsSkipped(metadata, owned))
+                continue;
 
             var diff = new Dictionary<string, object?>(2);
             switch (action)
@@ -185,7 +192,8 @@ public sealed class AuditTrailInterceptor(
                         if (replaced is not null)
                         {
                             var before = replaced.Property(metadata.Name).OriginalValue;
-                            if (Equals(before, property.CurrentValue)) continue;
+                            if (Equals(before, property.CurrentValue))
+                                continue;
                             diff["old"] = Normalize(before, settings);
                         }
 
@@ -193,7 +201,8 @@ public sealed class AuditTrailInterceptor(
                     }
                     else
                     {
-                        if (!property.IsModified || Equals(property.OriginalValue, property.CurrentValue)) continue;
+                        if (!property.IsModified || Equals(property.OriginalValue, property.CurrentValue))
+                            continue;
                         diff["old"] = Normalize(property.OriginalValue, settings);
                         diff["new"] = Normalize(property.CurrentValue, settings);
                     }
@@ -208,7 +217,8 @@ public sealed class AuditTrailInterceptor(
     private static EntityEntry? FindReplacedOwned(DbContext context, EntityEntry added)
     {
         var key = added.Metadata.FindPrimaryKey();
-        if (key is null) return null;
+        if (key is null)
+            return null;
 
         return context.ChangeTracker.Entries()
             .FirstOrDefault(e => e.State == EntityState.Deleted && e.Metadata == added.Metadata &&
@@ -219,10 +229,14 @@ public sealed class AuditTrailInterceptor(
     private static bool IsSkipped(IProperty property, bool owned) =>
         SkippedCache.GetOrAdd(property, p =>
         {
-            if (p.IsPrimaryKey() || p.IsShadowProperty()) return true;
-            if (owned && p.IsForeignKey()) return true;
-            if (BookkeepingProperties.Contains(p.Name)) return true;
-            if (SecretNameParts.Any(part => p.Name.Contains(part, StringComparison.OrdinalIgnoreCase))) return true;
+            if (p.IsPrimaryKey() || p.IsShadowProperty())
+                return true;
+            if (owned && p.IsForeignKey())
+                return true;
+            if (BookkeepingProperties.Contains(p.Name))
+                return true;
+            if (SecretNameParts.Any(part => p.Name.Contains(part, StringComparison.OrdinalIgnoreCase)))
+                return true;
 
             var member = (MemberInfo?)p.PropertyInfo ?? p.FieldInfo;
             return member?.GetCustomAttribute<AuditIgnoreAttribute>() is not null;
@@ -244,14 +258,16 @@ public sealed class AuditTrailInterceptor(
     private static string Serialize(Dictionary<string, Dictionary<string, object?>> changes, AuditTrailOptions settings)
     {
         var json = JsonSerializer.Serialize(changes, Json);
-        if (Encoding.UTF8.GetByteCount(json) <= settings.MaxChangesBytes) return json;
+        if (Encoding.UTF8.GetByteCount(json) <= settings.MaxChangesBytes)
+            return json;
 
         var names = new List<string>();
         var size = 40;
         foreach (var name in changes.Keys.Order(StringComparer.Ordinal))
         {
             size += name.Length + 4;
-            if (size > settings.MaxChangesBytes) break;
+            if (size > settings.MaxChangesBytes)
+                break;
             names.Add(name);
         }
 
@@ -262,7 +278,8 @@ public sealed class AuditTrailInterceptor(
     private static string KeyOf(EntityEntry entry)
     {
         var key = entry.Metadata.FindPrimaryKey();
-        if (key is null) return "";
+        if (key is null)
+            return "";
         return string.Join(',', key.Properties.Select(p =>
             Convert.ToString(entry.Property(p.Name).CurrentValue, CultureInfo.InvariantCulture)));
     }

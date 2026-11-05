@@ -58,8 +58,10 @@ public static class AuditTrailModelBuilderExtensions
 
     public static Type? FindAuditEntryType(this IModel model)
     {
-        if (model.FindEntityType(typeof(TenantAuditEntry)) is not null) return typeof(TenantAuditEntry);
-        if (model.FindEntityType(typeof(AuditEntry)) is not null) return typeof(AuditEntry);
+        if (model.FindEntityType(typeof(TenantAuditEntry)) is not null)
+            return typeof(TenantAuditEntry);
+        if (model.FindEntityType(typeof(AuditEntry)) is not null)
+            return typeof(AuditEntry);
         return null;
     }
 }

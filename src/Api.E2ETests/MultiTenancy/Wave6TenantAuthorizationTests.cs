@@ -82,7 +82,8 @@ public sealed class Wave6TenantAuthorizationTests(MultiTenantE2EFixture fixture)
         var headOffice = (await tree.Content.ReadFromJsonAsync<Envelope<List<BranchNode>>>(Json))!.Data!.Single(b => b.IsHeadOffice).Id;
         using var invite = await owner.PostAsJsonAsync($"{Api}/tenant-invitations", new
         {
-            email, roleIds = Array.Empty<Guid>(),
+            email,
+            roleIds = Array.Empty<Guid>(),
             branches = new[] { new { branchId = headOffice, includeDescendants = true } }
         });
         invite.StatusCode.Should().Be(HttpStatusCode.OK, await invite.Content.ReadAsStringAsync());

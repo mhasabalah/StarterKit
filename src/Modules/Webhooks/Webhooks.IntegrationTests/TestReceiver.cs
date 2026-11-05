@@ -59,11 +59,13 @@ public sealed class TestReceiver : IAsyncDisposable
         {
             var stream = client.GetStream();
             var request = await ReadRequest(stream);
-            if (request is null) return;
+            if (request is null)
+                return;
             _requests.Enqueue(request);
 
             var response = Respond(request);
-            if (response.Delay is { } delay) await Task.Delay(delay, _cts.Token);
+            if (response.Delay is { } delay)
+                await Task.Delay(delay, _cts.Token);
 
             var body = Encoding.UTF8.GetBytes(response.Body);
             var head = new StringBuilder()
@@ -100,10 +102,12 @@ public sealed class TestReceiver : IAsyncDisposable
         var one = new byte[1];
         while (true)
         {
-            if (await stream.ReadAsync(one) == 0) return null;
+            if (await stream.ReadAsync(one) == 0)
+                return null;
             buffer.Add(one[0]);
             var n = buffer.Count;
-            if (n >= 4 && buffer[n - 4] == '\r' && buffer[n - 3] == '\n' && buffer[n - 2] == '\r' && buffer[n - 1] == '\n') break;
+            if (n >= 4 && buffer[n - 4] == '\r' && buffer[n - 3] == '\n' && buffer[n - 2] == '\r' && buffer[n - 1] == '\n')
+                break;
         }
 
         var lines = Encoding.ASCII.GetString(buffer.ToArray()).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
@@ -117,7 +121,8 @@ public sealed class TestReceiver : IAsyncDisposable
         while (read < length)
         {
             var count = await stream.ReadAsync(body.AsMemory(read, length - read));
-            if (count == 0) break;
+            if (count == 0)
+                break;
             read += count;
         }
 

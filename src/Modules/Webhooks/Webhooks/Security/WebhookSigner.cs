@@ -33,9 +33,11 @@ public static class WebhookSigner
     public static bool Verify(string secret, string messageIdHeader, string timestampHeader, string body,
         string signatureHeader, DateTimeOffset now, TimeSpan? tolerance = null)
     {
-        if (!long.TryParse(timestampHeader, out var timestamp)) return false;
+        if (!long.TryParse(timestampHeader, out var timestamp))
+            return false;
         var skew = now - DateTimeOffset.FromUnixTimeSeconds(timestamp);
-        if (skew.Duration() > (tolerance ?? DefaultTolerance)) return false;
+        if (skew.Duration() > (tolerance ?? DefaultTolerance))
+            return false;
 
         var key = KeyBytes(secret);
         var expected = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes($"{messageIdHeader}.{timestamp}.{body}"));
@@ -43,10 +45,12 @@ public static class WebhookSigner
         foreach (var candidate in signatureHeader.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = candidate.Split(',', 2);
-            if (parts.Length != 2 || parts[0] != SignatureVersion) continue;
+            if (parts.Length != 2 || parts[0] != SignatureVersion)
+                continue;
             try
             {
-                if (CryptographicOperations.FixedTimeEquals(expected, Convert.FromBase64String(parts[1]))) return true;
+                if (CryptographicOperations.FixedTimeEquals(expected, Convert.FromBase64String(parts[1])))
+                    return true;
             }
             catch (FormatException)
             {

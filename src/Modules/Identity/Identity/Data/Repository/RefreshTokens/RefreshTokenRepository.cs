@@ -72,11 +72,19 @@ public class RefreshTokenRepository(ApplicationIdentityDbContext dbContext) : IR
             .Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > nowUtc)
             .Select(t => new
             {
-                t.FamilyId, t.DeviceName, t.UserAgent, t.CreatedByIp, t.CreatedAt, t.LastUsedAt, t.ExpiresAt, t.TenantId
+                t.FamilyId,
+                t.DeviceName,
+                t.UserAgent,
+                t.CreatedByIp,
+                t.CreatedAt,
+                t.LastUsedAt,
+                t.ExpiresAt,
+                t.TenantId
             })
             .ToListAsync(ct);
 
-        if (live.Count == 0) return [];
+        if (live.Count == 0)
+            return [];
 
         var familyIds = live.Select(t => t.FamilyId).Distinct().ToList();
         var starts = await dbContext.RefreshTokens
@@ -113,7 +121,8 @@ public class RefreshTokenRepository(ApplicationIdentityDbContext dbContext) : IR
             .Distinct()
             .ToListAsync(ct);
 
-        if (familyIds.Count == 0) return [];
+        if (familyIds.Count == 0)
+            return [];
 
         await RevokeWhere(
             dbContext.RefreshTokens.Where(t => t.UserId == userId && familyIds.Contains(t.FamilyId)),

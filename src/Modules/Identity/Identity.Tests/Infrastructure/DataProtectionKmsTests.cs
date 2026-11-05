@@ -16,7 +16,9 @@ public sealed class DataProtectionKmsTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }
+        try
+        { Directory.Delete(_dir, recursive: true); }
+        catch (IOException) { }
     }
 
     /// <summary>A fake KMS: "encrypts" by prefixing and binding the encryption context, refuses a different context.</summary>
@@ -47,7 +49,8 @@ public sealed class DataProtectionKmsTests : IDisposable
                     var text = System.Text.Encoding.UTF8.GetString(blob, 0, Math.Min(blob.Length, 400));
                     var parts = text.Split('|', 4);
                     var context = string.Join(";", r.EncryptionContext.OrderBy(c => c.Key).Select(c => $"{c.Key}={c.Value}"));
-                    if (parts[2] != context) throw new InvalidCiphertextException("encryption context mismatch");
+                    if (parts[2] != context)
+                        throw new InvalidCiphertextException("encryption context mismatch");
                     var header = System.Text.Encoding.UTF8.GetByteCount(string.Join("|", parts[0], parts[1], parts[2]) + "|");
                     return new DecryptResponse
                     {
@@ -68,7 +71,8 @@ public sealed class DataProtectionKmsTests : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<DataProtectionKeyOptions>(o => o.ApplicationName = options.ApplicationName);
-        if (kms is not null) services.AddSingleton(kms.Client.Object);
+        if (kms is not null)
+            services.AddSingleton(kms.Client.Object);
         var builder = services.AddDataProtection()
             .SetApplicationName(options.ApplicationName)
             .PersistKeysToFileSystem(new DirectoryInfo(keyDir));

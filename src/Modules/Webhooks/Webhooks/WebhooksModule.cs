@@ -85,9 +85,12 @@ public sealed class WebhooksOptionsValidator(IServiceProvider services) : IValid
     public ValidateOptionsResult Validate(string? name, WebhooksOptions options)
     {
         var failures = new List<string>();
-        if (options.MaxAttempts < 1) failures.Add("Webhooks:MaxAttempts must be at least 1.");
-        if (options.RequestTimeoutSeconds < 1) failures.Add("Webhooks:RequestTimeoutSeconds must be at least 1.");
-        if (options.MaxResponseBytes < 1) failures.Add("Webhooks:MaxResponseBytes must be at least 1.");
+        if (options.MaxAttempts < 1)
+            failures.Add("Webhooks:MaxAttempts must be at least 1.");
+        if (options.RequestTimeoutSeconds < 1)
+            failures.Add("Webhooks:RequestTimeoutSeconds must be at least 1.");
+        if (options.MaxResponseBytes < 1)
+            failures.Add("Webhooks:MaxResponseBytes must be at least 1.");
 
         var environment = services.GetService<IHostEnvironment>();
         if (environment is not null && !Relaxed.Contains(environment.EnvironmentName, StringComparer.OrdinalIgnoreCase))

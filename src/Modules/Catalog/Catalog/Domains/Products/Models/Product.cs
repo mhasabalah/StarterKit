@@ -151,7 +151,8 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
 
     public void ClearAttributes()
     {
-        if (_attributes.Count == 0) return;
+        if (_attributes.Count == 0)
+            return;
         _attributes.Clear();
         Touch();
     }
@@ -171,7 +172,8 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
     /// <summary>Idempotent.</summary>
     public void AddTag(Guid tagId)
     {
-        if (_tags.Any(t => t.TagId == tagId)) return;
+        if (_tags.Any(t => t.TagId == tagId))
+            return;
         _tags.Add(ProductTag.Create(Id, tagId));
         Touch();
     }
@@ -184,7 +186,8 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
 
     public void ClearTags()
     {
-        if (_tags.Count == 0) return;
+        if (_tags.Count == 0)
+            return;
         _tags.Clear();
         Touch();
     }
@@ -328,7 +331,8 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
     /// <summary>Only published products can be featured; unfeaturing is always allowed. Idempotent.</summary>
     public void SetFeatured(bool isFeatured)
     {
-        if (IsFeatured == isFeatured) return;
+        if (IsFeatured == isFeatured)
+            return;
         if (isFeatured && Status != ProductStatus.Published)
             throw new InvalidProductException("Only published products can be featured.");
 

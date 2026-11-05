@@ -48,7 +48,8 @@ public class TenancyDbContext(DbContextOptions<TenancyDbContext> options) : AppD
 
     private void EnsureAuditLogIsAppendOnly()
     {
-        if (TenantContext.IsHostScope) return; // the tenant purge removes a deleted tenant's trail
+        if (TenantContext.IsHostScope)
+            return; // the tenant purge removes a deleted tenant's trail
 
         if (ChangeTracker.Entries<TenantAuditLog>().Any(e => e.State is EntityState.Modified or EntityState.Deleted))
         {

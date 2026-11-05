@@ -16,7 +16,8 @@ public static class DeviceNameParser
 
     public static string? Parse(string? userAgent)
     {
-        if (string.IsNullOrWhiteSpace(userAgent)) return null;
+        if (string.IsNullOrWhiteSpace(userAgent))
+            return null;
 
         var browser = Browser(userAgent);
         var os = OperatingSystem(userAgent);

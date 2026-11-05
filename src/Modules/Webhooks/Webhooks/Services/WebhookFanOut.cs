@@ -25,7 +25,8 @@ public sealed class WebhookFanOut(WebhooksDbContext dbContext, TimeProvider time
             .Where(e => e.Enabled && (e.EventTypes.Contains(eventType) || e.EventTypes.Contains("*")))
             .Select(e => e.Id)
             .ToListAsync(cancellationToken);
-        if (endpoints.Count == 0) return [];
+        if (endpoints.Count == 0)
+            return [];
 
         var existing = await dbContext.Deliveries.AsNoTracking()
             .Where(d => d.EventId == integrationEvent.EventId && d.RedeliveryOfId == null && endpoints.Contains(d.EndpointId))
@@ -36,7 +37,8 @@ public sealed class WebhookFanOut(WebhooksDbContext dbContext, TimeProvider time
         var created = endpoints.Except(existing)
             .Select(endpointId => WebhookDelivery.Create(endpointId, integrationEvent.EventId, eventType, payload, now))
             .ToList();
-        if (created.Count == 0) return [];
+        if (created.Count == 0)
+            return [];
 
         dbContext.Deliveries.AddRange(created);
         try
