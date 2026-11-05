@@ -87,5 +87,6 @@ public sealed class MfaAuthorizationHandler(
     }
 
     public static bool RequiresMfa(ClaimsPrincipal user, IEnumerable<string> requiredForRoles) =>
-        requiredForRoles.Any(user.IsInRole);
+        requiredForRoles.Any(r => user.IsInRole(r) ||
+                                  (ApiKeyPrincipal.IsApiKey(user) && ApiKeyPrincipal.OwnerRoles(user).Contains(r)));
 }

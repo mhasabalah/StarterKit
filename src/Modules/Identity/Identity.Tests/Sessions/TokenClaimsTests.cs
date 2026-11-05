@@ -95,7 +95,8 @@ public sealed class TokenClaimsTests
             Permissions.BillingRead, Permissions.BillingApprove, Permissions.BillingRefund, Permissions.BillingExport,
             Permissions.PlansManage, Permissions.PaymentSettingsManage, Permissions.AuditRead, Permissions.UsersRead,
             Permissions.TenantsRead,
-            Permissions.TenantsImpersonate
+            Permissions.TenantsImpersonate, Permissions.SessionsManage,
+            Permissions.BillingCouponsManage
         ]);
     }
 
@@ -157,7 +158,7 @@ public sealed class TokenClaimsTests
     public async Task Mfa_flag_is_persisted_on_the_session_and_kept_by_refresh_rotation()
     {
         var jwt = new Mock<IJwtTokenGenerator>();
-        jwt.Setup(j => j.GenerateTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<bool>()))
+        jwt.Setup(j => j.GenerateTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<bool>(), It.IsAny<Shared.Core.MultiTenancy.TenantMembershipInfo?>(), It.IsAny<ImpersonationGrant?>(), It.IsAny<Guid?>()))
             .ReturnsAsync("access");
         jwt.Setup(j => j.GenerateRefreshToken()).Returns(() => Guid.NewGuid().ToString("N"));
         var repo = new Mock<IRefreshTokenRepository>();
@@ -179,14 +180,14 @@ public sealed class TokenClaimsTests
         session.MultiFactor.Should().BeTrue();
         issued!.MultiFactor.Should().BeTrue();
         rotated!.MultiFactor.Should().BeTrue();
-        jwt.Verify(j => j.GenerateTokenAsync(_user, It.IsAny<IReadOnlyCollection<string>>(), true), Times.Exactly(2));
+        jwt.Verify(j => j.GenerateTokenAsync(_user, It.IsAny<IReadOnlyCollection<string>>(), true, It.IsAny<Shared.Core.MultiTenancy.TenantMembershipInfo?>(), It.IsAny<ImpersonationGrant?>(), It.IsAny<Guid?>()), Times.Exactly(2));
     }
 
     [Fact]
     public async Task Default_session_is_not_mfa()
     {
         var jwt = new Mock<IJwtTokenGenerator>();
-        jwt.Setup(j => j.GenerateTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<bool>()))
+        jwt.Setup(j => j.GenerateTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<bool>(), It.IsAny<Shared.Core.MultiTenancy.TenantMembershipInfo?>(), It.IsAny<ImpersonationGrant?>(), It.IsAny<Guid?>()))
             .ReturnsAsync("access");
         jwt.Setup(j => j.GenerateRefreshToken()).Returns("refresh");
         var repo = new Mock<IRefreshTokenRepository>();
@@ -200,6 +201,6 @@ public sealed class TokenClaimsTests
             .IssueAsync(_user, "1.2.3.4");
 
         issued!.MultiFactor.Should().BeFalse();
-        jwt.Verify(j => j.GenerateTokenAsync(_user, It.IsAny<IReadOnlyCollection<string>>(), false), Times.Once);
+        jwt.Verify(j => j.GenerateTokenAsync(_user, It.IsAny<IReadOnlyCollection<string>>(), false, It.IsAny<Shared.Core.MultiTenancy.TenantMembershipInfo?>(), It.IsAny<ImpersonationGrant?>(), It.IsAny<Guid?>()), Times.Once);
     }
 }

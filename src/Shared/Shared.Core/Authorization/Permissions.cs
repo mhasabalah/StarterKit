@@ -27,6 +27,9 @@ public static class Permissions
     public const string PlansManage = "plans.manage";
     public const string PaymentSettingsManage = "payment-settings.manage";
 
+    /// <summary>Coupon administration (create, edit, deactivate, delete promotional codes).</summary>
+    public const string BillingCouponsManage = "billing.coupons.manage";
+
     // Users / admin
     public const string UsersRead = "users.read";
     public const string UsersManage = "users.manage";
@@ -48,12 +51,22 @@ public static class Permissions
     /// <summary>Platform operations: inspect and requeue dead-lettered outbox messages.</summary>
     public const string OutboxManage = "outbox.manage";
 
+    /// <summary>Platform operations: create, toggle, roll out and override runtime feature flags (SuperAdmin).</summary>
+    public const string FeatureFlagsManage = "feature-flags.manage";
+
+    /// <summary>Support/admin: list and revoke another user's sessions (devices).</summary>
+    public const string SessionsManage = "sessions.manage";
+
+    /// <summary>Admin: list and revoke any user's API keys.</summary>
+    public const string ApiKeysManage = "api-keys.manage";
+
     /// <summary>Every permission; used to register one policy per permission.</summary>
     public static IReadOnlyList<string> All { get; } =
     [
         BillingRead, BillingApprove, BillingRefund, BillingExport, PlansManage, PaymentSettingsManage,
         UsersRead, UsersManage, AdminsManage, AuditRead, CatalogModerate, TenantsRead, TenantsManage,
-        TenantsImpersonate, OutboxManage
+        TenantsImpersonate, OutboxManage, FeatureFlagsManage, SessionsManage, ApiKeysManage,
+        BillingCouponsManage
     ];
 
     public static string PolicyName(string permission) => PolicyPrefix + permission;

@@ -14,6 +14,12 @@ public static class IdentityClaimTypes
     /// <summary>Hash of the user's security stamp at issuance (session revocation, see ITokenBlacklistService).</summary>
     public const string SecurityStampHash = "sstamp";
 
+    /// <summary>
+    /// Session id = the refresh-token <c>FamilyId</c>. Revoking one session blacklists this id (see
+    /// ITokenBlacklistService) so its access token dies immediately instead of at expiry.
+    /// </summary>
+    public const string SessionId = "sid";
+
     public const string MustChangePassword = "must_change_password";
     public const string IsAdmin = "is_admin";
 }
@@ -36,8 +42,9 @@ public interface IJwtTokenGenerator
     /// Tenant permissions are NOT put in the token - they are resolved per request from the cached membership.
     /// </param>
     /// <param name="impersonation">Support impersonation: adds the <c>act</c> claim and the shorter expiry.</param>
+    /// <param name="sessionId">The refresh-token family of the session: adds the <c>sid</c> claim.</param>
     Task<string> GenerateTokenAsync(ApplicationUser user, IReadOnlyCollection<string> roles, bool multiFactor = false,
-        TenantMembershipInfo? tenant = null, ImpersonationGrant? impersonation = null);
+        TenantMembershipInfo? tenant = null, ImpersonationGrant? impersonation = null, Guid? sessionId = null);
 
     /// <summary>512-bit random opaque refresh token.</summary>
     string GenerateRefreshToken();
@@ -52,7 +59,7 @@ public class JwtTokenGenerator(
 
     public async Task<string> GenerateTokenAsync(
         ApplicationUser user, IReadOnlyCollection<string> roles, bool multiFactor = false,
-        TenantMembershipInfo? tenant = null, ImpersonationGrant? impersonation = null)
+        TenantMembershipInfo? tenant = null, ImpersonationGrant? impersonation = null, Guid? sessionId = null)
     {
         var userClaims = await userManager.GetClaimsAsync(user);
         var now = timeProvider.GetUtcNow();
@@ -81,6 +88,11 @@ public class JwtTokenGenerator(
         {
             claims.Add(new Claim(TenantClaimTypes.TenantId, tenant.TenantId.ToString()));
             claims.Add(new Claim(TenantClaimTypes.MembershipStamp, tenant.Stamp));
+        }
+
+        if (sessionId is { } sid)
+        {
+            claims.Add(new Claim(IdentityClaimTypes.SessionId, sid.ToString()));
         }
 
         if (impersonation is not null)

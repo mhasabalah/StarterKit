@@ -150,4 +150,37 @@
   <data name="Account.Delete.Done" xml:space="preserve">
     <value>Your account was deleted.</value>
   </data>
+  <data name="Session.StaffTargetForbidden" xml:space="preserve">
+    <value>Only a super admin can manage the sessions of a staff account.</value>
+  </data>
+  <data name="ApiKey.NameRequired" xml:space="preserve">
+    <value>A name for the API key is required.</value>
+  </data>
+  <data name="ApiKey.NameTooLong" xml:space="preserve">
+    <value>The API key name must be at most {0} characters.</value>
+  </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>At least one scope is required.</value>
+  </data>
+  <data name="ApiKey.TooManyScopes" xml:space="preserve">
+    <value>An API key can have at most {0} scopes.</value>
+  </data>
+  <data name="ApiKey.UnknownScope" xml:space="preserve">
+    <value>Unknown scope '{0}'.</value>
+  </data>
+  <data name="ApiKey.InvalidExpiry" xml:space="preserve">
+    <value>The expiry must be a positive number of days.</value>
+  </data>
+  <data name="ApiKey.ExpiryTooLong" xml:space="preserve">
+    <value>An API key can be valid for at most {0} days.</value>
+  </data>
+  <data name="ApiKey.Disabled" xml:space="preserve">
+    <value>API keys are disabled.</value>
+  </data>
+  <data name="ApiKey.ScopeNotHeld" xml:space="preserve">
+    <value>You cannot grant the scope '{0}' because you do not hold that permission.</value>
+  </data>
+  <data name="ApiKey.TooManyKeys" xml:space="preserve">
+    <value>You already have the maximum of {0} active API keys. Revoke one first.</value>
+  </data>
 </root>

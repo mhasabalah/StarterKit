@@ -42,9 +42,9 @@ public sealed class RolePermissionMapTests
     {
         RolePermissionMap.For(RoleConstants.Admin).Should()
             .BeEquivalentTo(Permissions.All
-                .Where(p => p != Permissions.AdminsManage && p != Permissions.OutboxManage)
+                .Where(p => p != Permissions.AdminsManage && p != Permissions.OutboxManage && p != Permissions.FeatureFlagsManage)
                 .Concat(TenantPermissions.All))
-            .And.NotContain([Permissions.AdminsManage, Permissions.OutboxManage]);
+            .And.NotContain([Permissions.AdminsManage, Permissions.OutboxManage, Permissions.FeatureFlagsManage]);
     }
 
     [Fact]
@@ -53,7 +53,8 @@ public sealed class RolePermissionMapTests
         RolePermissionMap.For(RoleConstants.Finance).Should().BeEquivalentTo(
         [
             Permissions.BillingRead, Permissions.BillingApprove, Permissions.BillingRefund, Permissions.BillingExport,
-            Permissions.PlansManage, Permissions.PaymentSettingsManage, Permissions.AuditRead
+            Permissions.PlansManage, Permissions.PaymentSettingsManage, Permissions.AuditRead,
+            Permissions.BillingCouponsManage
         ]);
     }
 
@@ -62,7 +63,7 @@ public sealed class RolePermissionMapTests
     {
         RolePermissionMap.For(RoleConstants.Support).Should()
             .BeEquivalentTo([Permissions.BillingRead, Permissions.UsersRead, Permissions.TenantsRead,
-                Permissions.TenantsImpersonate]);
+                Permissions.TenantsImpersonate, Permissions.SessionsManage]);
     }
 
     [Fact]

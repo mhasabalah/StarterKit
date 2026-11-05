@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 
 namespace Identity.Domains.Auth.Features.VerifyTwoFactor;
@@ -11,6 +12,7 @@ public class VerifyTwoFactorEndPoint : ICarterModule
                 var result = await sender.Send(command);
                 return Results.Ok(new ApiResponse<LoginResult>(true, StatusCodes.Status200OK, result, result.Message));
             })
+            .DisallowApiKey()
             .WithName("VerifyTwoFactor")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Two-Factor Authentication")

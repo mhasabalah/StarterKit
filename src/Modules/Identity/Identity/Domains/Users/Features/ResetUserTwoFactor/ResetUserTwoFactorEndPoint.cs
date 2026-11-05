@@ -31,6 +31,7 @@ public class ResetUserTwoFactorEndPoint : ICarterModule
             })
             // admins.manage = SuperAdmin only (RolePermissionMap); the handler re-checks against the database.
             .RequirePermission(Permissions.AdminsManage)
+            .DisallowApiKey()
             .WithName("ResetUserTwoFactor")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("User Management")
