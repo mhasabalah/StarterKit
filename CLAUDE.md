@@ -159,6 +159,10 @@ Notification is the exception: its context is in `Persistence/`.
     when the counter store is down).
   - `.RequireFlag("key")` gates on a runtime feature flag (`IFeatureFlags`, stored in Tenancy; 404 when off). Plan
     features are entitlements, not flags.
+  - `.RequireHumanVerification("action")` on anonymous endpoints that create accounts or send mail/SMS (register, login,
+    forgot-password, OTP resend). `IHumanVerifier` port, Turnstile adapter, token in `X-Captcha-Token`; 400
+    `captcha_required` / `captcha_invalid`; inert unless `BotProtection:Enabled`
+    (`wiki/Identity/Bot-Protection.md`).
 - **Migrations run at deploy, not boot, in production.** `Database:MigrateOnStartup` (true in dev/tests, false in
   Docker production); `--migrate-only` applies them under a Postgres advisory lock, optionally with
   `Database:MigrationConnectionString`. Never add migrate/seed work elsewhere in startup.
