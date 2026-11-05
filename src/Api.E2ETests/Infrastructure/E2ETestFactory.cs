@@ -91,11 +91,25 @@ public class E2ETestFactory : WebApplicationFactory<Program>
         });
     }
 
-    private static string? ForwardRealTokens(Microsoft.AspNetCore.Http.HttpContext context) =>
-        !context.Request.Headers.ContainsKey(TestAuthHandler.UserIdHeader) &&
-        context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-            ? JwtBearerDefaults.AuthenticationScheme
-            : null;
+    private static string? ForwardRealTokens(Microsoft.AspNetCore.Http.HttpContext context)
+    {
+        if (context.Request.Headers.ContainsKey(TestAuthHandler.UserIdHeader))
+            return null;
+
+        if (context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            return JwtBearerDefaults.AuthenticationScheme;
+
+        // X-Api-Key / "Authorization: ApiKey ..." goes to the app's REAL API key scheme (hash lookup, owner, scopes).
+        return global::Identity.Services.ApiKeys.ApiKeyRequest.SelectScheme(context);
+    }
+
+    /// <summary>Creates a client that authenticates with a real API key (sent as <c>X-Api-Key</c>).</summary>
+    public HttpClient CreateClientWithApiKey(string apiKey)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Add(global::Identity.Services.ApiKeys.ApiKeyRequest.HeaderName, apiKey);
+        return client;
+    }
 
     /// <summary>Creates a client that sends a real access token (validated by the app's JWT bearer scheme).</summary>
     public HttpClient CreateClientWithToken(string accessToken)
