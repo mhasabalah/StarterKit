@@ -34,7 +34,7 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | G10 | Coupons / promo codes, trials, dunning (notice cadence) | ✅ |
 | G11 | Generic business-entity audit trail (`IAuditable`, same-transaction `audit_entries`) | ✅ |
 | G12 | Runtime feature flags (per tenant/user, % rollout, kill switch, `.RequireFlag`) | ✅ |
-| G13 | In-app notification inbox + real-time push (SignalR) | ⬜ |
+| G13 | In-app notification inbox + real-time push (SignalR, Redis backplane, push-only hub) | ✅ |
 | G14 | Bot protection (CAPTCHA/Turnstile) on register, login, forgot-password, OTP | ✅ |
 
 **P2 — market-dependent**
@@ -44,7 +44,7 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning | ⬜ |
 | G16 | Passkeys (WebAuthn) | ⬜ |
 | G17 | Full-text search abstraction (Postgres `tsvector` first) | ⬜ |
-| G18 | Mobile push (FCM/APNs) channel + device-token registration | ⬜ |
+| G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report | ⬜ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
 | G21 | Durable saga repository (= #27) | ⬜ |
@@ -54,6 +54,12 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 
 Follow-ups known up front: automatic off-session card retry in dunning (needs saved payment methods); Stripe/Paymob
 sandbox keys per project.
+
+Follow-ups of G13/G18 (2026-11-05, [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)): per-category mute and
+quiet hours for push; a direct APNs adapter behind `IPushProvider` if FCM is not wanted for iOS; push and in-app
+payloads on the existing business events (only the channel exists - no sender uses it yet); an OTP email template so
+`VerificationPurpose.EmailVerification` stops returning `ChannelUnavailable`; drop the hub socket immediately on
+session revocation (today: at access-token expiry).
 
 ## 2026-11-04 — Production-readiness wave
 

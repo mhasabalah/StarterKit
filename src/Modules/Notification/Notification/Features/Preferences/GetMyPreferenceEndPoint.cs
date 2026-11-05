@@ -3,7 +3,8 @@ namespace Notification.Features.Preferences;
 public sealed record MyPreferenceDto(
     Guid UserId,
     NotificationChannel[] ChannelOrder,
-    bool IsDefault);
+    bool IsDefault,
+    bool PushEnabled = true);
 
 public sealed class GetMyPreferenceEndPoint : ICarterModule
 {
@@ -24,7 +25,7 @@ public sealed class GetMyPreferenceEndPoint : ICarterModule
                         .FirstOrDefaultAsync(x => x.UserId == userId, ct);
 
                     var result = preference is not null
-                        ? new MyPreferenceDto(userId, preference.ChannelOrder, IsDefault: false)
+                        ? new MyPreferenceDto(userId, preference.ChannelOrder, IsDefault: false, preference.PushEnabled)
                         : new MyPreferenceDto(userId, options.Value.DefaultChannelOrder, IsDefault: true);
 
                     return Results.Ok(ApiResponseExtensions.Success(result));
