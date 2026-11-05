@@ -5,12 +5,12 @@ internal static class PaginatedResultExtensions
     /// <summary>Maps a page of rows (projected in SQL) to DTOs in memory, keeping the paging metadata.</summary>
     public static PaginatedResult<TDest> Map<TSource, TDest>(
         this PaginatedResult<TSource> source, Func<TSource, TDest> map) => new()
-    {
-        PageInfoResult = source.PageInfoResult,
-        OrderBy = source.OrderBy,
-        OrderByDesc = source.OrderByDesc,
-        Result = (source.Result ?? []).Select(map).ToList()
-    };
+        {
+            PageInfoResult = source.PageInfoResult,
+            OrderBy = source.OrderBy,
+            OrderByDesc = source.OrderByDesc,
+            Result = (source.Result ?? []).Select(map).ToList()
+        };
 
     /// <summary>
     /// Applies the client sort (<see cref="BaseSortQuery.SortColumn"/>, matched case-insensitively against

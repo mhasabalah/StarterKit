@@ -57,7 +57,8 @@ public class Branch : Aggregate<Guid>, IMustHaveTenant
             IsActive = true
         };
 
-        if (parent is not null) branch.TenantId = parent.TenantId;
+        if (parent is not null)
+            branch.TenantId = parent.TenantId;
         branch.UpdateDetails(name, address, phone, timeZone);
         return branch;
     }
@@ -72,7 +73,8 @@ public class Branch : Aggregate<Guid>, IMustHaveTenant
 
     public void Deactivate()
     {
-        if (IsHeadOffice) throw new InvalidBranchException("The head office cannot be deactivated.");
+        if (IsHeadOffice)
+            throw new InvalidBranchException("The head office cannot be deactivated.");
         IsActive = false;
     }
 
@@ -133,7 +135,8 @@ public class Branch : Aggregate<Guid>, IMustHaveTenant
 
     private static string? Trim(string? value, int max)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
         var trimmed = value.Trim();
         return trimmed.Length <= max ? trimmed : trimmed[..max];
     }

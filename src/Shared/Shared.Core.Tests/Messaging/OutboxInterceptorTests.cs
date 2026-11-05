@@ -177,7 +177,7 @@ public sealed class OutboxInterceptorTests : IAsyncLifetime
     {
         var thing = TenantThing.Create().RaiseThingHappened();
         var eventId = thing.IntegrationEvents.Single().EventId;
-        int readyBeforeCommit = -1;
+        var readyBeforeCommit = -1;
         OutboxMessagesSaved? notification = null;
 
         using (TenantScope.Begin(TenantA))

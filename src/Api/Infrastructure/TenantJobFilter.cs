@@ -20,7 +20,8 @@ public sealed class TenantJobFilter(ITenantContext tenantContext, ITenantStore t
 
     public void OnCreating(CreatingContext context)
     {
-        if (context.Parameters.ContainsKey(TenantParameter)) return; // explicit wins
+        if (context.Parameters.ContainsKey(TenantParameter))
+            return; // explicit wins
 
         if (tenantContext.TenantId is { } tenantId)
         {

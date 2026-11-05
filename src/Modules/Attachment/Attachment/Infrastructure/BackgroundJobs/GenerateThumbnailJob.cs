@@ -45,11 +45,11 @@ public class GenerateThumbnailJob(
             if (thumbnail is not { } size)
                 return;
 
-            await SaveOrDeleteBlobAsync(storage, thumbnailPath, pendingAttachmentId, ct, () =>
+            await SaveOrDeleteBlobAsync(storage, thumbnailPath, pendingAttachmentId, () =>
             {
                 pending.SetThumbnail(thumbnailPath, $"pending-thumb:{pending.Id:N}", size.Width, size.Height);
                 return repository.SaveChangesAsync(ct);
-            });
+            }, ct);
         });
 
     /// <summary>Thumbnail of a Ready attachment (direct upload path). Keeps the original image dimensions.</summary>
@@ -76,12 +76,12 @@ public class GenerateThumbnailJob(
             if (thumbnail is not { } size)
                 return;
 
-            await SaveOrDeleteBlobAsync(storage, thumbnailPath, attachmentId, ct, () =>
+            await SaveOrDeleteBlobAsync(storage, thumbnailPath, attachmentId, () =>
             {
                 attachment.SetThumbnail(thumbnailPath, urls.Thumbnail(attachment.Id),
                     attachment.Width ?? size.Width, attachment.Height ?? size.Height);
                 return repository.SaveChangesAsync(ct);
-            });
+            }, ct);
         });
 
     /// <summary>Decodes the source (provider stream, forward reads only) and stores the JPEG thumbnail.</summary>
@@ -106,7 +106,7 @@ public class GenerateThumbnailJob(
     }
 
     private async Task SaveOrDeleteBlobAsync(
-        IStorageService storage, string thumbnailPath, Guid id, CancellationToken ct, Func<Task> save)
+        IStorageService storage, string thumbnailPath, Guid id, Func<Task> save, CancellationToken ct)
     {
         try
         {

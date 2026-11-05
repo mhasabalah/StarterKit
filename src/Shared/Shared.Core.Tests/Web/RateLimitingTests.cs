@@ -18,7 +18,8 @@ public sealed class RateLimitingTests
             ["RateLimiting:Policies:0:WindowSeconds"] = windowSeconds.ToString(),
             ["RateLimiting:Policies:0:QueueLimit"] = "0"
         };
-        if (partitionBy is not null) config["RateLimiting:Policies:0:PartitionBy"] = partitionBy;
+        if (partitionBy is not null)
+            config["RateLimiting:Policies:0:PartitionBy"] = partitionBy;
         return config;
     }
 

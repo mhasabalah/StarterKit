@@ -47,7 +47,7 @@ public class CreateSubscriptionHandler(
         var price = PricingPolicy.PlanPriceAt(plan, now);
 
         // A coupon discounts the activation bill (after the plan's own discount) and the following bills per its duration.
-        Coupon? coupon = string.IsNullOrWhiteSpace(command.CouponCode)
+        var coupon = string.IsNullOrWhiteSpace(command.CouponCode)
             ? null
             : await CouponLookup.FindRedeemableAsync(
                 dbContext, command.CouponCode, command.SubscriberId, plan.Id, plan.Currency, now, cancellationToken);

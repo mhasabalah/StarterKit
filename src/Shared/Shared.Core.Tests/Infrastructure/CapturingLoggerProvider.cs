@@ -39,7 +39,8 @@ public sealed class CapturingLoggerProvider : ILoggerProvider, ISupportExternalS
             var scopeValues = new Dictionary<string, object?>();
             owner._scopes.ForEachScope((scope, acc) =>
             {
-                foreach (var kv in ToDictionary(scope)) acc[kv.Key] = kv.Value;
+                foreach (var kv in ToDictionary(scope))
+                    acc[kv.Key] = kv.Value;
             }, scopeValues);
 
             owner.Entries.Enqueue(new LogEntry(category, logLevel, formatter(state, exception), exception,
@@ -50,9 +51,11 @@ public sealed class CapturingLoggerProvider : ILoggerProvider, ISupportExternalS
         {
             var result = new Dictionary<string, object?>();
             if (state is IEnumerable<KeyValuePair<string, object?>> pairs)
-                foreach (var kv in pairs) result[kv.Key] = kv.Value;
+                foreach (var kv in pairs)
+                    result[kv.Key] = kv.Value;
             else if (state is IEnumerable<KeyValuePair<string, object>> pairs2)
-                foreach (var kv in pairs2) result[kv.Key] = kv.Value;
+                foreach (var kv in pairs2)
+                    result[kv.Key] = kv.Value;
             return result;
         }
     }

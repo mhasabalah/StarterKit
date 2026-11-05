@@ -41,7 +41,8 @@ public class GetBranchByIdHandler(TenancyDbContext dbContext, TenancyRequest req
 {
     public async Task<BranchDto> Handle(GetBranchByIdQuery query, CancellationToken cancellationToken)
     {
-        if (!request.Branches.Allows(query.Id)) throw new NotFoundException(nameof(Branch), query.Id);
+        if (!request.Branches.Allows(query.Id))
+            throw new NotFoundException(nameof(Branch), query.Id);
 
         return await dbContext.Branches.AsNoTracking()
                    .Where(b => b.Id == query.Id)
@@ -103,7 +104,8 @@ public class CreateBranchHandler(
         }
 
         // Members assigned to the parent "with descendants" now also cover this branch.
-        if (parent is not null) await memberships.InvalidateAsync(request.TenantId, null, cancellationToken);
+        if (parent is not null)
+            await memberships.InvalidateAsync(request.TenantId, null, cancellationToken);
 
         return new CreateBranchResult(branch.Id);
     }
@@ -194,11 +196,13 @@ public class MoveBranchHandler(
             {
                 var id = branch.Id;
                 var prefixLength = oldPrefix.Length;
+#pragma warning disable CA1845 // Translated to SQL (substring), so a span-based Concat is not an option inside the expression tree.
                 moved = await dbContext.Branches
                     .Where(b => b.Id != id && b.Path.StartsWith(oldPrefix))
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(b => b.Path, b => newPrefix + b.Path.Substring(prefixLength))
                         .SetProperty(b => b.Depth, b => b.Depth + depthDelta), cancellationToken);
+#pragma warning restore CA1845
             }
 
             await transaction.CommitAsync(cancellationToken);

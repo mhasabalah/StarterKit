@@ -1,3 +1,4 @@
+using Shared.Core.BotProtection;
 using Identity.Contracts.Onboarding.Commands;
 
 namespace Identity.Domains.Onboarding.Features.Register;
@@ -20,6 +21,7 @@ public class RegisterEndPoint : ICarterModule
             .ProducesProblem(409)
             .AllowAnonymous()
             .RequireRateLimiting("otp")
+            .RequireHumanVerification("onboarding-register")
             .HasApiVersion(1.0);
     }
 }

@@ -15,7 +15,9 @@ public sealed class DataProtectionKeyEncryptionTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }
+        try
+        { Directory.Delete(_dir, recursive: true); }
+        catch (IOException) { }
     }
 
     private string CreatePfx(string name)
@@ -79,9 +81,9 @@ public sealed class DataProtectionKeyEncryptionTests : IDisposable
             .Should().Throw<InvalidOperationException>();
 
         FluentActions.Invoking(() => IdentityDataProtectionExtensions.LoadCertificate(new DataProtectionCertificateOptions
-            {
-                Thumbprint = "0000000000000000000000000000000000000000"
-            }))
+        {
+            Thumbprint = "0000000000000000000000000000000000000000"
+        }))
             .Should().Throw<InvalidOperationException>().WithMessage("*not found*");
     }
 

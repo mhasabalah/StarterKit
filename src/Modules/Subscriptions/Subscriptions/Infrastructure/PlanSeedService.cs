@@ -87,9 +87,9 @@ public class PlanSeedService(
                 x.Name.En == "Enterprise")
             .ToListAsync(cancellationToken);
 
-        var starter      = existingPlans.FirstOrDefault(x => x.SeedKey == StarterSeedKey      || x.Name.En == "Starter");
+        var starter = existingPlans.FirstOrDefault(x => x.SeedKey == StarterSeedKey || x.Name.En == "Starter");
         var professional = existingPlans.FirstOrDefault(x => x.SeedKey == ProfessionalSeedKey || x.Name.En == "Professional");
-        var enterprise   = existingPlans.FirstOrDefault(x => x.SeedKey == EnterpriseSeedKey   || x.Name.En == "Enterprise");
+        var enterprise = existingPlans.FirstOrDefault(x => x.SeedKey == EnterpriseSeedKey || x.Name.En == "Enterprise");
 
         // ── 1. INSERT any plans that don't exist yet ─────────────────────────
         // INSERTs have no WHERE version = N, so no concurrency token issue.
@@ -124,9 +124,9 @@ public class PlanSeedService(
         // ── 2. UPDATE existing plans via ExecuteUpdateAsync ───────────────────
         // ExecuteUpdateAsync generates: UPDATE ... SET col = val WHERE id = X
         // — no WHERE version = N, so the Version concurrency token is never checked.
-        await SyncSeededPlan(dbContext, starter,      StarterSeedKey,      StarterNameAr,      cancellationToken);
+        await SyncSeededPlan(dbContext, starter, StarterSeedKey, StarterNameAr, cancellationToken);
         await SyncSeededPlan(dbContext, professional, ProfessionalSeedKey, ProfessionalNameAr, cancellationToken);
-        await SyncSeededPlan(dbContext, enterprise,   EnterpriseSeedKey,   EnterpriseNameAr,   cancellationToken);
+        await SyncSeededPlan(dbContext, enterprise, EnterpriseSeedKey, EnterpriseNameAr, cancellationToken);
 
         // ── 3. INSERT any missing features ───────────────────────────────────
         // Features on newly created plans: starter.Features is empty → all keys are added.
@@ -140,7 +140,8 @@ public class PlanSeedService(
         };
         foreach (var (plan, keys) in planFeatureMap)
         {
-            if (plan is null) continue;
+            if (plan is null)
+                continue;
             var existing = plan.Features.Select(f => f.Key).ToHashSet();
             foreach (var key in keys)
             {
@@ -161,7 +162,8 @@ public class PlanSeedService(
         string arabicName,
         CancellationToken cancellationToken)
     {
-        if (plan is null) return;
+        if (plan is null)
+            return;
 
         if (string.IsNullOrWhiteSpace(plan.SeedKey))
             await dbContext.Plans

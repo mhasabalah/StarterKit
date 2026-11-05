@@ -19,7 +19,7 @@ public class GetAdminByIdHandler(
         logger.LogInformation("Fetching admin details for ID: {AdminId}", query.AdminId);
 
         var admin = await userManager.FindByIdAsync(query.AdminId.ToString());
-        
+
         if (admin == null)
         {
             logger.LogWarning("Admin not found: {AdminId}", query.AdminId);
@@ -60,7 +60,7 @@ public class GetAdminByIdHandler(
         };
 
         logger.LogInformation("Successfully fetched admin details for: {UserName}", admin.UserName);
-        
+
         return adminDto;
     }
 }

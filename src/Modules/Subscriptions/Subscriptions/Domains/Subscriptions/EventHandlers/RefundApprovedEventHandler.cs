@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class RefundApprovedEventHandler(
@@ -23,7 +24,7 @@ public class RefundApprovedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = planName,
-            Amount = notification.ApprovedAmount.ToString("F2"),
+            Amount = notification.ApprovedAmount.ToString("F2", CultureInfo.InvariantCulture),
             Currency = notification.Currency,
             SupportWhatsApp = instructions?.SupportWhatsApp ?? string.Empty,
             SupportEmail = instructions?.SupportEmail ?? string.Empty

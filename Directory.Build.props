@@ -4,39 +4,20 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 
-		<!--<EnableNETAnalyzers>true</EnableNETAnalyzers>
-		<AnalysisLevel>latest</AnalysisLevel>
-		<AnalysisMode>All</AnalysisMode>
-		<CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
-		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-		<WarningsAsErrors />
-		<WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
-		--><!-- Missing XML comment for publicly visible type or member --><!--
-
-		--><!-- SonarAnalyzer Configuration --><!--
-		<SonarQubeTestProject>false</SonarQubeTestProject>
-		<SonarQubeExclude>false</SonarQubeExclude>
-
-		--><!-- Documentation --><!--
-		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<NoWarn>$(NoWarn);CS1591</NoWarn>
-		--><!-- Missing XML comment warnings --><!--
-
-		--><!-- Performance and Security --><!--
-		<RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
-		<RunCodeAnalysis>true</RunCodeAnalysis>
-
-		--><!-- Additional Quality Settings --><!--
+		<!-- Analyzer policy (wiki/Architecture/CodingStandards.md (Analyzers)): recommended rule set, warnings are errors.
+		     Relax a rule in .editorconfig with a justification, never with a blanket NoWarn. -->
+		<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AnalysisLevel>latest-recommended</AnalysisLevel>
 		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>-->
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<!-- CS1591: Missing XML comment for publicly visible type or member -->
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<!-- AV0029/AV0030 (Asp.Versioning OpenAPI wiring): the host serves one fixed "v1" document via AddOpenApi("v1"); moving to
+		     Asp.Versioning.OpenApi (a document per version) is a separate, behaviour-changing change. A project-level NoWarn is
+		     needed because the diagnostic is also raised inside the OpenAPI XML-comment source generator's output, which
+		     .editorconfig severities do not reach. -->
+		<NoWarn>$(NoWarn);AV0029;AV0030</NoWarn>
+		<!-- Default (non-.ar) resx files are English; also satisfies CA1824. -->
+		<NeutralLanguage>en</NeutralLanguage>
 	</PropertyGroup>
-
-
-	<!--<ItemGroup Condition="'$(MSBuildProjectExtension)' != '.dcproj'">
-		<PackageReference Include="SonarAnalyzer.CSharp">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-	</ItemGroup>-->
-
 </Project>

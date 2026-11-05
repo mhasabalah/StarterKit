@@ -2,6 +2,10 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+# C# sources are CRLF in every checkout (Linux CI included): .editorconfig sets end_of_line = crlf and the build
+# enforces it (EnforceCodeStyleInBuild + TreatWarningsAsErrors -> IDE0055). The repository itself stores LF.
+*.cs text eol=crlf
+
 
 ###############################################################################
 # Set default behavior for command prompt diff.

@@ -20,7 +20,7 @@ public class ConcurrencyHandlingBehavior<TRequest, TResponse>(
     {
         try
         {
-            return await next();
+            return await next(cancellationToken);
         }
         catch (DbUpdateConcurrencyException ex)
         {

@@ -14,8 +14,10 @@ public class GetMembersHandler(TenancyDbContext dbContext, ISender sender)
     public async Task<PaginatedResult<MemberDto>> Handle(GetMembersQuery query, CancellationToken cancellationToken)
     {
         var memberships = dbContext.Memberships.AsNoTracking();
-        if (query.Status is { } status) memberships = memberships.Where(m => m.Status == status);
-        if (query.RoleId is { } roleId) memberships = memberships.Where(m => m.RoleIds.Contains(roleId));
+        if (query.Status is { } status)
+            memberships = memberships.Where(m => m.Status == status);
+        if (query.RoleId is { } roleId)
+            memberships = memberships.Where(m => m.RoleIds.Contains(roleId));
 
         var page = await memberships
             .OrderByDescending(m => m.IsOwner).ThenBy(m => m.JoinedAt)
@@ -116,13 +118,16 @@ public class SetMemberStatusHandler(TenancyDbContext dbContext, TenancyRequest r
 {
     public async Task<SetMemberStatusResult> Handle(SetMemberStatusCommand command, CancellationToken cancellationToken)
     {
-        if (command.UserId == request.UserId) throw new ForbiddenException("You cannot change your own status.");
+        if (command.UserId == request.UserId)
+            throw new ForbiddenException("You cannot change your own status.");
 
         var membership = await dbContext.Memberships.FirstOrDefaultAsync(m => m.UserId == command.UserId, cancellationToken)
                          ?? throw new NotFoundException("Member", command.UserId);
 
-        if (command.Active) membership.Activate();
-        else membership.Suspend();
+        if (command.Active)
+            membership.Activate();
+        else
+            membership.Suspend();
 
         audit.Record(command.Active ? TenantAuditActions.MemberReactivated : TenantAuditActions.MemberSuspended,
             "Member", command.UserId.ToString());
@@ -136,7 +141,8 @@ public class RemoveMemberHandler(TenancyDbContext dbContext, TenancyRequest requ
 {
     public async Task<RemoveMemberResult> Handle(RemoveMemberCommand command, CancellationToken cancellationToken)
     {
-        if (command.UserId == request.UserId) throw new ForbiddenException("Use 'leave tenant' to remove yourself.");
+        if (command.UserId == request.UserId)
+            throw new ForbiddenException("Use 'leave tenant' to remove yourself.");
 
         var membership = await dbContext.Memberships.FirstOrDefaultAsync(m => m.UserId == command.UserId, cancellationToken)
                          ?? throw new NotFoundException("Member", command.UserId);
@@ -251,7 +257,8 @@ public class InviteMemberHandler(
 
     private async Task EnsureSeatAvailableAsync(DateTime now, CancellationToken cancellationToken)
     {
-        if (!request.MultiTenancyEnabled) return;
+        if (!request.MultiTenancyEnabled)
+            return;
 
         int? maxUsers;
         try
@@ -263,7 +270,8 @@ public class InviteMemberHandler(
             maxUsers = null; // no subscription → no plan limit (configure a free plan to cap seats)
         }
 
-        if (maxUsers is not { } max) return;
+        if (maxUsers is not { } max)
+            return;
 
         var seats = await dbContext.Memberships.CountAsync(m => m.Status == TenantMembershipStatus.Active, cancellationToken)
                     + await dbContext.Invitations.CountAsync(i => i.Status == TenantInvitationStatus.Pending && i.ExpiresAt > now,
@@ -395,12 +403,14 @@ public sealed class MembershipGrantValidator(TenancyDbContext dbContext, Tenancy
     {
         var distinctRoles = roleIds.Distinct().ToList();
         var roles = await dbContext.Roles.AsNoTracking().Where(r => distinctRoles.Contains(r.Id)).ToListAsync(cancellationToken);
-        if (roles.Count != distinctRoles.Count) throw new InvalidMembershipException("One or more roles do not exist.");
+        if (roles.Count != distinctRoles.Count)
+            throw new InvalidMembershipException("One or more roles do not exist.");
         request.EnsureCanGrant(roles.SelectMany(r => r.EffectivePermissions));
 
         var branchIds = branches.Select(b => b.BranchId).Distinct().ToList();
         var found = await dbContext.Branches.CountAsync(b => branchIds.Contains(b.Id), cancellationToken);
-        if (found != branchIds.Count) throw new InvalidMembershipException("One or more branches do not exist.");
+        if (found != branchIds.Count)
+            throw new InvalidMembershipException("One or more branches do not exist.");
         request.EnsureBranchesInScope(branchIds);
     }
 }

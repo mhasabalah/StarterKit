@@ -19,7 +19,8 @@ public static class TenantDataExporter
         CancellationToken ct = default)
     {
         var tables = TenantDataPurger.TenantTablesInDeleteOrder(context.Model);
-        if (tables.Count == 0) return 0;
+        if (tables.Count == 0)
+            return 0;
 
         await context.Database.OpenConnectionAsync(ct);
         try

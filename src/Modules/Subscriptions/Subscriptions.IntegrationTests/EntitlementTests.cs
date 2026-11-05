@@ -54,7 +54,7 @@ public class EntitlementTests(SubscriptionsPostgresFixture fx)
     {
         var stranger = Guid.NewGuid();
         fx.Http.SetUser(stranger, admin: false);
-        bool has = false;
+        var has = false;
         int? limit = 1;
         await fx.WithScope(async sp =>
         {

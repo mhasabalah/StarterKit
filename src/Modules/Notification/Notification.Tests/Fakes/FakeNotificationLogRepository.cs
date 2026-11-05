@@ -17,7 +17,8 @@ internal sealed class FakeNotificationLogRepository : INotificationLogRepository
         row.Status = status;
         row.Error = error;
         row.SentAt = sentAt;
-        if (hangfireJobId is not null) row.HangfireJobId = hangfireJobId;
+        if (hangfireJobId is not null)
+            row.HangfireJobId = hangfireJobId;
         return Task.CompletedTask;
     }
 

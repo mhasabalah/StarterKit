@@ -47,7 +47,8 @@ public class TenantRole : Aggregate<Guid>, IMustHaveTenant
 
     public void Update(string name, string? description, IEnumerable<string> permissions)
     {
-        if (IsSystem) throw new InvalidMembershipException("System roles cannot be changed.");
+        if (IsSystem)
+            throw new InvalidMembershipException("System roles cannot be changed.");
 
         var trimmed = (name ?? string.Empty).Trim();
         if (trimmed.Length is 0 or > NameMaxLength)
