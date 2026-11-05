@@ -126,7 +126,8 @@ public partial class Tenant : Aggregate<Guid>
 
     public void MarkProvisioned()
     {
-        if (Status is not (TenantStatus.Provisioning or TenantStatus.ProvisioningFailed)) return;
+        if (Status is not (TenantStatus.Provisioning or TenantStatus.ProvisioningFailed))
+            return;
         Status = TenantStatus.Active;
         StatusReason = null;
         AddDomainEvent(new TenantActivatedEvent(Id));
@@ -135,7 +136,8 @@ public partial class Tenant : Aggregate<Guid>
 
     public void MarkProvisioningFailed(string reason)
     {
-        if (Status != TenantStatus.Provisioning) return;
+        if (Status != TenantStatus.Provisioning)
+            return;
         Status = TenantStatus.ProvisioningFailed;
         StatusReason = Truncate(reason);
         Changed();
@@ -143,7 +145,8 @@ public partial class Tenant : Aggregate<Guid>
 
     public void Suspend(string reason)
     {
-        if (Status == TenantStatus.Suspended) return;
+        if (Status == TenantStatus.Suspended)
+            return;
         if (Status == TenantStatus.Migrating && StatusBeforeMove == TenantStatus.Active)
         {
             // Applied when the move ends (the tenant is read-only meanwhile anyway).
@@ -167,7 +170,8 @@ public partial class Tenant : Aggregate<Guid>
 
     public void Reactivate()
     {
-        if (Status == TenantStatus.Active) return;
+        if (Status == TenantStatus.Active)
+            return;
         if (Status == TenantStatus.Migrating && StatusBeforeMove == TenantStatus.Suspended)
         {
             StatusBeforeMove = TenantStatus.Active;
@@ -192,7 +196,8 @@ public partial class Tenant : Aggregate<Guid>
             throw new InvalidTenantException("The Default tenant cannot be deleted.");
         if (Status == TenantStatus.Migrating)
             throw new InvalidTenantException("The tenant's data is being moved; try again when the move has finished.");
-        if (Status is TenantStatus.PendingDeletion or TenantStatus.Deleted) return;
+        if (Status is TenantStatus.PendingDeletion or TenantStatus.Deleted)
+            return;
 
         Status = TenantStatus.PendingDeletion;
         StatusReason = Truncate(reason);
@@ -304,7 +309,8 @@ public partial class Tenant : Aggregate<Guid>
 
     public void TransferOwnership(Guid newOwnerUserId)
     {
-        if (newOwnerUserId == Guid.Empty) throw new InvalidTenantException("A tenant needs an owner.");
+        if (newOwnerUserId == Guid.Empty)
+            throw new InvalidTenantException("A tenant needs an owner.");
         OwnerUserId = newOwnerUserId;
         Changed();
     }

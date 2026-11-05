@@ -8,7 +8,8 @@ public sealed class GetUserSummariesHandler(ApplicationIdentityDbContext dbConte
     public async Task<IReadOnlyList<UserSummaryDto>> Handle(GetUserSummariesQuery query,
         CancellationToken cancellationToken)
     {
-        if (query.UserIds.Count == 0) return [];
+        if (query.UserIds.Count == 0)
+            return [];
         if (query.UserIds.Count > GetUserSummariesQuery.MaxIds)
             throw new BadRequestException($"At most {GetUserSummariesQuery.MaxIds} user ids per request.");
 

@@ -6,15 +6,15 @@ public class ProfileCompleteRequirement : IAuthorizationRequirement
 {
 }
 
-public class ProfileCompleteHandler(ILogger<ProfileCompleteHandler> logger) 
+public class ProfileCompleteHandler(ILogger<ProfileCompleteHandler> logger)
     : AuthorizationHandler<ProfileCompleteRequirement>
 {
     protected override Task HandleRequirementAsync(
-        AuthorizationHandlerContext context, 
+        AuthorizationHandlerContext context,
         ProfileCompleteRequirement requirement)
     {
         var profileCompleteClaim = context.User.FindFirst("profile_complete");
-        
+
         if (profileCompleteClaim == null)
         {
             logger.LogWarning("User does not have profile_complete claim");

@@ -18,7 +18,7 @@ public class LoggingBehavior<TRequest, TResponse>(
         logger.LogInformation("[START] Handling {Request}", requestName);
 
         var startTime = Stopwatch.GetTimestamp();
-        var response = await next();
+        var response = await next(cancellationToken);
         var elapsed = Stopwatch.GetElapsedTime(startTime);
         var elapsedMs = (long)elapsed.TotalMilliseconds;
 

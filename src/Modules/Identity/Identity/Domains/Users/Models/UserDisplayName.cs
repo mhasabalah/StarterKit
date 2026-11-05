@@ -12,7 +12,8 @@ public static class UserDisplayName
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .Select(n => n!.Trim()));
 
-        if (name.Length > 0) return name;
+        if (name.Length > 0)
+            return name;
         return !string.IsNullOrWhiteSpace(email) ? email.Trim() : userId.ToString();
     }
 }

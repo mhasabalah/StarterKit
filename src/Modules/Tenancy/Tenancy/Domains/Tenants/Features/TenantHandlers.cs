@@ -254,7 +254,8 @@ public class TransferTenantOwnershipHandler(TenancyDbContext dbContext, TenancyR
 
         var currentOwners = await dbContext.Memberships.Where(m => m.IsOwner && m.UserId != target.UserId)
             .ToListAsync(cancellationToken);
-        foreach (var previous in currentOwners) previous.RevokeOwnership();
+        foreach (var previous in currentOwners)
+            previous.RevokeOwnership();
 
         target.GrantOwnership();
         tenant.TransferOwnership(target.UserId);
@@ -341,7 +342,8 @@ internal static class TenantLoader
         bool tracking = true)
     {
         var query = db.Tenants.Where(t => t.Id == tenantId);
-        if (!tracking) query = query.AsNoTracking();
+        if (!tracking)
+            query = query.AsNoTracking();
         return await query.FirstOrDefaultAsync(ct) ?? throw new NotFoundException(nameof(Tenant), tenantId);
     }
 

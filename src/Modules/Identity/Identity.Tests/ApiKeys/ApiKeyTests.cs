@@ -214,7 +214,7 @@ public sealed class ApiKeyAuthenticatorTests
         var result = await Sut(memberships, multiTenancy: true).AuthenticateAsync(raw);
 
         result.Principal!.FindFirstValue(TenantClaimTypes.TenantId).Should().Be(tenantId.ToString());
-        result.Principal.FindFirstValue(TenantClaimTypes.MembershipStamp).Should().Be("stamp-7");
+        result.Principal!.FindFirstValue(TenantClaimTypes.MembershipStamp).Should().Be("stamp-7");
     }
 
     [Fact]

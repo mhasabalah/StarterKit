@@ -331,13 +331,20 @@ public static class AttachmentOptionsDefaults
     public static AttachmentOptions ApplyDefaults(this AttachmentOptions options)
     {
         var v = options.Validation;
-        if (v.AllowedExtensions.Length == 0) v.AllowedExtensions = AllowedExtensions;
-        if (v.AllowedImageTypes.Length == 0) v.AllowedImageTypes = AllowedImageTypes;
-        if (v.AllowedDocumentTypes.Length == 0) v.AllowedDocumentTypes = AllowedDocumentTypes;
-        if (v.AllowedVideoTypes.Length == 0) v.AllowedVideoTypes = AllowedVideoTypes;
-        if (v.AllowedAudioTypes.Length == 0) v.AllowedAudioTypes = AllowedAudioTypes;
-        if (v.BlockedExtensions.Length == 0) v.BlockedExtensions = BlockedExtensions;
-        if (options.Download.InlineContentTypes.Length == 0) options.Download.InlineContentTypes = InlineContentTypes;
+        if (v.AllowedExtensions.Length == 0)
+            v.AllowedExtensions = AllowedExtensions;
+        if (v.AllowedImageTypes.Length == 0)
+            v.AllowedImageTypes = AllowedImageTypes;
+        if (v.AllowedDocumentTypes.Length == 0)
+            v.AllowedDocumentTypes = AllowedDocumentTypes;
+        if (v.AllowedVideoTypes.Length == 0)
+            v.AllowedVideoTypes = AllowedVideoTypes;
+        if (v.AllowedAudioTypes.Length == 0)
+            v.AllowedAudioTypes = AllowedAudioTypes;
+        if (v.BlockedExtensions.Length == 0)
+            v.BlockedExtensions = BlockedExtensions;
+        if (options.Download.InlineContentTypes.Length == 0)
+            options.Download.InlineContentTypes = InlineContentTypes;
         return options;
     }
 }

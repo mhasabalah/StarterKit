@@ -77,11 +77,15 @@ public sealed class ImpersonationGuardMiddleware(
 
     internal static bool IsRestricted(Endpoint? endpoint, string method, ImpersonationGuardOptions options)
     {
-        if (endpoint is null) return false;
-        if (endpoint.Metadata.GetMetadata<DisallowImpersonationMetadata>() is not null) return true;
-        if (SafeMethods.Contains(method)) return false;
+        if (endpoint is null)
+            return false;
+        if (endpoint.Metadata.GetMetadata<DisallowImpersonationMetadata>() is not null)
+            return true;
+        if (SafeMethods.Contains(method))
+            return false;
 
-        if (endpoint.Metadata.GetMetadata<TenantRequirementMetadata>()?.Requirement == TenantRequirement.Host) return true;
+        if (endpoint.Metadata.GetMetadata<TenantRequirementMetadata>()?.Requirement == TenantRequirement.Host)
+            return true;
 
         var assembly = endpoint.Metadata.GetMetadata<MethodInfo>()?.DeclaringType?.Assembly;
         return assembly is not null && options.ReadOnlyAssemblies.Contains(assembly);

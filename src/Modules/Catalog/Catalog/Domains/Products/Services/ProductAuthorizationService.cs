@@ -55,13 +55,15 @@ public class ProductAuthorizationService(IHttpContextService httpContextService)
 
     public void EnsureCanModify(Product product, string? message = null)
     {
-        if (IsAdmin() || IsOwner(product)) return;
+        if (IsAdmin() || IsOwner(product))
+            return;
         throw new ForbiddenException(message ?? "You do not have permission to modify this product.");
     }
 
     public void EnsureCanEdit(Product product)
     {
-        if (IsAdmin()) return;
+        if (IsAdmin())
+            return;
 
         if (!IsOwner(product))
             throw new ForbiddenException("You do not have permission to modify this product.");

@@ -67,7 +67,8 @@ public sealed class DomainEventCollector : IDomainEventCollector
     public void Stage(object saveOperation, IReadOnlyCollection<INotification> events)
     {
         ArgumentNullException.ThrowIfNull(saveOperation);
-        if (events.Count == 0) return;
+        if (events.Count == 0)
+            return;
 
         lock (_gate)
         {
@@ -83,7 +84,8 @@ public sealed class DomainEventCollector : IDomainEventCollector
 
         lock (_gate)
         {
-            if (!_staged.Remove(saveOperation, out var events)) return;
+            if (!_staged.Remove(saveOperation, out var events))
+                return;
 
             if (openTransaction is null)
                 _ready.AddRange(events);
@@ -95,7 +97,8 @@ public sealed class DomainEventCollector : IDomainEventCollector
     public void SaveFailed(object saveOperation)
     {
         ArgumentNullException.ThrowIfNull(saveOperation);
-        lock (_gate) _staged.Remove(saveOperation);
+        lock (_gate)
+            _staged.Remove(saveOperation);
     }
 
     public void TransactionCommitted(object transaction)
@@ -112,12 +115,14 @@ public sealed class DomainEventCollector : IDomainEventCollector
     public void TransactionRolledBack(object transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
-        lock (_gate) _awaitingCommit.Remove(transaction);
+        lock (_gate)
+            _awaitingCommit.Remove(transaction);
     }
 
     public void Collect(IEnumerable<INotification> events)
     {
-        lock (_gate) _ready.AddRange(events);
+        lock (_gate)
+            _ready.AddRange(events);
     }
 
     public IReadOnlyList<INotification> DequeueAll()
@@ -134,7 +139,8 @@ public sealed class DomainEventCollector : IDomainEventCollector
     {
         get
         {
-            lock (_gate) return _ready.Count;
+            lock (_gate)
+                return _ready.Count;
         }
     }
 

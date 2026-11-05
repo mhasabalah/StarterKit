@@ -45,7 +45,7 @@ public static class Arrange
     /// <summary>Delivers a bus message the way MassTransit does: as the tenant carried in the message header.</summary>
     public static async Task Consume(WebhooksPostgresFixture fx, TenantInfo? tenant, IIntegrationEvent message)
     {
-        IDisposable? scope = tenant is null ? null : TenantScope.Begin(tenant);
+        var scope = tenant is null ? null : TenantScope.Begin(tenant);
         try
         {
             var sp = fx.Services;

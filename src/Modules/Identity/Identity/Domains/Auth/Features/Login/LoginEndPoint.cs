@@ -9,7 +9,7 @@ public class LoginEndPoint : ICarterModule
         app.MapPost("api/auth/login", async (LoginCommand command, ISender sender) =>
         {
             var result = await sender.Send(command);
-            
+
             return Results.Ok(new ApiResponse<LoginResult>(
                 true,
                 StatusCodes.Status200OK,

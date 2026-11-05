@@ -44,8 +44,10 @@ public sealed class AttachmentAccessService(
         EntityType entityType, Guid entityId, CancellationToken cancellationToken = default)
     {
         var caller = Current;
-        if (caller.IsAdmin) return true;
-        if (!caller.IsAuthenticated) return false;
+        if (caller.IsAdmin)
+            return true;
+        if (!caller.IsAuthenticated)
+            return false;
 
         return await DecideAsync(attach: true, entityType, entityId,
             policy => policy.CanAttachAsync(entityId, caller, cancellationToken));
@@ -55,7 +57,8 @@ public sealed class AttachmentAccessService(
         EntityType entityType, Guid entityId, CancellationToken cancellationToken = default)
     {
         var caller = Current;
-        if (caller.IsAdmin) return true;
+        if (caller.IsAdmin)
+            return true;
 
         return await DecideAsync(attach: false, entityType, entityId,
             policy => policy.CanReadAsync(entityId, caller, cancellationToken));
@@ -75,12 +78,16 @@ public sealed class AttachmentAccessService(
 
     public async Task<bool> CanReadAsync(AttachmentFile attachment, CancellationToken cancellationToken = default)
     {
-        if (!attachment.IsReady) return false; // uploading / pending deletion: never readable
-        if (attachment.IsPublic) return true;
+        if (!attachment.IsReady)
+            return false; // uploading / pending deletion: never readable
+        if (attachment.IsPublic)
+            return true;
 
         var caller = Current;
-        if (caller.IsAdmin) return true;
-        if (caller.UserId.HasValue && attachment.UploadedBy == caller.UserId.Value) return true;
+        if (caller.IsAdmin)
+            return true;
+        if (caller.UserId.HasValue && attachment.UploadedBy == caller.UserId.Value)
+            return true;
 
         return attachment is { EntityType: { } type, EntityId: { } id }
                && await CanReadEntityAsync(type, id, cancellationToken);
@@ -90,8 +97,10 @@ public sealed class AttachmentAccessService(
         AttachmentFile attachment, bool enforceEntityPolicy, CancellationToken cancellationToken = default)
     {
         var caller = Current;
-        if (caller.IsAdmin) return true;
-        if (!caller.UserId.HasValue) return false;
+        if (caller.IsAdmin)
+            return true;
+        if (!caller.UserId.HasValue)
+            return false;
 
         if (enforceEntityPolicy && attachment is { EntityType: { } type, EntityId: { } id })
             return await CanAttachToEntityAsync(type, id, cancellationToken);

@@ -22,8 +22,10 @@ public static class CategoryHierarchy
         var visited = new HashSet<Guid>();
         for (var current = newParentId; current is { } id; current = parentById.GetValueOrDefault(id))
         {
-            if (id == categoryId) return true;
-            if (!visited.Add(id)) return true; // existing corrupt loop — refuse rather than spin
+            if (id == categoryId)
+                return true;
+            if (!visited.Add(id))
+                return true; // existing corrupt loop — refuse rather than spin
         }
 
         return false;

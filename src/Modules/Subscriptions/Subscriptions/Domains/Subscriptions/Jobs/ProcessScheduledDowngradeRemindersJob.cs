@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.Jobs;
 
 [DisableConcurrentExecution(60)]
@@ -54,7 +55,7 @@ public class ProcessScheduledDowngradeRemindersJob(
                     SubscriberName = subscriber?.DisplayName ?? string.Empty,
                     CurrentPlanName = change.CurrentPlanName,
                     NewPlanName = change.NewPlanName,
-                    EffectiveAt = change.EffectiveAt.ToString("yyyy-MM-dd"),
+                    EffectiveAt = change.EffectiveAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     PortalUrl = $"{frontendBaseUrl}/subscription"
                 };
 

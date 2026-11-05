@@ -310,7 +310,8 @@ public sealed class OtpCodeServiceTests
         var service = CreateService(cooldownSeconds: 0);
         var first = await service.IssueAsync(UserId, OtpPurpose.PhoneVerification);
         OtpIssueResult second;
-        do { second = await service.IssueAsync(UserId, OtpPurpose.PhoneVerification); } while (second.Code == first.Code);
+        do
+        { second = await service.IssueAsync(UserId, OtpPurpose.PhoneVerification); } while (second.Code == first.Code);
 
         await service.ReleaseAsync(UserId, OtpPurpose.PhoneVerification, first);
 

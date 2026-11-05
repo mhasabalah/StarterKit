@@ -86,7 +86,8 @@ public static class StoragePaths
     /// </summary>
     public static bool BelongsTo(string storagePath, Guid tenantId)
     {
-        if (storagePath.StartsWith(TenantRoot(tenantId), StringComparison.Ordinal)) return true;
+        if (storagePath.StartsWith(TenantRoot(tenantId), StringComparison.Ordinal))
+            return true;
         return tenantId == Shared.Core.MultiTenancy.TenantDefaults.DefaultTenantId &&
                !storagePath.StartsWith(TenantRootSegment + "/", StringComparison.Ordinal);
     }

@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionDowngradeAppliedEventHandler(
@@ -22,7 +23,7 @@ public class SubscriptionDowngradeAppliedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             NewPlanName = subscriptionInfo?.PlanName ?? "New Plan",
-            NewRenewalDate = subscriptionInfo?.RenewalDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+            NewRenewalDate = subscriptionInfo?.RenewalDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty,
             PortalUrl = $"{frontendBaseUrl}/subscription"
         };
 

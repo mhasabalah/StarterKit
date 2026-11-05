@@ -115,7 +115,8 @@ public static class TenantScope
 
         public void Dispose()
         {
-            if (_disposed) return;
+            if (_disposed)
+                return;
             _disposed = true;
             Ambient.Value = previous;
         }

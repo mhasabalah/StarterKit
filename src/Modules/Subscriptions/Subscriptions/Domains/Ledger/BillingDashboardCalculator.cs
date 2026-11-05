@@ -101,10 +101,18 @@ public static class BillingDashboardCalculator
         {
             switch (row.Type)
             {
-                case LedgerEntryType.Payment: gross += row.Amount; break;
-                case LedgerEntryType.Refund: refunds -= row.Amount; break;
-                case LedgerEntryType.CreditNote: credits -= row.Amount; break;
-                case LedgerEntryType.Adjustment: adjustments += row.Amount; break;
+                case LedgerEntryType.Payment:
+                    gross += row.Amount;
+                    break;
+                case LedgerEntryType.Refund:
+                    refunds -= row.Amount;
+                    break;
+                case LedgerEntryType.CreditNote:
+                    credits -= row.Amount;
+                    break;
+                case LedgerEntryType.Adjustment:
+                    adjustments += row.Amount;
+                    break;
             }
         }
 

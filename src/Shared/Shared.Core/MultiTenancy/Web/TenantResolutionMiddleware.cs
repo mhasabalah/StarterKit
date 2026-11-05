@@ -88,10 +88,10 @@ public sealed class TenantResolutionMiddleware(
 
         using (TenantScope.Begin(tenant, branches, membership))
         using (logger.BeginScope(new Dictionary<string, object>
-               {
-                   ["TenantId"] = tenant.Id,
-                   ["TenantIdentifier"] = tenant.Identifier
-               }))
+        {
+            ["TenantId"] = tenant.Id,
+            ["TenantIdentifier"] = tenant.Identifier
+        }))
         {
             await next(context);
         }
@@ -126,7 +126,8 @@ public sealed class TenantResolutionMiddleware(
             ? await ResolveTenantAsync(context, store, opts, ct)
             : (TenantDefaults.DefaultTenant, false);
 
-        if (tenant is null) return null;
+        if (tenant is null)
+            return null;
 
         EnsureServiceable(tenant, context.Request.Method, opts);
 
@@ -210,7 +211,8 @@ public sealed class TenantResolutionMiddleware(
         var root = resolution.RootDomain?.Trim().TrimEnd('.').ToLowerInvariant();
         if (!string.IsNullOrEmpty(root))
         {
-            if (host == root) return null;
+            if (host == root)
+                return null;
 
             if (host.EndsWith("." + root, StringComparison.Ordinal))
             {
@@ -234,7 +236,8 @@ public sealed class TenantResolutionMiddleware(
         TenantResolutionOptions resolution, CancellationToken ct)
     {
         var value = context.Request.Headers[resolution.HeaderName].FirstOrDefault()?.Trim();
-        if (string.IsNullOrEmpty(value)) return null;
+        if (string.IsNullOrEmpty(value))
+            return null;
 
         if (value.Length > 100)
         {
@@ -280,7 +283,8 @@ public sealed class TenantResolutionMiddleware(
         var scope = membership?.Branches ?? BranchScope.Unrestricted;
 
         var header = context.Request.Headers[opts.Resolution.BranchHeaderName].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(header)) return scope;
+        if (string.IsNullOrWhiteSpace(header))
+            return scope;
 
         if (!Guid.TryParse(header, out var branchId) || !scope.Allows(branchId))
         {

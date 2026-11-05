@@ -81,8 +81,10 @@ public class UpdateAttributeTypeHandler(CatalogDbContext dbContext)
         dbContext.ExpectVersion(type, command.Version);
 
         type.Update(command.Name, command.DataType, command.Unit, command.ApplicableTypes);
-        if (command.IsActive) type.Activate();
-        else type.Deactivate();
+        if (command.IsActive)
+            type.Activate();
+        else
+            type.Deactivate();
 
         await AttributeTypeRules.SaveAsync(dbContext, type, ct);
         return new UpdateAttributeTypeResult(true, type.Version);
@@ -129,7 +131,14 @@ public class GetAttributeTypesHandler(CatalogDbContext dbContext, IEnumLocalizat
             .OrderBy(a => a.Name.En)
             .Select(a => new
             {
-                a.Id, a.Name.En, a.Name.Ar, a.DataType, a.Unit, a.ApplicableTypes, a.IsActive, a.Version
+                a.Id,
+                a.Name.En,
+                a.Name.Ar,
+                a.DataType,
+                a.Unit,
+                a.ApplicableTypes,
+                a.IsActive,
+                a.Version
             })
             .ToListAsync(ct);
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Hangfire;
 using Microsoft.Extensions.Options;
 using Webhooks.Domains.Deliveries.Jobs;
@@ -18,7 +19,7 @@ internal static class WebhookEndpointRules
         validator.RuleFor(url)
             .NotEmpty().WithMessage(_ => localizer["Validation.Url.Required"])
             .MaximumLength(WebhookEndpoint.UrlMaxLength)
-            .WithMessage(_ => localizer["Validation.Url.MaxLength"].Value.Replace("{MaxLength}", WebhookEndpoint.UrlMaxLength.ToString()))
+            .WithMessage(_ => localizer["Validation.Url.MaxLength"].Value.Replace("{MaxLength}", WebhookEndpoint.UrlMaxLength.ToString(CultureInfo.InvariantCulture)))
             .Custom((value, context) =>
             {
                 if (string.IsNullOrWhiteSpace(value) || value.Length > WebhookEndpoint.UrlMaxLength)
@@ -44,7 +45,7 @@ internal static class WebhookEndpointRules
             .NotEmpty().WithMessage(_ => localizer["Validation.EventTypes.Required"])
             .Must(list => list is null || list.Count <= WebhookEndpoint.MaxEventTypes)
             .WithMessage(_ => localizer["Validation.EventTypes.TooMany"].Value
-                .Replace("{MaxCount}", WebhookEndpoint.MaxEventTypes.ToString()))
+                .Replace("{MaxCount}", WebhookEndpoint.MaxEventTypes.ToString(CultureInfo.InvariantCulture)))
             .Must(list => list is null || list.All(t => !string.IsNullOrWhiteSpace(t) && catalog.IsKnown(t.Trim())))
             .WithMessage(_ => localizer["Validation.EventTypes.Unknown"]);
     }
@@ -54,7 +55,7 @@ internal static class WebhookEndpointRules
         validator.RuleFor(description)
             .MaximumLength(WebhookEndpoint.DescriptionMaxLength)
             .WithMessage(_ => localizer["Validation.Description.MaxLength"].Value
-                .Replace("{MaxLength}", WebhookEndpoint.DescriptionMaxLength.ToString()));
+                .Replace("{MaxLength}", WebhookEndpoint.DescriptionMaxLength.ToString(CultureInfo.InvariantCulture)));
 
     public static WebhookEndpointDto ToDto(WebhookEndpoint e) => new(
         e.Id, e.Url, e.Description, e.EventTypes, e.Enabled, e.ConsecutiveFailures, e.DisabledAt, e.DisabledReason,

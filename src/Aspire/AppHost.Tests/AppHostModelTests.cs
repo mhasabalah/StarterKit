@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using AppHost;
 
 namespace AppHost.Tests;
@@ -18,7 +19,11 @@ public class AppHostModelTests
     private static async Task<Dictionary<string, string>> ApiEnvironment(IDistributedApplicationTestingBuilder builder)
     {
         var api = (IResourceWithEnvironment)Resource(builder, "api");
-        return await api.GetEnvironmentVariableValuesAsync(DistributedApplicationOperation.Publish);
+        var configuration = await ExecutionConfigurationBuilder.Create(api)
+            .WithEnvironmentVariablesConfig()
+            .BuildAsync(new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish),
+                NullLogger.Instance, CancellationToken.None);
+        return configuration.EnvironmentVariables.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
     private static readonly string[] StackResources = ["otel-collector", "tempo", "loki", "jaeger", "prometheus", "grafana"];

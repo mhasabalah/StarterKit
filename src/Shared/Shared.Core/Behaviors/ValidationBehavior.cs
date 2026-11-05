@@ -1,4 +1,4 @@
-﻿using FluentValidation.Results;
+using FluentValidation.Results;
 
 namespace Shared.Core.Behaviors;
 
@@ -9,19 +9,20 @@ public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TReq
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        ValidationContext<TRequest> context = new(request);
+        var context = new ValidationContext<TRequest>(request);
 
-        ValidationResult[] validationResults = await Task
+        var validationResults = await Task
             .WhenAll(validators.Select(v => v.ValidateAsync(context, cancellationToken)));
 
-        List<ValidationFailure> failures = validationResults
+        var failures = validationResults
             .Where(e => e.Errors.Count != 0)
             .SelectMany(result => result.Errors)
             .Where(f => f != null)
             .ToList();
 
-        if (failures.Count != 0) throw new ValidationException(failures);
+        if (failures.Count != 0)
+            throw new ValidationException(failures);
 
-        return await next();
+        return await next(cancellationToken);
     }
 }

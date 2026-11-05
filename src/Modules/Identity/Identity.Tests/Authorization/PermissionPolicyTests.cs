@@ -33,7 +33,8 @@ public sealed class PermissionPolicyTests
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) };
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
         claims.AddRange(RolePermissionMap.For(roles).Select(p => new Claim(Permissions.ClaimType, p)));
-        if (mfa) claims.Add(new Claim(amrClaimType, AuthenticationMethods.Mfa));
+        if (mfa)
+            claims.Add(new Claim(amrClaimType, AuthenticationMethods.Mfa));
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
     }
 

@@ -4,6 +4,8 @@ namespace Identity.Tests;
 /// RFC 6238 TOTP (HMAC-SHA1, 30 s, 6 digits) - the authenticator-app side, used by tests to produce codes that
 /// ASP.NET Identity's AuthenticatorTokenProvider must accept.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5350:Do Not Use Weak Cryptographic Algorithms",
+    Justification = "RFC 6238 mandates HMAC-SHA1 for authenticator-app TOTP; this test helper mirrors the app side.")]
 public static class Totp
 {
     public static string Code(string base32Key, DateTimeOffset? at = null)
@@ -11,7 +13,8 @@ public static class Totp
         var key = FromBase32(base32Key.Replace(" ", string.Empty).ToUpperInvariant());
         var step = (long)((at ?? DateTimeOffset.UtcNow).ToUnixTimeSeconds() / 30);
         var counter = BitConverter.GetBytes(step);
-        if (BitConverter.IsLittleEndian) Array.Reverse(counter);
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(counter);
 
         var hash = System.Security.Cryptography.HMACSHA1.HashData(key, counter);
         var offset = hash[^1] & 0x0F;
@@ -36,7 +39,8 @@ public static class Totp
         for (var candidate = 0; ; candidate++)
         {
             var code = candidate.ToString("D6");
-            if (!valid.Contains(code)) return code;
+            if (!valid.Contains(code))
+                return code;
         }
     }
 

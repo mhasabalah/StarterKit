@@ -233,9 +233,12 @@ public sealed class NotificationDispatchJob(
 
     internal static DeliveryFailureKind ParseKind(string? error)
     {
-        if (error is null) return DeliveryFailureKind.Transient;
-        if (error.StartsWith("[permanent]", StringComparison.Ordinal)) return DeliveryFailureKind.Permanent;
-        if (error.StartsWith("[ambiguous]", StringComparison.Ordinal)) return DeliveryFailureKind.Ambiguous;
+        if (error is null)
+            return DeliveryFailureKind.Transient;
+        if (error.StartsWith("[permanent]", StringComparison.Ordinal))
+            return DeliveryFailureKind.Permanent;
+        if (error.StartsWith("[ambiguous]", StringComparison.Ordinal))
+            return DeliveryFailureKind.Ambiguous;
         return DeliveryFailureKind.Transient;
     }
 
@@ -246,18 +249,18 @@ public sealed class NotificationDispatchJob(
         NotificationDeliveryStatus status,
         string? messageJson,
         string? error) => new()
-    {
-        Id = Guid.NewGuid(),
-        CorrelationId = correlationId,
-        UserId = message.UserId,
-        Channel = channel,
-        TemplateName = message.TemplateName,
-        Status = status,
-        Error = error,
-        Culture = message.Culture,
-        MessageJson = messageJson,
-        CreatedAt = DateTime.UtcNow
-    };
+        {
+            Id = Guid.NewGuid(),
+            CorrelationId = correlationId,
+            UserId = message.UserId,
+            Channel = channel,
+            TemplateName = message.TemplateName,
+            Status = status,
+            Error = error,
+            Culture = message.Culture,
+            MessageJson = messageJson,
+            CreatedAt = DateTime.UtcNow
+        };
 
     private async Task<(string? Email, string? Phone)> ResolveContactsAsync(
         NotificationMessage message,

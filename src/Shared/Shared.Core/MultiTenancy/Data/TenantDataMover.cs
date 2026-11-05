@@ -1,3 +1,4 @@
+using System.Globalization;
 using Npgsql;
 
 namespace Shared.Core.MultiTenancy.Data;
@@ -25,7 +26,8 @@ public static class TenantDataMover
     {
         var tables = TenantDataPurger.TenantTablesInDeleteOrder(source.Model);
         var copied = new Dictionary<string, long>(StringComparer.Ordinal);
-        if (tables.Count == 0) return copied;
+        if (tables.Count == 0)
+            return copied;
 
         var sourceConnection = await OpenAsync(source, ct);
         var targetConnection = await OpenAsync(target, ct);
@@ -75,8 +77,12 @@ public static class TenantDataMover
             catch
             {
                 // Abort both COPYs; the target transaction is rolled back by the caller's exception path.
-                try { await writer.CancelAsync(); } catch { /* connection already broken */ }
-                try { await reader.CancelAsync(); } catch { /* connection already broken */ }
+                try
+                { await writer.CancelAsync(); }
+                catch { /* connection already broken */ }
+                try
+                { await reader.CancelAsync(); }
+                catch { /* connection already broken */ }
                 throw;
             }
             finally
@@ -135,8 +141,10 @@ public static class TenantDataMover
 
         var columns = new List<string>();
         await using var reader = await command.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct)) columns.Add(reader.GetString(0));
-        if (columns.Count == 0) throw new InvalidOperationException($"Table {quotedTable} does not exist in a database of the move.");
+        while (await reader.ReadAsync(ct))
+            columns.Add(reader.GetString(0));
+        if (columns.Count == 0)
+            throw new InvalidOperationException($"Table {quotedTable} does not exist in a database of the move.");
         return columns;
     }
 
@@ -144,7 +152,7 @@ public static class TenantDataMover
         string filter, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand($"SELECT count(*) FROM {table} WHERE {filter}", connection, transaction);
-        return Convert.ToInt64(await command.ExecuteScalarAsync(ct));
+        return Convert.ToInt64(await command.ExecuteScalarAsync(ct), CultureInfo.InvariantCulture);
     }
 
     private static async Task ExecuteAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction, string sql,

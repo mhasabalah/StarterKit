@@ -23,8 +23,10 @@ public class WishlistItem : IMustHaveTenant
 
     public static WishlistItem Create(Guid userId, Guid productId)
     {
-        if (userId == Guid.Empty) throw new BadRequestException("User id is required.");
-        if (productId == Guid.Empty) throw new BadRequestException("Product id is required.");
+        if (userId == Guid.Empty)
+            throw new BadRequestException("User id is required.");
+        if (productId == Guid.Empty)
+            throw new BadRequestException("Product id is required.");
 
         return new WishlistItem
         {

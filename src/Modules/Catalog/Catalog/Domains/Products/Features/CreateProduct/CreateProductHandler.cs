@@ -89,7 +89,8 @@ public class CreateProductHandler(
 
             foreach (var file in associated.Metadata.OrderBy(m => m.DisplayOrder))
             {
-                if (!product.CanAddImage) break;
+                if (!product.CanAddImage)
+                    break;
 
                 if (!await imageValidator.IsImageAsync(file.Id, cancellationToken))
                 {

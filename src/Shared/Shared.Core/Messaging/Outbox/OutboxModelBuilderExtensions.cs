@@ -58,8 +58,10 @@ public static class OutboxModelBuilderExtensions
     /// <summary>The outbox row type mapped in <paramref name="context"/>, or <c>null</c> when it has no outbox.</summary>
     public static Type? FindOutboxMessageType(this DbContext context)
     {
-        if (context.Model.FindEntityType(typeof(TenantOutboxMessage)) is not null) return typeof(TenantOutboxMessage);
-        if (context.Model.FindEntityType(typeof(OutboxMessage)) is not null) return typeof(OutboxMessage);
+        if (context.Model.FindEntityType(typeof(TenantOutboxMessage)) is not null)
+            return typeof(TenantOutboxMessage);
+        if (context.Model.FindEntityType(typeof(OutboxMessage)) is not null)
+            return typeof(OutboxMessage);
         return null;
     }
 }

@@ -38,7 +38,8 @@ public sealed class TenancyRequest(
 
     public void EnsureOwner()
     {
-        if (!IsOwner) throw new ForbiddenException("Only the tenant owner can do this.");
+        if (!IsOwner)
+            throw new ForbiddenException("Only the tenant owner can do this.");
     }
 
     /// <summary>The caller's effective tenant permissions (owner = all; single-tenant: platform claims).</summary>
@@ -46,8 +47,10 @@ public sealed class TenancyRequest(
     {
         get
         {
-            if (IsOwner) return TenantPermissions.All.ToHashSet(StringComparer.Ordinal);
-            if (Membership is { } m) return m.Permissions;
+            if (IsOwner)
+                return TenantPermissions.All.ToHashSet(StringComparer.Ordinal);
+            if (Membership is { } m)
+                return m.Permissions;
             return MultiTenancyEnabled
                 ? new HashSet<string>()
                 : httpContextService.GetClaimValues(Shared.Core.Authorization.Permissions.ClaimType)
@@ -58,7 +61,8 @@ public sealed class TenancyRequest(
     /// <summary>Privilege-escalation guard: a non-owner may only grant permissions it holds itself.</summary>
     public void EnsureCanGrant(IEnumerable<string> permissions)
     {
-        if (IsOwner) return;
+        if (IsOwner)
+            return;
         var missing = permissions.Except(Permissions, StringComparer.Ordinal).ToList();
         if (missing.Count > 0)
             throw new ForbiddenException($"You cannot grant permissions you do not hold: {string.Join(", ", missing)}.");
@@ -67,7 +71,8 @@ public sealed class TenancyRequest(
     /// <summary>A branch-restricted caller may only touch branches inside its scope.</summary>
     public void EnsureBranchesInScope(IEnumerable<Guid> branchIds)
     {
-        if (!Branches.IsRestricted) return;
+        if (!Branches.IsRestricted)
+            return;
         var outside = branchIds.Where(id => !Branches.Allows(id)).ToList();
         if (outside.Count > 0)
             throw new TenantAccessDeniedException(TenantErrors.BranchNotAllowed,

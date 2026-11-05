@@ -228,7 +228,7 @@ public sealed class S3StorageService(
             foreach (var item in response.S3Objects ?? [])
             {
                 // Unknown time = treat as brand new, so the orphan scan never deletes it.
-                DateTime? modified = item.LastModified;
+                var modified = item.LastModified;
                 var lastModified = modified is { } m
                     ? new DateTimeOffset(DateTime.SpecifyKind(m.ToUniversalTime(), DateTimeKind.Utc))
                     : DateTimeOffset.UtcNow;

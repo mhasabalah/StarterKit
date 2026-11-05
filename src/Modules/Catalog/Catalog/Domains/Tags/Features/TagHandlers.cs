@@ -56,8 +56,10 @@ public class UpdateTagHandler(CatalogDbContext dbContext) : ICommandHandler<Upda
         dbContext.ExpectVersion(tag, command.Version);
 
         tag.Rename(command.Name);
-        if (command.IsActive) tag.Activate();
-        else tag.Deactivate();
+        if (command.IsActive)
+            tag.Activate();
+        else
+            tag.Deactivate();
 
         await CreateTagHandler.SaveAsync(dbContext, tag, cancellationToken);
         return new UpdateTagResult(true, tag.Version);

@@ -34,8 +34,8 @@ public sealed record NotificationMessage
     /// </summary>
     public bool HasPayloadFor(NotificationChannel channel) => channel switch
     {
-        NotificationChannel.Email    => Email is not null,
+        NotificationChannel.Email => Email is not null,
         NotificationChannel.WhatsApp => WhatsApp is not null,
-        _                            => false
+        _ => false
     };
 }

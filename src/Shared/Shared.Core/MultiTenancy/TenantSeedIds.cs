@@ -11,7 +11,8 @@ public static class TenantSeedIds
 {
     public static Guid For(Guid tenantId, Guid seedId)
     {
-        if (tenantId == TenantDefaults.DefaultTenantId) return seedId;
+        if (tenantId == TenantDefaults.DefaultTenantId)
+            return seedId;
 
         Span<byte> input = stackalloc byte[32];
         tenantId.TryWriteBytes(input[..16]);

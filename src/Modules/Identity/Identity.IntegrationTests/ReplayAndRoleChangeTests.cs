@@ -117,7 +117,7 @@ public sealed class ReplayAndRoleChangeTests(IdentityPostgresFixture fixture)
 /// <summary>The Redis replay guard against a real Redis: SET NX is atomic across connections (= API instances).</summary>
 public sealed class RedisTotpReplayGuardTests : IAsyncLifetime
 {
-    private readonly RedisContainer _container = new RedisBuilder().WithImage("redis:7-alpine").Build();
+    private readonly RedisContainer _container = new RedisBuilder("redis:7-alpine").Build();
     private IConnectionMultiplexer _first = null!;
     private IConnectionMultiplexer _second = null!;
 
