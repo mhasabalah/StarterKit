@@ -19,7 +19,7 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 |---|---|---|
 | G1 | Real payment adapters (**Stripe + Paymob**) behind `IPaymentGateway`, `RefundAsync`, refund webhooks posting to the ledger | ✅ |
 | G2 | Real malware scanner adapter (ClamAV) replacing `NoOpMalwareScanner` | ⬜ |
-| G3 | Analyzers + `TreatWarningsAsErrors` (= #8) | 🚧 |
+| G3 | Analyzers + `TreatWarningsAsErrors` (= #8) | ✅ |
 | G4 | Identity + Attachment module tests (= #10) | 🚧 |
 | G5 | Data Protection keys: KMS option (Azure Key Vault, AWS KMS); certificate option already exists | ✅ |
 
@@ -80,7 +80,6 @@ Still open:
 - ✅ Licensing decisions made 2026-11-04 (see "Licensing decisions" and [Third-Party-Licenses](Third-Party-Licenses.md)).
 - A real payment provider adapter per project (the template ships only the port and the inbox).
 - Refund webhook posting to the ledger.
-- Analyzers and `TreatWarningsAsErrors` (#8).
 
 ## ✅ Wave 5 — Identity hardening + platform correctness (2026-11-03) — Catalog items deferred by owner
 
@@ -302,8 +301,11 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 7. ~~**`Npgsql.EnableLegacyTimestampBehavior` is enabled globally.**~~ **Done** - the switch is removed everywhere
    (runtime + test fixtures); `DateTime` maps to `timestamptz` and must be `Kind=Utc`, `DateTimeOffset` must have
    offset 0 (normalize client input with `ToUniversalTime()`). Identity got migration `UseTimestampTz`.
-8. **Enable analyzers.** Turn on the analyzer and `TreatWarningsAsErrors` settings that are commented out in
-   `Directory.Build.props` (at least for `src/`), and fix the remaining nullable warnings (CS8714/CS8601/CS8602).
+8. ~~**Enable analyzers.**~~ **Done** - `Directory.Build.props` enables `latest-recommended` analyzers and
+   `TreatWarningsAsErrors`; rule relaxations live in `.editorconfig` with a reason each (see
+   [CodingStandards](../Architecture/CodingStandards.md#analyzers)). The remaining nullable warnings were fixed
+   (`IQuery<T>` no longer requires `notnull`, so lookups can return `T?`), and the vulnerable transitive
+   `System.Security.Cryptography.Xml/Pkcs` 8.0.x are pinned to 10.0.14.
 9. **Aggregate-level concurrency for child collections.** Adding or removing child entities (e.g. product images) does not
    bump the aggregate root's version. Decide per aggregate whether the root should be touched.
 
