@@ -31,6 +31,7 @@ public class SubscriptionRefundRequestConfiguration : IEntityTypeConfiguration<S
         builder.Property(x => x.ReviewNotes).HasMaxLength(1000).IsRequired(false);
         builder.Property(x => x.ProcessedAt).IsRequired(false);
         builder.Property(x => x.ExternalTransactionRef).HasMaxLength(200).IsRequired(false);
+        builder.Property(x => x.ProcessingStartedAt).IsRequired(false);
         builder.Property(x => x.UpdatedAt).IsRequired();
 
         builder.HasIndex(x => x.SubscriptionId);

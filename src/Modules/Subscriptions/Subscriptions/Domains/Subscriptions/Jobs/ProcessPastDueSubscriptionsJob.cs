@@ -24,7 +24,7 @@ public class ProcessPastDueSubscriptionsJob(
             logger.LogInformation(
                 "Renewal boundary processed {Count} subscriptions: {Billed} billed, {Cancelled} cancelled, {Skipped} skipped.",
                 outcomes.Count,
-                outcomes.Values.Count(x => x is RenewalBoundaryOutcome.Billed or RenewalBoundaryOutcome.BilledAfterDowngrade),
+                outcomes.Values.Count(x => x is RenewalBoundaryOutcome.Billed or RenewalBoundaryOutcome.BilledAfterDowngrade or RenewalBoundaryOutcome.TrialEnded),
                 outcomes.Values.Count(x => x == RenewalBoundaryOutcome.Cancelled),
                 outcomes.Values.Count(x => x == RenewalBoundaryOutcome.Skipped));
         }

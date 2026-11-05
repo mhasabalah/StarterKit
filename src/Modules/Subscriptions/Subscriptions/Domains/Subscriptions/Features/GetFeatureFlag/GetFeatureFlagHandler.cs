@@ -37,7 +37,7 @@ public class GetFeatureFlagHandler(
         var subscription = await dbContext.Subscriptions
             .AsNoTracking()
             .Where(x => x.SubscriberId == subscriberId &&
-                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue))
+                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue || x.Status == SubscriptionStatus.Trialing))
             .OrderByDescending(x => x.UpdatedAt)
             .Select(x => new
             {

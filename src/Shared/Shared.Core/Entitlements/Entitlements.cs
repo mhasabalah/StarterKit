@@ -48,6 +48,7 @@ public static class EntitlementExtensions
     public static IServiceCollection AddEntitlements(this IServiceCollection services)
     {
         services.TryAddScoped<IEntitlementService, PermissiveEntitlementService>();
+        services.AddQuotaDefaults();
         return services;
     }
 

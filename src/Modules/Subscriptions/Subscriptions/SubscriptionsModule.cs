@@ -5,6 +5,8 @@ using Shared.Core.Extensions;
 using Shared.Core.Mapster;
 using Shared.Core.Messaging.Outbox;
 using Subscriptions.Data.Repositories;
+using Subscriptions.Domains.Metering;
+using Subscriptions.Domains.Metering.Jobs;
 using Subscriptions.Domains.Subscriptions.Entitlements;
 using Subscriptions.Domains.OnlinePayments.Gateways;
 using Subscriptions.Domains.OnlinePayments.Jobs;
@@ -29,7 +31,23 @@ public static class SubscriptionsModule
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IFeatureService, FeatureService>();
         services.AddScoped<IEntitlementCache, EntitlementCache>();
-        services.AddScoped<IEntitlementService, PlanEntitlementService>(); // replaces the permissive Shared.Core default
+        services.AddScoped<PlanEntitlementService>();
+        services.AddScoped<IEntitlementService>(sp => sp.GetRequiredService<PlanEntitlementService>()); // replaces the permissive Shared.Core default
+        services.AddScoped<IEntitlementSnapshotSource>(sp => sp.GetRequiredService<PlanEntitlementService>());
+
+        // Usage metering + quotas: replace the permissive Shared.Core defaults. Counters live in Redis when it is
+        // enabled (INCRBY), otherwise in-process; the flush job persists them to usage_records.
+        services.AddSingleton<UsageMetrics>();
+        services.AddSingleton<IUsageCounterStore>(sp =>
+            sp.GetService<StackExchange.Redis.IConnectionMultiplexer>() is { } redis
+                ? new RedisUsageCounterStore(redis, sp.GetRequiredService<IOptions<Shared.Core.Options.RedisOptions>>())
+                : new InMemoryUsageCounterStore());
+        services.AddScoped<UsageService>();
+        services.AddScoped<IUsageMeter>(sp => sp.GetRequiredService<UsageService>());
+        services.AddScoped<IQuotaService>(sp => sp.GetRequiredService<UsageService>());
+        services.AddSingleton<IUsageFlusher, UsageFlusher>();
+        services.AddSingleton<ITrialReminderProcessor, TrialReminderProcessor>();
+        services.AddSingleton<IDunningProcessor, DunningProcessor>();
         services.AddScoped<IInvoiceIssuer, InvoiceIssuer>();
         services.AddScoped<IUpgradeTrustService, UpgradeTrustService>();
         services.AddScoped<IAdminAuditWriter, AdminAuditWriter>();
@@ -39,6 +57,7 @@ public static class SubscriptionsModule
         services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
         services.AddScoped<ILedgerRepository, LedgerRepository>();
         services.AddScoped<IOnlinePaymentSessionRepository, OnlinePaymentSessionRepository>();
+        services.AddScoped<IOnlinePaymentRefundRepository, OnlinePaymentRefundRepository>();
         services.AddScoped<IInboundWebhookEventRepository, InboundWebhookEventRepository>();
         services.AddScoped<IPaymentSettlementService, PaymentSettlementService>();
         services.AddScoped<IComplimentaryActivationService, ComplimentaryActivationService>();
@@ -65,13 +84,35 @@ public static class SubscriptionsModule
                 "Subscriptions:Invoice:NumberPrefix must be 1-20 characters.")
             .Validate(o => o.PaymentGateways.All(g => !g.Value.Enabled || !string.IsNullOrWhiteSpace(g.Value.Secret)),
                 "Subscriptions:PaymentGateways:<Name>:Secret is required when the gateway is enabled.")
+            .Validate(o => o.PaymentGateways.All(g => !g.Value.Enabled || !g.Key.Equals("Stripe", StringComparison.OrdinalIgnoreCase) ||
+                                                     !string.IsNullOrWhiteSpace(g.Value.ApiKey)),
+                "Subscriptions:PaymentGateways:Stripe:ApiKey is required when Stripe is enabled.")
+            .Validate(o => o.PaymentGateways.All(g => !g.Value.Enabled || !g.Key.Equals("Paymob", StringComparison.OrdinalIgnoreCase) ||
+                                                     (!string.IsNullOrWhiteSpace(g.Value.ApiKey) &&
+                                                      !string.IsNullOrWhiteSpace(g.Value.PublicKey) && g.Value.IntegrationIds.Length > 0)),
+                "Subscriptions:PaymentGateways:Paymob needs ApiKey, PublicKey and IntegrationIds when enabled.")
+            .Validate(o => o.Trials.ReminderDaysBeforeEnd >= 0 && o.Trials.PostTrialGraceDays >= 0,
+                "Subscriptions:Trials values must not be negative.")
+            .Validate(o => o.Dunning.EffectiveScheduleDays.All(d => d > 0) &&
+                           o.Dunning.EffectiveScheduleDays.Zip(o.Dunning.EffectiveScheduleDays.Skip(1), (a, b) => a < b).All(x => x) &&
+                           o.Dunning.FinalNoticeDaysBeforeGraceEnd >= 0,
+                "Subscriptions:Dunning:ScheduleDays must be positive, strictly ascending day numbers.")
+            .Validate(o => o.Metering.MonthlyCounterTtlDays > 0, "Subscriptions:Metering:MonthlyCounterTtlDays must be positive.")
             .Validate(o => o.PaymentWebhooks.MaxAttempts > 0 && o.PaymentWebhooks.RetryBackoffMinutes >= 0,
                 "Subscriptions:PaymentWebhooks:MaxAttempts must be positive.")
             .ValidateOnStart();
 
         services.AddScoped<IPaymentGateway, FakePaymentGateway>(); // template adapter; real providers register next to it
+        services.AddScoped<IPaymentGateway, StripePaymentGateway>();
+        services.AddScoped<IPaymentGateway, PaymobPaymentGateway>();
+        // Typed clients: timeouts + circuit breaker only; a retried POST could double-charge / double-refund.
+        services.AddHttpClient(StripePaymentGateway.HttpClientName)
+            .AddStandardResilienceHandler(o => o.Retry.ShouldHandle = _ => ValueTask.FromResult(false));
+        services.AddHttpClient(PaymobPaymentGateway.HttpClientName)
+            .AddStandardResilienceHandler(o => o.Retry.ShouldHandle = _ => ValueTask.FromResult(false));
         services.AddScoped<IPaymentGatewayRegistry, PaymentGatewayRegistry>();
         services.AddScoped<IInboundWebhookProcessor, InboundWebhookProcessor>();
+        services.AddScoped<IRefundBooking, RefundBooking>();
 
         services.AddMediator(SubscriptionsRoot.AssemblyName);
         services.AddCustomMapster(SubscriptionsRoot.AssemblyName);
@@ -92,6 +133,9 @@ public static class SubscriptionsModule
         services.AddTransient<InvoiceDeliveryJob>();
         services.AddTransient<AdminBillingDigestJob>();
         services.AddTransient<RetryFailedPaymentWebhooksJob>();
+        services.AddTransient<ProcessTrialRemindersJob>();
+        services.AddTransient<ProcessDunningJob>();
+        services.AddTransient<FlushUsageCountersJob>();
 
         return services;
     }
@@ -155,6 +199,20 @@ public static class SubscriptionsModule
             "admin-billing-digest",
             x => x.ExecuteAsync(JobCancellationToken.Null),
             string.IsNullOrWhiteSpace(digestCron) ? "0 7 * * *" : digestCron);
+
+        var billingGrowth = app.ApplicationServices.GetRequiredService<IOptions<SubscriptionOptions>>().Value;
+        recurringJobManager.AddOrUpdate<ProcessTrialRemindersJob>(
+            "process-trial-reminders",
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            string.IsNullOrWhiteSpace(billingGrowth.Trials.ReminderCron) ? "30 9 * * *" : billingGrowth.Trials.ReminderCron);
+        recurringJobManager.AddOrUpdate<ProcessDunningJob>(
+            "process-dunning",
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            string.IsNullOrWhiteSpace(billingGrowth.Dunning.Cron) ? "20 * * * *" : billingGrowth.Dunning.Cron);
+        recurringJobManager.AddOrUpdate<FlushUsageCountersJob>(
+            "flush-usage-counters",
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            string.IsNullOrWhiteSpace(billingGrowth.Metering.FlushCron) ? "5 * * * *" : billingGrowth.Metering.FlushCron);
 
         // Merged into the renewal orchestrator ("process-past-due"): cancellation → downgrade → past-due, in order.
         recurringJobManager.RemoveIfExists("process-scheduled-downgrades");

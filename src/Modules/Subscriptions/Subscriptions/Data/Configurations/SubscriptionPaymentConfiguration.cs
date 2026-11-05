@@ -17,6 +17,8 @@ public class SubscriptionPaymentConfiguration
         builder.Property(x => x.Amount).HasPrecision(18, 2);
         builder.Property(x => x.IncludedProrationAmount).HasPrecision(18, 2).IsRequired();
         builder.Property(x => x.OriginalPlanId).IsRequired(false);
+        builder.Property(x => x.CouponCode).HasMaxLength(50).IsRequired(false);
+        builder.Property(x => x.CouponDiscountAmount).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.Status).HasConversion<int>().IsRequired();
         builder.Property(x => x.PaymentMethodId);

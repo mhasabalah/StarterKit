@@ -51,11 +51,71 @@ public class SubscriptionOptions
     /// <summary>Inbound payment webhook inbox (section <c>Subscriptions:PaymentWebhooks</c>).</summary>
     public PaymentWebhookOptions PaymentWebhooks { get; set; } = new();
 
+    /// <summary>Free trials (section <c>Subscriptions:Trials</c>).</summary>
+    public TrialOptions Trials { get; set; } = new();
+
+    /// <summary>Overdue-renewal reminders (section <c>Subscriptions:Dunning</c>).</summary>
+    public DunningOptions Dunning { get; set; } = new();
+
+    /// <summary>Usage metering and quotas (section <c>Subscriptions:Metering</c>).</summary>
+    public MeteringOptions Metering { get; set; } = new();
+
     /// <summary>Tax configuration (section <c>Subscriptions:Tax</c>). The ONLY source of the tax rate.</summary>
     public TaxOptions Tax { get; set; } = new();
 
     /// <summary>Seller branding printed on invoices (config section <c>Subscriptions:Invoice</c>).</summary>
     public InvoiceBrandingOptions Invoice { get; set; } = new();
+}
+
+/// <summary>Section <c>Subscriptions:Trials</c>.</summary>
+public class TrialOptions
+{
+    /// <summary>The "trial ending" email goes out this many days before the trial ends.</summary>
+    public int ReminderDaysBeforeEnd { get; set; } = 3;
+
+    /// <summary>
+    /// When a trial ends, the first paid period is billed and the subscriber has this many days to pay (PastDue) before
+    /// the subscription expires. Shorter than the regular grace period: nothing was ever paid.
+    /// </summary>
+    public int PostTrialGraceDays { get; set; } = 3;
+
+    /// <summary>Cron (UTC) of the <c>process-trial-reminders</c> job. Default daily 09:30.</summary>
+    public string ReminderCron { get; set; } = "30 9 * * *";
+}
+
+/// <summary>
+/// Section <c>Subscriptions:Dunning</c>: while a renewal is overdue (PastDue) the subscriber is reminded on
+/// <see cref="ScheduleDays"/> (days after it went past due), each time with a fresh checkout link, and once more
+/// <see cref="FinalNoticeDaysBeforeGraceEnd"/> days before the grace period ends. Each step is recorded and never re-sent.
+/// Automatic card retries are NOT part of this (they need stored payment methods).
+/// </summary>
+public class DunningOptions
+{
+    public static readonly int[] DefaultScheduleDays = [1, 3, 5];
+
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Days after past due to remind on. Null/empty = <see cref="DefaultScheduleDays"/> (1, 3, 5).</summary>
+    public int[]? ScheduleDays { get; set; }
+
+    /// <summary>The last reminder goes out this many days before the grace period ends.</summary>
+    public int FinalNoticeDaysBeforeGraceEnd { get; set; } = 1;
+
+    /// <summary>Cron (UTC) of the <c>process-dunning</c> job. Default hourly at :20.</summary>
+    public string Cron { get; set; } = "20 * * * *";
+
+    public IReadOnlyList<int> EffectiveScheduleDays =>
+        ScheduleDays is { Length: > 0 } days ? days : DefaultScheduleDays;
+}
+
+/// <summary>Section <c>Subscriptions:Metering</c>.</summary>
+public class MeteringOptions
+{
+    /// <summary>Cron (UTC) of the <c>flush-usage-counters</c> job. Default hourly at :05.</summary>
+    public string FlushCron { get; set; } = "5 * * * *";
+
+    /// <summary>Days a monthly Redis counter lives after its last increment (the database keeps the record).</summary>
+    public int MonthlyCounterTtlDays { get; set; } = 62;
 }
 
 /// <summary>Section <c>Subscriptions:ManualPayments</c>.</summary>
@@ -148,8 +208,26 @@ public class PaymentGatewayOptions
     /// <summary>Webhook signing secret (and/or API key, per adapter).</summary>
     public string? Secret { get; set; }
 
-    /// <summary>Provider base URL; the Fake adapter uses it for the hosted checkout page.</summary>
+    /// <summary>Provider base URL; the Fake adapter uses it for the hosted checkout page, Paymob for its API host.</summary>
     public string? BaseUrl { get; set; }
+
+    /// <summary>
+    /// Secret API key used for outbound calls (checkout, refund): Stripe <c>sk_...</c>, Paymob secret key. Distinct from
+    /// <see cref="Secret"/>, which only verifies inbound webhooks (Stripe <c>whsec_...</c>, Paymob HMAC secret).
+    /// </summary>
+    public string? ApiKey { get; set; }
+
+    /// <summary>Paymob public key (<c>..._pk_...</c>) for the unified checkout URL.</summary>
+    public string? PublicKey { get; set; }
+
+    /// <summary>Paymob payment integration ids (card, wallet, ...) offered at checkout.</summary>
+    public long[] IntegrationIds { get; set; } = [];
+
+    /// <summary>Optional server-to-server callback URL sent with each Paymob intention (else the dashboard setting is used).</summary>
+    public string? NotificationUrl { get; set; }
+
+    /// <summary>Stripe: how old a webhook's signed timestamp may be before it is refused as a replay.</summary>
+    public int WebhookToleranceSeconds { get; set; } = 300;
 }
 
 /// <summary>Section <c>Subscriptions:PaymentWebhooks</c>.</summary>

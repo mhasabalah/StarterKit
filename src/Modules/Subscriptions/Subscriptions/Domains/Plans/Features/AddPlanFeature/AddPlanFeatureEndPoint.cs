@@ -1,8 +1,9 @@
+using Subscriptions.Contracts.Subscriptions.Enums;
 using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 
 namespace Subscriptions.Domains.Plans.Features.AddPlanFeature;
 
-public record AddPlanFeatureRequest(string Key);
+public record AddPlanFeatureRequest(string Key, long? Limit = null, QuotaResetPeriod? ResetPeriod = null);
 
 public class AddPlanFeatureEndPoint : ICarterModule
 {
@@ -11,7 +12,7 @@ public class AddPlanFeatureEndPoint : ICarterModule
         app.MapPost(EndpointConfig.BaseApiPath + "/admin/plans/{id:guid}/features",
                 async (Guid id, AddPlanFeatureRequest request, ISender sender, CancellationToken ct) =>
                 {
-                    var featureId = await sender.Send(new AddPlanFeatureCommand(id, request.Key), ct);
+                    var featureId = await sender.Send(new AddPlanFeatureCommand(id, request.Key, request.Limit, request.ResetPeriod), ct);
                     return Results.Ok(ApiResponseExtensions.Success(new { featureId }));
                 })
             .RequirePermission(Permissions.PlansManage)

@@ -20,6 +20,9 @@ public interface ISubscriptionRepository
 
     Task<bool> HasOpenSubscriptionAsync(Guid subscriberId, CancellationToken ct = default);
 
+    /// <summary>True when the subscriber ever started a free trial (any status): one trial per subscriber.</summary>
+    Task<bool> HasUsedTrialAsync(Guid subscriberId, CancellationToken ct = default);
+
     /// <summary>Another payment whose proof has the same SHA-256 content hash (oldest first), or null.</summary>
     Task<Guid?> FindPaymentWithProofHashAsync(string contentHash, Guid excludingPaymentId, CancellationToken ct = default);
 

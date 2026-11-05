@@ -10,6 +10,7 @@ public class UpdatePlanCommandValidator : AbstractValidator<UpdatePlanCommand>
         RuleFor(x => x.Name.En).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Name.Ar).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Currency).NotEmpty().MaximumLength(3);
+        RuleFor(x => x.TrialDays).InclusiveBetween(0, Plan.MaxTrialDays);
         RuleFor(x => x.BillingCycleInMonths).Must(x => x is 1 or 12);
         When(x => x.Description is not null, () =>
         {
@@ -43,7 +44,8 @@ public class UpdatePlanHandler(
             command.MaxUsers,
             command.IsActive,
             command.IsPublic,
-            command.DiscountPercent);
+            command.DiscountPercent,
+            command.TrialDays);
 
         audit.Record("UpdatePlan", plan.Id, "Plan", amount: plan.Price, currency: plan.Currency,
             before: before, after: Snapshot(plan));

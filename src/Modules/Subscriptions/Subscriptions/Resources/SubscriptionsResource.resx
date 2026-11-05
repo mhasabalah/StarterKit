@@ -28,4 +28,10 @@
   <data name="Validation.CancelUrl.Invalid" xml:space="preserve">
     <value>CancelUrl must be an absolute http(s) URL on an allowed front-end origin.</value>
   </data>
+  <data name="Validation.Coupon.CodeFormat" xml:space="preserve">
+    <value>Code may contain only letters, digits, '-' and '_'.</value>
+  </data>
+  <data name="Validation.PlanFeature.ResetPeriodNeedsLimit" xml:space="preserve">
+    <value>ResetPeriod is only valid together with a Limit.</value>
+  </data>
 </root>

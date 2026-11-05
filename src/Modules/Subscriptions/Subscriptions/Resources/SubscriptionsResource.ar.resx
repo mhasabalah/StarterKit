@@ -28,4 +28,10 @@
   <data name="Validation.CancelUrl.Invalid" xml:space="preserve">
     <value>يجب أن يكون CancelUrl رابط http(s) مطلقًا ينتمي إلى أحد أصول الواجهة الأمامية المسموح بها.</value>
   </data>
+  <data name="Validation.Coupon.CodeFormat" xml:space="preserve">
+    <value>يجب أن يحتوي الرمز على أحرف وأرقام و'-' و'_' فقط.</value>
+  </data>
+  <data name="Validation.PlanFeature.ResetPeriodNeedsLimit" xml:space="preserve">
+    <value>لا يصلح ResetPeriod إلا مع تحديد Limit.</value>
+  </data>
 </root>
