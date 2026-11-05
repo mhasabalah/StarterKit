@@ -10,6 +10,8 @@ namespace Api.Tests.Architecture;
 /// <item>Imaging stays behind <c>IImageProcessingService</c> in Attachment (SkiaSharp adapter); the revenue-gated
 /// ImageSharp is not referenced at all; QuestPDF (revenue-gated) stays in Subscriptions.</item>
 /// <item>Contracts may carry the <c>[MessageUrn]</c> attribute (MassTransit.Abstractions) but never the bus itself.</item>
+/// <item>FCM (FirebaseAdmin / Google.Apis) stays behind <c>IPushProvider</c> in Notification, and so does the SignalR
+/// Redis backplane.</item>
 /// </list>
 /// </summary>
 public sealed class ThirdPartyIsolationTests
@@ -70,6 +72,17 @@ public sealed class ThirdPartyIsolationTests
     public void QuestPdf_is_used_only_by_the_Subscriptions_module() =>
         Production.Where(a => References(a).Contains("QuestPDF"))
             .Should().Equal(["Subscriptions"], "QuestPDF is community-licensed below a revenue threshold; keep it in one place");
+
+    [Fact]
+    public void FirebaseAdmin_is_used_only_by_the_Notification_module() =>
+        Production.Where(a => References(a).Any(r => r.StartsWith("FirebaseAdmin", StringComparison.Ordinal)
+                                                    || r.StartsWith("Google.Apis", StringComparison.Ordinal)))
+            .Should().Equal(["Notification"], "push delivery stays behind IPushProvider; swapping FCM must touch one module");
+
+    [Fact]
+    public void SignalR_server_types_stay_in_the_Notification_module() =>
+        Production.Where(a => References(a).Contains("Microsoft.AspNetCore.SignalR.StackExchangeRedis"))
+            .Should().BeSubsetOf(["Notification"], "the hub and its backplane are Notification infrastructure");
 
     [Theory]
     [MemberData(nameof(ContractAssemblies))]

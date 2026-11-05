@@ -47,3 +47,42 @@ groups:
         annotations:
           summary: "Messages faulted on {{ $labels.messaging_masstransit_input_address }}"
           description: "{{ $value }} message(s) failed all retries in the last 15m and sit in the endpoint's _error queue (the consumer will not see them again). Fix the consumer, then move them back from the _error queue (wiki/Architecture/Messaging.md)."
+
+  - name: notification
+    rules:
+      - alert: PushDeliveryFailing
+        # notification.push.sent{result}: per-device outcomes of PushDeliveryJob. More than 20% of device sends
+        # failing (transient = FCM down/throttled, rejected = bad payload or APNs auth) over 15m, with real volume.
+        expr: |
+          (
+            sum(increase({__name__=~"notification_push_sent(_total)?", result=~"transient|rejected"}[15m]))
+            / sum(increase({__name__=~"notification_push_sent(_total)?"}[15m]))
+          ) > 0.2
+          and sum(increase({__name__=~"notification_push_sent(_total)?"}[15m])) > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Push delivery is failing for more than 20% of devices"
+          description: "Check GET /api/v1/notifications/history?channel=Push&status=Failed and the API log ('Push to device ... rejected'). Rejected = payload or APNs key problem in Firebase; transient = FCM outage or quota (wiki/Modules/Notification-Realtime-and-Push.md, Troubleshooting)."
+
+      - alert: PushRejectedByProvider
+        # Any sustained 'rejected' result is a configuration problem (APNs key, payload), never a dead device.
+        expr: sum(increase({__name__=~"notification_push_sent(_total)?", result="rejected"}[30m])) > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "FCM keeps rejecting push messages"
+          description: "{{ $value }} device send(s) rejected in 30m (INVALID_ARGUMENT / THIRD_PARTY_AUTH_ERROR). Typical causes: expired or missing APNs key in Firebase, an oversized data payload (wiki/Modules/Notification-Realtime-and-Push.md, Troubleshooting)."
+
+      - alert: RealtimeSendErrors
+        # notification.realtime.sent{result="error"}: hub sends that threw (usually the Redis backplane). Clients
+        # still resync over REST, so this is freshness, not data loss.
+        expr: sum(increase({__name__=~"notification_realtime_sent(_total)?", result="error"}[10m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Real-time notification events are failing"
+          description: "{{ $value }} hub send(s) failed in 10m. Check Redis (the SignalR backplane) and the API log 'Real-time ... failed'. Inbox data is unaffected; users see updates only after a refresh/reconnect."

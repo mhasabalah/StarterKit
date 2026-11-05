@@ -33,7 +33,11 @@ public sealed class NotificationDispatchJob(
         NotificationChannel? forcedChannel = null,
         CancellationToken ct = default)
     {
-        var history = await repository.GetByCorrelationAsync(correlationId, ct);
+        // Only the fallback chain's own rows: in-app / push rows share the correlation id but are separate deliveries
+        // (an inbox entry marked Sent must never stop the email from going out).
+        var history = (await repository.GetByCorrelationAsync(correlationId, ct))
+            .Where(h => !h.Channel.IsAdditive())
+            .ToList();
         if (history.Any(h => h.Status == NotificationDeliveryStatus.Sent))
         {
             logger.LogInformation(
@@ -56,7 +60,8 @@ public sealed class NotificationDispatchJob(
             : await preferences.ResolveChannelOrderAsync(message.UserId, ct);
 
         // Skip channels for which this message carries no payload (no Skipped row - keeps the audit trail clean).
-        var relevantChannels = channelOrder.Where(message.HasPayloadFor).ToArray();
+        // Additive channels are never part of the chain, even if a stale preference lists them.
+        var relevantChannels = channelOrder.Where(c => !c.IsAdditive() && message.HasPayloadFor(c)).ToArray();
         if (relevantChannels.Length == 0)
         {
             logger.LogWarning(

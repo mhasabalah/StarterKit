@@ -60,6 +60,18 @@ public sealed class DockerSecretsConfigurationProviderTests : IDisposable
     }
 
     [Fact]
+    public void Key_file_secrets_are_read_by_path_and_never_loaded_as_configuration()
+    {
+        File.WriteAllText(Path.Combine(_dir, "fcm_service_account.json"), """{"type":"service_account","private_key":"k"}""");
+
+        var config = Build();
+
+        config["fcm_service_account.json"].Should().BeNull("the FCM key is read by path (Push:CredentialsFile)");
+        config.AsEnumerable().Should().NotContain(kv => kv.Value != null && kv.Value.Contains("private_key"),
+            "a private key must never end up in IConfiguration");
+    }
+
+    [Fact]
     public void Skips_everything_in_Development()
     {
         Secret("jwt_secret", "x");

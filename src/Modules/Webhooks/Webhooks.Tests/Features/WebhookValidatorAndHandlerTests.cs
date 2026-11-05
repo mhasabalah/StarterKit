@@ -155,6 +155,12 @@ public class WebhookValidatorAndHandlerTests
 
         public INotificationBuilder WithWhatsApp(WhatsAppTemplate template, Dictionary<string, object>? model = null) => this;
 
+        public INotificationBuilder WithInApp(Notification.Contracts.InApp.InAppContent content) => this;
+
+        public INotificationBuilder WithPush(Notification.Contracts.Push.PushContent content) => this;
+
+        public INotificationBuilder WithPush(bool sensitive = false) => this;
+
         public Task<Guid> SendAsync(NotificationChannel? forcedChannel = null, CancellationToken ct = default)
         {
             Sent++;

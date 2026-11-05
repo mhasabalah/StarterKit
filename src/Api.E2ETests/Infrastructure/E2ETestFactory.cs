@@ -99,6 +99,12 @@ public class E2ETestFactory : WebApplicationFactory<Program>
         if (context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             return JwtBearerDefaults.AuthenticationScheme;
 
+        // Real-time hubs: the browser-style ?access_token= goes to the app's REAL JWT scheme too (as in production,
+        // where the policy scheme falls through to JwtBearer when no API key is present).
+        if (Shared.Core.Web.RealtimePaths.IsHubRequest(context.Request.Path)
+            && context.Request.Query.ContainsKey(Shared.Core.Web.RealtimePaths.AccessTokenQueryParameter))
+            return JwtBearerDefaults.AuthenticationScheme;
+
         // X-Api-Key / "Authorization: ApiKey ..." goes to the app's REAL API key scheme (hash lookup, owner, scopes).
         return global::Identity.Services.ApiKeys.ApiKeyRequest.SelectScheme(context);
     }

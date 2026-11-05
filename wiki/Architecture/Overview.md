@@ -76,6 +76,14 @@ public static Product Create(Guid id, string name, Guid profileId)
 - MassTransit for message bus
 - Event handlers for side effects
 
+### Notifications and real time
+- Every message to a person goes through `INotificationSender` (Notification module): an email/WhatsApp fallback
+  chain plus two additive channels, the in-app inbox and FCM push.
+- Each channel group runs as its own Hangfire job; the in-app job pushes events to the user's open sessions over the
+  SignalR hub `/hubs/notifications`, scaled out across replicas by the Redis backplane.
+- The hub is push-only (commands stay REST); see [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md)
+  and [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md).
+
 ## Technology Decisions
 
 | Aspect | Technology | Reason |

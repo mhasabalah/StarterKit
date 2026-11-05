@@ -13,3 +13,4 @@ link it here.
 | [0005](0005-tenant-isolation-model.md) | Tenant isolation: named filters + RLS, shared or dedicated DBs | Accepted |
 | [0006](0006-identity-behind-userdirectory-port.md) | Users only through the UserDirectory port | Accepted |
 | [0007](0007-owned-mediator-port.md) | Own the mediator port; do not depend on MediatR | Accepted |
+| [0012](0012-realtime-inbox-and-push.md) | In-app inbox, SignalR hub and FCM push as additive notification channels | Accepted |

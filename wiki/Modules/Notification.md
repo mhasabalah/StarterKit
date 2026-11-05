@@ -1,13 +1,15 @@
 # Notification Module
 
-`src/Modules/Notification` delivers messages to people over every channel (**Email**, **WhatsApp**), including
-one-time codes that Identity issued (Notification never generates, stores or checks codes). It replaced the former `Shared.Email` + `Shared.Notification` projects: email is a *channel* of
+`src/Modules/Notification` delivers messages to people over every channel - **Email** and **WhatsApp** (a fallback
+chain), the **in-app inbox** with real-time SignalR events, and **push** (FCM: Android, iOS, Web) - including
+one-time codes that Identity issued (Notification never generates, stores or checks codes). In-app, the hub and push
+are documented in [Notification-Realtime-and-Push](Notification-Realtime-and-Push.md). It replaced the former `Shared.Email` + `Shared.Notification` projects: email is a *channel* of
 Notification, not a separate service, so there is ONE dispatch pipeline, ONE retry policy and ONE delivery log.
 
 | Project | Who references it | Contents |
 |---|---|---|
-| `Notification.Contracts` | every module that sends notifications | `INotificationSender` / `INotificationBuilder`, `INotificationRecipientResolver`, `INotificationLinkResolver`, `IOtpDeliveryService`, enums (`EmailTemplate`, `WhatsAppTemplate`, `NotificationChannel`, `NotificationCulture`, ...), email models (`Email/Models/*Model`), `EmailAttachment` |
-| `Notification` | `Api` only (and test projects) | dispatch job, channels (MailKit/NoOp email, WhatsApp Cloud API), Liquid templates, subjects, options, `NotificationDbContext`, endpoints, `OtpDeliveryService` |
+| `Notification.Contracts` | every module that sends notifications | `INotificationSender` / `INotificationBuilder`, `INotificationRecipientResolver`, `INotificationLinkResolver`, `IOtpDeliveryService`, enums (`EmailTemplate`, `WhatsAppTemplate`, `NotificationChannel`, `NotificationCulture`, `NotificationSeverity`, `PushPlatform`, ...), email models (`Email/Models/*Model`), `EmailAttachment`, `InApp/InAppContent`, `Push/PushContent`, inbox and device commands/queries/DTOs, the hub client contract (`Realtime/INotificationClient`) |
+| `Notification` | `Api` only (and test projects) | dispatch jobs (chain, in-app, push), channels (MailKit/NoOp email, WhatsApp Cloud API, FCM/NoOp push), `NotificationHub`, Liquid templates, subjects, options, `NotificationDbContext`, endpoints, `OtpDeliveryService` |
 | `Notification.Tests` | - | unit tests + Postgres Testcontainers tests |
 
 Modules never reference the implementation project (enforced by `Api.Tests/Architecture/ModuleBoundaryTests`).
@@ -44,9 +46,16 @@ public sealed class SubscriptionActivatedEventHandler(INotificationSender notifi
 - `INotificationLinkResolver.ToAbsolute(url)` - links put into notifications: relative URLs are resolved against
   `Email:AppBaseUrl`.
 
+- `.WithInApp(InAppContent)` / `.WithPush(...)` - the additive channels (inbox + real-time, mobile/web push), delivered
+  alongside the chain: [Notification-Realtime-and-Push](Notification-Realtime-and-Push.md#sending).
+
 There is no "send an email now" API for modules. The admin test endpoint is the only synchronous send.
 
 ## Delivery pipeline
+
+One notification becomes up to three Hangfire jobs sharing one correlation id: `NotificationDispatchJob` (the
+email/WhatsApp chain below), `InAppDeliveryJob` and `PushDeliveryJob` (see
+[Notification-Realtime-and-Push](Notification-Realtime-and-Push.md#delivery)).
 
 `NotificationDispatchJob` (Hangfire queue `notification`, 4 retries at 30s/2m/10m/30m):
 
@@ -55,10 +64,12 @@ There is no "send an email now" API for modules. The admin test endpoint is the 
   failures on a channel, fall back.
 - **Ambiguous** failure (timeout) - retry the SAME channel only, never fall back (it may have been delivered).
 - **Idempotent** - every attempt is a `notification.notification_log` row keyed by the correlation id; a re-run that
-  finds a `Sent` row stops, so retries never send twice.
+  finds a `Sent` row of the CHAIN stops, so retries never send twice (in-app/push rows of the same correlation id are
+  ignored: they are separate deliveries).
 - The tenant of the enqueuing request is restored while the job runs (`TenantJobFilter`) and stamped on the log row.
 
-Recurring jobs: `notification-daily-purge` (03:00, `Notification:LogRetentionDays`) and
+Recurring jobs: `notification-daily-purge` (03:00: log rows older than `Notification:LogRetentionDays`, expired inbox
+entries, push devices not seen for `Push:StaleDeviceDays`) and
 `notification-daily-failure-summary` (07:00, warns in Seq with the number of notifications of the last 24 h that
 were not delivered on any channel).
 
@@ -89,7 +100,8 @@ throwing. Channel per purpose: `PhoneVerification` → WhatsApp (`PhoneVerificat
 
 | Route | Auth |
 |---|---|
-| `GET/PUT /api/v1/notifications/preferences` | the user |
+| `GET/PUT /api/v1/notifications/preferences` | the user - `channelOrder` (email/WhatsApp only) and `pushEnabled` |
+| `/api/v1/notifications/inbox/*`, `/api/v1/notifications/devices/*`, `/hubs/notifications` | the user - [Notification-Realtime-and-Push](Notification-Realtime-and-Push.md#endpoints) |
 | `GET/PUT /api/v1/notifications/preferences/{userId}` | `AdminOnly` |
 | `GET /api/v1/notifications/history?userId=&channel=&status=` | `AdminOnly` - e.g. `?status=Failed&channel=Email` |
 | `POST /api/v1/notifications/{id}/reenqueue` | `AdminOnly` - only `Failed` rows |
@@ -103,16 +115,20 @@ throwing. Channel per purpose: `PhoneVerification` → WhatsApp (`PhoneVerificat
 | `Email` | `Provider` (`Auto`/`Smtp`/`NoOp`; Auto = NoOp in Development without a real SMTP host), `SmtpHost`, `SmtpPort`, `UseTls`, `FromAddress`, `FromName`, `BrandName`, `AppBaseUrl`, `SupportEmail`, `AllowedLinkHosts` |
 | `Notification` | `DefaultChannelOrder`, `FallbackAfterAttempts`, `LogRetentionDays`, `LogPurgeBatchSize` |
 | `WhatsApp` | `ApiVersion`, `Templates` (one entry per `WhatsAppTemplate`, validated at startup) |
+| `Inbox`, `Realtime`, `Push` | [Notification-Realtime-and-Push](Notification-Realtime-and-Push.md#configuration) |
 
 Secrets (Docker secrets / config keys): `smtp_username`, `smtp_password`, `whatsapp_access_token`,
-`whatsapp_phone_number_id`. (The OTP HMAC key is Identity's `identity_otp_hmac_key`.)
+`whatsapp_phone_number_id`, `fcm_service_account_json` (or the key file `secrets/fcm_service_account.json`, read by
+path through `Push:CredentialsFile`; see `docker-compose.push.yml`). (The OTP HMAC key is Identity's `identity_otp_hmac_key`.)
 
 ## Database
 
 `NotificationDbContext`, schema `notification`, history table `__notification_migrations_history`:
-`notification_log` (every delivery attempt of every channel) and `user_notification_preference`. A host-database
-context (not `ITenantDataContext`): rows carry a nullable `tenant_id` and are deleted by the tenant purge
-(`TenantDataPurgeRequestedEvent`).
+`notification_log` (every delivery attempt of every channel), `user_notification_preference` (channel order,
+`push_enabled`), `inbox_notification` (unique `(user_id, correlation_id)`, partial index for the unread count) and
+`push_device` (unique `token`). A host-database context (not `ITenantDataContext`): log and inbox rows carry a
+nullable `tenant_id` and are deleted by the tenant purge (`TenantDataPurgeRequestedEvent`); the user erasure
+(`UserDeletedIntegrationEvent`) deletes the user's log, preferences, inbox and devices.
 
 ```bash
 dotnet ef migrations add <Name> --context NotificationDbContext \

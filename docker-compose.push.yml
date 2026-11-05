@@ -1,0 +1,28 @@
+# ==============================================
+# StarterKit Mobile/Web Push Overlay (FCM)
+# ==============================================
+# Turns on real push notifications through Firebase Cloud Messaging (Android, iOS via the APNs key uploaded to the
+# Firebase project, Web). Without this overlay Push:Provider=Auto resolves to NoOp (pushes are logged, not sent).
+# Requires:
+#   secrets/fcm_service_account.json - a Firebase service-account key (Project settings -> Service accounts ->
+#                                      Generate new private key). Grant it ONLY "Firebase Cloud Messaging API Admin".
+#   prod: docker compose -f docker-compose.yml -f docker-compose.push.yml up -d
+#
+# The key is read by path (Push:CredentialsFile); it never enters configuration or logs. Rotate it by generating a new
+# key, replacing the file, restarting the API, then deleting the old key in Google Cloud.
+# Guide: wiki/Modules/Notification-Realtime-and-Push.md.
+# ==============================================
+
+secrets:
+  fcm_service_account:
+    file: ./secrets/fcm_service_account.json
+
+services:
+
+  api:
+    secrets:
+      - source: fcm_service_account
+        target: fcm_service_account.json
+    environment:
+      Push__Provider: Fcm
+      Push__CredentialsFile: /run/secrets/fcm_service_account.json

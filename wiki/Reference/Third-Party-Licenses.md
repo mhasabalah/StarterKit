@@ -14,7 +14,8 @@ being permissive.
 |---|---|---|---|---|---|
 | **QuestPDF 2026.9** | QuestPDF Community / Professional / Enterprise | Individuals, non-profits, academia, OSI open source, companies under USD 1M revenue. Public-sector bodies and publicly traded companies are **never** eligible | Buy Professional/Enterprise and set `Subscriptions:Pdf:License` | Subscriptions module only (invoice PDFs), `PdfConfiguration` + `InvoiceDocument` | Another renderer behind the invoice PDF service |
 | **Seq** (`datalust/seq` container, production `docker-compose.yml`) | Datalust commercial EULA | One user (Individual license) | Team license | Logging sink only (`Seq:ServerUrl`); the app talks OTLP/Serilog-style HTTP | Remove the service and send logs to Loki/OTLP (`docker-compose.observability.yml`) |
-| **Redis 7.4+** (`redis:7-alpine` resolves to 7.4) | RSALv2 / SSPLv1 | Using it as your own app's cache (StarterKit's case) | Only restricted if you sell Redis itself as a service | Cache + pub/sub through `IDistributedCache` / `IConnectionMultiplexer` | `valkey/valkey` (BSD-3), a wire-compatible drop-in |
+| **Firebase Cloud Messaging** (the Google service behind `docker-compose.push.yml`; the FirebaseAdmin SDK itself is Apache-2.0) | Google APIs Terms + Firebase Terms of Service | No charge for FCM sends | n/a (no paid tier); accept Google's data-processing terms in the Firebase console, since push titles/bodies transit Google (and Apple for iOS). Use `PushContent.Sensitive` for anything personal | Notification module only, behind `IPushProvider` (`FcmPushProvider`); guarded by `ThirdPartyIsolationTests` | Another `IPushProvider` (direct APNs, OneSignal, ...) or `Push:Provider=NoOp` |
+| **Redis 7.4+** (`redis:7-alpine` resolves to 7.4) | RSALv2 / SSPLv1 | Using it as your own app's cache (StarterKit's case) | Only restricted if you sell Redis itself as a service | Cache + pub/sub through `IDistributedCache` / `IConnectionMultiplexer`, and the SignalR backplane | `valkey/valkey` (BSD-3), a wire-compatible drop-in |
 
 **Copyleft that is fine as used:**
 - Hangfire.Core / Hangfire.AspNetCore / Hangfire.PostgreSql are LGPL-3.0, used as unmodified NuGet libraries. If you
@@ -43,9 +44,9 @@ commercial major never arrives by an automated PR.
 
 | License | Packages |
 |---|---|
-| MIT | SkiaSharp (+ `NativeAssets.Linux.NoDependencies`), ASP.NET Core / EF Core / Microsoft.Extensions.* 10.x, Aspire 13.x, Asp.Versioning, Carter, Swashbuckle, Scalar, Mapster, Scrutor, MailKit, Fluid.Core, System.IdentityModel.Tokens.Jwt, Azure.Storage.Blobs, Roslyn (Microsoft.CodeAnalysis.*), Testcontainers, coverlet, Microsoft.NET.Test.Sdk, Bogus |
-| Apache-2.0 | FluentValidation, OpenTelemetry.*, Grafana.OpenTelemetry, AspNetCore.HealthChecks.*, EFCore.NamingConventions, libphonenumber-csharp, Figgle, AWSSDK.*, KubernetesClient, xunit |
-| BSD-3-Clause | Polly, Moq, Google.Protobuf (transitive) |
+| MIT | SkiaSharp (+ `NativeAssets.Linux.NoDependencies`), ASP.NET Core / EF Core / Microsoft.Extensions.* 10.x (incl. `Microsoft.AspNetCore.SignalR.StackExchangeRedis`, `.SignalR.Client`, `.TestHost`), Aspire 13.x, Asp.Versioning, Carter, Swashbuckle, Scalar, Mapster, Scrutor, MailKit, Fluid.Core, System.IdentityModel.Tokens.Jwt, Azure.Storage.Blobs, Roslyn (Microsoft.CodeAnalysis.*), Testcontainers, coverlet, Microsoft.NET.Test.Sdk, Bogus |
+| Apache-2.0 | FirebaseAdmin, Google.Apis / Google.Apis.Auth / Google.Apis.Core (FCM, Notification module only), FluentValidation, OpenTelemetry.*, Grafana.OpenTelemetry, AspNetCore.HealthChecks.*, EFCore.NamingConventions, libphonenumber-csharp, Figgle, AWSSDK.*, KubernetesClient, xunit |
+| BSD-3-Clause | Polly, Moq, Google.Protobuf, Google.Api.Gax / Google.Api.Gax.Rest (transitive, via FirebaseAdmin) |
 | PostgreSQL | Npgsql, Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.OpenTelemetry |
 | Apache-2.0 OR MPL-2.0 | RabbitMQ.Client (transitive) |
 | Microsoft EULA | Microsoft.VisualStudio.Azure.Containers.Tools.Targets (Visual Studio container tooling, design-time only) |

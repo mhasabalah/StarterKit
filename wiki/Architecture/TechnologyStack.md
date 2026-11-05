@@ -96,12 +96,25 @@
 ## Caching
 
 ### Redis
-- **Purpose**: Distributed caching
+- **Purpose**: Distributed caching and pub/sub
 - **Usage**:
   - Session storage
   - Response caching
   - Temporary data
+  - L1 cache-eviction broadcasts and the SignalR backplane (see below)
 - **Library**: StackExchange.Redis
+
+## Real-time & Push
+
+### ASP.NET Core SignalR
+- **Purpose**: Real-time server → client events (the in-app notification hub `/hubs/notifications`)
+- **Scale-out**: `Microsoft.AspNetCore.SignalR.StackExchangeRedis` backplane on its own Redis connection
+- **Transports**: WebSockets (production), SSE / long polling (need sticky sessions)
+- **Guide**: [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md), [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)
+
+### Firebase Cloud Messaging (FirebaseAdmin SDK)
+- **Purpose**: Mobile and web push (Android, iOS through APNs, Web)
+- **Isolation**: Notification module only, behind `IPushProvider`; a NoOp provider is the default without credentials
 
 ## Logging & Observability
 
