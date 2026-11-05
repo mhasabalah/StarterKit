@@ -38,9 +38,22 @@ public sealed class PermissionClaimsTransformation : IClaimsTransformation
             return Task.FromResult(principal);
         }
 
-        var roles = authenticated.SelectMany(i => i.FindAll(i.RoleClaimType)).Select(c => c.Value);
+        // An API key principal has no role claims at all: it derives permissions from its owner's roles only.
+        var isApiKey = ApiKeyPrincipal.IsApiKey(principal);
+        var roles = isApiKey
+            ? ApiKeyPrincipal.OwnerRoles(principal)
+            : authenticated.SelectMany(i => i.FindAll(i.RoleClaimType)).Select(c => c.Value);
         var present = principal.FindAll(Permissions.ClaimType).Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
-        var missing = RolePermissionMap.For(roles).Where(p => !present.Contains(p));
+        var derived = RolePermissionMap.For(roles);
+
+        // API key: effective permissions = role-derived permissions INTERSECT key scopes (never more than the owner has).
+        if (isApiKey)
+        {
+            var scopes = ApiKeyPrincipal.Scopes(principal);
+            derived = derived.Where(scopes.Contains).ToList();
+        }
+
+        var missing = derived.Where(p => !present.Contains(p));
 
         var transformed = principal.Clone();
         transformed.AddIdentity(new ClaimsIdentity(

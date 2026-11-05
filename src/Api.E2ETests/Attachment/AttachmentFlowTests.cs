@@ -111,4 +111,23 @@ public class AttachmentFlowTests(E2ETestFixture fixture)
 
         (await user.PostAsync($"{Base}/upload", form)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task Anonymous_upload_and_unknown_attachment_reads_are_rejected()
+    {
+        using var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(Png);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(file, "file", "anon.png");
+        form.Add(new StringContent("Image"), "type");
+        form.Add(new StringContent("User"), "entityType");
+        form.Add(new StringContent(Guid.NewGuid().ToString()), "entityId");
+
+        (await fixture.CreateAnonymousClient().PostAsync($"{Base}/upload", form)).StatusCode
+            .Should().Be(HttpStatusCode.Unauthorized);
+
+        var user = fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User);
+        (await user.GetAsync($"{Base}/{Guid.NewGuid()}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await user.GetAsync($"{Base}/{Guid.NewGuid()}/download")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
 }

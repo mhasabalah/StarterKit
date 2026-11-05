@@ -38,6 +38,7 @@ wiki/
 - [Messaging](Architecture/Messaging.md): domain vs integration events, outbox, transports
 - [Observability](Architecture/Observability.md): logs, traces, metrics for developers
 - [TechnologyStack](Architecture/TechnologyStack.md): libraries and versions
+- [Feature-Flags](Architecture/Feature-Flags.md): runtime flags, evaluation order, `.RequireFlag`, admin API
 
 ## Decisions (ADRs)
 
@@ -49,6 +50,9 @@ wiki/
 - [0005](Decisions/0005-tenant-isolation-model.md): tenant isolation model
 - [0006](Decisions/0006-identity-behind-userdirectory-port.md): UserDirectory port
 - [0007](Decisions/0007-owned-mediator-port.md): owned mediator port (no MediatR)
+- [0008](Decisions/0008-feature-flags.md): own feature-flag port (no Microsoft.FeatureManagement)
+- [0009](Decisions/0009-outbound-webhooks.md): outbound customer webhooks module
+- [0011](Decisions/0011-audit-trail.md): generic same-transaction audit trail
 
 ## Modules
 
@@ -56,6 +60,7 @@ wiki/
 - [Tenancy](Modules/Tenancy.md): control plane
 - [Subscriptions](Modules/Subscriptions.md): plans, subscriptions, billing
 - [Notification](Modules/Notification.md): email and WhatsApp delivery
+- [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 
 ## Multi-tenancy
 

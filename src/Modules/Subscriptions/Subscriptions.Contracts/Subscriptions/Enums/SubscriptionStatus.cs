@@ -6,7 +6,7 @@ namespace Subscriptions.Contracts.Subscriptions.Enums;
 /// The single subscription lifecycle status, shared by the domain, the database and other modules.
 /// Numeric values are explicit and stable (never renumber them): the database stores the NAME (string column),
 /// but API clients and other modules may rely on the numbers.
-/// Open statuses (at most one per subscriber, enforced by a filtered unique index): PendingApproval, Active, PastDue.
+/// Open statuses (at most one per subscriber, enforced by a filtered unique index): PendingApproval, Trialing, Active, PastDue.
 /// </summary>
 public enum SubscriptionStatus
 {
@@ -26,5 +26,9 @@ public enum SubscriptionStatus
     Cancelled = 4,
 
     [LocalizedDescription("Rejected", "مرفوض")]
-    Rejected = 5
+    Rejected = 5,
+
+    /// <summary>Free trial: full access, no payment yet. Appended (value 6): existing numbers never change.</summary>
+    [LocalizedDescription("Trialing", "فترة تجريبية")]
+    Trialing = 6
 }

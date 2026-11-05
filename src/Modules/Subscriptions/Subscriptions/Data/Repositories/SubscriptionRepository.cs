@@ -29,6 +29,7 @@ public class SubscriptionRepository(SubscriptionsDbContext context)
                     x.SubscriberId == subscriberId &&
                     (x.Status == SubscriptionStatus.PendingApproval ||
                      x.Status == SubscriptionStatus.Active ||
+                     x.Status == SubscriptionStatus.Trialing ||
                      x.Status == SubscriptionStatus.PastDue),
                 ct);
 
@@ -37,8 +38,12 @@ public class SubscriptionRepository(SubscriptionsDbContext context)
                 x.SubscriberId == subscriberId &&
                 (x.Status == SubscriptionStatus.PendingApproval ||
                  x.Status == SubscriptionStatus.Active ||
+                 x.Status == SubscriptionStatus.Trialing ||
                  x.Status == SubscriptionStatus.PastDue),
             ct);
+
+    public async Task<bool> HasUsedTrialAsync(Guid subscriberId, CancellationToken ct = default)
+        => await context.Subscriptions.AnyAsync(x => x.SubscriberId == subscriberId && x.TrialStartedAt != null, ct);
 
     public async Task<Guid?> FindPaymentWithProofHashAsync(string contentHash, Guid excludingPaymentId, CancellationToken ct = default)
         => await context.Payments

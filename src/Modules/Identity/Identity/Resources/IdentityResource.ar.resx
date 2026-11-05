@@ -150,4 +150,37 @@
   <data name="Account.Delete.Done" xml:space="preserve">
     <value>تم حذف حسابك.</value>
   </data>
+  <data name="Session.StaffTargetForbidden" xml:space="preserve">
+    <value>يمكن للمشرف الأعلى فقط إدارة جلسات حسابات الموظفين.</value>
+  </data>
+  <data name="ApiKey.NameRequired" xml:space="preserve">
+    <value>اسم مفتاح الواجهة البرمجية مطلوب.</value>
+  </data>
+  <data name="ApiKey.NameTooLong" xml:space="preserve">
+    <value>يجب ألا يزيد اسم المفتاح عن {0} حرفًا.</value>
+  </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>مطلوب نطاق واحد على الأقل.</value>
+  </data>
+  <data name="ApiKey.TooManyScopes" xml:space="preserve">
+    <value>يمكن أن يحتوي المفتاح على {0} نطاقًا كحد أقصى.</value>
+  </data>
+  <data name="ApiKey.UnknownScope" xml:space="preserve">
+    <value>نطاق غير معروف '{0}'.</value>
+  </data>
+  <data name="ApiKey.InvalidExpiry" xml:space="preserve">
+    <value>يجب أن تكون مدة الصلاحية عددًا موجبًا من الأيام.</value>
+  </data>
+  <data name="ApiKey.ExpiryTooLong" xml:space="preserve">
+    <value>يمكن أن يكون المفتاح صالحًا لمدة {0} يومًا كحد أقصى.</value>
+  </data>
+  <data name="ApiKey.Disabled" xml:space="preserve">
+    <value>مفاتيح الواجهة البرمجية معطلة.</value>
+  </data>
+  <data name="ApiKey.ScopeNotHeld" xml:space="preserve">
+    <value>لا يمكنك منح النطاق '{0}' لأنك لا تملك هذه الصلاحية.</value>
+  </data>
+  <data name="ApiKey.TooManyKeys" xml:space="preserve">
+    <value>لديك بالفعل الحد الأقصى من المفاتيح النشطة ({0}). قم بإلغاء أحدها أولًا.</value>
+  </data>
 </root>

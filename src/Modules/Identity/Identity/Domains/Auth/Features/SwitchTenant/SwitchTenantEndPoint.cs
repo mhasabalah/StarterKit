@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 using Shared.Core.MultiTenancy.Web;
 
@@ -13,6 +14,7 @@ public class SwitchTenantEndPoint : ICarterModule
                 return Results.Ok(new ApiResponse<SwitchTenantResult>(true, StatusCodes.Status200OK, result,
                     "Tenant switched"));
             })
+            .DisallowApiKey()
             .WithName("SwitchTenant")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Authentication")

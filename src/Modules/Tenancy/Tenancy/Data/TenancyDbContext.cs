@@ -1,3 +1,5 @@
+using Tenancy.Domains.FeatureFlags.Models;
+
 namespace Tenancy.Data;
 
 /// <summary>
@@ -16,6 +18,8 @@ public class TenancyDbContext(DbContextOptions<TenancyDbContext> options) : AppD
     public DbSet<TenantRole> Roles => Set<TenantRole>();
     public DbSet<TenantInvitation> Invitations => Set<TenantInvitation>();
     public DbSet<TenantAuditLog> AuditLogs => Set<TenantAuditLog>();
+    public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
+    public DbSet<FeatureFlagOverride> FeatureFlagOverrides => Set<FeatureFlagOverride>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -44,7 +48,8 @@ public class TenancyDbContext(DbContextOptions<TenancyDbContext> options) : AppD
 
     private void EnsureAuditLogIsAppendOnly()
     {
-        if (TenantContext.IsHostScope) return; // the tenant purge removes a deleted tenant's trail
+        if (TenantContext.IsHostScope)
+            return; // the tenant purge removes a deleted tenant's trail
 
         if (ChangeTracker.Entries<TenantAuditLog>().Any(e => e.State is EntityState.Modified or EntityState.Deleted))
         {

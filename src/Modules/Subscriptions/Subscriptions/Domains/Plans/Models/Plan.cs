@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscriptions.Enums;
 using Shared.Contracts.Localization;
 
 namespace Subscriptions.Domains.Plans.Models;
@@ -23,6 +24,11 @@ public class Plan : Aggregate<Guid>
     public DateTimeOffset? PriceEffectiveAt { get; private set; }
     public DateTimeOffset? PriceChangeAnnouncedAt { get; private set; }
     public decimal? DiscountPercent { get; private set; }
+
+    /// <summary>Free-trial length in days; 0 = the plan offers no trial.</summary>
+    public int TrialDays { get; private set; }
+
+    public const int MaxTrialDays = 365;
     public IReadOnlyList<PlanFeature> Features => _features.AsReadOnly();
 
     private Plan()
@@ -40,8 +46,10 @@ public class Plan : Aggregate<Guid>
         int? maxUsers,
         bool isPublic,
         decimal? discountPercent = null,
-        string? seedKey = null)
+        string? seedKey = null,
+        int trialDays = 0)
     {
+        EnsureValidTrialDays(trialDays);
         return new Plan
         {
             Id = Guid.NewGuid(),
@@ -57,8 +65,15 @@ public class Plan : Aggregate<Guid>
             IsActive = true,
             IsPublic = isPublic,
             DiscountPercent = discountPercent,
+            TrialDays = trialDays,
             UpdatedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    private static void EnsureValidTrialDays(int trialDays)
+    {
+        if (trialDays is < 0 or > MaxTrialDays)
+            throw new BadRequestException($"TrialDays must be between 0 and {MaxTrialDays}.");
     }
 
     public void Update(
@@ -71,8 +86,11 @@ public class Plan : Aggregate<Guid>
         int? maxUsers,
         bool isActive,
         bool isPublic,
-        decimal? discountPercent = null)
+        decimal? discountPercent = null,
+        int trialDays = 0)
     {
+        EnsureValidTrialDays(trialDays);
+        TrialDays = trialDays;
         Name = name;
         Description = description;
         Currency = currency;
@@ -155,9 +173,9 @@ public class Plan : Aggregate<Guid>
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    public PlanFeature AddFeature(string key)
+    public PlanFeature AddFeature(string key, long? limit = null, QuotaResetPeriod? resetPeriod = null)
     {
-        var feature = PlanFeature.Create(Id, key);
+        var feature = PlanFeature.Create(Id, key, limit, resetPeriod);
         _features.Add(feature);
         UpdatedAt = DateTimeOffset.UtcNow;
 

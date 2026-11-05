@@ -1,4 +1,5 @@
 using Identity.Authorization;
+using Identity.Data.Repository.ApiKeys;
 using Identity.Data.Repository.Otp;
 using Identity.Data.Repository.RefreshTokens;
 using Identity.Data.Seed;
@@ -10,6 +11,7 @@ using Identity.Infrastructure;
 using Identity.Infrastructure.BackgroundJobs;
 using Identity.Infrastructure.DataProtection;
 using Identity.Options;
+using Identity.Services.ApiKeys;
 using Identity.Services.EmailConfirmation;
 using Identity.Services.Otp;
 using Identity.Services.Phone;
@@ -52,6 +54,9 @@ public static class IdentityModule
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<ISessionRevoker, SessionRevoker>();
+        services.AddScoped<ISessionManager, SessionManager>();
+        services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
+        services.AddScoped<IApiKeyAuthenticator, ApiKeyAuthenticator>();
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddScoped<TokenBlacklistJwtBearerEvents>();
         services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
@@ -134,6 +139,7 @@ public static class IdentityModule
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<IdentitySecurityOptions>, IdentitySecurityOptionsValidator>();
 
+        services.Configure<ApiKeyOptions>(configuration.GetSection(ApiKeyOptions.SectionName));
         services.Configure<Options.AuthenticationOptions>(
             configuration.GetSection(Options.AuthenticationOptions.SectionName));
         services.Configure<Options.IdentityOptions>(configuration.GetSection(Options.IdentityOptions.SectionName));
@@ -196,13 +202,21 @@ public static class IdentityModule
 
     private static void ConfigureJwtAuthentication(this IServiceCollection services)
     {
+        // Default = a policy scheme that forwards to ApiKey when the request carries an API key
+        // ("Authorization: ApiKey ..." or "X-Api-Key"), otherwise to Bearer (JWT) as before.
         services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultAuthenticateScheme = ApiKeyClaimTypes.PolicySchemeName;
+                options.DefaultChallengeScheme = ApiKeyClaimTypes.PolicySchemeName;
+                options.DefaultScheme = ApiKeyClaimTypes.PolicySchemeName;
             })
-            .AddJwtBearer();
+            .AddJwtBearer()
+            .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(ApiKeyClaimTypes.SchemeName, null)
+            .AddPolicyScheme(ApiKeyClaimTypes.PolicySchemeName, "Bearer or API key", options =>
+            {
+                options.ForwardDefault = JwtBearerDefaults.AuthenticationScheme;
+                options.ForwardDefaultSelector = ApiKeyRequest.SelectScheme;
+            });
 
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
@@ -291,6 +305,7 @@ public static class IdentityModule
         Action<IApplicationBuilder>? afterAuthentication = null)
     {
         app.UseAuthentication();
+        app.UseMiddleware<ApiKeyRestrictionMiddleware>(); // DisallowApiKey() endpoints: 403 for API-key callers
         afterAuthentication?.Invoke(app);
         app.UseAuthorization();
 

@@ -108,6 +108,8 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<ISessionRevoker, SessionRevoker>();
+        services.AddScoped<ISessionManager, SessionManager>();
+        services.AddScoped<Identity.Data.Repository.ApiKeys.IApiKeyRepository, Identity.Data.Repository.ApiKeys.ApiKeyRepository>();
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
         services.AddScoped<IOtpCodeService, OtpCodeService>();

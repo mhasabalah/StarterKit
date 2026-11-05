@@ -1,0 +1,45 @@
+{% comment %}Variables: SubscriberName, PlanName, AmountDue, GraceDeadline, PaymentUrl, IsFinal{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#b45309;line-height:1.35;">
+  {% if IsFinal %}
+    {% if culture == 'ar' %}تنبيه أخير: يُرجى دفع تجديد اشتراكك{% else %}Final notice: please pay your subscription renewal{% endif %}
+  {% else %}
+    {% if culture == 'ar' %}تذكير: تجديد اشتراكك لا يزال معلقًا{% else %}Reminder: your subscription renewal is still due{% endif %}
+  {% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، لم نستلم بعد دفعة تجديد خطة <strong>{{ PlanName }}</strong>.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, we have not yet received the renewal payment for your <strong>{{ PlanName }}</strong> plan.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+      {% if culture == 'ar' %}المبلغ المستحق{% else %}Amount due{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:700;color:#0f172a;">{{ AmountDue }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}آخر موعد للدفع{% else %}Pay by{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:700;color:#dc2626;">{{ GraceDeadline }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل الدفع' %}{% else %}{% assign card_title = 'Payment Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% if IsFinal %}
+  {% assign alert_type = 'warning' %}
+  {% assign alert_text_en = 'This is your last reminder. If the payment is not received by the deadline your subscription will expire.' %}
+  {% assign alert_text_ar = 'هذا آخر تذكير. إذا لم نستلم الدفعة قبل الموعد النهائي سينتهي اشتراكك.' %}
+  {% include 'Components/Alert' %}
+{% endif %}
+
+{% assign button_url = PaymentUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'ادفع الآن' %}{% else %}{% assign button_text = 'Pay Now' %}{% endif %}
+{% include 'Components/Button' %}

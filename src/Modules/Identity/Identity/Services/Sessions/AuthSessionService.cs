@@ -3,6 +3,7 @@ using Identity.Options;
 using Identity.Services.Token;
 using Microsoft.Extensions.Options;
 using Shared.Core.MultiTenancy;
+using Shared.Core.Web;
 using RefreshTokenEntity = Identity.Models.RefreshToken;
 
 namespace Identity.Services.Sessions;
@@ -17,7 +18,8 @@ public sealed class AuthSessionService(
     ITenantMembershipResolver? memberships = null,
     ITenantStore? tenantStore = null,
     ITenantContext? tenantContext = null,
-    IOptions<MultiTenancyOptions>? multiTenancyOptions = null) : IAuthSessionService
+    IOptions<MultiTenancyOptions>? multiTenancyOptions = null,
+    IHttpContextService? httpContext = null) : IAuthSessionService
 {
     private bool MultiTenancyEnabled => multiTenancyOptions?.Value.Enabled == true && memberships is not null;
 
@@ -33,7 +35,8 @@ public sealed class AuthSessionService(
         ApplicationUser user, string? ipAddress, bool multiFactor, CancellationToken ct = default)
     {
         var membership = await ChooseLoginTenantAsync(user, ct);
-        var (session, token) = await CreateSessionAsync(user, familyId: Guid.NewGuid(), ipAddress, multiFactor, membership);
+        var (session, token) = await CreateSessionAsync(user, familyId: Guid.NewGuid(), ipAddress, multiFactor, membership,
+            DeviceNameParser.Truncate(httpContext?.GetUserAgent()));
         await refreshTokens.AddAsync(token, ct);
         await RememberTenantAsync(user, membership);
         return session;
@@ -52,7 +55,8 @@ public sealed class AuthSessionService(
         var membership = await memberships!.GetMembershipAsync(user.Id, tenantId, ct)
                          ?? throw new TenantAccessDeniedException(TenantErrors.NotAMember, "you are not a member of this tenant.");
 
-        var (session, token) = await CreateSessionAsync(user, Guid.NewGuid(), ipAddress, multiFactor, membership);
+        var (session, token) = await CreateSessionAsync(user, Guid.NewGuid(), ipAddress, multiFactor, membership,
+            DeviceNameParser.Truncate(httpContext?.GetUserAgent()));
         await refreshTokens.AddAsync(token, ct);
         await RememberTenantAsync(user, membership);
 
@@ -66,7 +70,8 @@ public sealed class AuthSessionService(
     /// </summary>
     private async Task<TenantMembershipInfo?> ChooseLoginTenantAsync(ApplicationUser user, CancellationToken ct)
     {
-        if (!MultiTenancyEnabled) return null;
+        if (!MultiTenancyEnabled)
+            return null;
 
         foreach (var candidate in new[] { tenantContext?.TenantId, user.LastActiveTenantId })
         {
@@ -81,13 +86,15 @@ public sealed class AuthSessionService(
     private async Task<TenantMembershipInfo?> TryMembershipAsync(Guid userId, Guid tenantId, CancellationToken ct)
     {
         var tenant = await tenantStore!.FindByIdAsync(tenantId, ct);
-        if (tenant is not { Status: TenantStatus.Active or TenantStatus.Suspended or TenantStatus.Migrating }) return null;
+        if (tenant is not { Status: TenantStatus.Active or TenantStatus.Suspended or TenantStatus.Migrating })
+            return null;
         return await memberships!.GetMembershipAsync(userId, tenantId, ct);
     }
 
     private async Task RememberTenantAsync(ApplicationUser user, TenantMembershipInfo? membership)
     {
-        if (membership is null || user.LastActiveTenantId == membership.TenantId) return;
+        if (membership is null || user.LastActiveTenantId == membership.TenantId)
+            return;
         user.LastActiveTenantId = membership.TenantId;
         await userManager.UpdateAsync(user);
     }
@@ -130,7 +137,8 @@ public sealed class AuthSessionService(
             : null;
 
         var (session, replacement) =
-            await CreateSessionAsync(user!, current.FamilyId, ipAddress, current.MultiFactor, membership);
+            await CreateSessionAsync(user!, current.FamilyId, ipAddress, current.MultiFactor, membership,
+                current.UserAgent);
 
         if (!await refreshTokens.TryRotateAsync(current.Id, replacement, ipAddress, ct))
         {
@@ -170,10 +178,12 @@ public sealed class AuthSessionService(
     }
 
     private async Task<(AuthSession Session, RefreshTokenEntity Token)> CreateSessionAsync(
-        ApplicationUser user, Guid familyId, string? ipAddress, bool multiFactor, TenantMembershipInfo? membership = null)
+        ApplicationUser user, Guid familyId, string? ipAddress, bool multiFactor, TenantMembershipInfo? membership = null,
+        string? userAgent = null)
     {
         var roles = (await userManager.GetRolesAsync(user)).ToList();
-        var accessToken = await tokenGenerator.GenerateTokenAsync(user, roles, multiFactor, membership);
+        var accessToken = await tokenGenerator.GenerateTokenAsync(
+            user, roles, multiFactor, membership, impersonation: null, sessionId: familyId);
         var rawRefreshToken = tokenGenerator.GenerateRefreshToken();
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
@@ -187,6 +197,9 @@ public sealed class AuthSessionService(
             MultiFactor = multiFactor,
             TenantId = membership?.TenantId,
             CreatedAt = now,
+            LastUsedAt = now,
+            UserAgent = userAgent,
+            DeviceName = DeviceNameParser.Parse(userAgent),
             ExpiresAt = now.AddDays(_jwt.RefreshTokenExpirationDays),
             CreatedByIp = Truncate(ipAddress ?? "unknown", 45)
         };

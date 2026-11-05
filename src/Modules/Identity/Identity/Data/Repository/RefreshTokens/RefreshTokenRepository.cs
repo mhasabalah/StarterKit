@@ -64,6 +64,73 @@ public class RefreshTokenRepository(ApplicationIdentityDbContext dbContext) : IR
     public Task<int> RevokeAllForUserAsync(Guid userId, string reason, string? ipAddress, CancellationToken ct = default)
         => RevokeWhere(dbContext.RefreshTokens.Where(t => t.UserId == userId), reason, ipAddress, ct);
 
+    public async Task<List<ActiveSession>> ListActiveFamiliesAsync(
+        Guid userId, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var live = await dbContext.RefreshTokens
+            .AsNoTracking()
+            .Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > nowUtc)
+            .Select(t => new
+            {
+                t.FamilyId,
+                t.DeviceName,
+                t.UserAgent,
+                t.CreatedByIp,
+                t.CreatedAt,
+                t.LastUsedAt,
+                t.ExpiresAt,
+                t.TenantId
+            })
+            .ToListAsync(ct);
+
+        if (live.Count == 0)
+            return [];
+
+        var familyIds = live.Select(t => t.FamilyId).Distinct().ToList();
+        var starts = await dbContext.RefreshTokens
+            .AsNoTracking()
+            .Where(t => t.UserId == userId && familyIds.Contains(t.FamilyId))
+            .GroupBy(t => t.FamilyId)
+            .Select(g => new { FamilyId = g.Key, SignedInAt = g.Min(t => t.CreatedAt) })
+            .ToDictionaryAsync(x => x.FamilyId, x => x.SignedInAt, ct);
+
+        return live
+            .GroupBy(t => t.FamilyId)
+            .Select(g => g.OrderByDescending(t => t.CreatedAt).First())
+            .Select(t => new ActiveSession(
+                t.FamilyId, t.DeviceName, t.UserAgent, t.CreatedByIp,
+                starts.GetValueOrDefault(t.FamilyId, t.CreatedAt),
+                t.LastUsedAt ?? t.CreatedAt, t.ExpiresAt, t.TenantId))
+            .OrderByDescending(s => s.LastUsedAt)
+            .ToList();
+    }
+
+    public Task<int> RevokeUserFamilyAsync(
+        Guid userId, Guid familyId, string reason, string? ipAddress, CancellationToken ct = default)
+        => RevokeWhere(
+            dbContext.RefreshTokens.Where(t => t.UserId == userId && t.FamilyId == familyId),
+            reason, ipAddress, ct);
+
+    public async Task<List<Guid>> RevokeOtherFamiliesAsync(
+        Guid userId, Guid? exceptFamilyId, string reason, string? ipAddress, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var familyIds = await dbContext.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > nowUtc
+                        && (exceptFamilyId == null || t.FamilyId != exceptFamilyId))
+            .Select(t => t.FamilyId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (familyIds.Count == 0)
+            return [];
+
+        await RevokeWhere(
+            dbContext.RefreshTokens.Where(t => t.UserId == userId && familyIds.Contains(t.FamilyId)),
+            reason, ipAddress, ct);
+
+        return familyIds;
+    }
+
     public async Task<int> DeleteExpiredAsync(DateTime cutoffUtc, int batchSize, CancellationToken ct = default)
     {
         var total = 0;

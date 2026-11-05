@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Users.Dtos;
 using Identity.Contracts.Users.Queries;
 using Shared.Core.Response;
@@ -23,6 +24,7 @@ public class ExportMyDataEndPoint : ICarterModule
             })
             .RequireAuthorization()
             .RequireRateLimiting("auth")
+            .DisallowApiKey()
             .WithName("ExportMyData")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Profile")

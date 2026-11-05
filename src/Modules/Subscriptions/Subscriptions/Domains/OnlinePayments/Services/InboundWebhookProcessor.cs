@@ -36,6 +36,10 @@ internal sealed class InboundWebhookProcessor(
     IOnlinePaymentSessionRepository sessions,
     ISubscriptionRepository subscriptionRepository,
     IPaymentSettlementService settlement,
+    IOnlinePaymentRefundRepository onlineRefunds,
+    IRefundBooking refundBooking,
+    IInvoiceIssuer invoiceIssuer,
+    ILedgerRepository ledger,
     IAdminAuditWriter audit,
     IOptions<SubscriptionOptions> options,
     TimeProvider timeProvider,
@@ -63,6 +67,7 @@ internal sealed class InboundWebhookProcessor(
 
         Subscription? subscription = null;
         SettlementResult? result = null;
+        IReadOnlyList<SubscriptionInvoice> creditNotes = [];
 
         await using (var transaction = await inbox.BeginTransactionAsync(ct))
         {
@@ -72,7 +77,7 @@ internal sealed class InboundWebhookProcessor(
 
             try
             {
-                (subscription, result) = await ApplyAsync(inbound, now, ct);
+                (subscription, result, creditNotes) = await ApplyAsync(inbound, now, ct);
                 inbound.MarkProcessed(now);
                 await inbox.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
@@ -89,38 +94,111 @@ internal sealed class InboundWebhookProcessor(
         {
             await settlement.AfterCommitAsync(subscription, result, ct);
         }
+
+        foreach (var note in creditNotes)
+        {
+            invoiceIssuer.EnqueueDelivery(note.Id);
+        }
     }
 
-    private async Task<(Subscription? Subscription, SettlementResult? Result)> ApplyAsync(
+    private async Task<(Subscription? Subscription, SettlementResult? Result, IReadOnlyList<SubscriptionInvoice> CreditNotes)> ApplyAsync(
         InboundWebhookEvent inbound,
         DateTimeOffset now,
         CancellationToken ct)
     {
         var type = Enum.Parse<PaymentWebhookEventType>(inbound.Type);
         if (type == PaymentWebhookEventType.Other)
-            return (null, null);
+            return (null, null, []);
 
-        var session = await sessions.GetByProviderReferenceAsync(inbound.Provider, inbound.ProviderReference!, ct)
+        // A refund event may only know the provider payment id (remembered from the success event).
+        var session = (type == PaymentWebhookEventType.Refunded
+                ? await sessions.GetByAnyReferenceAsync(inbound.Provider, inbound.ProviderReference!, ct)
+                : await sessions.GetByProviderReferenceAsync(inbound.Provider, inbound.ProviderReference!, ct))
             ?? throw new WebhookRejectedException($"Unknown payment reference '{inbound.ProviderReference}'.");
 
         switch (type)
         {
             case PaymentWebhookEventType.PaymentFailed:
                 session.MarkFailed(now);
-                return (null, null);
+                return (null, null, []);
 
             case PaymentWebhookEventType.Refunded:
-                if (session.Status != OnlinePaymentSessionStatus.Succeeded)
-                    throw new WebhookRejectedException("Refund reported for a payment that was never settled.");
-                session.MarkRefunded(now);
-                logger.LogWarning(
-                    "Provider {Provider} refunded settled payment {PaymentId} ({Reference}); reconcile it through the refund flow.",
-                    session.Provider, session.PaymentId, session.ProviderReference);
-                return (null, null);
+                return (null, null, await BookRefundAsync(inbound, session, now, ct));
 
             default:
-                return await SettleAsync(inbound, session, now, ct);
+                var (subscription, result) = await SettleAsync(inbound, session, now, ct);
+                return (subscription, result, []);
         }
+    }
+
+    /// <summary>
+    /// A refund the provider reports (dashboard refund, or the echo of one we issued): one credit-note set and ONE
+    /// Refund ledger entry per provider refund id, never more than the session received.
+    /// </summary>
+    private async Task<IReadOnlyList<SubscriptionInvoice>> BookRefundAsync(
+        InboundWebhookEvent inbound,
+        OnlinePaymentSession session,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        // Same refund reported again (new event id, or the echo of an admin refund): booked once, ever.
+        var refundId = inbound.ProviderRefundId ?? inbound.EventId;
+        if (await onlineRefunds.FindAsync(inbound.Provider, refundId, ct) is not null)
+        {
+            logger.LogInformation("Refund {Provider}/{RefundId} is already booked; ignoring.", inbound.Provider, refundId);
+            return [];
+        }
+
+        if (session.Status is not (OnlinePaymentSessionStatus.Succeeded or OnlinePaymentSessionStatus.Refunded))
+            throw new WebhookRejectedException("Refund reported for a payment that was never settled.");
+
+        var amount = inbound.Amount ?? 0m;
+        if (amount <= 0m)
+            throw new WebhookRejectedException("The refund amount must be positive.");
+        if (!string.Equals(inbound.Currency, session.Currency, StringComparison.OrdinalIgnoreCase))
+            throw new WebhookRejectedException(
+                $"Currency mismatch: the payment was {session.Currency}, the refund is {inbound.Currency}.");
+
+        // Serialize concurrent refunds of one session so they cannot jointly exceed what was received.
+        await onlineRefunds.LockSessionAsync(session.Id, ct);
+        var alreadyRefunded = await onlineRefunds.SumForSessionAsync(session.Id, ct);
+        if (alreadyRefunded + amount > session.Amount)
+            throw new WebhookRejectedException(
+                $"Refund of {amount:F2} {session.Currency} exceeds the money received: {session.Amount:F2} paid, {alreadyRefunded:F2} already refunded.");
+
+        var subscription = await subscriptionRepository.GetByIdAsync(session.SubscriptionId, ct)
+            ?? throw new WebhookRejectedException("The subscription no longer exists.");
+
+        var allocation = await refundBooking.IssueCreditNotesAsync(
+            subscription.Id, amount, $"Refund {inbound.Provider} {refundId}", ct);
+
+        var actor = options.Value.SystemActorId;
+        ledger.Add(LedgerEntry.ForProviderRefund(
+            subscription, session.PaymentId, amount, session.Currency, allocation.Notes.FirstOrDefault()?.Id,
+            actor, now, inbound.Provider, refundId));
+        onlineRefunds.Add(OnlinePaymentRefund.Create(session, refundId, amount, null, now, bookedByWebhook: true));
+
+        if (alreadyRefunded + amount == session.Amount)
+            session.MarkRefunded(now);
+
+        audit.Record(
+            "ProviderRefund",
+            session.PaymentId,
+            "Payment",
+            subscription.SubscriberId,
+            $"{inbound.Provider} refund {refundId} (event {inbound.EventId})",
+            amount,
+            session.Currency,
+            before: new { Refunded = alreadyRefunded },
+            after: new
+            {
+                Refunded = alreadyRefunded + amount,
+                CreditNotes = allocation.Notes.Select(x => new { x.Id, x.InvoiceNumber, x.TotalAmount }).ToList(),
+                UncreditedAmount = allocation.Uncredited
+            },
+            adminId: actor);
+
+        return allocation.Notes;
     }
 
     private async Task<(Subscription? Subscription, SettlementResult? Result)> SettleAsync(
@@ -131,7 +209,10 @@ internal sealed class InboundWebhookProcessor(
     {
         // Another event already settled this very session (provider re-sent it under a new event id): nothing to do.
         if (session.Status == OnlinePaymentSessionStatus.Succeeded)
+        {
+            session.RecordPaymentReference(inbound.PaymentReference);
             return (null, null);
+        }
 
         var amount = inbound.Amount ?? 0m;
         if (amount != session.Amount ||
@@ -167,7 +248,7 @@ internal sealed class InboundWebhookProcessor(
         var result = await settlement.SettleAsync(
             subscription, payment, amount, actor, now, inbound.Provider, inbound.ProviderReference, ct);
         subscription.Touch(now);
-        session.MarkSucceeded(now);
+        session.MarkSucceeded(now, inbound.PaymentReference);
 
         audit.Record(
             "SettleOnlinePayment",

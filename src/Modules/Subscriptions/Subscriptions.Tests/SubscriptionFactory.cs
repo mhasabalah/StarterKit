@@ -38,6 +38,8 @@ internal static class SubscriptionFactory
             }
             case SubscriptionStatus.Active:
                 return Active();
+            case SubscriptionStatus.Trialing:
+                return Subscription.StartTrial(Guid.NewGuid(), Plan(100m), 14, now);
             case SubscriptionStatus.PastDue:
             {
                 var s = Active();

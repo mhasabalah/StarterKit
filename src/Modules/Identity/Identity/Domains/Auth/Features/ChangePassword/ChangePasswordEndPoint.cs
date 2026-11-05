@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 using Shared.Core.Web;
 
@@ -26,6 +27,7 @@ public class ChangePasswordEndPoint : ICarterModule
                 return Results.Ok(new ApiResponse<ChangePasswordResult>(
                     true, StatusCodes.Status200OK, result, result.Message));
             })
+            .DisallowApiKey()
             .WithName("ChangePassword")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Authentication")

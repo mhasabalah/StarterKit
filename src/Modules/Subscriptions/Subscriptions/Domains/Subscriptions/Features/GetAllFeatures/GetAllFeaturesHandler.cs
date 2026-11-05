@@ -33,7 +33,7 @@ public class GetAllFeaturesHandler(
         var subscription = await dbContext.Subscriptions
             .AsNoTracking()
             .Where(x => x.SubscriberId == query.SubscriberId &&
-                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue))
+                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue || x.Status == SubscriptionStatus.Trialing))
             .OrderByDescending(x => x.UpdatedAt)
             .Select(x => new
             {

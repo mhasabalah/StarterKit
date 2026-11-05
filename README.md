@@ -59,10 +59,11 @@ The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md).
 
 | Module | What it does | Docs |
 |---|---|---|
-| **Identity** | Register/login, JWT + rotating refresh tokens, token blacklist, roles → fine-grained permissions, 2FA (TOTP), OTP, email confirmation, admin and user management, audited impersonation, external login hooks | [wiki/Identity](wiki/Identity/README.md) |
+| **Identity** | Register/login, JWT + rotating refresh tokens, token blacklist, roles → fine-grained permissions, 2FA (TOTP), OTP, email confirmation, admin and user management, audited impersonation, external login hooks, session/device management, API keys (scoped PATs), KMS-protected Data Protection keys | [wiki/Identity](wiki/Identity/README.md) |
 | **Tenancy** | Tenants, branch trees, memberships, tenant roles, invitations, custom domains, export/deletion/move, audit (multi-tenancy control plane) | [wiki/Modules/Tenancy](wiki/Modules/Tenancy.md) |
 | **Attachment** | Validated uploads (magic bytes), thumbnails, anonymous pending uploads, entity access policies, reconciliation; Local / Azure Blob / S3 | [wiki/Attachment](wiki/Attachment/README.md) |
-| **Subscriptions** | Plans and features, subscription lifecycle, proof-based payments, invoices, refunds, price changes, append-only ledger | [wiki/Modules/Subscriptions](wiki/Modules/Subscriptions.md) |
+| **Subscriptions** | Plans and features, subscription lifecycle, proof-based payments, invoices, refunds, price changes, append-only ledger, Stripe + Paymob adapters, trials, coupons, dunning, usage metering and quotas | [wiki/Modules/Subscriptions](wiki/Modules/Subscriptions.md) |
+| **Webhooks** | Customer webhook endpoints per tenant, Standard Webhooks signatures, retries with backoff, delivery log, SSRF guard, auto-disable | [wiki/Modules/Webhooks](wiki/Modules/Webhooks.md) |
 | **Notification** | Every email (Liquid templates, en/ar) and WhatsApp delivery, user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md) |
 | **Catalog** (sample) | Products (moderation workflow, gallery, attributes, soft delete), categories, tags, wishlist: the **reference vertical slice** | [wiki/Modules/Catalog](wiki/Modules/Catalog.md) |
 
@@ -135,7 +136,7 @@ dotnet test StarterKit.slnx            # needs Docker (Testcontainers)
 | Level | Where | Run |
 |---|---|---|
 | Unit | `src/Modules/<M>/<M>.Tests` | `dotnet test src/Modules/Catalog/Catalog.Tests` |
-| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Catalog, Identity, Subscriptions, Tenancy) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
+| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Catalog, Identity, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
 | Architecture guardrails | `src/Api.Tests/Architecture` | `dotnet test src/Api.Tests` |
 | HTTP end-to-end (+ multi-tenant) | `src/Api.E2ETests` | `dotnet test src/Api.E2ETests` |
 | Shared kernel / Aspire | `src/Shared/Shared.Core.Tests`, `src/Aspire/AppHost.Tests` | `dotnet test <project>` |

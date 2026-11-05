@@ -79,6 +79,8 @@ public class GetMySubscriptionHandler(SubscriptionsDbContext dbContext)
             plan?.PriceEffectiveAt,
             subscription.Subscription.CurrentPeriodStart,
             subscription.Subscription.DeferredProrationAmount,
-            subscription.Subscription.Version);
+            subscription.Subscription.Version,
+            subscription.Subscription.TrialEndsAt,
+            subscription.Subscription.CouponCode);
     }
 }

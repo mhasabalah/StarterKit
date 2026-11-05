@@ -2,8 +2,11 @@ using Hangfire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shared.Core.Mapster;
+using Shared.Contracts.FeatureFlags;
+using Shared.Core.FeatureFlags;
 using Subscriptions.Contracts.Subscribers;
 using Tenancy.Data.Seed;
+using Tenancy.Domains.FeatureFlags.Services;
 using Tenancy.Domains.Members.Features;
 using Tenancy.Jobs;
 using Tenancy.Services;
@@ -31,6 +34,12 @@ public static class TenancyModule
         services.AddSingleton<TenantStore>();
         services.Replace(ServiceDescriptor.Singleton<ITenantStore>(sp => sp.GetRequiredService<TenantStore>()));
         services.Replace(ServiceDescriptor.Singleton<ITenantMembershipResolver, TenantMembershipResolver>());
+
+        // Runtime feature flags: stored in the host database, cached (L1 + distributed, evicted over the invalidation bus).
+        // Replaces the configuration-only default registered by AddFeatureFlags (AddScoped wins regardless of order).
+        services.AddFeatureFlags();
+        services.AddSingleton<FeatureFlagStore>();
+        services.AddScoped<IFeatureFlags, TenancyFeatureFlags>();
 
         services.AddScoped<TenancyRequest>();
         services.AddScoped<ITenantAuditWriter, TenantAuditWriter>();

@@ -1,0 +1,39 @@
+{% comment %}Variables: SubscriberName, PlanName, TrialEndDate, DaysLeft, PriceAfterTrial, SubscriptionUrl{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}فترتك التجريبية على وشك الانتهاء{% else %}Your free trial is ending soon{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تنتهي فترتك التجريبية لخطة <strong>{{ PlanName }}</strong> خلال {{ DaysLeft }} يوم.
+  {% else %}
+    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your free trial of the <strong>{{ PlanName }}</strong> plan ends in {{ DaysLeft }} day(s).
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+      {% if culture == 'ar' %}تاريخ انتهاء التجربة{% else %}Trial ends{% endif %}
+    </td>
+    <td style="padding:5px 0;font-size:14px;font-weight:700;color:#d97706;">{{ TrialEndDate }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}السعر بعد التجربة{% else %}Price after the trial{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PriceAfterTrial }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل التجربة' %}{% else %}{% assign card_title = 'Trial Details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% assign alert_type = 'info' %}
+{% assign alert_text_en = 'When the trial ends we will send you the first invoice. Pay it to keep your access; cancel any time before then to avoid being charged.' %}
+{% assign alert_text_ar = 'عند انتهاء التجربة سنرسل لك الفاتورة الأولى. ادفعها للحفاظ على وصولك، أو ألغِ الاشتراك قبل ذلك لتجنب أي رسوم.' %}
+{% include 'Components/Alert' %}
+
+{% assign button_url = SubscriptionUrl %}
+{% if culture == 'ar' %}{% assign button_text = 'إدارة الاشتراك' %}{% else %}{% assign button_text = 'Manage Subscription' %}{% endif %}
+{% include 'Components/Button' %}

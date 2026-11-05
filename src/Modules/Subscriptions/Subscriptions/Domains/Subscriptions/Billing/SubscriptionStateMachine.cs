@@ -4,6 +4,7 @@ namespace Subscriptions.Domains.Subscriptions.Billing;
 /// The allowed subscription status transitions, in one table (the entity methods consult it).
 /// <code>
 /// PendingApproval → Active | Rejected
+/// Trialing        → PastDue (trial ended: the first paid period is billed) | Cancelled
 /// Active          → PastDue | Cancelled
 /// PastDue         → Active (renewed) | Expired | Cancelled
 /// Expired, Cancelled, Rejected: terminal
@@ -16,11 +17,12 @@ public static class SubscriptionStateMachine
 {
     /// <summary>Statuses that count as the subscriber's one open subscription (filtered unique index).</summary>
     public static readonly IReadOnlyList<SubscriptionStatus> OpenStatuses =
-        [SubscriptionStatus.PendingApproval, SubscriptionStatus.Active, SubscriptionStatus.PastDue];
+        [SubscriptionStatus.PendingApproval, SubscriptionStatus.Trialing, SubscriptionStatus.Active, SubscriptionStatus.PastDue];
 
     private static readonly Dictionary<SubscriptionStatus, SubscriptionStatus[]> Allowed = new()
     {
         [SubscriptionStatus.PendingApproval] = [SubscriptionStatus.Active, SubscriptionStatus.Rejected],
+        [SubscriptionStatus.Trialing] = [SubscriptionStatus.PastDue, SubscriptionStatus.Cancelled],
         [SubscriptionStatus.Active] = [SubscriptionStatus.PastDue, SubscriptionStatus.Cancelled],
         [SubscriptionStatus.PastDue] = [SubscriptionStatus.Active, SubscriptionStatus.Expired, SubscriptionStatus.Cancelled],
         [SubscriptionStatus.Expired] = [],

@@ -11,6 +11,8 @@ namespace Subscriptions.Domains.OnlinePayments.Gateways;
 /// webhooks are JSON signed with HMAC-SHA256 over the raw body using <c>Subscriptions:PaymentGateways:Fake:Secret</c>,
 /// hex in the <c>X-Fake-Signature</c> header:
 /// <code>{ "id": "evt_1", "type": "payment.succeeded|payment.failed|refund.created", "reference": "session id", "amount": 100.00, "currency": "SAR" }</code>
+/// (<c>refund.created</c> may add <c>refund_id</c>; the amount is then the amount of that one refund; a success may add
+/// <c>payment_reference</c>, the provider payment id remembered for later refunds.)
 /// Never enable it in production (the options validator refuses an enabled gateway without a secret).
 /// </summary>
 internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) : IPaymentGateway
@@ -20,6 +22,8 @@ internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) 
 
     public string Name => ProviderName;
 
+    public bool SupportsRefundIdempotency => true;
+
     public Task<CheckoutSession> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
         var sessionId = $"fake_{Guid.NewGuid():N}";
@@ -27,8 +31,16 @@ internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) 
         return Task.FromResult(new CheckoutSession(sessionId, new Uri($"{baseUrl.TrimEnd('/')}/checkout/{sessionId}")));
     }
 
-    public WebhookParseResult ParseWebhook(string rawBody, IReadOnlyDictionary<string, string> headers)
+    /// <summary>Always succeeds, except for a payment whose reference contains <c>declined</c> (to exercise the failure path).</summary>
+    public Task<RefundResult> RefundAsync(RefundRequest request, CancellationToken ct) =>
+        request.ProviderReference.Contains("declined", StringComparison.OrdinalIgnoreCase)
+            ? throw new Exceptions.PaymentGatewayException("The fake provider declined the refund.")
+            : Task.FromResult(new RefundResult($"fake_re_{Guid.NewGuid():N}", request.Amount));
+
+    public WebhookParseResult ParseWebhook(WebhookRequest request)
     {
+        var rawBody = request.RawBody;
+        var headers = request.Headers;
         if (string.IsNullOrEmpty(Settings.Secret) ||
             !headers.TryGetValue(SignatureHeader, out var signature) ||
             !IsValid(Settings.Secret, rawBody, signature))
@@ -54,8 +66,15 @@ internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) 
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(reference) || string.IsNullOrWhiteSpace(currency))
                 return WebhookParseResult.Malformed();
 
+            // Optional: the provider's refund id (else the event id is the refund's idempotency key) and payment id.
+            var refundId = type == PaymentWebhookEventType.Refunded && root.TryGetProperty("refund_id", out var r)
+                ? r.GetString()
+                : null;
+            var paymentReference = root.TryGetProperty("payment_reference", out var p) ? p.GetString() : null;
+
             return WebhookParseResult.Ok(new PaymentWebhookEvent(
-                id, type, reference, root.GetProperty("amount").GetDecimal(), currency.ToUpperInvariant()));
+                id, type, reference, root.GetProperty("amount").GetDecimal(), currency.ToUpperInvariant(),
+                refundId, paymentReference));
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {

@@ -35,10 +35,13 @@ public static class TenantPermissions
     // Business modules (sample)
     public const string ProductsManage = "catalog.products.manage";
 
+    /// <summary>Outbound webhooks: endpoints, secrets, deliveries (Webhooks module).</summary>
+    public const string WebhooksManage = "webhooks.manage";
+
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
-        AuditRead, BillingManage, ProductsManage
+        AuditRead, BillingManage, ProductsManage, WebhooksManage
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>
@@ -85,7 +88,10 @@ public sealed class TenantPermissionHandler(ITenantContext tenantContext, IOptio
 
         if (membership is not null && membership.TenantId == tenantContext.TenantId)
         {
-            if (isMemberCheck || membership.HasPermission(requirement.Permission))
+            // API keys: membership permissions AND key scopes (a membership check needs no scope).
+            if (isMemberCheck ||
+                (membership.HasPermission(requirement.Permission) &&
+                 ApiKeyPrincipal.Allows(context.User, requirement.Permission)))
             {
                 context.Succeed(requirement);
             }

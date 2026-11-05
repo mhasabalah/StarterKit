@@ -1,4 +1,5 @@
 using Subscriptions.Contracts.Subscriptions.Commands;
+using Subscriptions.Domains.Coupons.Services;
 using Subscriptions.Domains.Subscriptions.Services;
 using Subscriptions.Options;
 
@@ -10,6 +11,7 @@ public class CreateSubscriptionCommandValidator : AbstractValidator<CreateSubscr
     {
         RuleFor(x => x.SubscriberId).NotEmpty();
         RuleFor(x => x.PlanId).NotEmpty();
+        RuleFor(x => x.CouponCode).MaximumLength(Coupon.MaxCodeLength);
     }
 }
 
@@ -22,7 +24,8 @@ public class CreateSubscriptionHandler(
     ISubscriptionRepository subscriptionRepository,
     SubscriptionsDbContext dbContext,
     ISubscriberInfoProvider subscriberInfoProvider,
-    IOptions<SubscriptionOptions> options)
+    IOptions<SubscriptionOptions> options,
+    TimeProvider timeProvider)
     : ICommandHandler<CreateSubscriptionCommand, CreateSubscriptionResult>
 {
     public async Task<CreateSubscriptionResult> Handle(
@@ -40,12 +43,22 @@ public class CreateSubscriptionHandler(
             throw new PlanNotFoundException(command.PlanId);
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = timeProvider.GetUtcNow();
         var price = PricingPolicy.PlanPriceAt(plan, now);
-        var amountDue = TaxCalculator.AmountDue(price, options.Value.Tax.ToPolicy());
 
-        var subscription = Subscription.Create(command.SubscriberId, PlanSnapshot.From(plan, price), amountDue, now);
+        // A coupon discounts the activation bill (after the plan's own discount) and the following bills per its duration.
+        Coupon? coupon = string.IsNullOrWhiteSpace(command.CouponCode)
+            ? null
+            : await CouponLookup.FindRedeemableAsync(
+                dbContext, command.CouponCode, command.SubscriberId, plan.Id, plan.Currency, now, cancellationToken);
+
+        var (amountDue, couponDiscount) = PricingPolicy.ActivationCharge(price, options.Value.Tax.ToPolicy(), coupon?.Terms);
+
+        var subscription = Subscription.Create(
+            command.SubscriberId, PlanSnapshot.From(plan, price), amountDue, now, coupon?.Terms, couponDiscount);
         var payment = subscription.ActivationPayment;
+        if (coupon is not null)
+            dbContext.CouponRedemptions.Add(coupon.Redeem(command.SubscriberId, subscription.Id, plan.Id, plan.Currency, now));
         await PaymentSettlementService.RefreshSubscriberSnapshotAsync(subscriberInfoProvider, subscription, cancellationToken);
 
         await subscriptionRepository.AddAsync(subscription, cancellationToken);

@@ -43,9 +43,10 @@ public class GetAdminPlansHandler(SubscriptionsDbContext dbContext)
                 x.PendingPrice,
                 x.PriceEffectiveAt,
                 x.PriceChangeAnnouncedAt,
+                x.TrialDays,
                 SubscriberCount = dbContext.Subscriptions.Count(s =>
                     s.PlanId == x.Id &&
-                    (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.PastDue)),
+                    (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.PastDue || s.Status == SubscriptionStatus.Trialing)),
                 FeatureKeys = x.Features.Select(f => f.Key).ToList()
             });
 
@@ -74,7 +75,8 @@ public class GetAdminPlansHandler(SubscriptionsDbContext dbContext)
             p.DiscountPercent,
             p.PendingPrice,
             p.PriceEffectiveAt,
-            p.PriceChangeAnnouncedAt))
+            p.PriceChangeAnnouncedAt,
+            p.TrialDays))
             .ToList();
 
         return new PaginatedResult<AdminPlanDto>

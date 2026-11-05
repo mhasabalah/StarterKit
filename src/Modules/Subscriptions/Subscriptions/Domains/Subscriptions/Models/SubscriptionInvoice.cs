@@ -20,7 +20,9 @@ public sealed record InvoiceDraft(
     InvoiceParty Buyer,
     InvoiceParty Seller,
     TaxBreakdown Amounts,
-    string Currency);
+    string Currency,
+    string? CouponCode = null,
+    decimal CouponDiscountAmount = 0m);
 
 /// <summary>
 /// An issued invoice or credit note. The DOCUMENT (number, parties, plan, period, amounts, tax) is a snapshot taken
@@ -61,6 +63,12 @@ public class SubscriptionInvoice : Aggregate<Guid>
     public bool PricesIncludeTax { get; private set; }
     public string Currency { get; private set; } = default!;
 
+    /// <summary>Coupon applied to this invoice's price (snapshot, immutable); null = none.</summary>
+    public string? CouponCode { get; private set; }
+
+    /// <summary>Discount the coupon took off the price before tax (informational; the amounts above are already net of it).</summary>
+    public decimal CouponDiscountAmount { get; private set; }
+
     /// <summary>Bookkeeping: gross amount already credited by credit notes (positive). Not part of the document.</summary>
     public decimal CreditedAmount { get; private set; }
 
@@ -100,6 +108,8 @@ public class SubscriptionInvoice : Aggregate<Guid>
         invoice.PeriodEnd = draft.PeriodEnd;
         invoice.SetParties(draft.Buyer, draft.Seller);
         invoice.SetAmounts(draft.Amounts, draft.Currency);
+        invoice.CouponCode = draft.CouponCode;
+        invoice.CouponDiscountAmount = draft.CouponDiscountAmount;
         return invoice;
     }
 

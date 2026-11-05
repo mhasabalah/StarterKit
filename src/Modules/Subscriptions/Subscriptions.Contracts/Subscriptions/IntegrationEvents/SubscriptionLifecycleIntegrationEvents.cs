@@ -13,6 +13,7 @@ namespace Subscriptions.Contracts.Subscriptions.IntegrationEvents;
 /// </para>
 /// </summary>
 [MessageUrn("subscriptions.subscription-activated.v1")]
+[PublicWebhookEvent(Description = "A subscription became active.")]
 public sealed class SubscriptionActivatedIntegrationEvent : IntegrationEvent
 {
     public Guid SubscriptionId { get; init; }
@@ -24,6 +25,7 @@ public sealed class SubscriptionActivatedIntegrationEvent : IntegrationEvent
 /// <see cref="SubscriptionActivatedIntegrationEvent"/>.
 /// </summary>
 [MessageUrn("subscriptions.subscription-expired.v1")]
+[PublicWebhookEvent(Description = "A subscription expired.")]
 public sealed class SubscriptionExpiredIntegrationEvent : IntegrationEvent
 {
     public Guid SubscriptionId { get; init; }

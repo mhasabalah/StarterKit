@@ -88,5 +88,14 @@ public enum EmailTemplate
 
     // Appended (never inserted) so stored numeric values of existing templates stay stable.
     [TemplateFile("EmailConfirmation")]
-    EmailConfirmation
+    EmailConfirmation,
+
+    [TemplateFile("WebhookEndpointDisabled")]
+    WebhookEndpointDisabled,
+
+    [TemplateFile("TrialEnding")]
+    TrialEnding,
+
+    [TemplateFile("SubscriptionDunning")]
+    SubscriptionDunning
 }

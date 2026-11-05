@@ -1,3 +1,4 @@
+using Shared.Core.Auditing;
 using Shared.Core.Messaging.Outbox;
 using Shared.Core.MultiTenancy;
 
@@ -18,6 +19,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<AttributeType> AttributeTypes => Set<AttributeType>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<TenantAuditEntry> AuditEntries => Set<TenantAuditEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -32,6 +34,9 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
         // Transactional outbox for ProductPublishedIntegrationEvent & co (tenant-owned row: filter + RLS like the rest).
         builder.AddTenantOutbox();
+
+        // Audit trail of the IAuditable aggregates (Product, Category): tenant-owned row, same transaction as the change.
+        builder.AddTenantAuditTrail();
 
         builder.ToSnakeCaseTables();
         builder.ConfigureVersionConcurrencyTokens();

@@ -7,10 +7,19 @@ public enum DataProtectionKeyEncryption
     None,
 
     /// <summary><c>ProtectKeysWithCertificate</c>: an X.509 certificate from the store (thumbprint) or a PFX file.</summary>
-    Certificate
+    Certificate,
 
-    // Room for a KMS: add e.g. AzureKeyVault (ProtectKeysWithAzureKeyVault) or AwsKms (a custom IXmlEncryptor /
-    // IXmlDecryptor pair) here and wire it in IdentityDataProtectionExtensions.ConfigureKeyEncryption.
+    /// <summary>
+    /// <c>ProtectKeysWithAzureKeyVault</c>: the key ring is wrapped by an Azure Key Vault key (the key never leaves the
+    /// vault). Needs <c>Identity:DataProtection:AzureKeyVault:KeyIdentifier</c>.
+    /// </summary>
+    AzureKeyVault,
+
+    /// <summary>
+    /// The key ring is encrypted by an AWS KMS key (custom <c>IXmlEncryptor</c>/<c>IXmlDecryptor</c> pair). Needs
+    /// <c>Identity:DataProtection:AwsKms:KeyId</c>.
+    /// </summary>
+    AwsKms
 }
 
 /// <summary>
@@ -43,8 +52,20 @@ public class DataProtectionKeyOptions
 
     public DataProtectionCertificateOptions Certificate { get; set; } = new();
 
+    public DataProtectionAzureKeyVaultOptions AzureKeyVault { get; set; } = new();
+
+    public DataProtectionAwsKmsOptions AwsKms { get; set; } = new();
+
+    /// <summary>
+    /// The explicit <see cref="KeyEncryption"/>, otherwise whichever provider is configured (certificate, then Azure
+    /// Key Vault, then AWS KMS), otherwise <see cref="DataProtectionKeyEncryption.None"/>.
+    /// </summary>
     public DataProtectionKeyEncryption EffectiveKeyEncryption =>
-        KeyEncryption ?? (Certificate.IsConfigured ? DataProtectionKeyEncryption.Certificate : DataProtectionKeyEncryption.None);
+        KeyEncryption
+        ?? (Certificate.IsConfigured ? DataProtectionKeyEncryption.Certificate
+            : AzureKeyVault.IsConfigured ? DataProtectionKeyEncryption.AzureKeyVault
+            : AwsKms.IsConfigured ? DataProtectionKeyEncryption.AwsKms
+            : DataProtectionKeyEncryption.None);
 }
 
 /// <summary>The key-encryption certificate: <see cref="Thumbprint"/> (certificate store) OR <see cref="Path"/> (PFX).</summary>
@@ -70,4 +91,40 @@ public class DataProtectionCertificateOptions
     public string[]? PreviousPaths { get; set; }
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Thumbprint) || !string.IsNullOrWhiteSpace(Path);
+}
+
+/// <summary>
+/// Azure Key Vault key that wraps the Data Protection keys. Authentication: client secret when
+/// <see cref="TenantId"/>, <see cref="ClientId"/> and <see cref="ClientSecret"/> are all set, otherwise
+/// <c>DefaultAzureCredential</c> (managed identity, workload identity, Azure CLI...). The identity needs the
+/// <c>wrapKey</c> and <c>unwrapKey</c> permissions on the key.
+/// </summary>
+public class DataProtectionAzureKeyVaultOptions
+{
+    /// <summary>Full key identifier, e.g. <c>https://my-vault.vault.azure.net/keys/dataprotection</c> (a version is optional).</summary>
+    public string? KeyIdentifier { get; set; }
+
+    public string? TenantId { get; set; }
+
+    public string? ClientId { get; set; }
+
+    /// <summary>Production reads it from a Docker secret / environment variable, never from committed files.</summary>
+    public string? ClientSecret { get; set; }
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(KeyIdentifier);
+}
+
+/// <summary>
+/// AWS KMS key that encrypts the Data Protection keys. Credentials come from the default AWS chain (instance/task role,
+/// environment, profile). The role needs <c>kms:Encrypt</c> and <c>kms:Decrypt</c> on the key.
+/// </summary>
+public class DataProtectionAwsKmsOptions
+{
+    /// <summary>Key id, key ARN, alias name (<c>alias/...</c>) or alias ARN.</summary>
+    public string? KeyId { get; set; }
+
+    /// <summary>AWS region system name (e.g. <c>eu-central-1</c>); null = the default region of the environment.</summary>
+    public string? Region { get; set; }
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(KeyId);
 }

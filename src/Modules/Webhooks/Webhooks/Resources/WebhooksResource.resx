@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>1.3</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Webhooks validation messages. FluentValidation placeholders ({MaxLength}, ...) are filled at runtime. -->
+  <data name="Validation.Id.Required" xml:space="preserve"><value>Id is required.</value></data>
+  <data name="Validation.Url.Required" xml:space="preserve"><value>Endpoint URL is required.</value></data>
+  <data name="Validation.Url.MaxLength" xml:space="preserve"><value>Endpoint URL must not exceed {MaxLength} characters.</value></data>
+  <data name="Validation.Url.Invalid" xml:space="preserve"><value>Endpoint URL must be an absolute http(s) URL.</value></data>
+  <data name="Validation.Url.HttpsRequired" xml:space="preserve"><value>Endpoint URL must use https.</value></data>
+  <data name="Validation.Url.Credentials" xml:space="preserve"><value>Endpoint URL must not contain credentials.</value></data>
+  <data name="Validation.Url.BlockedHost" xml:space="preserve"><value>Endpoint URL points to a private, loopback or otherwise non-public address.</value></data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve"><value>Description must not exceed {MaxLength} characters.</value></data>
+  <data name="Validation.EventTypes.Required" xml:space="preserve"><value>At least one event type is required.</value></data>
+  <data name="Validation.EventTypes.TooMany" xml:space="preserve"><value>Too many event types (maximum {MaxCount}).</value></data>
+  <data name="Validation.EventTypes.Unknown" xml:space="preserve"><value>Unknown event type. Use GET /webhooks/event-types for the catalog (or &apos;*&apos; for all).</value></data>
+  <data name="Validation.Version.Min" xml:space="preserve"><value>Version must be zero or greater.</value></data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve"><value>Page number must be greater than zero.</value></data>
+  <data name="Validation.PageSize.Range" xml:space="preserve"><value>Page size must be between 1 and 100.</value></data>
+</root>

@@ -20,4 +20,10 @@ public interface ITokenBlacklistService
 
     /// <summary>True when the user's tokens were revoked and this token carries an older security stamp.</summary>
     Task<bool> IsUserTokenRevokedAsync(Guid userId, string? tokenSecurityStampHash);
+
+    /// <summary>Revoke every access token of one session (<c>sid</c> claim = refresh-token family) for <paramref name="duration"/>.</summary>
+    Task BlacklistSessionAsync(Guid sessionId, TimeSpan duration);
+
+    /// <summary>True when the session's access tokens were revoked by <see cref="BlacklistSessionAsync"/>.</summary>
+    Task<bool> IsSessionRevokedAsync(Guid sessionId);
 }
