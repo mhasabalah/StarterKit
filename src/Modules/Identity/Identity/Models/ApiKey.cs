@@ -88,13 +88,15 @@ public class ApiKey
     public static bool TryParsePrefix(string? rawKey, out string prefix)
     {
         prefix = string.Empty;
-        if (string.IsNullOrEmpty(rawKey) || rawKey.Length > 256) return false;
+        if (string.IsNullOrEmpty(rawKey) || rawKey.Length > 256)
+            return false;
 
         var parts = rawKey.Split('_', 3);
         if (parts.Length != 3 || parts[0] != KeyMarker || parts[1].Length != PrefixLength || parts[2].Length < 32)
             return false;
 
-        if (!parts[1].All(char.IsAsciiLetterOrDigit)) return false;
+        if (!parts[1].All(char.IsAsciiLetterOrDigit))
+            return false;
 
         prefix = parts[1];
         return true;
@@ -107,7 +109,8 @@ public class ApiKey
 
     public bool Revoke(DateTime nowUtc, Guid? revokedBy)
     {
-        if (IsRevoked) return false;
+        if (IsRevoked)
+            return false;
         RevokedAt = nowUtc;
         RevokedBy = revokedBy;
         return true;

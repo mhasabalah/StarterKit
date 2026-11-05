@@ -47,8 +47,12 @@ public sealed class OnlineRefundTests(SubscriptionsPostgresFixture fx)
 
         await SendAsync(JsonSerializer.Serialize(new
         {
-            id = EventId(), type = "payment.succeeded", reference = checkout.SessionId, amount = checkout.Amount,
-            currency = "SAR", payment_reference = intent
+            id = EventId(),
+            type = "payment.succeeded",
+            reference = checkout.SessionId,
+            amount = checkout.Amount,
+            currency = "SAR",
+            payment_reference = intent
         }));
         return new Paid(subscriberId, created.SubscriptionId, checkout.SessionId, checkout.Amount, intent);
     }
@@ -63,7 +67,12 @@ public sealed class OnlineRefundTests(SubscriptionsPostgresFixture fx)
         string reference, decimal amount, string refundId, string? eventId = null, string currency = "SAR") =>
         SendAsync(JsonSerializer.Serialize(new
         {
-            id = eventId ?? EventId(), type = "refund.created", reference, amount, currency, refund_id = refundId
+            id = eventId ?? EventId(),
+            type = "refund.created",
+            reference,
+            amount,
+            currency,
+            refund_id = refundId
         }));
 
     private Task<List<LedgerEntry>> LedgerAsync(Guid subscriptionId) =>

@@ -201,23 +201,23 @@ public class LedgerEntry
         string? reference,
         Guid? paymentId,
         Guid? invoiceId) => new()
-    {
-        Id = Guid.NewGuid(),
-        OccurredAt = occurredAt,
-        Type = type,
-        Amount = amount,
-        Currency = currency,
-        SubscriptionId = subscription.Id,
-        SubscriberId = subscription.SubscriberId,
-        PaymentId = paymentId,
-        InvoiceId = invoiceId,
-        ActorId = actorId,
-        Description = Truncate(description)!,
-        PlanId = subscription.PlanId,
-        PlanName = subscription.PlanName,
-        PaymentMethod = Truncate(paymentMethod, 100),
-        Reference = Truncate(reference, 200)
-    };
+        {
+            Id = Guid.NewGuid(),
+            OccurredAt = occurredAt,
+            Type = type,
+            Amount = amount,
+            Currency = currency,
+            SubscriptionId = subscription.Id,
+            SubscriberId = subscription.SubscriberId,
+            PaymentId = paymentId,
+            InvoiceId = invoiceId,
+            ActorId = actorId,
+            Description = Truncate(description)!,
+            PlanId = subscription.PlanId,
+            PlanName = subscription.PlanName,
+            PaymentMethod = Truncate(paymentMethod, 100),
+            Reference = Truncate(reference, 200)
+        };
 
     private static void EnsureSame(Subscription subscription, SubscriptionPayment payment)
     {

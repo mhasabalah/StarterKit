@@ -128,8 +128,21 @@ public class GetCouponsHandler(SubscriptionsDbContext dbContext)
             .ThenBy(x => x.Code)
             .Select(x => new
             {
-                x.Id, x.Code, x.Description, x.DiscountType, x.Value, x.Currency, x.Duration, x.DurationPeriods,
-                x.MaxRedemptions, x.RedemptionCount, x.ExpiresAt, x.IsActive, x.AllowedPlanIds, x.Version, x.UpdatedAt
+                x.Id,
+                x.Code,
+                x.Description,
+                x.DiscountType,
+                x.Value,
+                x.Currency,
+                x.Duration,
+                x.DurationPeriods,
+                x.MaxRedemptions,
+                x.RedemptionCount,
+                x.ExpiresAt,
+                x.IsActive,
+                x.AllowedPlanIds,
+                x.Version,
+                x.UpdatedAt
             })
             .PagedResult(query.PageNumber, query.PageSize, cancellationToken);
 

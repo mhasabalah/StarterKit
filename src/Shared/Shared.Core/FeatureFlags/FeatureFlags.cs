@@ -30,11 +30,15 @@ public static class FeatureFlagEvaluator
     /// </summary>
     public static bool Evaluate(FeatureFlagDefinition? flag, Guid? tenantId, Guid? userId, bool configuredDefault)
     {
-        if (flag is null) return configuredDefault;
-        if (flag.KillSwitch) return false;
+        if (flag is null)
+            return configuredDefault;
+        if (flag.KillSwitch)
+            return false;
 
-        if (userId is { } user && flag.UserOverrides.TryGetValue(user, out var userValue)) return userValue;
-        if (tenantId is { } tenant && flag.TenantOverrides.TryGetValue(tenant, out var tenantValue)) return tenantValue;
+        if (userId is { } user && flag.UserOverrides.TryGetValue(user, out var userValue))
+            return userValue;
+        if (tenantId is { } tenant && flag.TenantOverrides.TryGetValue(tenant, out var tenantValue))
+            return tenantValue;
 
         if (flag.RolloutPercent > 0)
             return flag.RolloutPercent >= 100 || Bucket(flag.Key, tenantId) < flag.RolloutPercent;

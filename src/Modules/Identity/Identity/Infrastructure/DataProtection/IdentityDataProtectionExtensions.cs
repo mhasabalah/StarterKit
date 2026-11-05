@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography.X509Certificates;
+using System.Security.Cryptography.X509Certificates;
 using Amazon;
 using Amazon.KeyManagementService;
 using Azure.Core;

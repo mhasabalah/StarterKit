@@ -144,7 +144,8 @@ public class EndpointAndIsolationTests(WebhooksPostgresFixture fx)
             () => fx.SendAsync(TenantA, new UpdateWebhookEndpointCommand(id, "https://a.example.com", null, ["*"], true))
         };
 
-        foreach (var op in ops) await op.Should().ThrowAsync<NotFoundException>();
+        foreach (var op in ops)
+            await op.Should().ThrowAsync<NotFoundException>();
     }
 
     [Fact]
@@ -177,7 +178,8 @@ public class EndpointAndIsolationTests(WebhooksPostgresFixture fx)
             () => fx.SendAsync(TenantB, new GetWebhookDeliveryByIdQuery(delivery.Id)),
             () => fx.SendAsync(TenantB, new RedeliverWebhookCommand(delivery.Id))
         };
-        foreach (var attempt in attempts) await attempt.Should().ThrowAsync<NotFoundException>();
+        foreach (var attempt in attempts)
+            await attempt.Should().ThrowAsync<NotFoundException>();
 
         (await Arrange.EndpointRow(fx, TenantA, id)).Url.Should().NotContain("evil");
     }

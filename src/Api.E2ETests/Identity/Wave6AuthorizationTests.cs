@@ -31,7 +31,8 @@ public class Wave6AuthorizationTests(E2ETestFixture fixture)
     private static async Task<HttpStatusCode> StatusAsync(HttpClient client, HttpMethod method, string url, object? body = null)
     {
         using var request = new HttpRequestMessage(method, url);
-        if (body is not null) request.Content = JsonContent.Create(body);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
         using var response = await client.SendAsync(request);
         return response.StatusCode;
     }

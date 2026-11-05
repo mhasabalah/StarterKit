@@ -58,7 +58,8 @@ public class WebhookEndpoint : Aggregate<Guid>, IMustHaveTenant
         Configure(url, description, eventTypes);
         if (enabled)
         {
-            if (!Enabled) Enable();
+            if (!Enabled)
+                Enable();
         }
         else
         {
@@ -77,7 +78,8 @@ public class WebhookEndpoint : Aggregate<Guid>, IMustHaveTenant
     /// <summary>Manual disable (no owner notification: the caller is the one who did it).</summary>
     public void Disable(string reason, DateTime now)
     {
-        if (!Enabled) return;
+        if (!Enabled)
+            return;
         Enabled = false;
         DisabledAt = now;
         DisabledReason = Clip(reason, DisabledReasonMaxLength);

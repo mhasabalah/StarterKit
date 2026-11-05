@@ -17,7 +17,13 @@ public class GetFeatureFlagsHandler(TenancyDbContext dbContext)
         var flags = await dbContext.FeatureFlags.AsNoTracking().OrderBy(f => f.Key)
             .Select(f => new
             {
-                f.Id, f.Key, f.Description, f.Enabled, f.RolloutPercent, f.KillSwitch, f.Version,
+                f.Id,
+                f.Key,
+                f.Description,
+                f.Enabled,
+                f.RolloutPercent,
+                f.KillSwitch,
+                f.Version,
                 Overrides = f.Overrides.Select(o => new FeatureFlagOverrideDto(o.Id, o.TenantId, o.UserId, o.Enabled)).ToList()
             })
             .ToListAsync(cancellationToken);
@@ -40,7 +46,13 @@ public class GetFeatureFlagByKeyHandler(TenancyDbContext dbContext) : IQueryHand
         var flag = await dbContext.FeatureFlags.AsNoTracking().Where(f => f.Key == key)
                        .Select(f => new
                        {
-                           f.Id, f.Key, f.Description, f.Enabled, f.RolloutPercent, f.KillSwitch, f.Version,
+                           f.Id,
+                           f.Key,
+                           f.Description,
+                           f.Enabled,
+                           f.RolloutPercent,
+                           f.KillSwitch,
+                           f.Version,
                            Overrides = f.Overrides.Select(o => new FeatureFlagOverrideDto(o.Id, o.TenantId, o.UserId, o.Enabled)).ToList()
                        })
                        .FirstOrDefaultAsync(cancellationToken)

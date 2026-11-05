@@ -145,9 +145,11 @@ public sealed class WebhookHttpSender : IWebhookSender, IDisposable
             while (total < limit)
             {
                 var read = await stream.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, limit - total)), ct);
-                if (read == 0) break;
+                if (read == 0)
+                    break;
                 total += read;
-                if (captured.Length < 4096) captured.Write(buffer, 0, read);
+                if (captured.Length < 4096)
+                    captured.Write(buffer, 0, read);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)

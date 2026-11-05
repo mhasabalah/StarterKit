@@ -96,7 +96,8 @@ public class WebhookDelivery : Entity<Guid>, IMustHaveTenant
 
     public void Cancel(string reason)
     {
-        if (Status != WebhookDeliveryStatus.Pending) return;
+        if (Status != WebhookDeliveryStatus.Pending)
+            return;
         Status = WebhookDeliveryStatus.Cancelled;
         LastError = Clip(reason, ErrorMaxLength);
         NextAttemptAt = null;

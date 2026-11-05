@@ -70,7 +70,8 @@ public sealed class AuthSessionService(
     /// </summary>
     private async Task<TenantMembershipInfo?> ChooseLoginTenantAsync(ApplicationUser user, CancellationToken ct)
     {
-        if (!MultiTenancyEnabled) return null;
+        if (!MultiTenancyEnabled)
+            return null;
 
         foreach (var candidate in new[] { tenantContext?.TenantId, user.LastActiveTenantId })
         {
@@ -85,13 +86,15 @@ public sealed class AuthSessionService(
     private async Task<TenantMembershipInfo?> TryMembershipAsync(Guid userId, Guid tenantId, CancellationToken ct)
     {
         var tenant = await tenantStore!.FindByIdAsync(tenantId, ct);
-        if (tenant is not { Status: TenantStatus.Active or TenantStatus.Suspended or TenantStatus.Migrating }) return null;
+        if (tenant is not { Status: TenantStatus.Active or TenantStatus.Suspended or TenantStatus.Migrating })
+            return null;
         return await memberships!.GetMembershipAsync(userId, tenantId, ct);
     }
 
     private async Task RememberTenantAsync(ApplicationUser user, TenantMembershipInfo? membership)
     {
-        if (membership is null || user.LastActiveTenantId == membership.TenantId) return;
+        if (membership is null || user.LastActiveTenantId == membership.TenantId)
+            return;
         user.LastActiveTenantId = membership.TenantId;
         await userManager.UpdateAsync(user);
     }

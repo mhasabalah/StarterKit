@@ -33,8 +33,10 @@ public sealed class WebhookUrlPolicy(IOptions<WebhooksOptions> options) : IWebho
 
     public WebhookUrlCheck Check(string? url)
     {
-        if (string.IsNullOrWhiteSpace(url)) return WebhookUrlCheck.Empty;
-        if (url.Length > MaxLength) return WebhookUrlCheck.TooLong;
+        if (string.IsNullOrWhiteSpace(url))
+            return WebhookUrlCheck.Empty;
+        if (url.Length > MaxLength)
+            return WebhookUrlCheck.TooLong;
 
         if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp) ||
@@ -44,8 +46,10 @@ public sealed class WebhookUrlPolicy(IOptions<WebhooksOptions> options) : IWebho
         }
 
         var settings = options.Value;
-        if (uri.Scheme == Uri.UriSchemeHttp && settings.RequireHttps) return WebhookUrlCheck.HttpsRequired;
-        if (!string.IsNullOrEmpty(uri.UserInfo)) return WebhookUrlCheck.HasCredentials;
+        if (uri.Scheme == Uri.UriSchemeHttp && settings.RequireHttps)
+            return WebhookUrlCheck.HttpsRequired;
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+            return WebhookUrlCheck.HasCredentials;
 
         if (!settings.AllowPrivateNetworks && IsBlockedHost(uri))
         {
@@ -58,7 +62,8 @@ public sealed class WebhookUrlPolicy(IOptions<WebhooksOptions> options) : IWebho
     private static bool IsBlockedHost(Uri uri)
     {
         var host = uri.IdnHost.TrimEnd('.');
-        if (host.Length == 0) return true;
+        if (host.Length == 0)
+            return true;
 
         // [::1] arrives bracketed in Uri.Host but not in IdnHost; handle both.
         if (IPAddress.TryParse(host.Trim('[', ']'), out var literal))
@@ -67,7 +72,8 @@ public sealed class WebhookUrlPolicy(IOptions<WebhooksOptions> options) : IWebho
         }
 
         // Single-label names ("intranet", "localhost") only resolve inside a private network.
-        if (!host.Contains('.')) return true;
+        if (!host.Contains('.'))
+            return true;
 
         return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
                InternalSuffixes.Any(s => host.EndsWith(s, StringComparison.OrdinalIgnoreCase));

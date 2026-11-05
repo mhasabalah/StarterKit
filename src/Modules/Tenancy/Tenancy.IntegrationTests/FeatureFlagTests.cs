@@ -80,9 +80,11 @@ public sealed class FeatureFlagTests(TenancyPostgresFixture fx)
         var tenants = Enumerable.Range(0, 20).Select(_ => Guid.NewGuid()).ToList();
 
         var first = new List<bool>();
-        foreach (var t in tenants) first.Add(await IsOn(key, t, null));
+        foreach (var t in tenants)
+            first.Add(await IsOn(key, t, null));
         var second = new List<bool>();
-        foreach (var t in tenants) second.Add(await IsOn(key, t, null));
+        foreach (var t in tenants)
+            second.Add(await IsOn(key, t, null));
 
         second.Should().Equal(first);
         first.Should().Contain(true).And.Contain(false);
@@ -192,7 +194,7 @@ public sealed class FeatureFlagTests(TenancyPostgresFixture fx)
                 Options.Create(new MemoryDistributedCacheOptions())),
             Options.Create(new MultiTenancyOptions()), new NoOpLocalCacheInvalidationBus(), NullLogger<FeatureFlagStore>.Instance);
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-            { ["FeatureFlags:Defaults:fallback-flag"] = "true" }).Build();
+        { ["FeatureFlags:Defaults:fallback-flag"] = "true" }).Build();
         var tenantContext = new Mock<ITenantContext>();
         var http = new Mock<Shared.Core.Web.IHttpContextService>();
         var flags = new TenancyFeatureFlags(store, new FeatureFlagDefaults(config), tenantContext.Object, http.Object);

@@ -45,13 +45,15 @@ public sealed class PurgeWebhookDeliveriesJob(
                     .Select(d => d.Id)
                     .Take(settings.PurgeBatchSize)
                     .ToListAsync(ct);
-                if (ids.Count == 0) return 0;
+                if (ids.Count == 0)
+                    return 0;
 
                 return await db.Deliveries.Where(d => ids.Contains(d.Id)).ExecuteDeleteAsync(ct);
             }, CancellationToken.None);
 
             purged += deleted;
-            if (deleted < settings.PurgeBatchSize) break;
+            if (deleted < settings.PurgeBatchSize)
+                break;
         }
 
         logger.LogInformation("PurgeWebhookDeliveriesJob: purged {Purged} deliveries older than {Cutoff}", purged, cutoff);

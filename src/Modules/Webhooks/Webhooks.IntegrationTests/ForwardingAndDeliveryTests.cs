@@ -33,7 +33,8 @@ public class ForwardingAndDeliveryTests(WebhooksPostgresFixture fx)
         targets.Should().Contain([subscribed, wildcard]).And.NotContain([other, disabled]);
         created.Should().OnlyContain(d => d.Status == WebhookDeliveryStatus.Pending && d.EventType == Arrange.ProductPublished);
         (await Arrange.Deliveries(fx, TenantB, tenantBEndpoint)).Should().NotContain(d => d.EventId == evt.EventId);
-        foreach (var d in created) fx.Jobs.ForDelivery(d.Id).Should().ContainSingle();
+        foreach (var d in created)
+            fx.Jobs.ForDelivery(d.Id).Should().ContainSingle();
 
         using var payload = JsonDocument.Parse(created[0].Payload);
         payload.RootElement.GetProperty("type").GetString().Should().Be(Arrange.ProductPublished);
@@ -233,7 +234,8 @@ public class ForwardingAndDeliveryTests(WebhooksPostgresFixture fx)
         var deliveries = new List<Guid>();
         for (var i = 0; i < threshold + 2; i++)
             deliveries.Add((await Arrange.OneDelivery(fx, TenantB, endpoint)).Id);
-        foreach (var id in deliveries) await fx.RunDeliveryAsync(TenantB, id);
+        foreach (var id in deliveries)
+            await fx.RunDeliveryAsync(TenantB, id);
 
         var row = await Arrange.EndpointRow(fx, TenantB, endpoint);
         row.Enabled.Should().BeFalse();

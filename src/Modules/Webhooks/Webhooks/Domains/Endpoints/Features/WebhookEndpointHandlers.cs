@@ -21,7 +21,8 @@ internal static class WebhookEndpointRules
             .WithMessage(_ => localizer["Validation.Url.MaxLength"].Value.Replace("{MaxLength}", WebhookEndpoint.UrlMaxLength.ToString()))
             .Custom((value, context) =>
             {
-                if (string.IsNullOrWhiteSpace(value) || value.Length > WebhookEndpoint.UrlMaxLength) return;
+                if (string.IsNullOrWhiteSpace(value) || value.Length > WebhookEndpoint.UrlMaxLength)
+                    return;
                 var key = policy.Check(value) switch
                 {
                     WebhookUrlCheck.Ok => null,
@@ -30,7 +31,8 @@ internal static class WebhookEndpointRules
                     WebhookUrlCheck.BlockedHost => "Validation.Url.BlockedHost",
                     _ => "Validation.Url.Invalid"
                 };
-                if (key is not null) context.AddFailure(localizer[key]);
+                if (key is not null)
+                    context.AddFailure(localizer[key]);
             });
     }
 

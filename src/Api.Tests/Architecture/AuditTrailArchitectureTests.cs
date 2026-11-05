@@ -27,7 +27,8 @@ public sealed class AuditTrailArchitectureTests
         var model = BuildModel(contextType);
         var auditable = model.GetEntityTypes().Where(e => e.ClrType.IsAssignableTo(typeof(IAuditable)))
             .Select(e => e.ClrType.Name).ToList();
-        if (auditable.Count == 0) return;
+        if (auditable.Count == 0)
+            return;
 
         var auditType = model.FindAuditEntryType();
         auditType.Should().NotBeNull($"{contextType.Name} maps IAuditable entities ({string.Join(", ", auditable)})");

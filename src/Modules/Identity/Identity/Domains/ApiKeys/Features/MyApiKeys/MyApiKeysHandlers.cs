@@ -57,7 +57,8 @@ public class CreateApiKeyHandler(
     public async Task<CreateApiKeyResult> Handle(CreateApiKeyCommand command, CancellationToken cancellationToken)
     {
         var settings = options.Value;
-        if (!settings.Enabled) throw new ForbiddenException(localizer["ApiKey.Disabled"]);
+        if (!settings.Enabled)
+            throw new ForbiddenException(localizer["ApiKey.Disabled"]);
 
         var userId = httpContextService.GetUserIdAsGuid() ?? throw new UnauthorizedException("Not authenticated");
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -93,7 +94,8 @@ public class CreateApiKeyHandler(
                        (TenantPermissions.All.Contains(scope) &&
                         tenantContext?.Membership is { } membership && membership.HasPermission(scope));
 
-            if (!held) throw new ForbiddenException(localizer["ApiKey.ScopeNotHeld", scope]);
+            if (!held)
+                throw new ForbiddenException(localizer["ApiKey.ScopeNotHeld", scope]);
         }
     }
 }
@@ -137,7 +139,8 @@ public class RevokeMyApiKeyHandler(
                   ?? throw new ApiKeyNotFoundException(command.KeyId);
 
         var revoked = key.Revoke(timeProvider.GetUtcNow().UtcDateTime, userId);
-        if (revoked) await keys.SaveAsync(cancellationToken);
+        if (revoked)
+            await keys.SaveAsync(cancellationToken);
 
         return new RevokeApiKeyResult(revoked);
     }

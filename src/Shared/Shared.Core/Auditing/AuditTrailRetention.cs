@@ -12,7 +12,8 @@ public static class AuditTrailRetention
         CancellationToken cancellationToken = default)
     {
         var type = context.FindAuditEntryType();
-        if (type is null) return 0;
+        if (type is null)
+            return 0;
 
         return type == typeof(TenantAuditEntry)
             ? await PurgeAsync(context.Set<TenantAuditEntry>(), cutoff, batchSize, cancellationToken)
@@ -24,7 +25,8 @@ public static class AuditTrailRetention
     {
         var ids = await entries.Where(e => e.OccurredAt < cutoff)
             .OrderBy(e => e.OccurredAt).Select(e => e.Id).Take(batchSize).ToListAsync(cancellationToken);
-        if (ids.Count == 0) return 0;
+        if (ids.Count == 0)
+            return 0;
 
         return await entries.Where(e => ids.Contains(e.Id)).ExecuteDeleteAsync(cancellationToken);
     }

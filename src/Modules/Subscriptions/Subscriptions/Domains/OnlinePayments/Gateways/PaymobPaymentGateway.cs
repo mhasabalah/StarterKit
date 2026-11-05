@@ -67,8 +67,17 @@ internal sealed class PaymobPaymentGateway(
             // Required by Paymob; the hosted page collects the real details.
             ["billing_data"] = new
             {
-                first_name = "NA", last_name = "NA", email = "na@example.com", phone_number = "NA",
-                apartment = "NA", floor = "NA", street = "NA", building = "NA", city = "NA", country = "NA", state = "NA"
+                first_name = "NA",
+                last_name = "NA",
+                email = "na@example.com",
+                phone_number = "NA",
+                apartment = "NA",
+                floor = "NA",
+                street = "NA",
+                building = "NA",
+                city = "NA",
+                country = "NA",
+                state = "NA"
             },
             ["special_reference"] = $"{request.PaymentId:N}-{Guid.NewGuid():N}"[..48],
             ["redirection_url"] = request.SuccessUrl.ToString(),
