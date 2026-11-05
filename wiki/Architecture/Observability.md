@@ -28,7 +28,10 @@ The wiring lives in `Shared.Core/OpenTelemetryCollector/Extensions.cs` (`AddCust
 - **Metrics:** ASP.NET Core and Kestrel, `System.Runtime`, the instrumentation meter, plus Prometheus scraping. The
   outbox backlog gauges `outbox.messages.pending` / `outbox.messages.dead_lettered` (tag `context`) are on the instrumentation
   meter, fed by the outbox sweep (see `wiki/Architecture/Messaging.md`); alert rules live in
-  `infra/observability/configs/alerts.yaml`.
+  `infra/observability/configs/alerts.yaml`. Notification adds the meter `StarterKit.Notification`
+  (`notification.inapp.delivered`, `notification.push.sent{result}`, `notification.realtime.sent{method,result}`) and
+  SignalR's own `Microsoft.AspNetCore.Http.Connections` (`signalr.server.active_connections`,
+  `signalr.server.connection.duration`); see [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md#operations).
 - **Logs:** structured `ILogger` output exported through OpenTelemetry (OTLP) to Seq, the Aspire dashboard or Loki.
 - **Health:** `/health` checks dependencies (Postgres, Redis; Seq is deliberately excluded). `/alive` is liveness.
 
