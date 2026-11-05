@@ -26,8 +26,34 @@ like a manual receipt that completes a payment. See [Billing.md](Billing.md).
    |---|---|
    | `PaymentSucceeded` | settles the payment (below); session `Succeeded` |
    | `PaymentFailed` | session `Failed`; the payment stays owed, the subscriber may start a new checkout |
-   | `Refunded` | session `Refunded` + a warning log; **no automatic ledger entry**, reconcile through the refund flow |
+   | `Refunded` | books the refund (see [Refunds](#refunds)): credit notes + one `Refund` ledger entry per provider refund id |
    | `Other` | stored and marked processed |
+
+## Refunds
+
+Two ways money goes back, both ending in the same books (credit notes + a negative `Refund` ledger entry) and both
+**idempotent per provider refund id** (`online_payment_refunds`, unique `(provider, provider_refund_id)`).
+
+- **The provider reports a refund** (`Refunded` event, e.g. a refund made in the Stripe / Paymob dashboard). The event
+  carries the provider refund id and the amount of THAT refund (the Fake adapter takes `refund_id`, default the event
+  id). The processor (own transaction, session row-locked):
+  1. a refund id that was already booked is a no-op (new event id, or the echo of an admin refund);
+  2. the session must be settled, the currency must match, the amount must be positive;
+  3. `Σ refunds of the session + this refund` may **never exceed the money received** (`session.Amount`); otherwise the
+     event is rejected permanently (row `Failed`, nothing booked);
+  4. credit notes are issued over the subscription's invoices (newest first, same allocation as the manual flow), one
+     `Refund` ledger entry (`LedgerEntry.ForProviderRefund`, reference = provider refund id) is added, the session
+     becomes `Refunded` only when nothing is left to refund (a partial refund keeps it `Succeeded`).
+  A later refund request for the subscription sees these refunds as already gone (`RefundInputs.RefundableAsync`).
+- **An admin refund of an online payment** (`MarkRefundProcessed`). Before the books are touched, the handler calls
+  `IPaymentGateway.RefundAsync` for the settled online sessions of the subscription (newest first, never more than a
+  session received, idempotency key `refund-<request>-<session>-<refunded so far>-<amount>`). Each provider refund is
+  saved at once (so a crash or a later failure never loses the fact that money left; a retry subtracts it), then the
+  usual processing runs and the **provider refund ids replace the admin reference**. The provider then echoes the same
+  refund by webhook: recognized by id, not booked again. If the webhook got there first, the request adopts that
+  refund (`BookedByWebhook`) and books only the rest. A provider failure (`PaymentGatewayException`, 502
+  `payment_gateway_error`) leaves the request `Approved` with nothing booked. A stale `Version` is refused before the
+  provider is called. Money received by manual payment is the admin's off-line transfer, as before.
 
 ## Settlement checks (`PaymentSucceeded`)
 
@@ -55,14 +81,18 @@ provider); there is no re-drive endpoint.
 ```json
 "Subscriptions": {
   "PaymentGateways": {
-    "Fake": { "Enabled": true, "Secret": "CHANGE_ME-at-least-16-chars", "BaseUrl": "https://pay.fake.example.com" }
+    "Fake": { "Enabled": true, "Secret": "CHANGE_ME-at-least-16-chars", "BaseUrl": "https://pay.fake.example.com" },
+    "Stripe": { "Enabled": false, "ApiKey": "CHANGE_ME_sk_...", "Secret": "CHANGE_ME_whsec_...", "WebhookToleranceSeconds": 300 },
+    "Paymob": { "Enabled": false, "ApiKey": "CHANGE_ME", "PublicKey": "CHANGE_ME", "Secret": "CHANGE_ME_hmac",
+                "IntegrationIds": [123456], "BaseUrl": "https://accept.paymob.com", "NotificationUrl": null }
   },
   "PaymentWebhooks": { "MaxAttempts": 5, "RetryBackoffMinutes": 2, "RetryCron": "*/5 * * * *" }
 }
 ```
 
 A gateway works only when its adapter is registered **and** `Enabled` is true; an enabled gateway without `Secret`
-fails startup. Secrets come from user-secrets, environment variables or Docker secrets, never from committed files.
+fails startup (Stripe also needs `ApiKey`; Paymob needs `ApiKey`, `PublicKey` and `IntegrationIds`). `Secret` only
+verifies inbound webhooks, `ApiKey` authenticates our outbound calls; both come from env / Docker secrets. Secrets come from user-secrets, environment variables or Docker secrets, never from committed files.
 `Fake` is for dev and tests: never enable it in production.
 
 ## The Fake adapter (dev, tests, template)
@@ -70,6 +100,54 @@ fails startup. Secrets come from user-secrets, environment variables or Docker s
 Webhook body: `{ "id": "evt_1", "type": "payment.succeeded|payment.failed|refund.created", "reference": "<session id>",
 "amount": 100.00, "currency": "SAR" }`, header `X-Fake-Signature: hex(HMAC-SHA256(secret, rawBody))`. Any other `type`
 is normalized to `Other`.
+
+## Stripe adapter
+
+`StripePaymentGateway` (Stripe.net). Checkout: a hosted Checkout Session in `payment` mode (`client_reference_id` = our
+payment id, amount in minor units with the currency exponent: 0 / 2 / 3 decimals). Webhook: Stripe's own scheme
+(`Stripe-Signature: t=...,v1=...`, HMAC-SHA256 over `t.rawBody`, constant-time) through
+`EventUtility.ValidateSignature` with `WebhookToleranceSeconds` (default 300) against `TimeProvider`: a wrong
+signature, a malformed header and a **stale timestamp** are all `401`. The verified JSON is then read directly (no
+dependence on the SDK's pinned API version). Subscribe the endpoint (`/api/v1/webhooks/payments/Stripe`) to:
+
+| Stripe event | Mapped to |
+|---|---|
+| `checkout.session.completed` (`payment_status=paid`) / `checkout.session.async_payment_succeeded` | `PaymentSucceeded`; the `payment_intent` is remembered on the session |
+| `checkout.session.expired` / `checkout.session.async_payment_failed` | `PaymentFailed` |
+| `refund.created` / `refund.updated` with `status=succeeded` | `Refunded`, keyed by the refund id (`re_...`), against the `payment_intent` |
+| `charge.refunded`, `payment_intent.payment_failed`, anything else | `Other` |
+
+`charge.refunded` is deliberately not mapped: it only carries a cumulative total and no refund id, so mapping it next
+to the `refund.*` events would book one refund twice. `payment_intent.payment_failed` is not mapped because a failed
+card attempt does not end a Checkout Session (the customer can retry); only expiry does. API refunds use
+`RefundService` on the remembered PaymentIntent with the idempotency key. Outbound calls use an `IHttpClientFactory`
+client (`stripe`) with timeouts and circuit breaker only: **retries are off** (a retried POST must not double-charge).
+
+## Paymob adapter
+
+`PaymobPaymentGateway` (typed `HttpClient` `paymob`, retries off like `WhatsAppApiClient`). Checkout: Intention API
+(`POST /v1/intention/`, `Authorization: Token <ApiKey>`, amount in cents, `special_reference` unique per attempt);
+the **intention's order id** is our session id and the subscriber is sent to
+`/unifiedcheckout/?publicKey=...&clientSecret=...`. Point the integrations' *transaction processed callback* at
+`/api/v1/webhooks/payments/Paymob` (or set `NotificationUrl`).
+
+Paymob does not sign the body: it appends `?hmac=`, the hex **HMAC-SHA512** (key = the HMAC secret) of 20 fields of
+`obj` concatenated in lexicographic order (`amount_cents, created_at, currency, error_occured,
+has_parent_transaction, id, integration_id, is_3d_secure, is_auth, is_capture, is_refunded, is_standalone_payment,
+is_voided, order.id, owner, pending, source_data.pan, source_data.sub_type, source_data.type, success`; booleans as
+`true`/`false`), compared in constant time. `WebhookRequest.Query` exists for this. **Only signed fields are trusted**:
+the session is found by `order.id`, amount / currency / ids come from signed fields, `parent_transaction` is never read.
+
+| Callback | Mapped to |
+|---|---|
+| `success`, not pending / voided / refunded / child | `PaymentSucceeded`; the transaction id is remembered (the refund API needs it) |
+| not `success`, not pending | `PaymentFailed` |
+| child transaction (`has_parent_transaction`) with `success` + `is_refunded` | `Refunded`, refund id = its transaction id (the refund API returns the same id) |
+| pending, voided, auth-only, parent updated after a refund | `Other` |
+
+Paymob has no event id, so the event id is `txn:<id>:<state flags>`: a pending callback never shadows the final one.
+Refund API: `POST /api/acceptance/void_refund/refund` `{ transaction_id, amount_cents }`. The `billing_data` of an
+intention is filled with `NA` (the hosted page collects the real data).
 
 ## Adding a real provider (Stripe, Paymob, Tap, Moyasar)
 
@@ -79,13 +157,19 @@ is normalized to `Other`.
    - `CreateCheckoutAsync`: call the provider API (a typed `HttpClient` registered in `AddSubscriptionsModule`), send our
      `PaymentId` as the client reference, return the provider session id and hosted-page URL. The amount comes from the
      request, never from the client.
-   - `ParseWebhook`: verify the provider signature scheme over the **raw body** in constant time
+   - `ParseWebhook(WebhookRequest)`: the request carries the raw body, headers AND query string (Paymob signs in
+     `?hmac=`). Verify the provider signature scheme over the **raw body** in constant time
      (`CryptographicOperations.FixedTimeEquals`), reject stale timestamps if the scheme has them, then map the provider
      event to `PaymentWebhookEvent` (`EventId` = the provider unique event id, `ProviderReference` = the session id
      returned by checkout, amount in major units with 2 decimals, upper-case currency). Never throw for bad input.
-     Event types you do not need map to `Other`.
+     Event types you do not need map to `Other`. Refund events set `ProviderRefundId` (the idempotency key) and the
+     amount of that one refund; a success event sets `PaymentReference` (the provider payment id, remembered on the
+     session for later refunds).
+   - `RefundAsync`: refund up to `Amount` of the settled payment and return the provider refund id. Throw
+     `PaymentGatewayException` when the provider refuses. Use the request's `IdempotencyKey` where the provider has one.
 2. Register it next to the Fake one in `SubscriptionsModule`:
-   `services.AddScoped<IPaymentGateway, StripePaymentGateway>();`.
+   `services.AddScoped<IPaymentGateway, MyGateway>();` (+ a named `HttpClient` with
+   `.AddStandardResilienceHandler(o => o.Retry.ShouldHandle = _ => ValueTask.FromResult(false))` if it calls an API).
 3. Enable it in config: `Subscriptions:PaymentGateways:Stripe:Enabled/Secret/BaseUrl`.
 4. Add adapter unit tests (valid, tampered, wrong secret, missing header, malformed, unknown type) like
    `FakePaymentGatewayTests`. The integration tests already exercise the provider-neutral path.
@@ -97,4 +181,6 @@ is normalized to `Other`.
 - Amounts are 2 decimals (module-wide `numeric(18,2)`); a webhook with more decimals is rejected as malformed.
 - `successUrl` and `cancelUrl` only have to be absolute http(s) URLs; restrict them to your frontend host in the adapter
   if the provider does not.
-- Online refunds are not automated; the `Refunded` event is recorded and logged only.
+- Stripe / Paymob are verified offline (signature fixtures and a stubbed `HttpMessageHandler`); live calls need
+  sandbox keys per project.
+- Automatic card retries and saved payment methods are out of scope.

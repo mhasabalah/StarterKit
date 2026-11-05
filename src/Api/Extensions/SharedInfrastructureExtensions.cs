@@ -8,6 +8,7 @@ using ServiceDefaults;
 using Shared.Core.Authorization;
 using Shared.Core.Entitlements;
 using Shared.Core.Extensions;
+using Shared.Core.FeatureFlags;
 using Shared.Core.Localization.Extensions;
 using Shared.Core.OpenApi;
 using Shared.Core.Pagination;
@@ -45,6 +46,7 @@ public static class SharedInfrastructureExtensions
         builder.Services.AddRedisCache(builder.Configuration);
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddEntitlements();
+        builder.Services.AddFeatureFlags(); // config-backed IFeatureFlags; the Tenancy module replaces it with the stored one
 
         // HTTP Context Services
         builder.Services.AddScoped<ICurrentUserProvider, CurrentUserProvider>();

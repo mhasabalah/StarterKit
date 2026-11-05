@@ -29,6 +29,16 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.Property(x => x.UpdatedAt).IsRequired();
         builder.Property(x => x.CurrentPeriodStart).IsRequired(false);
 
+        builder.Property(x => x.TrialStartedAt).IsRequired(false);
+        builder.Property(x => x.TrialEndsAt).IsRequired(false);
+        builder.Property(x => x.TrialReminderSentAt).IsRequired(false);
+        builder.Property(x => x.CouponId).IsRequired(false);
+        builder.Property(x => x.CouponCode).HasMaxLength(50).IsRequired(false);
+        builder.Property(x => x.CouponDiscountType).HasConversion<string>().HasMaxLength(20).IsRequired(false);
+        builder.Property(x => x.CouponValue).HasPrecision(18, 2).IsRequired(false);
+        builder.Property(x => x.CouponPeriodsRemaining).IsRequired(false);
+        builder.Ignore(x => x.ActiveCoupon);
+
         builder.HasMany(x => x.Payments)
             .WithOne(x => x.Subscription)
             .HasForeignKey(x => x.SubscriptionId)
@@ -49,9 +59,14 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.Property(x => x.CancellationNote).HasMaxLength(1000).IsRequired(false);
 
         builder.HasIndex(x => x.SubscriberId);
+        // "One trial per subscriber": lookup of any past trial.
+        builder.HasIndex(x => x.SubscriberId)
+            .HasFilter("\"trial_started_at\" IS NOT NULL")
+            .HasDatabaseName("ix_subscriptions_subscriber_trial");
+        builder.HasIndex(x => new { x.Status, x.TrialEndsAt });
         builder.HasIndex(x => x.SubscriberId)
             .IsUnique()
-            .HasFilter("\"status\" IN ('PendingApproval', 'Active', 'PastDue')")
+            .HasFilter("\"status\" IN ('PendingApproval', 'Trialing', 'Active', 'PastDue')")
             .HasDatabaseName(OpenPerSubscriberIndex);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.PlanId);

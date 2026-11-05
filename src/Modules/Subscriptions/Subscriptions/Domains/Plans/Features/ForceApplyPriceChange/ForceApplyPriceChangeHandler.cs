@@ -65,7 +65,7 @@ public class ForceApplyPriceChangeHandler(
         var subscriberIds = await dbContext.Subscriptions
             .AsNoTracking()
             .Where(s => s.PlanId == plan.Id &&
-                        (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.PastDue))
+                        (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.PastDue || s.Status == SubscriptionStatus.Trialing))
             .Select(s => s.SubscriberId)
             .Distinct()
             .ToListAsync(CancellationToken.None);

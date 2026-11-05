@@ -33,6 +33,7 @@ public class ChangeAdminPasswordEndPoint : ICarterModule
                 return Results.NoContent();
             })
             .RequirePermission(Permissions.AdminsManage)
+            .DisallowApiKey()
             .WithName("ChangeAdminPassword")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")

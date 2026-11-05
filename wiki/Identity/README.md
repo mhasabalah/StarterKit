@@ -146,6 +146,14 @@ part of onboarding.
 
 ## Security Configuration
 
+### Data Protection key encryption
+
+`Identity:DataProtection:KeyEncryption` = `None` | `Certificate` | `AzureKeyVault` | `AwsKms`. Azure uses
+`ProtectKeysWithAzureKeyVault`; AWS uses the module's own KMS `IXmlEncryptor`/`IXmlDecryptor`, with the encryption
+context bound to the application name. `RequireKeyEncryption=true` makes startup fail when no protector is configured
+(`DataProtectionKeyEncryptionCheck`). Sessions and API keys are documented in
+[Users-and-Admins-API.md](Users-and-Admins-API.md#sessions-devices).
+
 ### JWT Configuration
 ```csharp
 public class JwtSettings

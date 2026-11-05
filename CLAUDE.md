@@ -47,7 +47,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 |---|---|
 | `src/Api` | Host: `Program.cs`, appsettings, Dockerfile, host-level endpoints |
 | `src/Modules/<M>/<M>`, `<M>.Contracts` | Module implementation + its public contracts |
-| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, Identity, Subscriptions, Tenancy; Attachment's live in `Attachment.Tests/Integration`) |
+| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, Identity, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
 | `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
 | `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
@@ -66,6 +66,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
 - **Catalog**: the sample; products, categories, tags, wishlist.
 - **Notification**: every email/WhatsApp delivery and its log.
+- **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 
 Shared projects hold **no** business state. Anything with its own schema, jobs or endpoints is a module.
 
@@ -115,7 +116,7 @@ Notification is the exception: its context is in `Persistence/`.
 1. Service registration:
    1. `AddDockerSecrets` → `AddSharedInfrastructure` (auth policies, CORS, localization, paging, ...)
    2. `AddMultiTenancy` → Hangfire → rate limiting → Seq → `AddMassTransitWithAssemblies` → `AddEnumLookup`
-   3. Modules: Identity → Tenancy → Attachment → Catalog → Subscriptions → Notification
+   3. Modules: Identity → Tenancy → Attachment → Catalog → Subscriptions → Webhooks → Notification
 2. Middleware:
    1. `UseTrustedForwardedHeaders` (first) → `UseConfigurableCors` → `UseErrorHandling` (outside auth, so 401/403
       get JSON)
@@ -123,7 +124,7 @@ Notification is the exception: its context is in `Persistence/`.
       authorization
    3. `UseRateLimiter` (after auth, so partitions are per user) → Hangfire dashboard
    4. `UseTenancyModule()` first (the Default tenant must exist), then Attachment → Catalog → Subscriptions →
-      Notification
+      Webhooks → Notification
    5. `UseOutboxSweep()` → `UseSharedInfrastructure()`
 
 ## Naming (enforced by `NamingConventionTests`)
@@ -154,6 +155,10 @@ Notification is the exception: its context is in `Persistence/`.
     422 on a reused key with a different body; fails open when Redis is down).
   - `.RequireFeature("key")` checks `IEntitlementService` (Subscriptions implements it from the active plan; enforced
     only when `Subscriptions:Entitlements:Enforce=true`).
+  - `.RequireQuota("key", qty)` consumes a metered plan quota (`IQuotaService`; 429 + `quota_exceeded`; fails open
+    when the counter store is down).
+  - `.RequireFlag("key")` gates on a runtime feature flag (`IFeatureFlags`, stored in Tenancy; 404 when off). Plan
+    features are entitlements, not flags.
 - **Migrations run at deploy, not boot, in production.** `Database:MigrateOnStartup` (true in dev/tests, false in
   Docker production); `--migrate-only` applies them under a Postgres advisory lock, optionally with
   `Database:MigrationConnectionString`. Never add migrate/seed work elsewhere in startup.
@@ -193,8 +198,12 @@ Notification is the exception: its context is in `Persistence/`.
   - `.HostOnly().RequirePermission(Permissions.TenantsManage)`
   - an explicit `.AllowAnonymous()`
 
-  Destructive or owner actions also get `.DisallowImpersonation()`.
+  Destructive or owner actions also get `.DisallowImpersonation()`. Security-sensitive self-service endpoints
+  (password, 2FA, sessions, API keys, account deletion) also get `.DisallowApiKey()`.
 - **Roles and permissions.**
+  - Callers authenticate with a JWT (Bearer) or an API key (`ApiKey` scheme behind a policy scheme). A key's
+    permissions are its owner's permissions intersected with the key scopes; never let a key exceed its owner.
+  - Access tokens carry `sid` (the refresh-token family) so one session can be revoked immediately.
   - Tokens carry ROLES only. `PermissionClaimsTransformation` derives permissions per request from
     `RolePermissionMap`; never add permission claims at token issue.
   - `RoleConstants` exists in Identity (names + seeded ids) and in `Shared.Core.Authorization` (names); keep them in
@@ -209,6 +218,10 @@ Notification is the exception: its context is in `Persistence/`.
     and `ar` resx files.
   - Bilingual data is `LocalizedText` (`name_en`/`name_ar` columns).
   - Enums exposed to clients get `[LocalizedDescription]` and are served by the enum lookup endpoint.
+- **Audit trail.** Entities that need "who changed what" implement `IAuditable`; their DbContext maps
+  `AddAuditTrail()` / `AddTenantAuditTrail()` (RLS in the migration for tenant data). `AuditTrailInterceptor` writes
+  `audit_entries` in the same `SaveChanges`. Mark secrets and noisy fields `[AuditIgnore]`. Guarded by
+  `AuditTrailArchitectureTests`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
   Invalidate explicitly from domain event handlers (see `Catalog/Domains/Categories/Cache/CategoryTreeCache.cs`).
   Cache failures must never fail the request.
@@ -256,6 +269,8 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |
 
 **Rules:**
+- Mark an integration event `[PublicWebhookEvent]` to expose it to customer webhooks; add its closed
+  `WebhookForwardingConsumer<T>` subclass in the Webhooks module (a unit test enforces it).
 - Raise integration events with `AddIntegrationEvent` on the aggregate. **Never** call `IPublishEndpoint.Publish`
   from feature code: it bypasses the outbox, so the event is lost on a crash and sent on a rollback.
 - Events live in `<M>.Contracts/<Area>/IntegrationEvents/`. They carry ids and a minimal projection, no entities and

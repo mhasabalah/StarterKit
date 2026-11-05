@@ -58,5 +58,7 @@ global using Subscriptions.Contracts.Ledger.DTOs;
 global using Subscriptions.Contracts.Ledger.Queries;
 global using Subscriptions.Domains.Ledger;
 global using Subscriptions.Domains.Ledger.Models;
+global using Subscriptions.Domains.Coupons.Models;
+global using Subscriptions.Domains.Metering.Models;
 
 namespace Subscriptions;

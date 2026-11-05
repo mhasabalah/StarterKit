@@ -13,7 +13,10 @@ public class ReceivePaymentWebhookEndPoint : ICarterModule
                     var headers = request.Headers.ToDictionary(
                         x => x.Key, x => x.Value.ToString(), StringComparer.OrdinalIgnoreCase);
 
-                    var result = await sender.Send(new ReceivePaymentWebhookCommand(provider, rawBody, headers), ct);
+                    var query = request.Query.ToDictionary(
+                        x => x.Key, x => x.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+
+                    var result = await sender.Send(new ReceivePaymentWebhookCommand(provider, rawBody, headers, query), ct);
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
             // Called by the provider, not a user: authenticity is the signature, checked in the handler.

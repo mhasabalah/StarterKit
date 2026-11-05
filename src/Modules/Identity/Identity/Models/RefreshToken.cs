@@ -43,6 +43,15 @@ public class RefreshToken
 
     public string CreatedByIp { get; set; } = string.Empty;
 
+    /// <summary>Raw <c>User-Agent</c> of the login that started the family (truncated). Copied on rotation.</summary>
+    public string? UserAgent { get; set; }
+
+    /// <summary>Human-readable device label parsed from <see cref="UserAgent"/> (e.g. "Chrome on Windows").</summary>
+    public string? DeviceName { get; set; }
+
+    /// <summary>When this session last used its refresh token (set at login and on every rotation).</summary>
+    public DateTime? LastUsedAt { get; set; }
+
     public DateTime? RevokedAt { get; set; }
 
     public string? RevokedByIp { get; set; }

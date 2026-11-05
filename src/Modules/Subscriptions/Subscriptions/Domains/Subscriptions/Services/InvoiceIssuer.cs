@@ -73,7 +73,8 @@ public sealed class InvoiceIssuer(
             subscription.SubscriberId,
             payment.Id,
             type,
-            Describe(type, subscription.PlanName, periodStart, periodEnd, payment.IncludedProrationAmount, payment.Currency),
+            Describe(type, subscription.PlanName, periodStart, periodEnd, payment.IncludedProrationAmount, payment.Currency)
+                + CouponNote(payment),
             subscription.PlanId,
             subscription.PlanName,
             subscription.BillingCycleInMonths,
@@ -82,7 +83,9 @@ public sealed class InvoiceIssuer(
             buyer,
             Seller(settings.Invoice),
             TaxCalculator.FromGross(payment.Amount, settings.Tax.ToPolicy()),
-            payment.Currency);
+            payment.Currency,
+            payment.CouponCode,
+            payment.CouponDiscountAmount);
 
         // Allocate the number last: the counter row stays locked until commit, so keep the window short.
         var number = await AllocateNumberAsync(now.Year, ct);
@@ -133,6 +136,11 @@ public sealed class InvoiceIssuer(
 
     public void EnqueueDelivery(Guid invoiceId, bool forceResend = false) =>
         backgroundJobs.Enqueue<InvoiceDeliveryJob>(job => job.DeliverAsync(invoiceId, forceResend));
+
+    private static string CouponNote(SubscriptionPayment payment) =>
+        payment.CouponCode is { } code && payment.CouponDiscountAmount > 0m
+            ? $", coupon {code} (-{payment.CouponDiscountAmount.ToString("F2", CultureInfo.InvariantCulture)} {payment.Currency} before tax)"
+            : string.Empty;
 
     internal static string Describe(
         InvoiceType type,

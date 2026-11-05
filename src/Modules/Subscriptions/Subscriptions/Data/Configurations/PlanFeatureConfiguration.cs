@@ -16,6 +16,8 @@ public class PlanFeatureConfiguration : IEntityTypeConfiguration<PlanFeature>
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(x => x.Limit).IsRequired(false);
+        builder.Property(x => x.ResetPeriod).HasConversion<string>().HasMaxLength(20).IsRequired(false);
         builder.Property(x => x.CreatedAt).IsRequired();
 
         builder.HasIndex(x => new { x.PlanId, x.Key })

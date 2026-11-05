@@ -25,4 +25,6 @@ public record SubscriptionDto(
     DateTimeOffset? PriceEffectiveAt = null,
     DateTimeOffset? CurrentPeriodStart = null,
     decimal DeferredProrationAmount = 0m,
-    long Version = 0);
+    long Version = 0,
+    DateTimeOffset? TrialEndsAt = null,
+    string? CouponCode = null);

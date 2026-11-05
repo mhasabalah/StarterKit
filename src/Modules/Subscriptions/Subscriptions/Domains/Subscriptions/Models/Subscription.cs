@@ -1,3 +1,4 @@
+using Subscriptions.Contracts.Subscriptions.Enums;
 using Subscriptions.Contracts.Subscriptions.Events;
 using Subscriptions.Contracts.Subscriptions.IntegrationEvents;
 using Subscriptions.Domains.Subscriptions.Billing;
@@ -66,6 +67,30 @@ public class Subscription : Aggregate<Guid>
     /// <summary>Upgrade proration deferred to the next renewal (tax basis). Cleared when the renewal is billed.</summary>
     public decimal DeferredProrationAmount { get; private set; }
 
+    /// <summary>When the subscriber's free trial began. Kept after the trial ends: it is the "one trial per subscriber" record.</summary>
+    public DateTimeOffset? TrialStartedAt { get; private set; }
+
+    /// <summary>End of the free trial (while Trialing it is also <see cref="RenewalDate"/>).</summary>
+    public DateTimeOffset? TrialEndsAt { get; private set; }
+
+    /// <summary>Set when the "trial ending" reminder was sent, so it goes out exactly once.</summary>
+    public DateTimeOffset? TrialReminderSentAt { get; private set; }
+
+    // Redeemed coupon (snapshot of its terms; see CouponTerms). Null CouponId = none.
+    public Guid? CouponId { get; private set; }
+    public string? CouponCode { get; private set; }
+    public CouponDiscountType? CouponDiscountType { get; private set; }
+    public decimal? CouponValue { get; private set; }
+
+    /// <summary>Bills the coupon still discounts; null with a coupon = forever.</summary>
+    public int? CouponPeriodsRemaining { get; private set; }
+
+    /// <summary>The coupon that will discount the next bill, or null.</summary>
+    public CouponTerms? ActiveCoupon =>
+        CouponId is { } id && CouponDiscountType is { } type && CouponValue is { } value && CouponCode is { } code
+            ? new CouponTerms(id, code, type, value, CouponPeriodsRemaining)
+            : null;
+
     public DateTimeOffset UpdatedAt { get; private set; }
 
     public IReadOnlyList<SubscriptionPayment> Payments => _payments.AsReadOnly();
@@ -85,7 +110,15 @@ public class Subscription : Aggregate<Guid>
     }
 
     /// <summary>Creates a PendingApproval subscription with its activation payment (<paramref name="amountDue"/>, gross).</summary>
-    public static Subscription Create(Guid subscriberId, PlanSnapshot plan, decimal amountDue, DateTimeOffset now)
+    /// <param name="coupon">Coupon redeemed with the subscription; its first discounted bill is this activation bill.</param>
+    /// <param name="couponDiscount">The discount (tax basis) already taken off <paramref name="amountDue"/>.</param>
+    public static Subscription Create(
+        Guid subscriberId,
+        PlanSnapshot plan,
+        decimal amountDue,
+        DateTimeOffset now,
+        CouponTerms? coupon = null,
+        decimal couponDiscount = 0m)
     {
         var subscription = new Subscription
         {
@@ -96,8 +129,19 @@ public class Subscription : Aggregate<Guid>
         };
         subscription.ApplyPlanSnapshot(plan);
 
-        subscription._payments.Add(SubscriptionPayment.Create(
-            subscription.Id, PaymentPurpose.Activation, amountDue, plan.Currency, now));
+        var activation = SubscriptionPayment.Create(
+            subscription.Id, PaymentPurpose.Activation, amountDue, plan.Currency, now);
+        subscription._payments.Add(activation);
+
+        if (coupon is not null)
+        {
+            subscription.AttachCoupon(coupon);
+            if (couponDiscount > 0m)
+            {
+                activation.RecordCoupon(coupon.Code, couponDiscount);
+                subscription.ConsumeCouponPeriod();
+            }
+        }
 
         subscription.AddDomainEvent(new SubscriptionCreatedEvent(
             subscription.Id,
@@ -106,6 +150,109 @@ public class Subscription : Aggregate<Guid>
             subscription.PlanName));
 
         return subscription;
+    }
+
+    /// <summary>
+    /// Starts a free trial: Trialing with full access and NO payment. The trial end is also the renewal date, so the
+    /// renewal orchestrator picks it up at the boundary and bills the first paid period.
+    /// </summary>
+    public static Subscription StartTrial(Guid subscriberId, PlanSnapshot plan, int trialDays, DateTimeOffset now)
+    {
+        if (trialDays < 1)
+            throw new ConflictException("This plan does not offer a free trial.");
+
+        var subscription = new Subscription
+        {
+            Id = Guid.NewGuid(),
+            SubscriberId = subscriberId,
+            Status = SubscriptionStatus.Trialing,
+            StartDate = now,
+            CurrentPeriodStart = now,
+            TrialStartedAt = now,
+            TrialEndsAt = now.AddDays(trialDays),
+            UpdatedAt = now
+        };
+        subscription.RenewalDate = subscription.TrialEndsAt;
+        subscription.ApplyPlanSnapshot(plan);
+
+        subscription.AddDomainEvent(new SubscriptionCreatedEvent(
+            subscription.Id, subscription.SubscriberId, subscription.PlanId, subscription.PlanName));
+        subscription.AddDomainEvent(new SubscriptionActivatedEvent(
+            subscription.Id, subscription.SubscriberId, now, subscription.RenewalDate.Value));
+        subscription.AddIntegrationEvent(new SubscriptionActivatedIntegrationEvent
+        {
+            SubscriptionId = subscription.Id,
+            SubscriberId = subscription.SubscriberId
+        });
+
+        return subscription;
+    }
+
+    /// <summary>
+    /// The trial elapsed: the first paid period is billed (a Renewal payment for <paramref name="charge"/>) and the
+    /// subscription goes PastDue with <paramref name="gracePeriodDays"/> to pay. Paying converts it to Active (the
+    /// normal renewal path); otherwise it expires. The billing anchor restarts at the trial end.
+    /// </summary>
+    public SubscriptionPayment EndTrial(RenewalCharge charge, int gracePeriodDays, DateTimeOffset now)
+    {
+        if (Status != SubscriptionStatus.Trialing)
+            throw new InvalidSubscriptionTransitionException(Status, SubscriptionStatus.PastDue);
+
+        StartDate = RenewalDate ?? now;
+        CurrentPeriodStart = StartDate;
+        return BillPeriod(charge, gracePeriodDays, now);
+    }
+
+    /// <summary>Marks the trial-ending reminder as sent (exactly-once guard for the reminder job).</summary>
+    public void MarkTrialReminderSent(DateTimeOffset now)
+    {
+        TrialReminderSentAt = now;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Attaches a redeemed coupon to a running subscription (Trialing, Active or PastDue); it discounts the next bills.
+    /// One coupon at a time.
+    /// </summary>
+    public void RedeemCoupon(CouponTerms coupon, DateTimeOffset now)
+    {
+        if (Status is not (SubscriptionStatus.Trialing or SubscriptionStatus.Active or SubscriptionStatus.PastDue))
+            throw new ConflictException($"A coupon cannot be applied to a {Status} subscription.");
+
+        if (CouponId is not null)
+            throw new ConflictException("The subscription already has a coupon applied.");
+
+        AttachCoupon(coupon);
+        UpdatedAt = now;
+    }
+
+    private void AttachCoupon(CouponTerms coupon)
+    {
+        CouponId = coupon.CouponId;
+        CouponCode = coupon.Code;
+        CouponDiscountType = coupon.Type;
+        CouponValue = coupon.Value;
+        CouponPeriodsRemaining = coupon.PeriodsRemaining;
+    }
+
+    /// <summary>One discounted bill was issued: count it, and drop the coupon after its last bill.</summary>
+    private void ConsumeCouponPeriod()
+    {
+        if (CouponId is null || CouponPeriodsRemaining is null)
+            return; // no coupon, or forever
+
+        CouponPeriodsRemaining--;
+        if (CouponPeriodsRemaining <= 0)
+            ClearCoupon();
+    }
+
+    private void ClearCoupon()
+    {
+        CouponId = null;
+        CouponCode = null;
+        CouponDiscountType = null;
+        CouponValue = null;
+        CouponPeriodsRemaining = null;
     }
 
     /// <summary>Refreshes the denormalized subscriber name/email (null values keep the previous snapshot).</summary>
@@ -250,6 +397,7 @@ public class Subscription : Aggregate<Guid>
         CancellationNote = null;
         DeferredProrationAmount = 0m;
         ComplimentaryUntil = null;
+        ClearCoupon(); // a reopened subscription starts clean; the trial record (TrialStartedAt) stays
         UpdatedAt = now;
     }
 
@@ -341,6 +489,15 @@ public class Subscription : Aggregate<Guid>
     /// </summary>
     public SubscriptionPayment MarkPastDue(RenewalCharge charge, int gracePeriodDays, DateTimeOffset now)
     {
+        // A trial ends through EndTrial; this is the Active renewal boundary.
+        if (Status != SubscriptionStatus.Active)
+            throw new InvalidSubscriptionTransitionException(Status, SubscriptionStatus.PastDue);
+        SubscriptionStateMachine.EnsureCanTransition(Status, SubscriptionStatus.PastDue);
+        return BillPeriod(charge, gracePeriodDays, now);
+    }
+
+    private SubscriptionPayment BillPeriod(RenewalCharge charge, int gracePeriodDays, DateTimeOffset now)
+    {
         SubscriptionStateMachine.EnsureCanTransition(Status, SubscriptionStatus.PastDue);
 
         Price = charge.PeriodPrice;
@@ -352,6 +509,12 @@ public class Subscription : Aggregate<Guid>
 
         var payment = SubscriptionPayment.Create(
             Id, PaymentPurpose.Renewal, charge.AmountDue, Currency, now, includedProrationAmount: charge.DeferredProration);
+        if (charge.CouponDiscount > 0m && charge.CouponCode is { } couponCode)
+        {
+            payment.RecordCoupon(couponCode, charge.CouponDiscount);
+            ConsumeCouponPeriod();
+        }
+
         _payments.Add(payment);
         AddDomainEvent(new SubscriptionPastDueEvent(Id, SubscriberId, GracePeriodEndsAt.Value, payment.Id));
 

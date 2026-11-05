@@ -23,6 +23,13 @@ public class SubscriptionRefundRequest : Aggregate<Guid>
     public string? ReviewNotes { get; private set; }
     public DateTimeOffset? ProcessedAt { get; private set; }
     public string? ExternalTransactionRef { get; private set; }
+
+    /// <summary>
+    /// Committed BEFORE the payment provider is called for this request: a concurrent or repeated call sees it (409)
+    /// instead of refunding at the provider a second time. Cleared when the provider definitely did not refund.
+    /// </summary>
+    public DateTimeOffset? ProcessingStartedAt { get; private set; }
+
     public DateTimeOffset UpdatedAt { get; private set; }
 
     private SubscriptionRefundRequest() { }
@@ -102,6 +109,21 @@ public class SubscriptionRefundRequest : Aggregate<Guid>
         UpdatedAt = DateTimeOffset.UtcNow;
 
         AddDomainEvent(new RefundRejectedEvent(Id, SubscriptionId, SubscriberId, reason));
+    }
+
+    public void BeginProcessing(DateTimeOffset now)
+    {
+        if (Status != RefundStatus.Approved)
+            throw new ConflictException("Only approved refunds can be marked as processed.");
+
+        ProcessingStartedAt = now;
+        UpdatedAt = now;
+    }
+
+    public void ClearProcessing(DateTimeOffset now)
+    {
+        ProcessingStartedAt = null;
+        UpdatedAt = now;
     }
 
     public void MarkProcessed(Guid adminId, string externalTransactionRef)

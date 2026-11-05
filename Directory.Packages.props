@@ -63,6 +63,7 @@
   <ItemGroup Label="Mapping and Utilities">
     <PackageVersion Include="Mapster" Version="7.4.0" />
     <PackageVersion Include="QuestPDF" Version="2026.9.1" />
+    <PackageVersion Include="Stripe.net" Version="53.1.0" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
   </ItemGroup>
   <ItemGroup Label="Microsoft Extensions">
@@ -111,6 +112,11 @@
     <PackageVersion Include="SkiaSharp" Version="4.154.0" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" />
+  </ItemGroup>
+  <ItemGroup Label="Key management (Data Protection key encryption, KMS)">
+    <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.1" />
+    <PackageVersion Include="Azure.Identity" Version="1.17.1" />
+    <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.0.101.1" />
   </ItemGroup>
   <ItemGroup Label="Background Jobs">
     <PackageVersion Include="Hangfire.Core" Version="1.8.25" />

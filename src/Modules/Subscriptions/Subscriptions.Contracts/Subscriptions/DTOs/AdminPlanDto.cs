@@ -21,4 +21,5 @@ public record AdminPlanDto(
     decimal? DiscountPercent = null,
     decimal? UpcomingPrice = null,
     DateTimeOffset? PriceEffectiveAt = null,
-    DateTimeOffset? PriceChangeAnnouncedAt = null);
+    DateTimeOffset? PriceChangeAnnouncedAt = null,
+    int TrialDays = 0);

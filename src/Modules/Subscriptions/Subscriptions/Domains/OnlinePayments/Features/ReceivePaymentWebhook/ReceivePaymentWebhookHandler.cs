@@ -5,11 +5,12 @@ using Subscriptions.Domains.OnlinePayments.Services;
 
 namespace Subscriptions.Domains.OnlinePayments.Features.ReceivePaymentWebhook;
 
-/// <summary>An unauthenticated provider call: the raw body and headers exactly as received.</summary>
+/// <summary>An unauthenticated provider call: the raw body, headers and query string exactly as received.</summary>
 public record ReceivePaymentWebhookCommand(
     string Provider,
     string RawBody,
-    IReadOnlyDictionary<string, string> Headers) : ICommand<ReceivePaymentWebhookResult>;
+    IReadOnlyDictionary<string, string> Headers,
+    IReadOnlyDictionary<string, string>? Query = null) : ICommand<ReceivePaymentWebhookResult>;
 
 /// <param name="Duplicate">True when this event id was already stored (nothing is reprocessed).</param>
 public record ReceivePaymentWebhookResult(bool Duplicate);
@@ -39,7 +40,8 @@ internal sealed class ReceivePaymentWebhookHandler(
     {
         var gateway = gateways.Get(command.Provider);
 
-        var parsed = gateway.ParseWebhook(command.RawBody, command.Headers);
+        var parsed = gateway.ParseWebhook(new WebhookRequest(
+            command.RawBody, command.Headers, command.Query ?? new Dictionary<string, string>()));
         if (parsed.Failure == WebhookFailure.InvalidSignature)
             throw new InvalidWebhookSignatureException();
         if (!parsed.IsValid || parsed.Event!.Amount < 0m || decimal.Round(parsed.Event.Amount, 2) != parsed.Event.Amount)

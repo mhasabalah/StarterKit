@@ -7,6 +7,54 @@ BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
 > Waves: 0 BateCom hotfix (owner handles) → **1 security ✅** → 2 money correctness → 3 reliability →
 > 4 admin-portal P0 → 5 tests/quality → 6 portal P1/P2.
 
+## Wave 6 — SaaS gap analysis (2026-11-04)
+
+Senior gap review of features a production SaaS needs. 🚧 = in progress in wave 6, ⬜ = open (next wave).
+
+Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 18,3
+
+**P0 — before the first real customer**
+
+| # | Item | Status |
+|---|---|---|
+| G1 | Real payment adapters (**Stripe + Paymob**) behind `IPaymentGateway`, `RefundAsync`, refund webhooks posting to the ledger | 🚧 |
+| G2 | Real malware scanner adapter (ClamAV) replacing `NoOpMalwareScanner` | ⬜ |
+| G3 | Analyzers + `TreatWarningsAsErrors` (= #8) | ⬜ |
+| G4 | Identity + Attachment module tests (= #10) | 🚧 |
+| G5 | Data Protection keys: KMS option (Azure Key Vault, AWS KMS); certificate option already exists | 🚧 |
+
+**P1 — expected by most SaaS products**
+
+| # | Item | Status |
+|---|---|---|
+| G6 | Session/device management: list my sessions, revoke one, revoke others; admin view; `sid` claim | 🚧 |
+| G7 | Outbound customer webhooks (new `Webhooks` module): signed (Standard Webhooks), retries, delivery log, SSRF guard | 🚧 |
+| G8 | API keys / personal access tokens, tenant-scoped, permission scopes | 🚧 |
+| G9 | Usage metering + quotas per plan (`IUsageMeter`, `.RequireQuota`) | 🚧 |
+| G10 | Coupons / promo codes, trials, dunning (notice cadence) | 🚧 |
+| G11 | Generic business-entity audit trail (`IAuditable`, same-transaction `audit_entries`) | 🚧 |
+| G12 | Runtime feature flags (per tenant/user, % rollout, kill switch, `.RequireFlag`) | 🚧 |
+| G13 | In-app notification inbox + real-time push (SignalR) | ⬜ |
+| G14 | Bot protection (CAPTCHA/Turnstile) on register, login, forgot-password, OTP | ⬜ |
+
+**P2 — market-dependent**
+
+| # | Item | Status |
+|---|---|---|
+| G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning | ⬜ |
+| G16 | Passkeys (WebAuthn) | ⬜ |
+| G17 | Full-text search abstraction (Postgres `tsvector` first) | ⬜ |
+| G18 | Mobile push (FCM/APNs) channel + device-token registration | ⬜ |
+| G19 | Bulk CSV/Excel import/export jobs with progress and error report | ⬜ |
+| G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
+| G21 | Durable saga repository (= #27) | ⬜ |
+| G22 | Load/performance tests (k6 or NBomber) with a CI baseline | ⬜ |
+| G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
+| G24 | Observability-lite compose profile (= #21) | ⬜ |
+
+Follow-ups known up front: automatic off-session card retry in dunning (needs saved payment methods); Stripe/Paymob
+sandbox keys per project.
+
 ## 2026-11-04 — Production-readiness wave
 
 Implemented:

@@ -16,3 +16,13 @@ public class InvalidWebhookPayloadException()
 /// kept as failed for an admin to look at.
 /// </summary>
 public class WebhookRejectedException(string reason) : Exception(reason);
+
+/// <summary>The provider refused a call (refund / checkout) or could not be reached: 502, nothing was booked.</summary>
+public class PaymentGatewayException : CustomException
+{
+    public PaymentGatewayException(string message, Exception? inner = null)
+        : base(message, inner!, System.Net.HttpStatusCode.BadGateway)
+    {
+        ErrorCode = "payment_gateway_error";
+    }
+}

@@ -2,6 +2,8 @@ using System.Reflection;
 using Npgsql;
 using Shared.Core.Messaging.Outbox;
 using Subscriptions.Data.Configurations;
+using Subscriptions.Domains.Coupons.Models;
+using Subscriptions.Domains.Metering.Models;
 using Subscriptions.Domains.OnlinePayments.Models;
 
 namespace Subscriptions.Data;
@@ -26,8 +28,13 @@ public class SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> opt
     public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
     public DbSet<SubscriptionPaymentReceipt> PaymentReceipts => Set<SubscriptionPaymentReceipt>();
     public DbSet<OnlinePaymentSession> OnlinePaymentSessions => Set<OnlinePaymentSession>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
+    public DbSet<DunningNotice> DunningNotices => Set<DunningNotice>();
+    public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
 
     /// <summary>Inbox of verified provider webhooks, unique by (provider, event_id). Inserted with ON CONFLICT DO NOTHING.</summary>
+    public DbSet<OnlinePaymentRefund> OnlinePaymentRefunds => Set<OnlinePaymentRefund>();
     public DbSet<InboundWebhookEvent> InboundWebhookEvents => Set<InboundWebhookEvent>();
 
     /// <summary>Append-only money ledger. Read with no-tracking queries; write only through <c>ILedgerRepository</c>.</summary>
@@ -80,6 +87,12 @@ public class SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> opt
             "Subscriber already has an active or pending subscription.",
         SubscriptionRefundRequestConfiguration.OneRefundPerSubscriptionIndex =>
             "A refund has already been requested or processed for this subscription.",
+        CouponConfiguration.CodeIndex =>
+            "A coupon with this code already exists.",
+        CouponRedemptionConfiguration.OnePerSubscriberIndex =>
+            "This coupon was already redeemed by the subscriber.",
+        DunningNoticeConfiguration.OnePerStepIndex =>
+            "This dunning step was already recorded.",
         ScheduledPlanChangeConfiguration.OnePendingPerSubscriptionIndex =>
             "A pending scheduled downgrade already exists. Cancel it first.",
         SubscriptionInvoiceConfiguration.OnePerPaymentIndex =>

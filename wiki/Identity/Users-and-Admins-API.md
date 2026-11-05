@@ -132,3 +132,40 @@ Privileged roles must have 2FA enabled.
 ```bash
 grep -rhoE 'Map(Get|Post|Put|Delete|Patch)\((EndpointConfig\.BaseApiPath \+ )?"[^"]+"' --include=*.cs src/Modules/Identity/Identity | sort -u
 ```
+
+## Sessions (devices)
+
+A session is one refresh-token family. Its id (`FamilyId`) is carried in the access token as the `sid` claim.
+Revoking a session revokes the family and blacklists the `sid` in Redis for the access-token lifetime, so that
+session's live access token is rejected immediately (fails open while Redis is down, like the token blacklist).
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| GET | `api/v1/me/sessions` | signed in | Active sessions with device, user agent, IP, last used; the current one is flagged |
+| DELETE | `api/v1/me/sessions/{id}` | signed in, no impersonation | Unknown and foreign ids both return 404 |
+| POST | `api/v1/me/sessions/revoke-others` | signed in, no impersonation | Keeps only the current session |
+| GET | `api/v1/admin/users/{id}/sessions` | `sessions.manage` | Support/Admin/SuperAdmin; staff accounts only by SuperAdmin |
+| DELETE | `api/v1/admin/users/{id}/sessions/{sessionId}` | `sessions.manage`, no impersonation | Audited |
+
+## API keys (personal access tokens)
+
+Format `sk_<8-char prefix>_<secret>`, returned **once** on create; only a SHA-256 hash is stored. Send it as
+`Authorization: ApiKey <key>` or `X-Api-Key: <key>`. A policy scheme picks Bearer or ApiKey per request.
+Effective permissions = the owner's current role/tenant permissions **∩** the key's scopes; a key can never exceed its
+owner, and stops working when the owner is locked, inactive or deleted. Endpoints marked `.DisallowApiKey()`
+(impersonation, 2FA, password, switch-tenant, logout, account deletion/export, session and API-key management) reject
+key callers. A key principal carries **no** `ClaimTypes.Role` and no `is_admin` claim (so `IsInRole`, AdminOnly, Hangfire
+and "is admin" checks never match a key); the owner's roles travel as `ApiKeyClaimTypes.OwnerRole`, read only by
+`PermissionClaimsTransformation` (and the MFA gate) to derive permissions before the scope intersection. Each key has its own rate-limit partition. Config: `Identity:ApiKeys` (default expiry 90 days, max 365,
+10 active keys per user).
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| POST | `api/v1/me/api-keys` | signed in, no impersonation | Scopes must be permissions the owner holds now |
+| GET | `api/v1/me/api-keys` | signed in | Prefix, name, scopes, expiry, last used (never the secret) |
+| DELETE | `api/v1/me/api-keys/{id}` | signed in, no impersonation | |
+| GET | `api/v1/admin/users/{id}/api-keys` | `api-keys.manage` | Admin/SuperAdmin |
+| DELETE | `api/v1/admin/users/{id}/api-keys/{keyId}` | `api-keys.manage`, no impersonation | Audited |
+
+Known limit: a key owned by an account that must use 2FA gets `mfa_required` where 2FA is enforced (key principals
+carry no `amr` claim).

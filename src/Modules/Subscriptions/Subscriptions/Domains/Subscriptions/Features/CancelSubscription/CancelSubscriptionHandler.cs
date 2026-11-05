@@ -15,7 +15,7 @@ public class CancelSubscriptionCommandValidator : AbstractValidator<CancelSubscr
 
 /// <summary>
 /// Subscriber: Active → cancellation scheduled for the period end (applied by the renewal orchestrator);
-/// PastDue → cancelled now. Admin: cancelled now (audited).
+/// Trialing or PastDue → cancelled now (nothing was paid for the period). Admin: cancelled now (audited).
 /// </summary>
 public class CancelSubscriptionHandler(
     ISubscriptionRepository subscriptionRepository,
@@ -32,14 +32,14 @@ public class CancelSubscriptionHandler(
         if (!command.IsAdminActor && subscription.SubscriberId != command.ActorId)
             throw new ForbiddenException("You are not allowed to cancel this subscription.");
 
-        if (subscription.Status is not (SubscriptionStatus.Active or SubscriptionStatus.PastDue))
-            throw new ConflictException("Only active or past due subscriptions can be cancelled.");
+        if (subscription.Status is not (SubscriptionStatus.Active or SubscriptionStatus.PastDue or SubscriptionStatus.Trialing))
+            throw new ConflictException("Only trialing, active or past due subscriptions can be cancelled.");
 
         var now = DateTimeOffset.UtcNow;
         var fromStatus = subscription.Status;
         var actorType = command.IsAdminActor ? "Admin" : "Subscriber";
 
-        if (command.IsAdminActor || subscription.Status == SubscriptionStatus.PastDue)
+        if (command.IsAdminActor || subscription.Status is SubscriptionStatus.PastDue or SubscriptionStatus.Trialing)
             subscription.CancelImmediately(command.ActorId, command.CancellationReason, command.CancellationNote, now);
         else
             subscription.ScheduleCancellation(command.ActorId, command.CancellationReason, command.CancellationNote, now);

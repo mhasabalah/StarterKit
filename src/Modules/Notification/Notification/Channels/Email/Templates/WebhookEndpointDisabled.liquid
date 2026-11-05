@@ -1,0 +1,38 @@
+{% comment %}Variables: TenantName, EndpointAddress, ConsecutiveFailures, LastError{% endcomment %}
+
+<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+  {% if culture == 'ar' %}تم تعطيل نقطة نهاية Webhook{% else %}Webhook endpoint disabled{% endif %}
+</h2>
+
+<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+  {% if culture == 'ar' %}
+    توقفنا عن إرسال الأحداث إلى نقطة النهاية التالية الخاصة بـ <strong style="color:#0f172a;">{{ TenantName }}</strong> لأن {{ ConsecutiveFailures }} محاولة متتالية فشلت.
+  {% else %}
+    We stopped sending events to the following endpoint of <strong style="color:#0f172a;">{{ TenantName }}</strong> because {{ ConsecutiveFailures }} consecutive delivery attempts failed.
+  {% endif %}
+</p>
+
+{% capture card_content %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;width:140px;">{% if culture == 'ar' %}العنوان{% else %}Endpoint{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;word-break:break-all;">{{ EndpointAddress }}</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}آخر خطأ{% else %}Last error{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:#dc2626;">{{ LastError }}</td>
+  </tr>
+</table>
+{% endcapture %}
+{% if culture == 'ar' %}{% assign card_title = 'تفاصيل نقطة النهاية' %}{% else %}{% assign card_title = 'Endpoint details' %}{% endif %}
+{% include 'Components/Card' %}
+
+{% include 'Components/Spacer' %}
+
+<p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.75;">
+  {% if culture == 'ar' %}
+    بعد إصلاح المشكلة، أعد تفعيل نقطة النهاية من إعدادات Webhooks وأعد إرسال الأحداث الفاشلة من سجل التسليم.
+  {% else %}
+    Once the problem is fixed, re-enable the endpoint in your webhook settings and redeliver the failed events from the delivery log.
+  {% endif %}
+</p>

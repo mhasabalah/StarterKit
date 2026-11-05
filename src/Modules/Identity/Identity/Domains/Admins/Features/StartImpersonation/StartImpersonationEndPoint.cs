@@ -10,6 +10,7 @@ public class StartImpersonationEndPoint : ICarterModule
     {
         app.MapPost("api/identity/impersonations", async (StartImpersonationCommand command, ISender sender, CancellationToken ct) =>
                 Results.Ok(ApiResponseExtensions.Success(await sender.Send(command, ct))))
+            .DisallowApiKey()
             .WithName("StartImpersonation")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Admin Management")

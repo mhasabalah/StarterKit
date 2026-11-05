@@ -15,6 +15,12 @@ public class OnlinePaymentSession
     /// <summary>The provider's session / charge id (unique per provider).</summary>
     public string ProviderReference { get; private set; } = default!;
 
+    /// <summary>
+    /// The provider's payment / charge / transaction id, remembered from the success event. Refund events and API
+    /// refunds reference the money by this id (Stripe PaymentIntent, Paymob transaction), not by the checkout session.
+    /// </summary>
+    public string? ProviderPaymentReference { get; private set; }
+
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = default!;
     public OnlinePaymentSessionStatus Status { get; private set; }
@@ -43,7 +49,18 @@ public class OnlinePaymentSession
             CreatedAt = now
         };
 
-    public void MarkSucceeded(DateTimeOffset now) => Complete(OnlinePaymentSessionStatus.Succeeded, now);
+    public void MarkSucceeded(DateTimeOffset now, string? providerPaymentReference = null)
+    {
+        RecordPaymentReference(providerPaymentReference);
+        Complete(OnlinePaymentSessionStatus.Succeeded, now);
+    }
+
+    /// <summary>Remembers the provider's payment id without changing the session's status.</summary>
+    public void RecordPaymentReference(string? providerPaymentReference)
+    {
+        if (!string.IsNullOrWhiteSpace(providerPaymentReference))
+            ProviderPaymentReference = providerPaymentReference;
+    }
 
     /// <summary>A failure report never downgrades a session that already succeeded.</summary>
     public void MarkFailed(DateTimeOffset now)

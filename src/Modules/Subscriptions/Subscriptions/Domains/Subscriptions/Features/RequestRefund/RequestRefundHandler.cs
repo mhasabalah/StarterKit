@@ -134,6 +134,14 @@ internal static class RefundInputs
             .Select(r => r.RequestedAmount)
             .ToListAsync(ct);
 
-        return RefundPolicy.Refundable(paid, refunded);
+        // Money the provider refunded on its own (dashboard refund booked by its webhook) is gone too. Refunds made
+        // for a refund request are already counted by that request above.
+        var providerRefunded = await dbContext.OnlinePaymentRefunds
+            .AsNoTracking()
+            .Where(r => r.SubscriptionId == subscriptionId && r.RefundRequestId == null)
+            .Select(r => r.Amount)
+            .ToListAsync(ct);
+
+        return RefundPolicy.Refundable(paid, refunded.Concat(providerRefunded));
     }
 }

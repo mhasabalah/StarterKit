@@ -14,7 +14,7 @@ PendingApproval ──approve──► Active ──renewal boundary──► Pa
 ```
 
 - One enum, `Subscriptions.Contracts.Subscriptions.Enums.SubscriptionStatus`, with stable numbers
-  (PendingApproval=0, Active=1, PastDue=2, Expired=3, Cancelled=4, Rejected=5). Stored by **name** in the database.
+  (PendingApproval=0, Active=1, PastDue=2, Expired=3, Cancelled=4, Rejected=5, Trialing=6 appended). Stored by **name** in the database.
 - Allowed transitions live in `SubscriptionStateMachine`.
 - **At most one open subscription per subscriber** (PendingApproval/Active/PastDue): filtered unique index
   `ux_subscriptions_subscriber_open`. A unique violation (Postgres `23505`) becomes a **409** in
@@ -122,6 +122,9 @@ Renewal approval binds to the renewal **payment** and approves its amount (never
   `RefundProratedWindowDays`; always capped at refundable;
 - the cap is re-checked on approval; marking a refund processed issues credit notes for the refunded amount;
 - one non-rejected refund per subscription (index includes Processed), so a second refund is impossible.
+- refunds of money received ONLINE go back through the payment gateway at `MarkRefundProcessed`, and refunds the
+  provider reports on its own (dashboard) are booked from its webhook, never above the money received and once per
+  provider refund id; see [Online-Payments.md](Online-Payments.md#refunds).
 
 ## Settlement (one completion path)
 
@@ -268,6 +271,7 @@ not roles:
 | `payment-settings.manage` | payment methods (incl. the admin list) and payment instructions |
 | `audit.read` | `GET /superadmin/subscriptions/audit` (was SuperAdmin-only) |
 | `billing.export` | reserved for exports (none yet) |
+| `billing.coupons.manage` | coupon CRUD (`/admin/coupons`); Finance, Admin, SuperAdmin |
 
 `GET /invoices/{id}/pdf` treats a caller with the `billing.read` permission claim (or the Admin/SuperAdmin role) as
 staff.
@@ -320,3 +324,66 @@ dotnet ef migrations add AdminBillingConsole --context SubscriptionsDbContext \
   search + paging, Subscriber-360, ledger written in the same transaction (none on failure, append-only), manual
   partial payments to activation/renewal, comp/reactivate/extend, duplicate proofs, pending-queue filters, dashboard
   over a seeded ledger + caching, admin notification routing, digest job.
+
+## Billing growth: trials, coupons, dunning, metering
+
+### Free trials
+
+- `Plan.TrialDays` (0 = no trial, max 365). `POST /api/v1/subscriptions/trial {planId}` starts a **Trialing**
+  subscription at once: full access, no payment, no approval. `SubscriptionActivatedIntegrationEvent` is raised, so
+  Tenancy treats the subscriber as active. Trialing counts as the subscriber's one open subscription.
+- **One trial per subscriber, ever**: `Subscription.TrialStartedAt` is kept after the trial; a second attempt is a 409
+  with `errorCode = trial_already_used` (`plan_has_no_trial` when the plan offers none).
+- The trial end is the renewal date. `RenewalOrchestrator` handles it at the boundary (`TrialEnded`): the first paid
+  period is billed as a **Renewal** payment (effective price, less a coupon), the subscription goes PastDue with
+  `Subscriptions:Trials:PostTrialGraceDays` (3) to pay, and the billing anchor restarts at the trial end. Paying
+  runs the normal renewal approval (→ Active); not paying expires it. A trial is cancelled immediately (nothing paid).
+- `process-trial-reminders` (daily 09:30 UTC, `Trials:ReminderCron`) sends the `TrialEnding` email
+  `Trials:ReminderDaysBeforeEnd` (3) days before the end; `TrialReminderSentAt` makes it exactly-once.
+
+### Coupons
+
+- `Coupon` (code unique and case-insensitive, `Percent` or `FixedAmount`, duration `Once` / `Repeating(n)` /
+  `Forever`, `MaxRedemptions`, `ExpiresAt`, allowed plan ids) and `CouponRedemption` (unique per coupon + subscriber).
+  Terms are immutable after creation. Admin CRUD: `/api/v1/admin/coupons` (`billing.coupons.manage`). A coupon that
+  was redeemed can only be deactivated.
+- Redeem: with the subscription (`CreateSubscriptionCommand.CouponCode`, discounts the activation bill) or later on
+  the running subscription (`POST /subscriptions/me/coupons/redeem`, `.WithIdempotency()`, discounts the next bills).
+  Failures carry `errorCode`: `coupon_inactive`, `coupon_expired`, `coupon_exhausted`, `coupon_plan_not_allowed`,
+  `coupon_currency_mismatch`.
+- Pricing: the coupon applies to the period price after the plan `DiscountPercent`, before tax, never to the deferred
+  proration, and never below 0.01 per charge. `Subscription.Price` stays the list price; the discounted amount is on
+  the payment (`CouponCode`, `CouponDiscountAmount`) and snapshotted on the invoice. The subscription snapshots the
+  coupon terms and counts down `CouponPeriodsRemaining` per discounted bill.
+- The last redemption is serialized by the coupon aggregate's optimistic `Version` (the loser gets a 409).
+  A redemption is not given back if the subscription is later rejected.
+
+### Dunning
+
+`process-dunning` (hourly :20, `Dunning:Cron`) reminds subscribers whose renewal is PastDue: at
+`Subscriptions:Dunning:ScheduleDays` (default `[1,3,5]`) after past due, each with a fresh hosted checkout link
+(first enabled gateway; the renewal page when none works), plus a **final** notice
+`FinalNoticeDaysBeforeGraceEnd` (1) day before the grace period ends. Each step is a `dunning_notices` row, unique per
+payment + step, written before the email, so it never re-sends. Several steps due at once (job was down): only the
+latest is sent, the rest are recorded as superseded. A renewal whose proof is under review is not nagged.
+Automatic card retries need stored payment methods and are out of scope.
+
+### Metering and quotas
+
+- Ports in `Shared.Core.Entitlements`: `IUsageMeter` (`RecordAsync`, `GetUsageAsync`) and `IQuotaService`
+  (`TryConsumeAsync`), with permissive defaults. Endpoint filter `.RequireQuota("key", qty)` answers **429** with
+  `errorCode = quota_exceeded` (usage is counted per attempt).
+- `PlanFeature.Limit` + `ResetPeriod` (`Monthly` = calendar month UTC, `Never`) make a feature metered; the snapshot
+  value is `"<limit>/<Period>"` (still enabled for `HasFeature`).
+- Counting: Redis `INCRBY` per subscriber + feature + period (in-process store without Redis). A check adds first and
+  rolls back when over the limit, so racing requests cannot both take the last unit. `flush-usage-counters` (hourly :05)
+  upserts `usage_records`; a counter Redis lost resumes from there.
+- Fails **open** when the store is down (warning log + `metering.store.failures` metric). Like `RequireFeature`, a
+  quota is only enforced with `Subscriptions:Entitlements:Enforce=true`; otherwise usage is counted and never denied.
+- `GET /api/v1/subscriptions/me/usage` lists every metered feature of the plan with used / limit / next reset.
+
+### Config keys
+
+`Subscriptions:Trials:{ReminderDaysBeforeEnd,PostTrialGraceDays,ReminderCron}`,
+`Subscriptions:Dunning:{Enabled,ScheduleDays,FinalNoticeDaysBeforeGraceEnd,Cron}`,
+`Subscriptions:Metering:{FlushCron,MonthlyCounterTtlDays}`.

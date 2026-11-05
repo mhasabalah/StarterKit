@@ -15,6 +15,8 @@ public class SubscriptionStateMachineTests
         {
             (SubscriptionStatus.PendingApproval, SubscriptionStatus.Active),
             (SubscriptionStatus.PendingApproval, SubscriptionStatus.Rejected),
+            (SubscriptionStatus.Trialing, SubscriptionStatus.PastDue),
+            (SubscriptionStatus.Trialing, SubscriptionStatus.Cancelled),
             (SubscriptionStatus.Active, SubscriptionStatus.PastDue),
             (SubscriptionStatus.Active, SubscriptionStatus.Cancelled),
             (SubscriptionStatus.PastDue, SubscriptionStatus.Active),
@@ -24,8 +26,8 @@ public class SubscriptionStateMachineTests
 
         var data = new TheoryData<SubscriptionStatus, SubscriptionStatus, bool>();
         foreach (var from in Enum.GetValues<SubscriptionStatus>())
-        foreach (var to in Enum.GetValues<SubscriptionStatus>())
-            data.Add(from, to, allowed.Contains((from, to)));
+            foreach (var to in Enum.GetValues<SubscriptionStatus>())
+                data.Add(from, to, allowed.Contains((from, to)));
         return data;
     }
 
@@ -45,13 +47,14 @@ public class SubscriptionStateMachineTests
         ((int)SubscriptionStatus.Expired).Should().Be(3);
         ((int)SubscriptionStatus.Cancelled).Should().Be(4);
         ((int)SubscriptionStatus.Rejected).Should().Be(5);
+        ((int)SubscriptionStatus.Trialing).Should().Be(6, "appended, never renumbered");
     }
 
     [Fact]
-    public void Open_statuses_are_pending_active_and_past_due()
+    public void Open_statuses_are_pending_trialing_active_and_past_due()
     {
         SubscriptionStateMachine.OpenStatuses.Should().BeEquivalentTo(
-            [SubscriptionStatus.PendingApproval, SubscriptionStatus.Active, SubscriptionStatus.PastDue]);
+            [SubscriptionStatus.PendingApproval, SubscriptionStatus.Trialing, SubscriptionStatus.Active, SubscriptionStatus.PastDue]);
     }
 
     public static TheoryData<SubscriptionStatus> AllStatuses()
@@ -98,7 +101,7 @@ public class SubscriptionStateMachineTests
     public void Entity_cancel_immediately_follows_the_table(SubscriptionStatus status) =>
         AssertEntityTransition(status, SubscriptionStatus.Cancelled,
             s => s.CancelImmediately(Guid.NewGuid(), null, null, SubscriptionFactory.DefaultNow.AddDays(2)),
-            allowedFrom: [SubscriptionStatus.Active, SubscriptionStatus.PastDue]);
+            allowedFrom: [SubscriptionStatus.Trialing, SubscriptionStatus.Active, SubscriptionStatus.PastDue]);
 
     private static void AssertEntityTransition(
         SubscriptionStatus from,

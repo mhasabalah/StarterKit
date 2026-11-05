@@ -23,8 +23,7 @@ public class FeatureService(
     {
         await EnsureLoadedAsync(cancellationToken);
         return _features?.TryGetValue(key, out var value) == true &&
-               bool.TryParse(value, out var enabled) &&
-               enabled;
+               FeatureValue.IsEnabled(value);
     }
 
     public async Task<int?> GetIntAsync(string key, CancellationToken cancellationToken = default)
@@ -73,7 +72,7 @@ public class FeatureService(
             var subscription = await dbContext.Subscriptions
                 .AsNoTracking()
                 .Where(x => x.SubscriberId == subscriberId.Value &&
-                            (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue))
+                            (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue || x.Status == SubscriptionStatus.Trialing))
                 .OrderByDescending(x => x.UpdatedAt)
                 .Select(x => new
                 {

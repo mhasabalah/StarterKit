@@ -6,6 +6,14 @@ using Subscriptions.Options;
 
 namespace Subscriptions.Tests;
 
+internal static class FakeGatewayTestExtensions
+{
+    /// <summary>Body + headers shorthand (no query string) for the request-based port.</summary>
+    public static WebhookParseResult ParseWebhook(
+        this FakePaymentGateway gateway, string body, IReadOnlyDictionary<string, string> headers) =>
+        gateway.ParseWebhook(new WebhookRequest(body, headers));
+}
+
 public class FakePaymentGatewayTests
 {
     private const string Secret = "unit-test-secret-0123456789";
@@ -74,5 +82,29 @@ public class FakePaymentGatewayTests
 
         session.SessionId.Should().StartWith("fake_");
         session.RedirectUrl.AbsoluteUri.Should().Contain(session.SessionId);
+    }
+
+    [Fact]
+    public void Refund_event_carries_the_provider_refund_id_and_the_amount_of_that_refund()
+    {
+        const string body = """{"id":"e9","type":"refund.created","reference":"s1","amount":30.00,"currency":"sar","refund_id":"re_1"}""";
+
+        var evt = Gateway().ParseWebhook(body, Signed(body)).Event!;
+
+        evt.Type.Should().Be(PaymentWebhookEventType.Refunded);
+        evt.ProviderRefundId.Should().Be("re_1");
+        evt.Amount.Should().Be(30m);
+    }
+
+    [Fact]
+    public async Task Refund_returns_a_fresh_provider_refund_id_for_the_requested_amount()
+    {
+        var request = new RefundRequest("s1", null, 12.50m, "SAR", "key-1");
+
+        var first = await Gateway().RefundAsync(request, CancellationToken.None);
+        var second = await Gateway().RefundAsync(request, CancellationToken.None);
+
+        first.Amount.Should().Be(12.50m);
+        first.RefundId.Should().StartWith("fake_re_").And.NotBe(second.RefundId);
     }
 }

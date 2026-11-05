@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 using Shared.Core.Web;
 
@@ -22,6 +23,7 @@ public class EnableTwoFactorEndPoint : ICarterModule
                 var result = await sender.Send(new EnableTwoFactorCommand(userId.Value, request.Code), cancellationToken);
                 return Results.Ok(ApiResponse.Success(result, result.Message));
             })
+            .DisallowApiKey()
             .WithName("EnableTwoFactor")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Two-Factor Authentication")

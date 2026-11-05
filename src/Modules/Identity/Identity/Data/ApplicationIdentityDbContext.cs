@@ -30,6 +30,7 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
 
     // Additional DbSets
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<OnboardingProcess> OnboardingProcesses => Set<OnboardingProcess>();
     public DbSet<OtpCode> OtpCodes => Set<OtpCode>();
     public DbSet<AdminActionAuditLog> AdminAuditLogs => Set<AdminActionAuditLog>();

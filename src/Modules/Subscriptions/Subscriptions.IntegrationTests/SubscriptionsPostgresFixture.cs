@@ -59,6 +59,11 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
                 ["Subscriptions:TrustMinCycles"] = "2",
                 ["Subscriptions:PaymentGateways:Fake:Enabled"] = "true",
                 ["Subscriptions:PaymentGateways:Fake:Secret"] = FakeGatewaySecret,
+                ["Subscriptions:PaymentGateways:Paymob:Enabled"] = "true", // never called: refund tests only reach its guard
+                ["Subscriptions:PaymentGateways:Paymob:Secret"] = "paymob-test-secret",
+                ["Subscriptions:PaymentGateways:Paymob:ApiKey"] = "paymob-test-key",
+                ["Subscriptions:PaymentGateways:Paymob:PublicKey"] = "paymob-test-public",
+                ["Subscriptions:PaymentGateways:Paymob:IntegrationIds:0"] = "1",
                 ["Subscriptions:Invoice:CompanyName"] = "Test Seller",
                 ["Subscriptions:Invoice:TaxId"] = "VAT-123",
                 ["Subscriptions:Invoice:NumberPrefix"] = "INV",
@@ -121,6 +126,12 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
     {
         await using var scope = _provider.CreateAsyncScope();
         return await work(scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>());
+    }
+
+    public async Task<T> WithScopeResult<T>(Func<IServiceProvider, Task<T>> work)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await work(scope.ServiceProvider);
     }
 
     public async Task WithScope(Func<IServiceProvider, Task> work)

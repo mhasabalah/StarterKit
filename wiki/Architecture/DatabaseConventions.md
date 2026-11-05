@@ -128,6 +128,17 @@ Implement `IDataSeeder` (`SeedAllAsync`, `DbContextType`) and register it in `<M
 - Seeders run after migrations (`UseMigration<T>()`). Seeders of tenant-data contexts run as the Default tenant.
   Dedicated tenant databases are migrated and seeded by Tenancy provisioning (`MigrateAndSeedAsync`).
 
+## Audit trail
+
+Entities that implement `IAuditable` (`Shared.Core.Auditing`) get an `audit_entries` row per insert, update and delete,
+written by `AuditTrailInterceptor` in the same `SaveChanges` (same transaction). Map the table in `OnModelCreating`
+(`builder.AddAuditTrail()`, or `AddTenantAuditTrail()` before `ApplyTenantFilters` in a tenant-data context), add a
+migration (tenant-data: also `EnableTenantRowLevelSecurity(schema, "audit_entries")`) and schedule a retention job that
+calls `PurgeAuditEntriesAsync` (`AuditTrail:RetentionDays`, default 365). Use `[AuditIgnore]` on noisy or secret
+properties; names containing Password / Secret / Token / Hash are skipped automatically. `ExecuteUpdate` /
+`ExecuteDelete` bypass it. `AuditTrailArchitectureTests` enforces the table mapping.
+Decision: [ADR-0011](../Decisions/0011-audit-trail.md).
+
 ## Row-level security
 
 Tenant-data tables get Postgres RLS as a second isolation layer under the EF filter:

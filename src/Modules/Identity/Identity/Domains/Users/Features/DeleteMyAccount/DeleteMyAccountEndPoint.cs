@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 using Identity.Contracts.Users.Commands;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +31,7 @@ public class DeleteMyAccountEndPoint : ICarterModule
             .RequireAuthorization()
             .DisallowImpersonation()
             .RequireRateLimiting("auth")
+            .DisallowApiKey()
             .WithName("DeleteMyAccount")
             .WithApiVersionSet(versionSet)
             .WithTags("Profile")
@@ -61,6 +63,7 @@ public class DeleteMyAccountEndPoint : ICarterModule
             .RequireAuthorization()
             .DisallowImpersonation()
             .RequireRateLimiting("otp")
+            .DisallowApiKey()
             .WithName("SendAccountDeletionCode")
             .WithApiVersionSet(versionSet)
             .WithTags("Profile")

@@ -1,3 +1,4 @@
+using Shared.Core.Auditing;
 using Shared.Core.MultiTenancy;
 using System.Text.RegularExpressions;
 using Catalog.Domains.Categories.Events;
@@ -10,7 +11,7 @@ namespace Catalog.Domains.Categories.Models;
 /// raise <see cref="CategoryChangedEvent"/>, which invalidates the cached category tree. Never hard-deleted:
 /// "delete" deactivates, so products keep their category.
 /// </summary>
-public partial class Category : Aggregate<Guid>, IMustHaveTenant
+public partial class Category : Aggregate<Guid>, IMustHaveTenant, IAuditable
 {
     /// <summary>Owning tenant (stamped on insert by TenantEntityInterceptor; immutable).</summary>
     public Guid TenantId { get; set; }
@@ -47,14 +48,16 @@ public partial class Category : Aggregate<Guid>, IMustHaveTenant
 
     public void Activate()
     {
-        if (IsActive) return;
+        if (IsActive)
+            return;
         IsActive = true;
         AddDomainEvent(new CategoryChangedEvent(Id));
     }
 
     public void Deactivate()
     {
-        if (!IsActive) return;
+        if (!IsActive)
+            return;
         IsActive = false;
         AddDomainEvent(new CategoryChangedEvent(Id));
     }
@@ -64,7 +67,8 @@ public partial class Category : Aggregate<Guid>, IMustHaveTenant
     /// <summary>Validates the normalized form (input is lower-cased and trimmed before storage).</summary>
     public static bool IsValidSlug(string? slug)
     {
-        if (string.IsNullOrWhiteSpace(slug)) return false;
+        if (string.IsNullOrWhiteSpace(slug))
+            return false;
         var normalized = NormalizeSlug(slug);
         return normalized.Length <= SlugMaxLength && SlugRegex().IsMatch(normalized);
     }

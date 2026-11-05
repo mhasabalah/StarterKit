@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 using Shared.Core.Web;
 
@@ -22,6 +23,7 @@ public class SetupTwoFactorEndPoint : ICarterModule
                 return Results.Ok(ApiResponse.Success(result,
                     "Scan the QR code (or enter the key) in your authenticator app, then call /api/auth/2fa/enable."));
             })
+            .DisallowApiKey()
             .WithName("SetupTwoFactor")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Two-Factor Authentication")
