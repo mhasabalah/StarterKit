@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shared.Core.Auditing;
 using Shared.Core.Data.Interceptors;
 using Shared.Core.Data.Seed;
 using Shared.Core.Extensions;
@@ -22,6 +23,8 @@ public static class Extensions
     {
         services.AddDomainEventDispatch();
         services.TryAddScoped<AuditableEntityInterceptor>();
+        services.TryAddScoped<AuditTrailInterceptor>();
+        services.Configure<AuditTrailOptions>(configuration.GetSection(AuditTrailOptions.Section));
         services.AddMultiTenancyCore();
         services.AddOutboxCore();
 
@@ -46,6 +49,8 @@ public static class Extensions
                 sp.GetRequiredService<AuditableEntityInterceptor>(),
                 sp.GetRequiredService<DispatchDomainEventsInterceptor>(),
                 sp.GetRequiredService<TenantEntityInterceptor>(),
+                // AFTER TenantEntityInterceptor (tenant stamped), BEFORE the outbox: audit rows join the same SaveChanges.
+                sp.GetRequiredService<AuditTrailInterceptor>(),
                 // AFTER TenantEntityInterceptor: copies the (stamped, validated) aggregate tenant onto outbox rows.
                 sp.GetRequiredService<OutboxInterceptor>());
 
