@@ -14,6 +14,7 @@ public class OnlinePaymentSessionConfiguration : IEntityTypeConfiguration<Online
         builder.Property(x => x.SubscriptionId).IsRequired();
         builder.Property(x => x.Provider).HasMaxLength(50).IsRequired();
         builder.Property(x => x.ProviderReference).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.ProviderPaymentReference).HasMaxLength(200);
         builder.Property(x => x.Amount).HasPrecision(18, 2).IsRequired();
         builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -22,5 +23,6 @@ public class OnlinePaymentSessionConfiguration : IEntityTypeConfiguration<Online
         // The webhook finds its payment through this key.
         builder.HasIndex(x => new { x.Provider, x.ProviderReference }).IsUnique();
         builder.HasIndex(x => x.PaymentId);
+        builder.HasIndex(x => new { x.Provider, x.ProviderPaymentReference });
     }
 }

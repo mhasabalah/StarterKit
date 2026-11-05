@@ -15,6 +15,12 @@ public class InboundWebhookEvent
     public decimal? Amount { get; private set; }
     public string? Currency { get; private set; }
 
+    /// <summary>The provider's refund id (refund events): the idempotency key of the refund, besides the event id.</summary>
+    public string? ProviderRefundId { get; private set; }
+
+    /// <summary>The provider's payment / charge / transaction id the event reports, if any.</summary>
+    public string? PaymentReference { get; private set; }
+
     /// <summary>The raw JSON body as received (jsonb).</summary>
     public string Payload { get; private set; } = default!;
 
