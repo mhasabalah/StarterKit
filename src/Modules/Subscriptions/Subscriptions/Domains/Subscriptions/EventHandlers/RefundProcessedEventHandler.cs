@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class RefundProcessedEventHandler(
@@ -23,7 +24,7 @@ public class RefundProcessedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = planName,
-            Amount = notification.Amount.ToString("F2"),
+            Amount = notification.Amount.ToString("F2", CultureInfo.InvariantCulture),
             Currency = notification.Currency,
             TransactionRef = notification.ExternalTransactionRef,
             SupportWhatsApp = instructions?.SupportWhatsApp ?? string.Empty,

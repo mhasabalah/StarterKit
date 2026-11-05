@@ -11,7 +11,7 @@ public class UserNotFoundException : NotFoundException
         : base($"User with ID '{userId}' was not found.")
     {
     }
-    
+
     public UserNotFoundException(string identifier)
         : base($"User '{identifier}' was not found.")
     {

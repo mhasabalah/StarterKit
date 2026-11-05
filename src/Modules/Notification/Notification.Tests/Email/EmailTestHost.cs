@@ -51,8 +51,8 @@ internal sealed class EmailTestHost
     {
         var data = new TheoryData<EmailTemplate, NotificationCulture>();
         foreach (var t in Enum.GetValues<EmailTemplate>())
-        foreach (var c in Enum.GetValues<NotificationCulture>())
-            data.Add(t, c);
+            foreach (var c in Enum.GetValues<NotificationCulture>())
+                data.Add(t, c);
         return data;
     }
 

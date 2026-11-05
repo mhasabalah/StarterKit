@@ -225,7 +225,7 @@ public static class Extensions
 
         var options = DatabaseMigrationOptions.From(services.GetRequiredService<IConfiguration>());
         return await MigrationLock.AcquireAsync(connectionString, TimeSpan.FromSeconds(options.LockTimeoutSeconds),
-            services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(MigrationLock)), cancellationToken,
+            services.GetRequiredService<ILoggerFactory>().CreateLogger<MigrationLock>(), cancellationToken,
             services.GetService<TimeProvider>());
     }
 

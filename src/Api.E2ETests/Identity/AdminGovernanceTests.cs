@@ -44,7 +44,8 @@ public class AdminGovernanceTests(E2ETestFixture fixture)
     private HttpClient As(string role, bool mfa = false)
     {
         var client = fixture.CreateClientAs(Guid.NewGuid(), role);
-        if (mfa) client.DefaultRequestHeaders.Add(TestAuthHandler.MfaHeader, "true");
+        if (mfa)
+            client.DefaultRequestHeaders.Add(TestAuthHandler.MfaHeader, "true");
         return client;
     }
 

@@ -13,21 +13,21 @@ public class InvoiceDocumentTests
     private static InvoicePdfModel SampleModel(
         bool isCreditNote = false,
         string subscriberName = "Acme Ltd") => new()
-    {
-        InvoiceNumber = "INV-2026-000042",
-        TypeLabel = "Activation",
-        Description = "Subscription Activation — Pro Plan",
-        SubscriberName = subscriberName,
-        Email = "billing@acme.example",
-        Status = "Paid",
-        Currency = "SAR",
-        IssuedAt = new DateTimeOffset(2026, 6, 13, 0, 0, 0, TimeSpan.Zero),
-        NetAmount = 1000m,
-        TaxAmount = 150m,
-        TotalAmount = 1150m,
-        TaxRate = 0.15m,
-        IsCreditNote = isCreditNote
-    };
+        {
+            InvoiceNumber = "INV-2026-000042",
+            TypeLabel = "Activation",
+            Description = "Subscription Activation — Pro Plan",
+            SubscriberName = subscriberName,
+            Email = "billing@acme.example",
+            Status = "Paid",
+            Currency = "SAR",
+            IssuedAt = new DateTimeOffset(2026, 6, 13, 0, 0, 0, TimeSpan.Zero),
+            NetAmount = 1000m,
+            TaxAmount = 150m,
+            TotalAmount = 1150m,
+            TaxRate = 0.15m,
+            IsCreditNote = isCreditNote
+        };
 
     [Fact]
     public void GeneratePdf_produces_a_valid_pdf_document()

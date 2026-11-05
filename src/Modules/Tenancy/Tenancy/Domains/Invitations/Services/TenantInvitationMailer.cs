@@ -24,7 +24,8 @@ public sealed class TenantInvitationMailer(
     public async Task<bool> SendAsync(TenantInvitation invitation, string token, TenantInfo tenant, Guid inviterUserId,
         DateTime utcNow, CancellationToken cancellationToken)
     {
-        if (!tenancyOptions.Value.Invitations.SendEmail) return false;
+        if (!tenancyOptions.Value.Invitations.SendEmail)
+            return false;
 
         try
         {

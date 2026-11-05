@@ -132,9 +132,12 @@ public sealed record FileTypeRule(
             var hasPart = false;
             foreach (var entry in zip.Entries)
             {
-                if (entry.FullName == "[Content_Types].xml") hasContentTypes = true;
-                if (entry.FullName.StartsWith(requiredEntryPrefix, StringComparison.Ordinal)) hasPart = true;
-                if (entry.FullName.EndsWith("vbaProject.bin", StringComparison.OrdinalIgnoreCase)) return false;
+                if (entry.FullName == "[Content_Types].xml")
+                    hasContentTypes = true;
+                if (entry.FullName.StartsWith(requiredEntryPrefix, StringComparison.Ordinal))
+                    hasPart = true;
+                if (entry.FullName.EndsWith("vbaProject.bin", StringComparison.OrdinalIgnoreCase))
+                    return false;
             }
 
             return hasContentTypes && hasPart;

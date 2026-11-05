@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionCancelledEventHandler(
@@ -23,7 +24,7 @@ public class SubscriptionCancelledEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = planName,
-            CancelledDate = notification.CancelledAt.ToString("yyyy-MM-dd"),
+            CancelledDate = notification.CancelledAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             SupportWhatsApp = instructions?.SupportWhatsApp ?? string.Empty,
             SupportEmail = instructions?.SupportEmail ?? string.Empty
         };

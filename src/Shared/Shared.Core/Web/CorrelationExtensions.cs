@@ -53,14 +53,17 @@ public static class CorrelationExtensions
     /// </summary>
     public static string? Sanitize(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
         value = value.Trim();
-        if (value.Length > MaxLength) return null;
+        if (value.Length > MaxLength)
+            return null;
 
         foreach (var c in value)
         {
             var ok = char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ':' or '/' or '+' or '=';
-            if (!ok) return null;
+            if (!ok)
+                return null;
         }
 
         return value;

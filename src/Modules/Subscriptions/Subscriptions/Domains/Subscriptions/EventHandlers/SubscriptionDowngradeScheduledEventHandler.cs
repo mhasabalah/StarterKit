@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionDowngradeScheduledEventHandler(
@@ -29,7 +30,7 @@ public class SubscriptionDowngradeScheduledEventHandler(
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             CurrentPlanName = planInfo,
             NewPlanName = newPlanName,
-            EffectiveAt = notification.EffectiveAt.ToString("yyyy-MM-dd"),
+            EffectiveAt = notification.EffectiveAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             PortalUrl = $"{frontendBaseUrl}/subscription"
         };
 

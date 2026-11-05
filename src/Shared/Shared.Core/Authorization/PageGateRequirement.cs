@@ -22,7 +22,7 @@ public class PageGateRequirement : IAuthorizationRequirement
 
     public PageGateRequirement(int maxAnonymousPageSize)
     {
-        if (maxAnonymousPageSize < 1) throw new ArgumentOutOfRangeException(nameof(maxAnonymousPageSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxAnonymousPageSize, 1);
         _maxAnonymousPageSize = maxAnonymousPageSize;
     }
 
@@ -65,8 +65,10 @@ public class PageGateAuthorizationHandler : AuthorizationHandler<PageGateRequire
     private static bool TryReadInt(IQueryCollection query, string key, out int? value)
     {
         value = null;
-        if (!query.TryGetValue(key, out var raw) || raw.Count == 0) return true;
-        if (raw.Count > 1 || !int.TryParse(raw[0], out var parsed)) return false;
+        if (!query.TryGetValue(key, out var raw) || raw.Count == 0)
+            return true;
+        if (raw.Count > 1 || !int.TryParse(raw[0], out var parsed))
+            return false;
         value = parsed;
         return true;
     }

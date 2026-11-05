@@ -32,11 +32,13 @@ public static class IntegrationEventTypes
     /// <summary>The CLR type of a stored urn, or <c>null</c> when no loaded integration event declares it.</summary>
     public static Type? Resolve(string name)
     {
-        if (_byName.TryGetValue(name, out var type)) return type;
+        if (_byName.TryGetValue(name, out var type))
+            return type;
 
         lock (Gate)
         {
-            if (_byName.TryGetValue(name, out type)) return type;
+            if (_byName.TryGetValue(name, out type))
+                return type;
 
             // Contracts assemblies load lazily: make sure everything the application references is loaded once.
             if (!_referencesLoaded)
@@ -58,7 +60,8 @@ public static class IntegrationEventTypes
                      .SelectMany(SafeTypes)
                      .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IIntegrationEvent).IsAssignableFrom(t)))
         {
-            if (type.GetCustomAttribute<MessageUrnAttribute>(inherit: false) is null) continue;
+            if (type.GetCustomAttribute<MessageUrnAttribute>(inherit: false) is null)
+                continue;
 
             var name = NameOf(type);
             if (map.TryGetValue(name, out var existing) && existing != type)
@@ -84,7 +87,8 @@ public static class IntegrationEventTypes
 
     private static void LoadReferencedAssemblies(Assembly? root)
     {
-        if (root is null) return;
+        if (root is null)
+            return;
 
         var seen = new HashSet<string>(AppDomain.CurrentDomain.GetAssemblies().Select(a => a.FullName!));
         var queue = new Queue<Assembly>([root]);
@@ -92,7 +96,8 @@ public static class IntegrationEventTypes
         {
             foreach (var reference in queue.Dequeue().GetReferencedAssemblies())
             {
-                if (!seen.Add(reference.FullName) || IsFramework(reference)) continue;
+                if (!seen.Add(reference.FullName) || IsFramework(reference))
+                    continue;
                 try
                 {
                     queue.Enqueue(Assembly.Load(reference));

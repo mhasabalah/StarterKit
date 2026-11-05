@@ -89,9 +89,20 @@ public class ExportTenantDataHandler(
     {
         await WriteJsonAsync(zip, "tenant/profile.json", new
         {
-            tenant.Id, tenant.Identifier, tenant.Name, tenant.LegalName, Status = tenant.Status.ToString(),
-            Isolation = tenant.Isolation.ToString(), tenant.Region, tenant.Culture, tenant.TimeZone, tenant.Currency,
-            tenant.LogoAttachmentId, tenant.PrimaryColor, tenant.OwnerUserId, tenant.CreatedAt,
+            tenant.Id,
+            tenant.Identifier,
+            tenant.Name,
+            tenant.LegalName,
+            Status = tenant.Status.ToString(),
+            Isolation = tenant.Isolation.ToString(),
+            tenant.Region,
+            tenant.Culture,
+            tenant.TimeZone,
+            tenant.Currency,
+            tenant.LogoAttachmentId,
+            tenant.PrimaryColor,
+            tenant.OwnerUserId,
+            tenant.CreatedAt,
             Domains = tenant.Domains.Select(d => new { d.Host, d.VerifiedAt })
         }, ct);
 
@@ -109,7 +120,8 @@ public class ExportTenantDataHandler(
         var users = new Dictionary<Guid, UserSummaryDto>();
         foreach (var chunk in memberships.Select(m => m.UserId).Chunk(GetUserSummariesQuery.MaxIds))
         {
-            foreach (var user in await sender.Send(new GetUserSummariesQuery(chunk), ct)) users[user.UserId] = user;
+            foreach (var user in await sender.Send(new GetUserSummariesQuery(chunk), ct))
+                users[user.UserId] = user;
         }
 
         await WriteJsonAsync(zip, "tenant/members.json", memberships.Select(m => new
@@ -117,7 +129,12 @@ public class ExportTenantDataHandler(
             m.UserId,
             Email = users.GetValueOrDefault(m.UserId)?.Email,
             DisplayName = users.GetValueOrDefault(m.UserId)?.DisplayName,
-            Status = m.Status.ToString(), m.IsOwner, m.RoleIds, m.Branches, m.JoinedAt, m.InvitedBy
+            Status = m.Status.ToString(),
+            m.IsOwner,
+            m.RoleIds,
+            m.Branches,
+            m.JoinedAt,
+            m.InvitedBy
         }), ct);
 
         var invitations = await dbContext.Invitations.AsNoTracking().OrderBy(i => i.CreatedAt)

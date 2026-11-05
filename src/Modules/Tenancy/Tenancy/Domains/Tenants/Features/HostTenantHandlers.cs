@@ -21,10 +21,14 @@ public class GetHostTenantsHandler(TenancyDbContext dbContext)
             if (!string.IsNullOrWhiteSpace(query.Search))
             {
                 var term = query.Search.Trim().ToLowerInvariant();
-                tenants = tenants.Where(t => t.Identifier.Contains(term) || t.Name.ToLower().Contains(term));
+                // EF Core translates string.Contains(string) to a LIKE and ToLowerInvariant() to lower(); the StringComparison overload is not translatable.
+#pragma warning disable CA1862 // Server-side translation: see the comment above.
+                tenants = tenants.Where(t => t.Identifier.Contains(term) || t.Name.ToLowerInvariant().Contains(term));
+#pragma warning restore CA1862
             }
 
-            if (query.Status is { } status) tenants = tenants.Where(t => t.Status == status);
+            if (query.Status is { } status)
+                tenants = tenants.Where(t => t.Status == status);
 
             return await tenants
                 .OrderByDescending(t => t.CreatedAt)

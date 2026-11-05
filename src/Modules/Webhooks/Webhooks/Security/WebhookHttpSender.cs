@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
@@ -88,7 +89,7 @@ public sealed class WebhookHttpSender : IWebhookSender, IDisposable
             };
             message.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             message.Headers.TryAddWithoutValidation("webhook-id", WebhookSigner.MessageIdHeader(request.MessageId));
-            message.Headers.TryAddWithoutValidation("webhook-timestamp", request.Timestamp.ToString());
+            message.Headers.TryAddWithoutValidation("webhook-timestamp", request.Timestamp.ToString(CultureInfo.InvariantCulture));
             message.Headers.TryAddWithoutValidation("webhook-signature", request.Signature);
             message.Headers.UserAgent.ParseAdd(UserAgent);
 

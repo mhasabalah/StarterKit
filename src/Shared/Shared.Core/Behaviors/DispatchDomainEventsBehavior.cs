@@ -35,7 +35,7 @@ public class DispatchDomainEventsBehavior<TRequest, TResponse>(
         var depth = collector.IncrementDepth();
         try
         {
-            var response = await next();
+            var response = await next(cancellationToken);
 
             // Only the outermost command dispatches - nested commands skip.
             if (depth == 1)

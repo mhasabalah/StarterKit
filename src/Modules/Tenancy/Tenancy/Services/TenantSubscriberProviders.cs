@@ -19,9 +19,11 @@ public sealed class TenantSubscriberIdProvider(
 {
     public Guid? GetCurrentSubscriberId()
     {
-        if (!options.Value.Enabled) return httpContextService.GetUserIdAsGuid();
+        if (!options.Value.Enabled)
+            return httpContextService.GetUserIdAsGuid();
 
-        if (tenantContext.TenantId is not { } tenantId) return null;
+        if (tenantContext.TenantId is not { } tenantId)
+            return null;
 
         if (tenantContext.Membership is not { } membership || membership.TenantId != tenantId)
             throw new TenantAccessDeniedException(TenantErrors.NotAMember, "only members can manage the tenant's subscription.");
@@ -86,7 +88,8 @@ public sealed class TenantNotificationRecipientResolver(
 {
     public async Task<Guid?> ResolveUserIdAsync(Guid recipientId, CancellationToken cancellationToken = default)
     {
-        if (!options.Value.Enabled) return null;
+        if (!options.Value.Enabled)
+            return null;
 
         using (TenantScope.BeginHostScope())
         {

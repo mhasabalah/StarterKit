@@ -12,6 +12,8 @@ namespace Shared.Core.MultiTenancy.Data;
 public static class TenantDataPurger
 {
     /// <returns>Rows deleted.</returns>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "EF1002:Risk of vulnerability to SQL injection",
+        Justification = "Only table/column identifiers from the EF model metadata are interpolated (they cannot be parameterized); the tenant id is an NpgsqlParameter.")]
     public static async Task<int> PurgeRowsAsync(DbContext context, Guid tenantId, CancellationToken ct = default)
     {
         var tables = TenantTablesInDeleteOrder(context.Model);
@@ -75,7 +77,8 @@ public static class TenantDataPurger
 
         void Visit(IEntityType entity)
         {
-            if (!visited.Add(entity)) return;
+            if (!visited.Add(entity))
+                return;
             foreach (var dependent in entities.Where(d => d != entity &&
                                                           d.GetForeignKeys().Any(fk => fk.PrincipalEntityType == entity)))
             {
@@ -85,7 +88,8 @@ public static class TenantDataPurger
             ordered.Add(entity);
         }
 
-        foreach (var entity in entities) Visit(entity);
+        foreach (var entity in entities)
+            Visit(entity);
 
         return ordered
             .Select(e => new TenantTable(

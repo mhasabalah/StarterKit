@@ -328,7 +328,10 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
         (await _scenario.InvoicesAsync(created.SubscriptionId)).Single().TotalAmount.Should().Be(0m);
         (await LedgerOf(created.SubscriptionId)).Single().Should().BeEquivalentTo(new
         {
-            Type = LedgerEntryType.Adjustment, Amount = 0m, PaymentId = result.PaymentId, InvoiceId = result.InvoiceId
+            Type = LedgerEntryType.Adjustment,
+            Amount = 0m,
+            PaymentId = result.PaymentId,
+            InvoiceId = result.InvoiceId
         });
         (await AuditActions(created.SubscriptionId)).Should().Contain("CompSubscription");
     }
@@ -477,7 +480,11 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
 
         dashboard.Revenue.Single(x => x.Currency == "XTS").Should().BeEquivalentTo(new
         {
-            Gross = 1500m, Refunds = 200m, CreditNotes = 0m, Adjustments = 0m, Net = 1300m
+            Gross = 1500m,
+            Refunds = 200m,
+            CreditNotes = 0m,
+            Adjustments = 0m,
+            Net = 1300m
         });
         dashboard.Revenue.Single(x => x.Currency == "XTU").Net.Should().Be(10m, "currencies are reported separately");
         dashboard.RevenueByPlan.Single(x => x.Currency == "XTS" && x.Key == annual.Id.ToString())

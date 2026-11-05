@@ -14,8 +14,10 @@ public static class ProductQueryBuilder
     public static async Task<IReadOnlyCollection<Guid>?> ResolveCategoryIdsAsync(
         CatalogDbContext dbContext, IProductFilterQuery query, CancellationToken cancellationToken)
     {
-        if (query.CategoryId is not { } categoryId) return null;
-        if (query.IncludeSubcategories != true) return [categoryId];
+        if (query.CategoryId is not { } categoryId)
+            return null;
+        if (query.IncludeSubcategories != true)
+            return [categoryId];
 
         // Inactive categories included on purpose: their products are still filed under them.
         var all = await dbContext.Categories.AsNoTracking()

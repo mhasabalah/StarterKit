@@ -43,8 +43,10 @@ public class UpdateCategoryHandler(ICategoryRepository repository, CatalogDbCont
         }
 
         category.Update(command.Name, command.Slug, command.ParentId, command.DisplayOrder);
-        if (command.IsActive) category.Activate();
-        else category.Deactivate();
+        if (command.IsActive)
+            category.Activate();
+        else
+            category.Deactivate();
 
         await repository.SaveChangesAsync(cancellationToken);
 

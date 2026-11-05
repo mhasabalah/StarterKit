@@ -52,8 +52,10 @@ public sealed class TenantResolutionMiddlewareTests
     private static void SignIn(HttpContext http, Guid? tenantId = null, string? stamp = null)
     {
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, UserId.ToString()) };
-        if (tenantId is { } tid) claims.Add(new Claim(TenantClaimTypes.TenantId, tid.ToString()));
-        if (stamp is not null) claims.Add(new Claim(TenantClaimTypes.MembershipStamp, stamp));
+        if (tenantId is { } tid)
+            claims.Add(new Claim(TenantClaimTypes.TenantId, tid.ToString()));
+        if (stamp is not null)
+            claims.Add(new Claim(TenantClaimTypes.MembershipStamp, stamp));
         http.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
     }
 
@@ -201,7 +203,7 @@ public sealed class TenantResolutionMiddlewareTests
         _store.Replace(TenantA with { Status = TenantStatus.Migrating });
 
         var (scope, _) = await RunAsync(h => h.Request.Host = new HostString("acme.api.example.com"));
-        scope!.Tenant.Id.Should().Be(TenantA.Id);
+        scope!.Tenant!.Id.Should().Be(TenantA.Id);
 
         var write = () => RunAsync(h =>
         {

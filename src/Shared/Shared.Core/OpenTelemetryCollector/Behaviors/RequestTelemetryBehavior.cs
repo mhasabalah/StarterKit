@@ -36,7 +36,7 @@ public sealed class RequestTelemetryBehavior<TRequest, TResponse>(
 
         try
         {
-            var response = await next();
+            var response = await next(cancellationToken);
             activity?.SetStatus(ActivityStatusCode.Ok);
             metrics.Record(name, kind, RequestTelemetryMetrics.Success, Stopwatch.GetElapsedTime(started));
             return response;

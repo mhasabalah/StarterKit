@@ -40,12 +40,14 @@ public sealed class OutboxInterceptor(
 
     private void Write(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
 
         var aggregates = context.ChangeTracker.Entries<IAggregate>()
             .Where(e => e.Entity.IntegrationEvents.Count > 0)
             .ToList();
-        if (aggregates.Count == 0) return;
+        if (aggregates.Count == 0)
+            return;
 
         var messageType = context.FindOutboxMessageType()
                           ?? throw new InvalidOperationException(

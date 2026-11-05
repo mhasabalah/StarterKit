@@ -93,7 +93,7 @@ public class CustomeDiagnosticsProvider(
         }
     }
 
-    public async Task<TResult?> ExecuteActivityAsync<TResult>(
+    public async Task<TResult> ExecuteActivityAsync<TResult>(
         CreateActivityInfo createActivityInfo,
         Func<Activity?, CancellationToken, Task<TResult>> action,
         CancellationToken cancellationToken = default
@@ -135,5 +135,6 @@ public class CustomeDiagnosticsProvider(
         _listener?.Dispose();
         _meter?.Dispose();
         _activitySource?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

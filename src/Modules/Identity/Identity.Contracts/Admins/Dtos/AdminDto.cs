@@ -13,17 +13,17 @@ public record AdminDto
     public string? LastName { get; init; }
     public string FullName { get; init; } = default!;
     public string? ProfilePictureUrl { get; init; }
-    
+
     // Admin-specific
     public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
     public bool IsSuperAdmin { get; init; }
     public DateTime? LastAdminActionAt { get; init; }
-    
+
     // Status
     public bool IsActive { get; init; }
     public bool IsLocked { get; init; }
     public DateTimeOffset? LockoutEnd { get; init; }
-    
+
     // Audit
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }

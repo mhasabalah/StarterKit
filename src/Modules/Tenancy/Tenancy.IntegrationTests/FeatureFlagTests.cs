@@ -32,7 +32,7 @@ public sealed class FeatureFlagTests(TenancyPostgresFixture fx)
         using (TenantScope.Begin(new TenantInfo(tenantId, $"t-{tenantId:N}"[..12], "T")))
         {
             fx.Http.SetUser(userId);
-            bool on = false;
+            var on = false;
             await fx.WithServices(async sp => on = await sp.GetRequiredService<IFeatureFlags>().IsEnabledAsync(key));
             return on;
         }

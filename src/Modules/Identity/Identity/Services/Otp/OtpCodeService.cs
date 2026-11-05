@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using Identity.Data.Repository.Otp;
 using Identity.Models;
@@ -121,7 +122,7 @@ public sealed class OtpCodeService(
     public static string GenerateCode(int length)
     {
         var upperBound = (int)Math.Pow(10, length);
-        return RandomNumberGenerator.GetInt32(0, upperBound).ToString($"D{length}");
+        return RandomNumberGenerator.GetInt32(0, upperBound).ToString($"D{length}", CultureInfo.InvariantCulture);
     }
 
     private async Task<OtpRateLimitedException> RateLimitedAsync(
