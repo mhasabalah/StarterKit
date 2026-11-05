@@ -1,4 +1,9 @@
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
+using Amazon;
+using Amazon.KeyManagementService;
+using Azure.Core;
+using Azure.Identity;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Identity.Options;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
@@ -55,10 +60,68 @@ public static class IdentityDataProtectionExtensions
                 builder.UnprotectKeysWithAnyCertificate([current, .. previous]);
                 return;
 
+            case DataProtectionKeyEncryption.AzureKeyVault:
+                // Wrap/unwrap happens inside the vault; the app only needs wrapKey/unwrapKey rights on the key.
+                builder.ProtectKeysWithAzureKeyVault(
+                    ParseKeyIdentifier(options.AzureKeyVault), CreateAzureCredential(options.AzureKeyVault));
+                return;
+
+            case DataProtectionKeyEncryption.AwsKms:
+                ConfigureAwsKms(builder, options);
+                return;
+
             default:
                 throw new NotSupportedException(
                     $"{DataProtectionKeyOptions.SectionName}:KeyEncryption '{options.EffectiveKeyEncryption}' is not supported.");
         }
+    }
+
+    /// <summary>The vault key URI (https://&lt;vault&gt;.vault.azure.net/keys/&lt;name&gt;[/&lt;version&gt;]).</summary>
+    public static Uri ParseKeyIdentifier(DataProtectionAzureKeyVaultOptions options)
+    {
+        if (!options.IsConfigured)
+        {
+            throw new InvalidOperationException(
+                $"{DataProtectionKeyOptions.SectionName}:KeyEncryption is AzureKeyVault but AzureKeyVault:KeyIdentifier is not set.");
+        }
+
+        if (!Uri.TryCreate(options.KeyIdentifier, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException(
+                $"{DataProtectionKeyOptions.SectionName}:AzureKeyVault:KeyIdentifier must be an absolute https URI " +
+                "(https://<vault>.vault.azure.net/keys/<name>).");
+        }
+
+        return uri;
+    }
+
+    /// <summary>Client-secret credential when fully configured, otherwise <see cref="DefaultAzureCredential"/> (managed identity...).</summary>
+    public static TokenCredential CreateAzureCredential(DataProtectionAzureKeyVaultOptions options) =>
+        !string.IsNullOrWhiteSpace(options.TenantId) && !string.IsNullOrWhiteSpace(options.ClientId) &&
+        !string.IsNullOrWhiteSpace(options.ClientSecret)
+            ? new ClientSecretCredential(options.TenantId, options.ClientId, options.ClientSecret)
+            : new DefaultAzureCredential();
+
+    private static void ConfigureAwsKms(IDataProtectionBuilder builder, DataProtectionKeyOptions options)
+    {
+        if (!options.AwsKms.IsConfigured)
+        {
+            throw new InvalidOperationException(
+                $"{DataProtectionKeyOptions.SectionName}:KeyEncryption is AwsKms but AwsKms:KeyId is not set.");
+        }
+
+        var keyId = options.AwsKms.KeyId!;
+        var region = options.AwsKms.Region;
+
+        // TryAdd: tests (or a host with its own AWS configuration) can register the client first.
+        builder.Services.TryAddSingleton<IAmazonKeyManagementService>(_ =>
+            string.IsNullOrWhiteSpace(region)
+                ? new AmazonKeyManagementServiceClient()
+                : new AmazonKeyManagementServiceClient(RegionEndpoint.GetBySystemName(region)));
+
+        builder.Services.AddSingleton<IConfigureOptions<KeyManagementOptions>>(sp =>
+            new ConfigureOptions<KeyManagementOptions>(o => o.XmlEncryptor = new AwsKmsXmlEncryptor(
+                sp.GetRequiredService<IAmazonKeyManagementService>(), keyId, options.ApplicationName)));
     }
 
     /// <summary>The configured certificate (store thumbprint wins over PFX path). It must carry a private key.</summary>
@@ -131,8 +194,8 @@ public sealed class DataProtectionKeyEncryptionCheck(
 {
     public const string UnencryptedMessage =
         "Data Protection keys are stored UNENCRYPTED in identity.data_protection_keys. Anyone who can read that table " +
-        "can decrypt authenticator (TOTP) keys and forge reset tokens. Configure Identity:DataProtection:Certificate " +
-        "(see wiki/Identity/Permissions-2FA-and-Admin-Audit.md) and set Identity:DataProtection:RequireKeyEncryption=true.";
+        "can decrypt authenticator (TOTP) keys and forge reset tokens. Configure Identity:DataProtection:Certificate, " +
+        "AzureKeyVault or AwsKms (see wiki/Identity/Permissions-2FA-and-Admin-Audit.md) and set Identity:DataProtection:RequireKeyEncryption=true.";
 
     public static DataProtectionKeyEncryptionStatus Evaluate(DataProtectionKeyOptions options, bool developmentLike)
     {
