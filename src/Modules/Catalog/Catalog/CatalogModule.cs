@@ -21,6 +21,7 @@ namespace Catalog;
 public static class CatalogModule
 {
     public const string PurgeJobId = "catalog-purge-soft-deleted-products";
+    public const string AuditPurgeJobId = "catalog-purge-audit-entries";
 
     public static IServiceCollection AddCatalogModule(
         this IServiceCollection services,
@@ -55,6 +56,7 @@ public static class CatalogModule
 
         // Hangfire jobs
         services.AddTransient<PurgeSoftDeletedProductsJob>();
+        services.AddTransient<PurgeAuditEntriesJob>();
 
         return services;
     }
@@ -71,6 +73,11 @@ public static class CatalogModule
             PurgeJobId,
             x => x.ExecuteAsync(JobCancellationToken.Null),
             options.PurgeCron);
+
+        recurringJobManager.AddOrUpdate<PurgeAuditEntriesJob>(
+            AuditPurgeJobId,
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            Cron.Daily(4));
 
         return app;
     }
