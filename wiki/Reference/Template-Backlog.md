@@ -41,8 +41,8 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 
 | # | Item | Status |
 |---|---|---|
-| G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning | ⬜ |
-| G16 | Passkeys (WebAuthn) | ⬜ |
+| G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning ([SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md)) | ✅ |
+| G16 | Passkeys (WebAuthn) ([Passkeys](../Identity/Passkeys.md)) | ✅ |
 | G17 | Full-text search abstraction (Postgres `tsvector` first) | ⬜ |
 | G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report | ⬜ |
@@ -54,6 +54,18 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 
 Follow-ups known up front: automatic off-session card retry in dunning (needs saved payment methods); Stripe/Paymob
 sandbox keys per project.
+
+Wave 8 (2026-11-05, ADRs [0013](../Decisions/0013-enterprise-sso-and-scim.md) / [0014](../Decisions/0014-passkeys-on-built-in-identity.md)):
+G15 + G16 shipped, plus the email design system v2 ([page](../Modules/Notification-Email-Design-System.md)), the
+email OTP channel (`OneTimeCode`, closes the G13/G18 follow-up below) and the [feature catalog](Features.md). G4
+progress: E2E for passkeys, SSO and SCIM. Follow-ups: SAML metadata-URL refresh job; multi-tenant E2E of SSO
+(`MultiTenantE2EFixture`); SCIM enterprise-extension attributes; still open from G4 - refresh/logout/password-reset
+E2E and the attachment pending flow over HTTP. The architecture review items of 2026-11-05 are closed
+(discovery-cache eviction across replicas with the old authority, tenant-role validation for SSO default roles and
+SCIM group mappings, SCIM directory repository and single-query counts, one `AddDnsTxtVerifier()`, en/ar messages
+and request-culture security alerts, enforcement lapsing with the plan, and the missing tests incl. a SAML E2E).
+By design and documented: a missing `email_verified` claim is accepted on a DNS-verified domain (Entra never sends
+it); SCIM deactivation revokes all sessions of the account.
 
 Follow-ups of G13/G18 (2026-11-05, [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)): per-category mute and
 quiet hours for push; a direct APNs adapter behind `IPushProvider` if FCM is not wanted for iOS; push and in-app

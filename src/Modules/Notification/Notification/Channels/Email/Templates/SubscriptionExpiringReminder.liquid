@@ -1,22 +1,22 @@
 {% comment %}Variables: SubscriberName, PlanName, ExpiryDate, RenewalUrl{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}تذكير: اشتراكك على وشك الانتهاء{% else %}Subscription Expiry Reminder{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، اشتراك خطة <strong>{{ PlanName }}</strong> على وشك الانتهاء.
+    مرحباً <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، اشتراك خطة <strong>{{ PlanName }}</strong> على وشك الانتهاء.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your <strong>{{ PlanName }}</strong> plan is expiring soon.
+    Hello <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, your <strong>{{ PlanName }}</strong> plan is expiring soon.
   {% endif %}
 </p>
 
 {% capture card_content %}
-<p style="margin:0;font-size:14px;color:#64748b;">
+<p class="sk-p" style="margin:0;font-size:14px;color:{{ t.textMuted }};">
   {% if culture == 'ar' %}تاريخ انتهاء الاشتراك{% else %}Subscription expiry date{% endif %}
 </p>
-<p style="margin:6px 0 0 0;font-size:17px;font-weight:700;color:#d97706;">{{ ExpiryDate }}</p>
+<p class="sk-p" style="margin:6px 0 0 0;font-size:17px;font-weight:700;color:{{ t.warning }};">{{ ExpiryDate }}</p>
 {% endcapture %}
 {% if culture == 'ar' %}{% assign card_title = 'موعد الانتهاء' %}{% else %}{% assign card_title = 'Expiry Date' %}{% endif %}
 {% include 'Components/Card' %}

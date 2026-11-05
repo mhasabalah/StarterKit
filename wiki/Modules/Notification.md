@@ -80,10 +80,12 @@ Adding a template = four pieces (startup validation fails if one is missing):
 1. `EmailTemplate` value with `[TemplateFile("X")]` - `Notification.Contracts/Enums/EmailTemplate.cs`
 2. Data model `XModel` with `ToDictionary()` - `Notification.Contracts/Email/Models/`
 3. Subject class `XSubject : IEmailTemplate` (template, `ModelType`, localized subject) - `Notification/Channels/Email/Subjects/`
-4. Liquid file `X.liquid` (embedded resource) - `Notification/Channels/Email/Templates/`
+4. Liquid file `X.liquid` (embedded resource) - `Notification/Channels/Email/Templates/`, built from the design-system
+   components; colors only as tokens (`{{ t.textMuted }}`). See [Email design system](Notification-Email-Design-System.md).
 
-Globals available in every template: `culture` (`en`/`ar`), `brandName`, `appBaseUrl`, `supportEmail`,
-`currentYear`. All `{{ output }}` is HTML-encoded; every `href` must use `| safe_url` (http/https and allow-listed
+Globals available in every template: `culture` (`en`/`ar`), `dir`, `align`, `t` (tokens), `brandName`, `appBaseUrl`,
+`supportEmail`, `currentYear`. Every mail is sent as `multipart/alternative` (plain text derived from the HTML).
+`SecurityAlert` (sign-in method changes) and `OneTimeCode` (email OTP) are the reference templates. All `{{ output }}` is HTML-encoded; every `href` must use `| safe_url` (http/https and allow-listed
 hosts only - `Email:AllowedLinkHosts`). In Development every template is smoke-rendered in both cultures at startup.
 
 ## One-time code delivery (OTP)

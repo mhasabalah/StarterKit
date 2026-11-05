@@ -1,14 +1,14 @@
 {% comment %}Variables: SubscriberName, SupportEmail{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}تم تجميد الحساب{% else %}Account Locked{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    تم تجميد حساب <strong style="color:#0f172a;">{{ SubscriberName }}</strong> بسبب انتهاء الاشتراك وعدم التجديد خلال فترة السماح.
+    تم تجميد حساب <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong> بسبب انتهاء الاشتراك وعدم التجديد خلال فترة السماح.
   {% else %}
-    The account for <strong style="color:#0f172a;">{{ SubscriberName }}</strong> has been locked due to an expired subscription and no renewal during the grace period.
+    The account for <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong> has been locked due to an expired subscription and no renewal during the grace period.
   {% endif %}
 </p>
 
@@ -18,11 +18,11 @@
 {% include 'Components/Alert' %}
 
 {% capture card_content %}
-<p style="margin:0;font-size:14px;color:#64748b;">
+<p class="sk-p" style="margin:0;font-size:14px;color:{{ t.textMuted }};">
   {% if culture == 'ar' %}للتواصل مع فريق الدعم{% else %}Reach our support team at{% endif %}
 </p>
 <a href="mailto:{{ SupportEmail }}"
-   style="display:inline-block;margin-top:6px;font-size:15px;font-weight:600;color:#1a1a2e;text-decoration:none;">
+   style="display:inline-block;margin-top:6px;font-size:15px;font-weight:600;color:{{ t.brand }};text-decoration:none;">
   {{ SupportEmail }}
 </a>
 {% endcapture %}

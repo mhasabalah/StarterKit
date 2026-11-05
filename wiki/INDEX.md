@@ -54,6 +54,8 @@ wiki/
 - [0009](Decisions/0009-outbound-webhooks.md): outbound customer webhooks module
 - [0011](Decisions/0011-audit-trail.md): generic same-transaction audit trail
 - [0012](Decisions/0012-realtime-inbox-and-push.md): in-app inbox, SignalR hub and FCM push as additive channels
+- [0013](Decisions/0013-enterprise-sso-and-scim.md): per-tenant SSO (OIDC/SAML) and SCIM inside Identity
+- [0014](Decisions/0014-passkeys-on-built-in-identity.md): passkeys on .NET 10 Identity WebAuthn, server-side ceremonies
 
 ## Modules
 
@@ -62,6 +64,7 @@ wiki/
 - [Subscriptions](Modules/Subscriptions.md): plans, subscriptions, billing
 - [Notification](Modules/Notification.md): email, WhatsApp, in-app and push delivery
   - [Notification-Realtime-and-Push](Modules/Notification-Realtime-and-Push.md): in-app inbox, SignalR hub, FCM push devices
+  - [Notification-Email-Design-System](Modules/Notification-Email-Design-System.md): tokens, components, dark mode, branding, plain text
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 
 ## Multi-tenancy
@@ -77,6 +80,10 @@ wiki/
 - [README](Identity/README.md): module overview, OTP, email confirmation, security configuration
 - [Users-and-Admins-API](Identity/Users-and-Admins-API.md): every Identity route with its authorization
 - [Permissions, 2FA and admin audit](Identity/Permissions-2FA-and-Admin-Audit.md)
+- [Passkeys](Identity/Passkeys.md): WebAuthn sign-in, MFA sessions, step-up, configuration
+- [Enterprise SSO](Identity/Enterprise-SSO.md): per-tenant OIDC / SAML 2.0, verified domains, JIT, enforced SSO, IdP setup
+- [SCIM](Identity/SCIM.md): SCIM 2.0 users and groups, deprovisioning, group → role mapping
+- [Frontend integration](Identity/Frontend-Integration.md): email-first SSO, code exchange, WebAuthn browser code
 - [Bot protection (CAPTCHA)](Identity/Bot-Protection.md): `.RequireHumanVerification`, Turnstile adapter, fail-open, adding a provider
 - [Replacing the identity provider](Identity/Replacing-the-Identity-Provider.md)
 - JWT: [technical guide](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) · [frontend guide](Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md) · [token refresh strategies](Identity/jwt/TokenRefreshStrategies.md)
@@ -104,6 +111,7 @@ wiki/
 
 ## Reference
 
+- [Feature catalog](Reference/Features.md): everything the template ships, by area
 - [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Template backlog](Reference/Template-Backlog.md) · [Third-party licenses](Reference/Third-Party-Licenses.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
 
 ## Deployment and operations

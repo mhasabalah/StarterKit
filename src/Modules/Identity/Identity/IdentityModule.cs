@@ -14,6 +14,13 @@ using Identity.Options;
 using Identity.Services.ApiKeys;
 using Identity.Services.EmailConfirmation;
 using Identity.Services.Otp;
+using Identity.Services.Passkeys;
+using Identity.Services.Security;
+using Identity.Services.Sso;
+using Identity.Services.Scim;
+using Identity.Data.Repository.Sso;
+using Identity.Domains.Sso.Features.SsoConnections;
+using Identity.Domains.Sso.Features.SsoLogin;
 using Identity.Services.Phone;
 using Identity.Services.Sessions;
 using Identity.Services.Token;
@@ -70,6 +77,40 @@ public static class IdentityModule
         services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
         services.AddScoped<ILoginCompletionService, LoginCompletionService>();
 
+        // Passkeys (WebAuthn): built-in Identity handler + server-side single-use ceremony state.
+        services.AddHttpContextAccessor();
+        services.TryAddScoped<IPasskeyHandler<ApplicationUser>, PasskeyHandler<ApplicationUser>>();
+        services.AddSingleton<IPasskeyCeremonyStore, DistributedCachePasskeyCeremonyStore>();
+        services.AddScoped<IPasskeyService, PasskeyService>();
+        services.AddScoped<ISecurityAlertSender, SecurityAlertSender>();
+
+        // Enterprise SSO (per-tenant OIDC / SAML 2.0) - see wiki/Identity/Enterprise-SSO.md.
+        services.AddSsoHttpClient();
+        Shared.Core.Net.DnsTxtVerifierServiceCollectionExtensions.AddDnsTxtVerifier(services);
+        services.AddSingleton<IOneTimeUseGuard>(CreateOneTimeUseGuard);
+        services.AddSingleton<OidcConfigurationCache>();
+        services.AddScoped<ISsoSecretProtector, SsoSecretProtector>();
+        services.AddScoped<ISsoConnectionRepository, SsoConnectionRepository>();
+        services.AddScoped<ITenantRoleGuard, TenantRoleGuard>();
+        services.AddScoped<ISsoEntitlement, SsoEntitlement>();
+        services.AddScoped<Identity.Data.Repository.Scim.IScimDirectoryRepository, Identity.Data.Repository.Scim.ScimDirectoryRepository>();
+        services.AddScoped<ISsoEnforcementPolicy, SsoEnforcementPolicy>();
+        services.AddScoped<SsoOneTimeStore>();
+        services.AddScoped<SsoUrls>();
+        services.AddScoped<SsoReturnUrlPolicy>();
+        services.AddScoped<OidcSsoClient>();
+        services.AddScoped<SamlSsoClient>();
+        services.AddScoped<SsoAccountService>();
+        services.AddScoped<SsoLoginFlow>();
+        services.AddScoped<SsoConnectionMapper>();
+
+        // SCIM 2.0 provisioning (directory bearer tokens; own scheme + policy) - see wiki/Identity/SCIM.md.
+        services.AddScimAuthentication();
+        services.AddScoped<Identity.Services.Scim.ScimProvisioningService>();
+        services.AddScoped<Identity.Domains.Scim.Features.ScimProtocol.ScimDirectoryLoader>();
+        services.AddScoped<Identity.Domains.Scim.Features.ScimDirectories.ScimDirectoryMapper>();
+        services.AddScoped<Identity.Domains.Scim.Features.ScimProtocol.ScimConflictRetry>();
+
         // Admin audit: writer + one transaction per IAuditedCommand (registered after AddMediator below).
         services.AddScoped<IIdentityAuditWriter, IdentityAuditWriter>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
@@ -118,6 +159,20 @@ public static class IdentityModule
             sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>());
     }
 
+    /// <summary>Same Redis-or-fallback choice as the TOTP replay guard.</summary>
+    private static IOneTimeUseGuard CreateOneTimeUseGuard(IServiceProvider sp)
+    {
+        var redis = sp.GetService<StackExchange.Redis.IConnectionMultiplexer>();
+        if (redis is not null)
+        {
+            var prefix = sp.GetService<IOptions<Shared.Core.Options.RedisOptions>>()?.Value.InstanceName ?? string.Empty;
+            return new RedisOneTimeUseGuard(redis, prefix);
+        }
+
+        return new DistributedCacheOneTimeUseGuard(
+            sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>());
+    }
+
     private static void ConfigureOptions(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<JwtOptions>()
@@ -150,6 +205,8 @@ public static class IdentityModule
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
         services.Configure<EmailConfirmationOptions>(configuration.GetSection(EmailConfirmationOptions.SectionName));
         services.Configure<OnboardingOptions>(configuration.GetSection("Notification:Onboarding"));
+        services.Configure<PasskeyOptions>(configuration.GetSection(PasskeyOptions.SectionName));
+        services.Configure<SsoOptions>(configuration.GetSection(SsoOptions.SectionName));
     }
 
     private static void ConfigureIdentity(this IServiceCollection services)
@@ -187,7 +244,13 @@ public static class IdentityModule
                 options.SignIn.RequireConfirmedPhoneNumber = s.SignIn.RequireConfirmedPhoneNumber;
 
                 options.Tokens.EmailConfirmationTokenProvider = EmailConfirmationTokenProviderOptions.ProviderName;
+
+                // Schema v3 adds the user_passkeys table (WebAuthn credentials).
+                options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
             });
+
+        services.AddOptions<IdentityPasskeyOptions>()
+            .Configure<IOptions<PasskeyOptions>>((options, settings) => PasskeyConfiguration.Apply(options, settings.Value));
 
         // The reset link/OTP promise "valid for N hours" must match what Identity actually enforces (default 24h).
         services.AddOptions<DataProtectionTokenProviderOptions>()

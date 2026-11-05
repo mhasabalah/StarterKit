@@ -1,3 +1,4 @@
+using Shared.Core.Net;
 using System.Globalization;
 using System.Diagnostics;
 using System.Net;
@@ -113,11 +114,11 @@ public sealed class WebhookHttpSender : IWebhookSender, IDisposable
         {
             return Failure(stopwatch, "Request timed out.", WebhookFailureKind.Retriable);
         }
-        catch (WebhookBlockedAddressException)
+        catch (BlockedNetworkAddressException)
         {
             return Failure(stopwatch, "Blocked: the target resolves to a non-public address.", WebhookFailureKind.Permanent);
         }
-        catch (HttpRequestException ex) when (ex.InnerException is WebhookBlockedAddressException)
+        catch (HttpRequestException ex) when (ex.InnerException is BlockedNetworkAddressException)
         {
             return Failure(stopwatch, "Blocked: the target resolves to a non-public address.", WebhookFailureKind.Permanent);
         }

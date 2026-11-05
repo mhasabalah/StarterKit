@@ -25,6 +25,7 @@ public class ExternalLoginCallbackHandler(
     IAuthSessionService sessionService,
     ITwoFactorChallengeService challengeService,
     IHttpContextService httpContextService,
+    Identity.Services.Sso.ISsoEnforcementPolicy ssoPolicy,
     ILogger<ExternalLoginCallbackHandler> logger)
     : ICommandHandler<ExternalLoginCallbackCommand, ExternalLoginCallbackResult>
 {
@@ -57,6 +58,9 @@ public class ExternalLoginCallbackHandler(
             {
                 throw new UnauthorizedException("Account is disabled.");
             }
+
+            // A social login does not get around an organization's SSO enforcement.
+            await ssoPolicy.EnsureNonSsoSignInAllowedAsync(user, cancellationToken);
 
             // Also covers a "remembered" 2FA client cookie making SignInManager report Succeeded: tokens are only
             // ever issued after our own second-factor step.
@@ -112,6 +116,9 @@ public class ExternalLoginCallbackHandler(
 
         if (existingUser != null)
         {
+            // Linking a social login must not open a back door around an organization that enforces SSO.
+            await ssoPolicy.EnsureNonSsoSignInAllowedAsync(existingUser, cancellationToken);
+
             var addLoginResult = await userManager.AddLoginAsync(existingUser, info);
             if (!addLoginResult.Succeeded)
             {
@@ -123,6 +130,10 @@ public class ExternalLoginCallbackHandler(
         }
         else
         {
+            // A new account on an SSO-enforced domain must come from the IdP (JIT), not from a social provider.
+            if (await ssoPolicy.FindConnectionForEmailAsync(email, cancellationToken) is { EnforceSso: true } enforcing)
+                throw new Identity.Domains.Sso.Exceptions.SsoRequiredException(enforcing.Id);
+
             newUser = new ApplicationUser
             {
                 Id = Guid.NewGuid(),

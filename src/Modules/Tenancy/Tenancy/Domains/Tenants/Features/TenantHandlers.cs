@@ -191,7 +191,7 @@ public class AddTenantDomainHandler(TenancyDbContext dbContext, TenancyRequest r
 public class VerifyTenantDomainHandler(
     TenancyDbContext dbContext,
     TenancyRequest request,
-    ITenantDomainVerifier verifier,
+    Shared.Core.Net.IDnsTxtVerifier verifier,
     ITenantAuditWriter audit,
     TimeProvider timeProvider) : ICommandHandler<VerifyTenantDomainCommand, TenantDomainDto>
 {

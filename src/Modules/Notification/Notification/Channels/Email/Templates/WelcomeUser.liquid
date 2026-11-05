@@ -1,18 +1,18 @@
 {% comment %}Variables: firstName{% endcomment %}
 
-<h2 style="margin:0 0 20px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 20px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}مرحباً بك في {{ brandName }}{% else %}Welcome to {{ brandName }}{% endif %}
 </h2>
 
-<p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 16px 0;font-size:15px;color:{{ t.textBody }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ firstName }}</strong>،
+    مرحباً <strong style="color:{{ t.text }};">{{ firstName }}</strong>،
   {% else %}
-    Hi <strong style="color:#0f172a;">{{ firstName }}</strong>,
+    Hi <strong style="color:{{ t.text }};">{{ firstName }}</strong>,
   {% endif %}
 </p>
 
-<p style="margin:0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
     نحن سعداء بانضمامك إلى <strong>{{ brandName }}</strong>. حسابك جاهز الآن ويمكنك البدء فوراً.
   {% else %}
@@ -22,7 +22,7 @@
 
 {% include 'Components/Divider' %}
 
-<p style="margin:0;font-size:14px;color:#64748b;line-height:1.7;">
+<p class="sk-p" style="margin:0;font-size:14px;color:{{ t.textMuted }};line-height:1.7;">
   {% if culture == 'ar' %}
     إذا كان لديك أي استفسار، فريقنا دائماً في خدمتك.
   {% else %}

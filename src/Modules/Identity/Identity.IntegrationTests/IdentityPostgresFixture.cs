@@ -119,6 +119,13 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
             new DistributedCacheTotpReplayGuard(sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>()));
         services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
         services.AddScoped<ILoginCompletionService, LoginCompletionService>();
+
+        // Enterprise SSO enforcement on password login (real policy over the real tables; no connections = no-op).
+        services.Configure<Identity.Options.SsoOptions>(_ => { });
+        services.AddScoped<Identity.Data.Repository.Sso.ISsoConnectionRepository, Identity.Data.Repository.Sso.SsoConnectionRepository>();
+        services.AddScoped<Identity.Services.Sso.ISsoEnforcementPolicy, Identity.Services.Sso.SsoEnforcementPolicy>();
+        services.TryAddScoped(_ => Mock.Of<Shared.Core.MultiTenancy.ITenantMembershipResolver>());
+        services.TryAddScoped(_ => Mock.Of<Identity.Services.Sso.ISsoEntitlement>());
         services.AddScoped<IIdentityAuditWriter, IdentityAuditWriter>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 

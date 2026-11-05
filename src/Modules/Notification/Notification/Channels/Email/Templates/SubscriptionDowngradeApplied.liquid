@@ -1,28 +1,28 @@
 {% comment %}Variables: SubscriberName, NewPlanName, NewRenewalDate, PortalUrl{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}تم تطبيق خطتك الجديدة{% else %}Plan Updated — Subscription Renewed{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم تجديد اشتراكك وتطبيق خطة {{ NewPlanName }}.
+    مرحباً <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، تم تجديد اشتراكك وتطبيق خطة {{ NewPlanName }}.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your subscription has been renewed and updated to the <strong>{{ NewPlanName }}</strong> plan.
+    Hello <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, your subscription has been renewed and updated to the <strong>{{ NewPlanName }}</strong> plan.
   {% endif %}
 </p>
 
 {% capture card_content %}
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;width:140px;white-space:nowrap;">
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};width:140px;white-space:nowrap;">
       {% if culture == 'ar' %}الخطة الجديدة{% else %}New Plan{% endif %}
     </td>
-    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#16a34a;">{{ NewPlanName }}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:{{ t.success }};">{{ NewPlanName }}</td>
   </tr>
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}تاريخ التجديد{% else %}Next Renewal{% endif %}</td>
-    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ NewRenewalDate }}</td>
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};">{% if culture == 'ar' %}تاريخ التجديد{% else %}Next Renewal{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:{{ t.text }};">{{ NewRenewalDate }}</td>
   </tr>
 </table>
 {% endcapture %}

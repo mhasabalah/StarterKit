@@ -309,7 +309,7 @@ public sealed class ExternalLoginSuccessPathTests
         "Google", "key", "Google");
 
     private ExternalLoginCallbackHandler Handler() => new(_signIn.Object, _users.Object, _sessions.Object,
-        Mock.Of<ITwoFactorChallengeService>(), Mock.Of<IHttpContextService>(),
+        Mock.Of<ITwoFactorChallengeService>(), Mock.Of<IHttpContextService>(), new NoSsoEnforcement(),
         NullLogger<ExternalLoginCallbackHandler>.Instance);
 
     private static readonly ExternalLoginCallbackCommand Callback = new(null);
@@ -418,7 +418,7 @@ public sealed class PasswordResetAndEmailHandlerTests
     private ForgotPasswordHandler Forgot() => new(_users.Object, _notifications.Object, _sms.Object, _otp.Object,
         AuthTestKit.Normalizer(),
         Microsoft.Extensions.Options.Options.Create(new PasswordResetOptions { FrontendBaseUrl = "https://app.test" }),
-        NullLogger<ForgotPasswordHandler>.Instance);
+        new NoSsoEnforcement(), NullLogger<ForgotPasswordHandler>.Instance);
 
     private static ApplicationUser Confirmed()
     {

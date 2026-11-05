@@ -1,11 +1,11 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace Webhooks.Security;
+namespace Shared.Core.Net;
 
-/// <summary>The connection target resolves to (or is) an address webhooks must never reach.</summary>
-public sealed class WebhookBlockedAddressException(string host, string reason)
-    : HttpRequestException($"Webhook target '{host}' is not allowed: {reason}");
+/// <summary>The connection target resolves to (or is) an address outbound calls must never reach.</summary>
+public sealed class BlockedNetworkAddressException(string host, string reason)
+    : HttpRequestException($"Target '{host}' is not allowed: {reason}");
 
 /// <summary>
 /// The SSRF guard that matters: a <see cref="SocketsHttpHandler.ConnectCallback"/> that resolves DNS ITSELF, rejects
@@ -80,7 +80,7 @@ public sealed class GuardedConnector(
             var blocked = addresses.FirstOrDefault(NetworkAddressPolicy.IsBlocked);
             if (blocked is not null)
             {
-                throw new WebhookBlockedAddressException(host, "resolves to a non-public address");
+                throw new BlockedNetworkAddressException(host, "resolves to a non-public address");
             }
         }
 

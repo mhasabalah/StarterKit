@@ -1,0 +1,9 @@
+{% comment %}
+  Text - a paragraph
+  Required: text_content (plain text, HTML-encoded) or text_html (captured markup written by the template itself)
+  Optional: text_tone = body (default) | muted | small
+{% endcomment %}
+{% if text_tone == 'muted' %}{% assign _t_color = t.textMuted %}{% assign _t_size = t.fontSizeSm %}{% assign _t_class = 'sk-muted' %}
+{% elsif text_tone == 'small' %}{% assign _t_color = t.textSubtle %}{% assign _t_size = t.fontSizeXs %}{% assign _t_class = 'sk-muted' %}
+{% else %}{% assign _t_color = t.textSecondary %}{% assign _t_size = t.fontSizeBase %}{% assign _t_class = 'sk-p' %}{% endif %}
+<p class="{{ _t_class }}" style="margin:0 0 {{ t.space5 }} 0;font-size:{{ _t_size }};color:{{ _t_color }};line-height:1.75;text-align:{{ align }};">{% if text_html %}{{ text_html | raw }}{% else %}{{ text_content }}{% endif %}</p>

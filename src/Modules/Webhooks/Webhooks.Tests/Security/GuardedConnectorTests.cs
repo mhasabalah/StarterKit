@@ -1,3 +1,4 @@
+using Shared.Core.Net;
 using System.Net;
 using Webhooks.Security;
 
@@ -26,7 +27,7 @@ public class GuardedConnectorTests
 
         var act = () => connector.ResolveCheckedAsync("totally-public.example.com", CancellationToken.None);
 
-        await act.Should().ThrowAsync<WebhookBlockedAddressException>();
+        await act.Should().ThrowAsync<BlockedNetworkAddressException>();
     }
 
     [Fact]
@@ -36,7 +37,7 @@ public class GuardedConnectorTests
 
         var act = () => connector.ResolveCheckedAsync("mixed.example.com", CancellationToken.None);
 
-        await act.Should().ThrowAsync<WebhookBlockedAddressException>();
+        await act.Should().ThrowAsync<BlockedNetworkAddressException>();
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public class GuardedConnectorTests
 
         var act = () => connector.ResolveCheckedAsync(host, CancellationToken.None);
 
-        await act.Should().ThrowAsync<WebhookBlockedAddressException>();
+        await act.Should().ThrowAsync<BlockedNetworkAddressException>();
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public class GuardedConnectorTests
 
         var act = () => connector.ResolveCheckedAsync("localhost", CancellationToken.None);
 
-        await act.Should().ThrowAsync<WebhookBlockedAddressException>("localhost resolves to 127.0.0.1 / ::1");
+        await act.Should().ThrowAsync<BlockedNetworkAddressException>("localhost resolves to 127.0.0.1 / ::1");
     }
 
     [Fact]
@@ -90,6 +91,6 @@ public class GuardedConnectorTests
 
         var act = () => connector.ResolveCheckedAsync("nx.example.com", CancellationToken.None);
 
-        (await act.Should().ThrowAsync<HttpRequestException>()).And.Should().NotBeOfType<WebhookBlockedAddressException>();
+        (await act.Should().ThrowAsync<HttpRequestException>()).And.Should().NotBeOfType<BlockedNetworkAddressException>();
     }
 }

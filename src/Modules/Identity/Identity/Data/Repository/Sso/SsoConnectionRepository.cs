@@ -1,0 +1,72 @@
+using Identity.Contracts.Sso;
+using Identity.Domains.Sso.Models;
+
+namespace Identity.Data.Repository.Sso;
+
+/// <summary>SSO connection aggregate access. Tenant-scoped reads take the tenant id explicitly (control-plane data).</summary>
+public interface ISsoConnectionRepository
+{
+    Task<SsoConnection?> GetAsync(Guid tenantId, Guid id, CancellationToken ct = default);
+
+    /// <summary>Any tenant and status (test round trips, background jobs).</summary>
+    Task<SsoConnection?> GetByIdAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Any tenant: sign-in endpoints address a connection by id before any tenant is known.</summary>
+    Task<SsoConnection?> GetActiveAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>The active connection that verified <paramref name="domain"/> (at most one platform-wide).</summary>
+    Task<SsoConnection?> FindActiveByVerifiedDomainAsync(string domain, CancellationToken ct = default);
+
+    /// <summary>True when another connection already verified <paramref name="domain"/>.</summary>
+    Task<bool> IsDomainVerifiedElsewhereAsync(string domain, Guid exceptConnectionId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Records the last sign-in WITHOUT loading/saving the aggregate (no version bump, so concurrent sign-ins and admin
+    /// edits never conflict). Throttled to once a minute per connection.
+    /// </summary>
+    Task TouchLastLoginAsync(Guid id, DateTime now, CancellationToken ct = default);
+
+    void Add(SsoConnection connection);
+
+    void Remove(SsoConnection connection);
+
+    Task SaveAsync(CancellationToken ct = default);
+}
+
+public sealed class SsoConnectionRepository(ApplicationIdentityDbContext dbContext) : ISsoConnectionRepository
+{
+    public Task<SsoConnection?> GetAsync(Guid tenantId, Guid id, CancellationToken ct = default) =>
+        dbContext.SsoConnections.Include(c => c.Domains)
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId, ct);
+
+    public Task<SsoConnection?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+        dbContext.SsoConnections.Include(c => c.Domains).FirstOrDefaultAsync(c => c.Id == id, ct);
+
+    public Task<SsoConnection?> GetActiveAsync(Guid id, CancellationToken ct = default) =>
+        dbContext.SsoConnections.Include(c => c.Domains)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Status == SsoConnectionStatus.Active, ct);
+
+    public Task<SsoConnection?> FindActiveByVerifiedDomainAsync(string domain, CancellationToken ct = default) =>
+        dbContext.SsoConnections.Include(c => c.Domains)
+            .Where(c => c.Status == SsoConnectionStatus.Active &&
+                        c.Domains.Any(d => d.Domain == domain && d.VerifiedAt != null))
+            .FirstOrDefaultAsync(ct);
+
+    public Task<bool> IsDomainVerifiedElsewhereAsync(string domain, Guid exceptConnectionId, CancellationToken ct = default) =>
+        dbContext.SsoDomains.AnyAsync(
+            d => d.Domain == domain && d.VerifiedAt != null && d.ConnectionId != exceptConnectionId, ct);
+
+    public Task TouchLastLoginAsync(Guid id, DateTime now, CancellationToken ct = default)
+    {
+        var threshold = now.AddMinutes(-1);
+        return dbContext.SsoConnections
+            .Where(c => c.Id == id && (c.LastLoginAt == null || c.LastLoginAt < threshold))
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.LastLoginAt, now), ct);
+    }
+
+    public void Add(SsoConnection connection) => dbContext.SsoConnections.Add(connection);
+
+    public void Remove(SsoConnection connection) => dbContext.SsoConnections.Remove(connection);
+
+    public Task SaveAsync(CancellationToken ct = default) => dbContext.SaveChangesAsync(ct);
+}

@@ -11,6 +11,7 @@ internal sealed class FakeChannelAdapter(NotificationChannel channel) : INotific
     public int Attempts { get; private set; }
     public int Sends => _sends;
     public string? LastCode { get; private set; }
+    public EmailTemplate? LastEmailTemplate { get; private set; }
     public bool RequiresContact { get; set; } = true;
 
     public bool CanSend(string? email, string? phone)
@@ -35,6 +36,9 @@ internal sealed class FakeChannelAdapter(NotificationChannel channel) : INotific
         Interlocked.Increment(ref _sends);
         if (message.WhatsApp?.Model?.TryGetValue("code", out var code) == true)
             LastCode = code.ToString();
+        if (message.Email?.Model.TryGetValue("Code", out var emailCode) == true)
+            LastCode = emailCode.ToString();
+        LastEmailTemplate = message.Email?.Template;
 
         return Task.CompletedTask;
     }

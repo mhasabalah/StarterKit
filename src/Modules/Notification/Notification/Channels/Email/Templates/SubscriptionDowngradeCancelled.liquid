@@ -1,14 +1,14 @@
 {% comment %}Variables: SubscriberName, PlanName, PortalUrl{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}تم إلغاء جدولة التخفيض{% else %}Scheduled Downgrade Cancelled{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم إلغاء جدولة تخفيض اشتراكك. ستستمر على خطة {{ PlanName }}.
+    مرحباً <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، تم إلغاء جدولة تخفيض اشتراكك. ستستمر على خطة {{ PlanName }}.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your scheduled downgrade has been cancelled. You will continue on the <strong>{{ PlanName }}</strong> plan.
+    Hello <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, your scheduled downgrade has been cancelled. You will continue on the <strong>{{ PlanName }}</strong> plan.
   {% endif %}
 </p>
 

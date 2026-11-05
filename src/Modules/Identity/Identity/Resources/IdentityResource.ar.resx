@@ -183,4 +183,94 @@
   <data name="ApiKey.TooManyKeys" xml:space="preserve">
     <value>لديك بالفعل الحد الأقصى من المفاتيح النشطة ({0}). قم بإلغاء أحدها أولًا.</value>
   </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على مفتاح المرور '{0}'.</value>
+  </data>
+  <data name="Passkey.InvalidCeremony" xml:space="preserve">
+    <value>انتهت صلاحية طلب مفتاح المرور أو تم استخدامه بالفعل. ابدأ من جديد.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>تعذر التحقق من مفتاح المرور.</value>
+  </data>
+  <data name="Passkey.ReauthenticationRequired" xml:space="preserve">
+    <value>سجّل الدخول مرة أخرى لإضافة مفتاح مرور (جلستك قديمة جدًا لهذا التغيير).</value>
+  </data>
+  <data name="Passkey.Disabled" xml:space="preserve">
+    <value>مفاتيح المرور غير مفعّلة.</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>يمكن أن يحتوي الحساب على {0} مفاتيح مرور كحد أقصى. احذف أحدها أولًا.</value>
+  </data>
+  <data name="Passkey.LastSignInMethod" xml:space="preserve">
+    <value>مفتاح المرور هذا هو طريقتك الوحيدة لتسجيل الدخول. أضف كلمة مرور أو مفتاح مرور آخر أولًا.</value>
+  </data>
+  <data name="Sso.ConnectionNotFound" xml:space="preserve">
+    <value>لم يتم العثور على اتصال الدخول الموحد '{0}'.</value>
+  </data>
+  <data name="Sso.DomainNotFound" xml:space="preserve">
+    <value>النطاق '{0}' غير موجود في هذا الاتصال.</value>
+  </data>
+  <data name="Sso.DomainTaken" xml:space="preserve">
+    <value>تم التحقق من '{0}' بالفعل لاتصال دخول موحد آخر.</value>
+  </data>
+  <data name="Sso.DomainUnverified" xml:space="preserve">
+    <value>لم يتم العثور على سجل TXT '{0}' بعد. قد تستغرق تغييرات DNS بضع دقائق.</value>
+  </data>
+  <data name="Sso.Required" xml:space="preserve">
+    <value>تتطلب مؤسستك الدخول الموحد. تابع باستخدام الدخول الموحد.</value>
+  </data>
+  <data name="Sso.LoginFailed" xml:space="preserve">
+    <value>فشل الدخول الموحد.</value>
+  </data>
+  <data name="Sso.UnknownTenantRole" xml:space="preserve">
+    <value>'{0}' ليس دورًا في هذه المؤسسة.</value>
+  </data>
+  <data name="Sso.Connection.InvalidCertificate" xml:space="preserve">
+    <value>شهادة X.509 غير صالحة (المتوقع PEM أو Base64 DER).</value>
+  </data>
+  <data name="Sso.Connection.TenantRequired" xml:space="preserve">
+    <value>يجب أن يتبع الاتصال مؤسسة.</value>
+  </data>
+  <data name="Sso.Connection.ProtocolFixed" xml:space="preserve">
+    <value>لا يمكن تغيير بروتوكول الاتصال.</value>
+  </data>
+  <data name="Sso.Connection.VerifyDomainFirst" xml:space="preserve">
+    <value>تحقق من نطاق بريد إلكتروني واحد على الأقل قبل تفعيل الاتصال.</value>
+  </data>
+  <data name="Sso.Connection.DomainAlreadyAdded" xml:space="preserve">
+    <value>'{0}' موجود بالفعل في هذا الاتصال.</value>
+  </data>
+  <data name="Sso.Connection.TooManyDomains" xml:space="preserve">
+    <value>يمكن أن يحتوي الاتصال على {0} نطاقات كحد أقصى.</value>
+  </data>
+  <data name="Sso.Connection.LastVerifiedDomain" xml:space="preserve">
+    <value>يحتاج الاتصال النشط إلى نطاق تم التحقق منه. عطّله أولًا.</value>
+  </data>
+  <data name="Sso.Connection.CertificateRequired" xml:space="preserve">
+    <value>مطلوب شهادة توقيع واحدة على الأقل من مزود الهوية.</value>
+  </data>
+  <data name="Sso.Connection.TooManyDefaultRoles" xml:space="preserve">
+    <value>{0} أدوار افتراضية كحد أقصى.</value>
+  </data>
+  <data name="Sso.Connection.Incomplete" xml:space="preserve">
+    <value>الاتصال غير مكتمل: اضبط {0}.</value>
+  </data>
+  <data name="Sso.Connection.TooManyCertificates" xml:space="preserve">
+    <value>{0} شهادات لمزود الهوية كحد أقصى.</value>
+  </data>
+  <data name="Sso.Connection.FieldRequired" xml:space="preserve">
+    <value>{0} مطلوب.</value>
+  </data>
+  <data name="Sso.Connection.FieldTooLong" xml:space="preserve">
+    <value>{0} أطول من {1} حرفًا.</value>
+  </data>
+  <data name="Sso.Connection.ValueTooLong" xml:space="preserve">
+    <value>توجد قيمة أطول من {0} حرفًا.</value>
+  </data>
+  <data name="Sso.Connection.InvalidDomain" xml:space="preserve">
+    <value>'{0}' ليس اسم نطاق صالحًا.</value>
+  </data>
+  <data name="Sso.Connection.PublicEmailDomain" xml:space="preserve">
+    <value>'{0}' مزود بريد إلكتروني عام ولا يمكن استخدامه للدخول الموحد.</value>
+  </data>
 </root>

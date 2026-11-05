@@ -33,6 +33,9 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
     public FakeHttpContextService Http { get; } = new();
     public Mock<IBackgroundJobClient> Jobs { get; } = new();
 
+    /// <summary>The Subscriptions side of <c>GetActivePlanLimitsQuery</c> (seat limits). Null = no plan limit.</summary>
+    public FakePlanLimits PlanLimits { get; } = new();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -57,6 +60,8 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
         services.AddSingleton(Jobs.Object);
         services.AddMultiTenancy(configuration);
         services.AddTenancyModule(configuration);
+        services.AddSingleton<IRequestHandler<Subscriptions.Contracts.Subscriptions.Queries.GetActivePlanLimitsQuery,
+            Subscriptions.Contracts.Subscriptions.DTOs.ActivePlanLimitsDto>>(PlanLimits);
 
         _provider = services.BuildServiceProvider();
 
@@ -142,4 +147,17 @@ public sealed class FakeHttpContextService : IHttpContextService
     public string? GetScheme() => null;
     public string? GetRequestUrl() => null;
     public string? GetTenantId() => null;
+}
+
+/// <summary>Answers <c>GetActivePlanLimitsQuery</c> with a settable <see cref="MaxUsers"/>; no plan when null.</summary>
+public sealed class FakePlanLimits : IRequestHandler<Subscriptions.Contracts.Subscriptions.Queries.GetActivePlanLimitsQuery,
+    Subscriptions.Contracts.Subscriptions.DTOs.ActivePlanLimitsDto>
+{
+    public int? MaxUsers { get; set; }
+
+    public Task<Subscriptions.Contracts.Subscriptions.DTOs.ActivePlanLimitsDto> Handle(
+        Subscriptions.Contracts.Subscriptions.Queries.GetActivePlanLimitsQuery request, CancellationToken cancellationToken) =>
+        MaxUsers is null
+            ? throw new Shared.Core.Exceptions.NotFoundException("No active plan.")
+            : Task.FromResult(new Subscriptions.Contracts.Subscriptions.DTOs.ActivePlanLimitsDto(null, null, MaxUsers, "Active", null));
 }

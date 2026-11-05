@@ -106,6 +106,9 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.Facebook" Version="10.0.14" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
+    <!-- Enterprise SSO (Identity only): OIDC discovery/JWKS (same IdentityModel family as above) + SAML 2.0 SP (BSD-3-Clause). -->
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.23.0" />
+    <PackageVersion Include="ITfoxtec.Identity.Saml2" Version="4.21.0" />
   </ItemGroup>
   <ItemGroup Label="Storage and Image Processing">
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />

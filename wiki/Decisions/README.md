@@ -14,3 +14,5 @@ link it here.
 | [0006](0006-identity-behind-userdirectory-port.md) | Users only through the UserDirectory port | Accepted |
 | [0007](0007-owned-mediator-port.md) | Own the mediator port; do not depend on MediatR | Accepted |
 | [0012](0012-realtime-inbox-and-push.md) | In-app inbox, SignalR hub and FCM push as additive notification channels | Accepted |
+| [0013](0013-enterprise-sso-and-scim.md) | Per-tenant SSO (OIDC/SAML) and SCIM inside Identity, without dynamic auth schemes | Accepted |
+| [0014](0014-passkeys-on-built-in-identity.md) | Passkeys on .NET 10 Identity's built-in WebAuthn, server-side ceremony state | Accepted |
