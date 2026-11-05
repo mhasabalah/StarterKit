@@ -210,3 +210,18 @@ index, so an environment file could never remove a transport from one.
 | `Notification.Tests/Realtime/NotificationHubTests.cs` | real hub + .NET client: per-user targeting, isolation, auth, push-only hub, **Redis backplane across two replicas** |
 | `Identity.Tests/Sessions/HubTokenTests.cs` | query-string token only on `/hubs`, a logged-out token is rejected from the query string |
 | `Api.E2ETests/Notification/InboxAndRealtimeE2ETests.cs` | real login → hub over WebSockets → notification received; logout → hub refused; REST endpoints |
+| `Notification.Tests/Dispatch/FcmLiveTests.cs` | **opt-in, real Firebase**: a real device token is delivered, an unknown one never is |
+| `Api.E2ETests/Notification/FcmLiveE2ETests.cs` | **opt-in, real Firebase**: login → register device over HTTP → push through FCM → logout → next push skipped, device deleted |
+
+The two live tests are skipped unless configured (CI skips them). To run them, get a device token (for a browser:
+any page that calls the Firebase JS SDK `getToken` with your project's web config and VAPID key), then:
+
+```bash
+export FCM_CREDENTIALS_FILE=secrets/fcm_service_account.json FCM_TEST_TOKEN="<device token>"
+export Push__Provider=Fcm Push__CredentialsFile="$FCM_CREDENTIALS_FILE"
+dotnet test src/Modules/Notification/Notification.Tests --filter "FullyQualifiedName~FcmLiveTests"
+dotnet test src/Api.E2ETests --filter "FullyQualifiedName~FcmLiveE2ETests"
+```
+
+The device shows "StarterKit push works" and "StarterKit: delivered through the API", and never the third message
+(sent after logout).
