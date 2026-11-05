@@ -357,6 +357,8 @@ The plugin's hooks block `git commit`/`git push` and warn on forbidden C# patter
 
 - After any code change, run `dotnet build StarterKit.slnx` from the repo root and fix every error, then run the
   relevant tests and `dotnet test src/Api.Tests`.
+- The build treats warnings as errors: fix them, or relax a rule in `.editorconfig` with a justification; never `#pragma`
+  without one (`wiki/Architecture/CodingStandards.md` → Analyzers).
 - **Never commit or push.** Leave changes in the working tree for the user to review.
 - Never put real credentials, hostnames or IPs in committed files. Use `CHANGE_ME`, `api.example.com`,
   `YOUR_SERVER_IP`. Secrets come from `./secrets/*.txt` (Docker secrets, git-ignored) or environment variables.
