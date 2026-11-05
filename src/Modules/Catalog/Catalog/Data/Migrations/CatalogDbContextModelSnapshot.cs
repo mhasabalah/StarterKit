@@ -581,6 +581,73 @@ namespace Catalog.Data.Migrations
                     b.ToTable("wishlist_items", "catalog");
                 });
 
+            modelBuilder.Entity("Shared.Core.Auditing.TenantAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<string>("ChangesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("changes_json");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("entity_id");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("entity_type");
+
+                    b.Property<Guid?>("ImpersonatorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("impersonator_user_id");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_audit_entries");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("ix_audit_entries_occurred_at");
+
+                    b.HasIndex("TenantId", "EntityType", "EntityId", "OccurredAt")
+                        .HasDatabaseName("ix_audit_entries_entity");
+
+                    b.ToTable("audit_entries", "catalog");
+                });
+
             modelBuilder.Entity("Shared.Core.Messaging.Outbox.TenantOutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")

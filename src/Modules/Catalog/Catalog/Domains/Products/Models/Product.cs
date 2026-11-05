@@ -1,3 +1,4 @@
+using Shared.Core.Auditing;
 using Shared.Core.MultiTenancy;
 using Catalog.Contracts.Products.IntegrationEvents;
 using Catalog.Domains.Products.Events;
@@ -17,7 +18,7 @@ namespace Catalog.Domains.Products.Models;
 /// <c>Version</c> (optimistic concurrency, bumped centrally by AuditableEntityInterceptor) covers the
 /// whole aggregate, including child-only changes. Never touch <c>Version</c> here.
 /// </summary>
-public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped
+public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditable
 {
     /// <summary>Owning tenant (stamped on insert by TenantEntityInterceptor; immutable).</summary>
     public Guid TenantId { get; set; }
@@ -66,6 +67,7 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped
     public string? ReviewNotes { get; private set; }
     public DateTime? PublishedAt { get; private set; }
 
+    [AuditIgnore] // touched by every mutation (incl. child-only ones): pure noise in the history
     public DateTime? UpdatedAt { get; private set; }
     public DateTime? DeletedAt { get; private set; }
 

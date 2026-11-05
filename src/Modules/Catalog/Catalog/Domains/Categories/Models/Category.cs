@@ -1,3 +1,4 @@
+using Shared.Core.Auditing;
 using Shared.Core.MultiTenancy;
 using System.Text.RegularExpressions;
 using Catalog.Domains.Categories.Events;
@@ -10,7 +11,7 @@ namespace Catalog.Domains.Categories.Models;
 /// raise <see cref="CategoryChangedEvent"/>, which invalidates the cached category tree. Never hard-deleted:
 /// "delete" deactivates, so products keep their category.
 /// </summary>
-public partial class Category : Aggregate<Guid>, IMustHaveTenant
+public partial class Category : Aggregate<Guid>, IMustHaveTenant, IAuditable
 {
     /// <summary>Owning tenant (stamped on insert by TenantEntityInterceptor; immutable).</summary>
     public Guid TenantId { get; set; }
