@@ -34,6 +34,12 @@
     <Project Path="src/Modules/Catalog/Catalog.Tests/Catalog.Tests.csproj" />
     <Project Path="src/Modules/Catalog/Catalog.IntegrationTests/Catalog.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Webhooks/">
+    <Project Path="src/Modules/Webhooks/Webhooks.Contracts/Webhooks.Contracts.csproj" />
+    <Project Path="src/Modules/Webhooks/Webhooks/Webhooks.csproj" />
+    <Project Path="src/Modules/Webhooks/Webhooks.Tests/Webhooks.Tests.csproj" />
+    <Project Path="src/Modules/Webhooks/Webhooks.IntegrationTests/Webhooks.IntegrationTests.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/UserDirectory.Contracts/UserDirectory.Contracts.csproj" />

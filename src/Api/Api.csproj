@@ -24,6 +24,7 @@
       <ProjectReference Include="..\Modules\Attachment\Attachment\Attachment.csproj" />
       <ProjectReference Include="..\Modules\Subscriptions\Subscriptions\Subscriptions.csproj" />
       <ProjectReference Include="..\Modules\Catalog\Catalog\Catalog.csproj" />
+      <ProjectReference Include="..\Modules\Webhooks\Webhooks\Webhooks.csproj" />
       <ProjectReference Include="..\Modules\Tenancy\Tenancy\Tenancy.csproj" />
       <ProjectReference Include="..\Modules\Notification\Notification\Notification.csproj" />
       <ProjectReference Include="..\Shared\Shared.Core\Shared.Core.csproj" />

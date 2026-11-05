@@ -30,8 +30,8 @@ public sealed partial class TenantIsolationArchitectureTests
     public static TheoryData<Type> TenantDataContexts => new(TenantDataContextTypes);
 
     [Fact]
-    public void Catalog_and_Attachment_are_tenant_data_contexts() =>
-        TenantDataContextTypes.Select(t => t.Name).Should().Contain(["CatalogDbContext", "AttachmentDbContext"]);
+    public void Catalog_Attachment_and_Webhooks_are_tenant_data_contexts() =>
+        TenantDataContextTypes.Select(t => t.Name).Should().Contain(["CatalogDbContext", "AttachmentDbContext", "WebhooksDbContext"]);
 
     [Theory]
     [MemberData(nameof(TenantDataContexts))]
