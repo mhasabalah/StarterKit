@@ -38,10 +38,13 @@ public static class TenantPermissions
     /// <summary>Outbound webhooks: endpoints, secrets, deliveries (Webhooks module).</summary>
     public const string WebhooksManage = "webhooks.manage";
 
+    /// <summary>Enterprise single sign-on (SAML/OIDC connections, verified email domains) and SCIM directories.</summary>
+    public const string SsoManage = "tenant.sso.manage";
+
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
-        AuditRead, BillingManage, ProductsManage, WebhooksManage
+        AuditRead, BillingManage, ProductsManage, WebhooksManage, SsoManage
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

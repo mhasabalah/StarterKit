@@ -46,23 +46,41 @@ public sealed class OtpDeliveryService(
                     : "User has no email address on their profile.");
         }
 
-        var whatsAppTemplate = WhatsAppTemplateFor(purpose);
-        if (channel != NotificationChannel.WhatsApp || whatsAppTemplate is null)
+        NotificationMessage message;
+        if (channel == NotificationChannel.Email)
         {
-            // TODO: OTP email templates are not yet implemented (EmailVerification / TwoFactorLogin via email).
+            var model = new OneTimeCodeModel
+            {
+                Code = code,
+                Purpose = purpose == VerificationPurpose.EmailVerification
+                    ? OneTimeCodeModel.EmailVerification
+                    : OneTimeCodeModel.SignIn,
+                ExpiresInMinutes = notificationOptions.Value.OtpEmailLifetimeMinutes
+            };
+            message = new NotificationMessage
+            {
+                UserId = userId,
+                Culture = culture,
+                Email = new EmailPayload(EmailTemplate.OneTimeCode, model.ToDictionary())
+            };
+        }
+        else if (channel == NotificationChannel.WhatsApp && WhatsAppTemplateFor(purpose) is { } whatsAppTemplate)
+        {
+            message = new NotificationMessage
+            {
+                UserId = userId,
+                Culture = culture,
+                WhatsApp = new WhatsAppPayload(whatsAppTemplate, new Dictionary<string, object> { ["code"] = code })
+            };
+        }
+        else
+        {
             logger.LogWarning(
-                "OTP delivery via {Channel} is not yet supported. UserId: {UserId} Purpose: {Purpose}",
+                "OTP delivery via {Channel} is not supported. UserId: {UserId} Purpose: {Purpose}",
                 channel, userId, purpose);
             return OtpDeliveryResult.Failed(channel, OtpDeliveryFailure.ChannelUnavailable,
-                $"OTP delivery via {channel} is not yet available.");
+                $"OTP delivery via {channel} is not available.");
         }
-
-        var message = new NotificationMessage
-        {
-            UserId = userId,
-            Culture = culture,
-            WhatsApp = new WhatsAppPayload(whatsAppTemplate.Value, new Dictionary<string, object> { ["code"] = code })
-        };
 
         try
         {

@@ -95,6 +95,9 @@ public static class IdentityAuditActions
     public const string ImpersonationStarted = "impersonation.started";
     public const string SessionRevoked = "session.revoked";
     public const string ApiKeyRevoked = "api_key.revoked";
+    public const string PasskeyAdded = "passkey.added";
+    public const string PasskeyRenamed = "passkey.renamed";
+    public const string PasskeyRemoved = "passkey.removed";
 }
 
 public static class IdentityAuditTargets

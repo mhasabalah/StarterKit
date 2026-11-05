@@ -1,14 +1,14 @@
 {% comment %}Variables: InviterName, TenantName, AcceptUrl, ExpiresInDays{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}دعوة للانضمام إلى {{ TenantName }}{% else %}Join {{ TenantName }} on {{ brandName }}{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    دعاك <strong style="color:#0f172a;">{{ InviterName }}</strong> للانضمام إلى <strong style="color:#0f172a;">{{ TenantName }}</strong>. سجّل الدخول (أو أنشئ حساباً) بهذا البريد الإلكتروني ثم اقبل الدعوة.
+    دعاك <strong style="color:{{ t.text }};">{{ InviterName }}</strong> للانضمام إلى <strong style="color:{{ t.text }};">{{ TenantName }}</strong>. سجّل الدخول (أو أنشئ حساباً) بهذا البريد الإلكتروني ثم اقبل الدعوة.
   {% else %}
-    <strong style="color:#0f172a;">{{ InviterName }}</strong> invited you to join <strong style="color:#0f172a;">{{ TenantName }}</strong>. Sign in (or create an account) with this e-mail address, then accept the invitation.
+    <strong style="color:{{ t.text }};">{{ InviterName }}</strong> invited you to join <strong style="color:{{ t.text }};">{{ TenantName }}</strong>. Sign in (or create an account) with this e-mail address, then accept the invitation.
   {% endif %}
 </p>
 

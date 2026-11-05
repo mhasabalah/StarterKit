@@ -20,7 +20,8 @@ public sealed class ProtectedUserStore(
     ILogger<ProtectedUserStore> logger,
     IdentityErrorDescriber? describer = null)
     : UserStore<ApplicationUser, ApplicationRole, ApplicationIdentityDbContext, Guid, IdentityUserClaim<Guid>,
-        IdentityUserRole<Guid>, IdentityUserLogin<Guid>, IdentityUserToken<Guid>, IdentityRoleClaim<Guid>>(
+        IdentityUserRole<Guid>, IdentityUserLogin<Guid>, IdentityUserToken<Guid>, IdentityRoleClaim<Guid>,
+        IdentityUserPasskey<Guid>>(
         context, describer)
 {
     public const string AuthenticatorKeyPurpose = "Identity.TwoFactor.AuthenticatorKey.v1";

@@ -48,6 +48,7 @@ public sealed class LoginHandlerTests
             Microsoft.Extensions.Options.Options.Create(new LoginPolicyOptions()), TimeProvider.System,
             NullLogger<LoginCompletionService>.Instance),
         Mock.Of<IPhoneNumberNormalizer>(),
+        new NoSsoEnforcement(),
         NullLogger<LoginHandler>.Instance);
 
     [Fact]

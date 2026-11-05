@@ -1,0 +1,17 @@
+{% comment %}
+  CodeBlock - a one-time code, big and easy to read and copy (monospace, spaced, never a link)
+  Required: code_value
+  Optional: code_caption (e.g. "Expires in 10 minutes")
+{% endcomment %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:{{ t.space6 }} 0;">
+  <tr>
+    <td align="center" class="sk-code" dir="ltr"
+        style="background-color:{{ t.surfaceMuted }};border:1px dashed {{ t.border }};border-radius:{{ t.radius }};padding:{{ t.space5 }};
+               font-family:{{ t.fontFamilyMono }};font-size:{{ t.fontSizeCode }};font-weight:700;letter-spacing:8px;color:{{ t.text }};">{{ code_value }}</td>
+  </tr>
+  {% if code_caption %}
+  <tr>
+    <td align="center" class="sk-muted" style="padding-top:{{ t.space2 }};font-size:{{ t.fontSizeXs }};color:{{ t.textMuted }};">{{ code_caption }}</td>
+  </tr>
+  {% endif %}
+</table>

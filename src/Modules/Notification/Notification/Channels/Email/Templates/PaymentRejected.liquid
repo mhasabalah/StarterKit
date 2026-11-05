@@ -1,20 +1,20 @@
 {% comment %}Variables: SubscriberName, PlanName, RejectionReason, ResubmitUrl, SupportWhatsApp, SupportEmail{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#dc2626;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.danger }};line-height:1.35;">
   {% if culture == 'ar' %}تم رفض إثبات الدفع{% else %}Payment Proof Rejected{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تعذّر قبول إثبات الدفع الذي أرسلته للخطة <strong>{{ PlanName }}</strong>. يُرجى مراجعة السبب ورفع إثبات صحيح.
+    مرحباً <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، تعذّر قبول إثبات الدفع الذي أرسلته للخطة <strong>{{ PlanName }}</strong>. يُرجى مراجعة السبب ورفع إثبات صحيح.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, the payment proof you submitted for the <strong>{{ PlanName }}</strong> plan could not be accepted. Please review the reason and resubmit.
+    Hello <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, the payment proof you submitted for the <strong>{{ PlanName }}</strong> plan could not be accepted. Please review the reason and resubmit.
   {% endif %}
 </p>
 
 {% if RejectionReason != '' %}
 {% capture card_content %}
-<p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">{{ RejectionReason }}</p>
+<p class="sk-p" style="margin:0;font-size:14px;color:{{ t.textBody }};line-height:1.75;">{{ RejectionReason }}</p>
 {% endcapture %}
 {% if culture == 'ar' %}{% assign card_title = 'سبب الرفض' %}{% else %}{% assign card_title = 'Reason for Rejection' %}{% endif %}
 {% include 'Components/Card' %}
@@ -31,10 +31,10 @@
 
 {% include 'Components/Spacer' %}
 
-<p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+<p class="sk-p" style="margin:0;font-size:13px;color:{{ t.textSubtle }};text-align:center;">
   {% if culture == 'ar' %}
-    للمساعدة تواصل معنا عبر واتساب: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+    للمساعدة تواصل معنا عبر واتساب: <strong style="color:{{ t.textBody }};">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:{{ t.textBody }};">{{ SupportEmail }}</strong>
   {% else %}
-    Need help? Contact us on WhatsApp: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> or email: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+    Need help? Contact us on WhatsApp: <strong style="color:{{ t.textBody }};">{{ SupportWhatsApp }}</strong> or email: <strong style="color:{{ t.textBody }};">{{ SupportEmail }}</strong>
   {% endif %}
 </p>

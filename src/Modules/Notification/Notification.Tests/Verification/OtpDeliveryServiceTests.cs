@@ -66,13 +66,15 @@ public sealed class OtpDeliveryServiceTests
     }
 
     [Fact]
-    public async Task Email_verification_has_no_otp_email_template_yet()
+    public async Task Email_verification_code_is_delivered_with_the_one_time_code_template()
     {
         var result = await CreateService().SendAsync(UserId, VerificationPurpose.EmailVerification, "123456");
 
         result.Channel.Should().Be(NotificationChannel.Email);
-        result.Failure.Should().Be(OtpDeliveryFailure.ChannelUnavailable);
-        _email.Attempts.Should().Be(0);
+        result.Success.Should().BeTrue();
+        _email.Attempts.Should().Be(1);
+        _email.LastCode.Should().Be("123456");
+        _email.LastEmailTemplate.Should().Be(EmailTemplate.OneTimeCode);
     }
 
     [Fact]

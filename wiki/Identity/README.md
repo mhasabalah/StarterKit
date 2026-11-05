@@ -75,6 +75,9 @@ authorization and rate limit of each route, is in **[Users-and-Admins-API.md](Us
 
 - **Auth:** `api/auth/{register,login,refresh,logout,change-password,forgot-password,verify-reset-otp,reset-password}`,
   `api/auth/email/*`, `api/auth/2fa/*`, and `api/auth/switch-tenant` (multi-tenancy).
+- **Passkeys:** `api/auth/passkeys/*` - see [Passkeys](Passkeys.md).
+- **Enterprise SSO:** `api/auth/sso/*` (sign-in) and `api/v1/tenant/sso/*` (tenant admin) - see
+  [Enterprise SSO](Enterprise-SSO.md); provisioning at `/scim/v2` - see [SCIM](SCIM.md).
 - **Users and admins (platform staff, permission-gated):** `api/identity/users/*`, `api/identity/admins/*`.
 - **Roles:** there is no role CRUD API. Roles are seeded (`Domains/Roles/Constants/RoleConstants.cs`), assigned with
   `POST api/identity/users/{id}/roles` and revoked with `DELETE api/identity/users/{id}/roles/{roleName}`.

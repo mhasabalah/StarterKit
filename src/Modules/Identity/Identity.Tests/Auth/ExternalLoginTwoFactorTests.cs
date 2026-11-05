@@ -40,7 +40,7 @@ public sealed class ExternalLoginTwoFactorTests
 
     private ExternalLoginCallbackHandler Handler() => new(
         _signIn.Object, _users.Object, _sessions.Object, _challenges.Object, Mock.Of<IHttpContextService>(),
-        NullLogger<ExternalLoginCallbackHandler>.Instance);
+        new NoSsoEnforcement(), NullLogger<ExternalLoginCallbackHandler>.Instance);
 
     [Fact]
     public async Task External_login_asks_identity_not_to_bypass_two_factor()

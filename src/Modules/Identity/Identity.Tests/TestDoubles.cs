@@ -256,3 +256,14 @@ public static class AsyncQueryable
     public static void WithUserQuery(this Mock<UserManager<ApplicationUser>> manager, params ApplicationUser[] users) =>
         manager.Setup(m => m.Users).Returns(From(users));
 }
+
+/// <summary>No organization enforces SSO (the default for tests that are not about SSO).</summary>
+public sealed class NoSsoEnforcement : Identity.Services.Sso.ISsoEnforcementPolicy
+{
+    public Task<Identity.Domains.Sso.Models.SsoConnection?> FindConnectionForEmailAsync(string? email, CancellationToken ct = default) =>
+        Task.FromResult<Identity.Domains.Sso.Models.SsoConnection?>(null);
+
+    public Task EnsureNonSsoSignInAllowedAsync(ApplicationUser user, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<bool> IsPasswordResetAllowedAsync(ApplicationUser user, CancellationToken ct = default) => Task.FromResult(true);
+}

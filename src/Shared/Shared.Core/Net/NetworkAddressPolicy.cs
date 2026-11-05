@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace Webhooks.Security;
+namespace Shared.Core.Net;
 
 /// <summary>
-/// Which IP addresses a webhook may NEVER reach (SSRF): anything that is not a plain public unicast address.
+/// Which IP addresses an outbound call to a customer-supplied URL (webhooks, SSO identity providers) may NEVER reach (SSRF): anything that is not a plain public unicast address.
 /// IPv6 forms that EMBED an IPv4 address (IPv4-mapped <c>::ffff:a.b.c.d</c>, IPv4-compatible <c>::a.b.c.d</c>,
 /// NAT64 <c>64:ff9b::/96</c>, 6to4 <c>2002::/16</c>) are judged by the embedded IPv4 address, so a private target can
 /// not be smuggled in through them.
@@ -76,7 +76,7 @@ public static class NetworkAddressPolicy
             return IsBlockedV4(b[2..6]);
         }
 
-        // Teredo 2001:0::/32 tunnels to arbitrary IPv4 hosts; not a webhook target.
+        // Teredo 2001:0::/32 tunnels to arbitrary IPv4 hosts; not a legitimate target.
         if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x00 && b[3] == 0x00)
         {
             return true;

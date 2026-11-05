@@ -11,7 +11,7 @@ public interface IOtpDeliveryService
     /// <summary>
     /// Sends <paramref name="code"/> to the user. Channel resolution:
     ///   PhoneVerification → WhatsApp (needs a phone number on the profile)
-    ///   EmailVerification → Email    (needs an email address; no OTP email template yet → ChannelUnavailable)
+    ///   EmailVerification → Email    (needs an email address; OneTimeCode email template)
     ///   TwoFactorLogin    → the user's first preferred channel, else NotificationOptions.DefaultChannelOrder[0]
     /// Never throws for delivery failures; returns <see cref="OtpDeliveryResult.Failure"/> instead.
     /// </summary>

@@ -33,6 +33,9 @@ public sealed class EmailOptions
     /// </summary>
     public string[] AllowedLinkHosts { get; set; } = [];
 
+    /// <summary>Brand overrides of the email design system (Email:Theme). See EmailDesignTokens.</summary>
+    public Notification.Channels.Email.EmailThemeOptions Theme { get; set; } = new();
+
     /// <summary>False when <see cref="SmtpHost"/> is blank or still the template's <c>example.com</c> placeholder.</summary>
     public bool IsSmtpHostConfigured =>
         !string.IsNullOrWhiteSpace(SmtpHost) &&

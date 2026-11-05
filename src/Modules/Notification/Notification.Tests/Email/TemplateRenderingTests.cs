@@ -58,7 +58,7 @@ public sealed class TemplateRenderingTests
 
         html.Should().Contain("&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;");
         html.Should().Contain("&amp; &quot;quoted&quot;");
-        html.Should().Contain("<p style=\"margin:0;font-size:14px;color:#374151;line-height:1.75;\">",
+        html.Should().Contain("<p class=\"sk-p\" style=\"margin:0;font-size:14px;color:#374151;line-height:1.75;\">",
             "the card wrapper itself is trusted template HTML and stays markup");
     }
 

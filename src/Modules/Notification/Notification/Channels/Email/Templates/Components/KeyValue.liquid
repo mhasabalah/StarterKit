@@ -1,0 +1,10 @@
+{% comment %}
+  KeyValue - one "label / value" row (amounts, dates, references). Stack several inside a Card capture.
+  Required: kv_label, kv_value     Optional: kv_strong (bold value)
+{% endcomment %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" dir="{{ dir }}">
+  <tr>
+    <td class="sk-muted" style="padding:{{ t.space1 }} 0;font-size:{{ t.fontSizeSm }};color:{{ t.textMuted }};text-align:{{ align }};">{{ kv_label }}</td>
+    <td style="padding:{{ t.space1 }} 0;font-size:{{ t.fontSizeSm }};color:{{ t.text }};text-align:{{ alignEnd }};{% if kv_strong %}font-weight:700;{% endif %}">{{ kv_value }}</td>
+  </tr>
+</table>

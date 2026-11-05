@@ -1,6 +1,7 @@
 using Identity.Contracts.Auth.Commands;
 using Identity.Domains.Auth.Services;
 using Identity.Services.Phone;
+using Identity.Services.Sso;
 
 namespace Identity.Domains.Auth.Features.Login;
 
@@ -24,6 +25,7 @@ public class LoginHandler(
     SignInManager<ApplicationUser> signInManager,
     ILoginCompletionService loginCompletion,
     IPhoneNumberNormalizer phoneNormalizer,
+    ISsoEnforcementPolicy ssoPolicy,
     ILogger<LoginHandler> logger)
     : ICommandHandler<LoginCommand, LoginResult>
 {
@@ -64,6 +66,9 @@ public class LoginHandler(
             logger.LogWarning("Login failed: user {UserId} is deactivated", user.Id);
             throw new UnauthorizedException("Account is disabled.");
         }
+
+        // Checked only AFTER the password matched, so it never tells a stranger anything about the account.
+        await ssoPolicy.EnsureNonSsoSignInAllowedAsync(user, cancellationToken);
 
         if (await userManager.GetTwoFactorEnabledAsync(user))
         {
