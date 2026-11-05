@@ -1,3 +1,4 @@
+using Shared.Core.Net;
 using System.Net;
 using Microsoft.Extensions.Options;
 

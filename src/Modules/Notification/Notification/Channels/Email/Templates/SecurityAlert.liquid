@@ -1,0 +1,58 @@
+{% comment %}
+  Variables: EventKey (passkey_added | passkey_removed | sso_identity_linked), Detail, OccurredAt, IpAddress, ManageUrl
+  Built only from design-system components (reference example for new templates).
+{% endcomment %}
+{% if culture == 'ar' %}
+  {% case EventKey %}
+    {% when 'passkey_added' %}{% assign heading_text = 'تمت إضافة مفتاح مرور' %}
+    {% when 'passkey_removed' %}{% assign heading_text = 'تمت إزالة مفتاح مرور' %}
+    {% when 'sso_identity_linked' %}{% assign heading_text = 'تم ربط تسجيل الدخول الموحد' %}
+    {% else %}{% assign heading_text = 'تغيير أمني في حسابك' %}
+  {% endcase %}
+  {{ heading_text | append: ' - ' | append: OccurredAt | set_preheader }}
+{% else %}
+  {% case EventKey %}
+    {% when 'passkey_added' %}{% assign heading_text = 'A passkey was added to your account' %}
+    {% when 'passkey_removed' %}{% assign heading_text = 'A passkey was removed from your account' %}
+    {% when 'sso_identity_linked' %}{% assign heading_text = 'Single sign-on was linked to your account' %}
+    {% else %}{% assign heading_text = 'A security change on your account' %}
+  {% endcase %}
+  {{ heading_text | append: ' - ' | append: OccurredAt | set_preheader }}
+{% endif %}
+{% include 'Components/Heading' %}
+
+{% if culture == 'ar' %}
+  {% assign text_content = 'إذا قمت بهذا التغيير فلا حاجة لأي إجراء. التفاصيل:' %}
+{% else %}
+  {% assign text_content = 'If you made this change, there is nothing else to do. Details:' %}
+{% endif %}
+{% include 'Components/Text' %}
+
+{% capture card_content %}
+  {% if culture == 'ar' %}{% assign kv_label = 'التغيير' %}{% else %}{% assign kv_label = 'Change' %}{% endif %}
+  {% assign kv_value = Detail %}{% assign kv_strong = true %}
+  {% include 'Components/KeyValue' %}
+  {% assign kv_strong = false %}
+  {% if culture == 'ar' %}{% assign kv_label = 'الوقت' %}{% else %}{% assign kv_label = 'When' %}{% endif %}
+  {% assign kv_value = OccurredAt %}
+  {% include 'Components/KeyValue' %}
+  {% if IpAddress != '' %}
+    {% if culture == 'ar' %}{% assign kv_label = 'عنوان IP' %}{% else %}{% assign kv_label = 'IP address' %}{% endif %}
+    {% assign kv_value = IpAddress %}
+    {% include 'Components/KeyValue' %}
+  {% endif %}
+{% endcapture %}
+{% assign card_title = nil %}
+{% include 'Components/Card' %}
+
+{% if ManageUrl != '' %}
+  {% assign button_url = ManageUrl %}
+  {% assign button_variant = 'secondary' %}
+  {% if culture == 'ar' %}{% assign button_text = 'مراجعة إعدادات الأمان' %}{% else %}{% assign button_text = 'Review security settings' %}{% endif %}
+  {% include 'Components/Button' %}
+{% endif %}
+
+{% assign alert_type = 'warning' %}
+{% assign alert_text_en = 'Not you? Sign in, remove the change and reset your password right away.' %}
+{% assign alert_text_ar = 'لم تقم بذلك؟ سجّل الدخول وألغِ التغيير وأعد تعيين كلمة المرور فوراً.' %}
+{% include 'Components/Alert' %}

@@ -73,6 +73,8 @@ public static class TenantAuditActions
     public const string MemberSuspended = "member.suspended";
     public const string MemberReactivated = "member.reactivated";
     public const string MemberRemoved = "member.removed";
+    public const string MemberProvisioned = "member.provisioned";
+    public const string MemberDeprovisioned = "member.deprovisioned";
     public const string MemberLeft = "member.left";
     public const string RoleCreated = "role.created";
     public const string RoleUpdated = "role.updated";

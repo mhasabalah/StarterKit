@@ -68,18 +68,19 @@ flowchart LR
 - Tenant data is isolated by named EF filters **and** Postgres RLS.
 - These rules are enforced by architecture tests.
 
-The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md).
+The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md). Everything the template ships, by
+area: [feature catalog](wiki/Reference/Features.md).
 
 ## Modules
 
 | Module | What it does | Docs |
 |---|---|---|
-| **Identity** | Register/login, JWT + rotating refresh tokens, token blacklist, roles → fine-grained permissions, 2FA (TOTP), OTP, email confirmation, admin and user management, audited impersonation, external login hooks, session/device management, API keys (scoped PATs), KMS-protected Data Protection keys, CAPTCHA bot protection (Turnstile, swappable) on anonymous auth flows | [wiki/Identity](wiki/Identity/README.md) |
+| **Identity** | Register/login, JWT + rotating refresh tokens, token blacklist, roles → fine-grained permissions, 2FA (TOTP), OTP, email confirmation, admin and user management, audited impersonation, external login hooks, session/device management, API keys (scoped PATs), KMS-protected Data Protection keys, CAPTCHA bot protection (Turnstile, swappable) on anonymous auth flows, **passkeys (WebAuthn)**, **per-tenant enterprise SSO (OIDC + SAML 2.0)** with verified domains, JIT and enforcement, **SCIM 2.0** provisioning | [wiki/Identity](wiki/Identity/README.md), [Passkeys](wiki/Identity/Passkeys.md), [SSO](wiki/Identity/Enterprise-SSO.md), [SCIM](wiki/Identity/SCIM.md) |
 | **Tenancy** | Tenants, branch trees, memberships, tenant roles, invitations, custom domains, export/deletion/move, audit (multi-tenancy control plane) | [wiki/Modules/Tenancy](wiki/Modules/Tenancy.md) |
 | **Attachment** | Validated uploads (magic bytes), thumbnails, anonymous pending uploads, entity access policies, reconciliation; Local / Azure Blob / S3 | [wiki/Attachment](wiki/Attachment/README.md) |
 | **Subscriptions** | Plans and features, subscription lifecycle, proof-based payments, invoices, refunds, price changes, append-only ledger, Stripe + Paymob adapters, trials, coupons, dunning, usage metering and quotas | [wiki/Modules/Subscriptions](wiki/Modules/Subscriptions.md) |
 | **Webhooks** | Customer webhook endpoints per tenant, Standard Webhooks signatures, retries with backoff, delivery log, SSRF guard, auto-disable | [wiki/Modules/Webhooks](wiki/Modules/Webhooks.md) |
-| **Notification** | Every email (Liquid templates, en/ar) and WhatsApp delivery with fallback, the in-app inbox with real-time SignalR events (Redis backplane), push to session-bound devices through FCM (Android, iOS, Web), user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md), [Realtime and push](wiki/Modules/Notification-Realtime-and-Push.md) |
+| **Notification** | Every email (Liquid templates on a token-based design system: components, dark mode, branding, plain-text part, en/ar) and WhatsApp delivery with fallback, email or WhatsApp one-time codes, the in-app inbox with real-time SignalR events (Redis backplane), push to session-bound devices through FCM (Android, iOS, Web), user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md), [Realtime and push](wiki/Modules/Notification-Realtime-and-Push.md), [Email design system](wiki/Modules/Notification-Email-Design-System.md) |
 | **Catalog** (sample) | Products (moderation workflow, gallery, attributes, soft delete), categories, tags, wishlist: the **reference vertical slice** | [wiki/Modules/Catalog](wiki/Modules/Catalog.md) |
 
 **Tech stack:** .NET 10, ASP.NET Core minimal APIs (Carter), an owned mediator (`Shared.Contracts.Mediation`), FluentValidation, Mapster, EF Core 10 + Npgsql

@@ -97,5 +97,11 @@ public enum EmailTemplate
     TrialEnding,
 
     [TemplateFile("SubscriptionDunning")]
-    SubscriptionDunning
+    SubscriptionDunning,
+
+    [TemplateFile("SecurityAlert")]
+    SecurityAlert,
+
+    [TemplateFile("OneTimeCode")]
+    OneTimeCode
 }

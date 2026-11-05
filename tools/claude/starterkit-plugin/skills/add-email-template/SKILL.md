@@ -20,7 +20,7 @@ Templates: [references/templates.md](references/templates.md).
 | 1 | `Notification.Contracts/Enums/EmailTemplate.cs` | **Append** `[TemplateFile("<X>")] <X>` at the END, never insert: numeric values are stored in the delivery log. |
 | 2 | `Notification.Contracts/Email/Models/<X>Model.cs` | `sealed class`, plain properties, `Dictionary<string, object> ToDictionary()`. Pure data. The brand name is a template global (`{{ brandName }}`), not a model field. |
 | 3 | `Notification/Channels/Email/Subjects/<X>Subject.cs` | `internal sealed class : IEmailTemplate`, with `ModelType`, `Template`, and `GetSubject(culture)` for **en and ar**. Discovered automatically by assembly scan. |
-| 4 | `Notification/Channels/Email/Templates/<X>.liquid` | Body only; the layout wraps it. Branch on `{% if culture == 'ar' %}` and reuse `Components/{Button,Alert,Card,Divider,Spacer}`. Inline styles only (email clients). Embedded by the `Templates\**\*.liquid` glob. |
+| 4 | `Notification/Channels/Email/Templates/<X>.liquid` | Body only; the layout wraps it. Branch on `{% if culture == 'ar' %}` and build from `Components/{Heading,Text,Button,Alert,Card,KeyValue,CodeBlock,Badge,Divider,Spacer}`. Colors only as tokens (`{{ t.textMuted }}` - never hex; `EmailDesignSystemTests` fails), alignment via `{{ align }}`/`{{ dir }}`, preview text via `{{ '...' | set_preheader }}` (no secrets). Copy `SecurityAlert.liquid`. Guide: `wiki/Modules/Notification-Email-Design-System.md`. Embedded by the `Templates\**\*.liquid` glob. |
 
 Optional WhatsApp: add a `WhatsAppTemplate` enum value and an entry in `Notification:WhatsApp:Templates`
 (validated at startup). The template itself must be approved in Meta Business Manager.

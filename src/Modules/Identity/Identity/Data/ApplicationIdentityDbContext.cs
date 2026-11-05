@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using Identity.Domains.Audit.Models;
 using Identity.Domains.Onboarding.Models;
+using Identity.Domains.Sso.Models;
+using Shared.Core.Auditing;
 using Identity.Infrastructure.DataProtection;
 using Identity.Models;
 using Shared.Core.Messaging.Outbox;
@@ -21,7 +23,8 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
     IdentityUserRole<Guid>,
     IdentityUserLogin<Guid>,
     IdentityRoleClaim<Guid>,
-    IdentityUserToken<Guid>>, IDbContext
+    IdentityUserToken<Guid>,
+    IdentityUserPasskey<Guid>>, IDbContext
 {
     public ApplicationIdentityDbContext(DbContextOptions<ApplicationIdentityDbContext> options)
         : base(options)
@@ -36,6 +39,11 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
     public DbSet<AdminActionAuditLog> AdminAuditLogs => Set<AdminActionAuditLog>();
     public DbSet<AccountDeletion> AccountDeletions => Set<AccountDeletion>();
     public DbSet<DataProtectionKeyEntry> DataProtectionKeys => Set<DataProtectionKeyEntry>();
+    public DbSet<SsoConnection> SsoConnections => Set<SsoConnection>();
+    public DbSet<SsoDomain> SsoDomains => Set<SsoDomain>();
+    public DbSet<Domains.Scim.Models.ScimDirectory> ScimDirectories => Set<Domains.Scim.Models.ScimDirectory>();
+    public DbSet<Domains.Scim.Models.ScimUser> ScimUsers => Set<Domains.Scim.Models.ScimUser>();
+    public DbSet<Domains.Scim.Models.ScimGroup> ScimGroups => Set<Domains.Scim.Models.ScimGroup>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -91,6 +99,10 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
         builder.Entity<IdentityUserLogin<Guid>>(entity =>
         {
             entity.ToTable("user_logins");
+
+            // Schema v3 would cap the key at 128; enterprise SSO stores the IdP subject here (OIDC sub up to 255,
+            // long SAML persistent NameIDs), so keep room for it.
+            entity.Property(l => l.ProviderKey).HasMaxLength(256);
         });
 
         builder.Entity<IdentityRoleClaim<Guid>>(entity =>
@@ -103,11 +115,27 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
             entity.ToTable("user_tokens");
         });
 
+        // WebAuthn credentials (ASP.NET Core Identity schema v3). Rows cascade with the user (account erasure).
+        // Mapped explicitly (same as Identity's schema v3 mapping) so the model does not depend on
+        // IdentityOptions.Stores.SchemaVersion being resolvable, e.g. design-time and architecture-test model builds.
+        builder.Entity<IdentityUserPasskey<Guid>>(entity =>
+        {
+            entity.ToTable("user_passkeys");
+            entity.HasKey(p => p.CredentialId);
+            entity.Property(p => p.CredentialId).HasMaxLength(1024);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.UserId).IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.OwnsOne(p => p.Data).ToJson();
+        });
+
         // Apply configurations from assembly
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
         // Transactional outbox (UserDeletedIntegrationEvent).
         builder.AddOutbox();
+
+        // Generic "who changed what" for IAuditable entities (SSO connections, SCIM directories).
+        builder.AddAuditTrail();
 
         // Apply snake_case naming
         builder.ToSnakeCaseTables();

@@ -41,10 +41,17 @@ public sealed class MailKitEmailService(IOptions<EmailOptions> options) : IEmail
         // C6: never let CR/LF reach the Subject header (header injection).
         message.Subject = EmailContentSafety.SanitizeSubject(subject);
 
+        // multipart/alternative: a plain-text part (derived from the HTML) for text-only clients, screen readers
+        // and better deliverability, then the HTML part (clients pick the LAST part they can render).
+        var alternative = new MultipartAlternative
+        {
+            new TextPart(MimeKit.Text.TextFormat.Plain) { Text = EmailPlainText.FromHtml(htmlBody) },
+            new TextPart(MimeKit.Text.TextFormat.Html) { Text = htmlBody }
+        };
+
         if (attachments is { Length: > 0 })
         {
-            var body = new Multipart("mixed");
-            body.Add(new TextPart(MimeKit.Text.TextFormat.Html) { Text = htmlBody });
+            var body = new Multipart("mixed") { alternative };
             foreach (var att in attachments)
             {
                 var part = new MimePart(ContentType.Parse(att.ContentType))
@@ -59,7 +66,7 @@ public sealed class MailKitEmailService(IOptions<EmailOptions> options) : IEmail
         }
         else
         {
-            message.Body = new TextPart(MimeKit.Text.TextFormat.Html) { Text = htmlBody };
+            message.Body = alternative;
         }
 
         // TODO(OAUTH2): Replace AuthenticateAsync(user, pass) with

@@ -183,4 +183,94 @@
   <data name="ApiKey.TooManyKeys" xml:space="preserve">
     <value>You already have the maximum of {0} active API keys. Revoke one first.</value>
   </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>Passkey '{0}' was not found.</value>
+  </data>
+  <data name="Passkey.InvalidCeremony" xml:space="preserve">
+    <value>The passkey request expired or was already used. Start again.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>The passkey could not be verified.</value>
+  </data>
+  <data name="Passkey.ReauthenticationRequired" xml:space="preserve">
+    <value>Sign in again to add a passkey (your session is too old for this change).</value>
+  </data>
+  <data name="Passkey.Disabled" xml:space="preserve">
+    <value>Passkeys are not enabled.</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>An account can have at most {0} passkeys. Remove one first.</value>
+  </data>
+  <data name="Passkey.LastSignInMethod" xml:space="preserve">
+    <value>This passkey is your only way to sign in. Add a password or another passkey first.</value>
+  </data>
+  <data name="Sso.ConnectionNotFound" xml:space="preserve">
+    <value>SSO connection '{0}' was not found.</value>
+  </data>
+  <data name="Sso.DomainNotFound" xml:space="preserve">
+    <value>Domain '{0}' is not on this connection.</value>
+  </data>
+  <data name="Sso.DomainTaken" xml:space="preserve">
+    <value>'{0}' is already verified for another SSO connection.</value>
+  </data>
+  <data name="Sso.DomainUnverified" xml:space="preserve">
+    <value>The TXT record '{0}' was not found yet. DNS changes can take a few minutes.</value>
+  </data>
+  <data name="Sso.Required" xml:space="preserve">
+    <value>Your organization requires single sign-on. Continue with SSO.</value>
+  </data>
+  <data name="Sso.LoginFailed" xml:space="preserve">
+    <value>Single sign-on failed.</value>
+  </data>
+  <data name="Sso.UnknownTenantRole" xml:space="preserve">
+    <value>'{0}' is not a role of this tenant.</value>
+  </data>
+  <data name="Sso.Connection.InvalidCertificate" xml:space="preserve">
+    <value>Not a valid X.509 certificate (expected PEM or Base64 DER).</value>
+  </data>
+  <data name="Sso.Connection.TenantRequired" xml:space="preserve">
+    <value>A connection belongs to a tenant.</value>
+  </data>
+  <data name="Sso.Connection.ProtocolFixed" xml:space="preserve">
+    <value>The protocol of a connection cannot change.</value>
+  </data>
+  <data name="Sso.Connection.VerifyDomainFirst" xml:space="preserve">
+    <value>Verify at least one email domain before activating the connection.</value>
+  </data>
+  <data name="Sso.Connection.DomainAlreadyAdded" xml:space="preserve">
+    <value>'{0}' is already on this connection.</value>
+  </data>
+  <data name="Sso.Connection.TooManyDomains" xml:space="preserve">
+    <value>A connection can have at most {0} domains.</value>
+  </data>
+  <data name="Sso.Connection.LastVerifiedDomain" xml:space="preserve">
+    <value>An active connection needs a verified domain. Disable it first.</value>
+  </data>
+  <data name="Sso.Connection.CertificateRequired" xml:space="preserve">
+    <value>At least one IdP signing certificate is required.</value>
+  </data>
+  <data name="Sso.Connection.TooManyDefaultRoles" xml:space="preserve">
+    <value>At most {0} default roles.</value>
+  </data>
+  <data name="Sso.Connection.Incomplete" xml:space="preserve">
+    <value>The connection is incomplete: set {0}.</value>
+  </data>
+  <data name="Sso.Connection.TooManyCertificates" xml:space="preserve">
+    <value>At most {0} IdP certificates.</value>
+  </data>
+  <data name="Sso.Connection.FieldRequired" xml:space="preserve">
+    <value>{0} is required.</value>
+  </data>
+  <data name="Sso.Connection.FieldTooLong" xml:space="preserve">
+    <value>{0} is longer than {1} characters.</value>
+  </data>
+  <data name="Sso.Connection.ValueTooLong" xml:space="preserve">
+    <value>A value is longer than {0} characters.</value>
+  </data>
+  <data name="Sso.Connection.InvalidDomain" xml:space="preserve">
+    <value>'{0}' is not a valid domain name.</value>
+  </data>
+  <data name="Sso.Connection.PublicEmailDomain" xml:space="preserve">
+    <value>'{0}' is a public email provider and cannot be used for SSO.</value>
+  </data>
 </root>

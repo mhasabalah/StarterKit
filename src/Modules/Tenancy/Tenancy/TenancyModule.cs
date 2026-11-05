@@ -52,7 +52,7 @@ public static class TenancyModule
         services.AddTransient<PurgeDeletedTenantsJob>();
         services.AddSingleton<DedicatedTenantDatabaseMigrator>(); // also resolved by the --migrate-only run
         services.AddHostedService(sp => sp.GetRequiredService<DedicatedTenantDatabaseMigrator>());
-        services.AddHttpClient<ITenantDomainVerifier, DnsOverHttpsDomainVerifier>(c => c.Timeout = TimeSpan.FromSeconds(10));
+        Shared.Core.Net.DnsTxtVerifierServiceCollectionExtensions.AddDnsTxtVerifier(services);
 
         // Billing: subscriber = the tenant in multi-tenant mode, the user otherwise (decided per request from
         // MultiTenancy:Enabled). Registered before Subscriptions, whose defaults use TryAdd.
