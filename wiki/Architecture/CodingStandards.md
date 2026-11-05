@@ -83,6 +83,32 @@ The full table is in `CLAUDE.md` → *Naming*, enforced by `NamingConventionTest
   idempotency decisions. Catalog is the model.
 - Comment the reason, not the mechanics. No commented-out code; git has history.
 
+## Analyzers
+
+The build runs the .NET analyzers at `AnalysisLevel=latest-recommended` plus the IDE style rules
+(`EnforceCodeStyleInBuild`), and `TreatWarningsAsErrors=true` (all in `Directory.Build.props`). A warning therefore
+breaks the build, locally and in CI.
+
+- **Fix first.** Nullable, culture (CA1305: use `CultureInfo.InvariantCulture` for machine formats), cancellation
+  forwarding (CA2016), obsolete APIs, SQL built from strings (EF1002) and weak crypto (CA53xx) are real defects.
+- **Relax a rule only in `.editorconfig`**, under *Code Quality Rules* (or the *Test projects* section for
+  `*.Tests`/`*.IntegrationTests`/`*.E2ETests`), with the severity and a one-line comment saying **why**:
+
+  ```ini
+  # CA1848: Use LoggerMessage delegates
+  # Relaxed to suggestion: a micro-optimisation that would turn every log line into boilerplate.
+  dotnet_diagnostic.CA1848.severity = suggestion
+  ```
+- **A single false positive** gets a local `[SuppressMessage("Category", "CAxxxx:Title", Justification = "...")]` (or a
+  narrowly scoped `#pragma warning disable` with a reason on the same line). Never a bare `#pragma`, never a
+  project-wide `NoWarn` (the only entries are CS1591, and AV0029/AV0030 whose diagnostics come from a source generator
+  that `.editorconfig` cannot reach).
+- EF migrations (`**/Data/Migrations`, `**/Persistence/Migrations`) are generated code (`generated_code = true`):
+  analyzers skip them, and they are never hand-edited.
+- `IDE0005` (unused usings) is a suggestion because the compiler only evaluates it in the build when
+  `GenerateDocumentationFile=true`, which would also enable the OpenAPI XML-comment source generator. Clean usings in
+  the IDE (`dotnet format style --diagnostics IDE0005` with that property set also works).
+
 ## Formatting
 
 Follow `.editorconfig`. Run `dotnet format StarterKit.slnx --verify-no-changes` before review if you touched many

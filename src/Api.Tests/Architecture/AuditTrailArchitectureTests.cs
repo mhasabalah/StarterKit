@@ -33,7 +33,7 @@ public sealed class AuditTrailArchitectureTests
         var auditType = model.FindAuditEntryType();
         auditType.Should().NotBeNull($"{contextType.Name} maps IAuditable entities ({string.Join(", ", auditable)})");
         if (contextType.IsAssignableTo(typeof(ITenantDataContext)))
-            auditType.Should().Be(typeof(TenantAuditEntry), "tenant-data contexts need the tenant-owned audit row");
+            auditType.Should().Be<TenantAuditEntry>("tenant-data contexts need the tenant-owned audit row");
     }
 
     [Fact]

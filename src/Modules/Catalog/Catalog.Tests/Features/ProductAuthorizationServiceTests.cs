@@ -35,8 +35,10 @@ public class ProductAuthorizationServiceTests
     {
         var act = () => AuthAs(OwnerId).EnsureCanEdit(ProductIn(status, OwnerId));
 
-        if (allowed) act.Should().NotThrow();
-        else act.Should().Throw<ForbiddenException>().WithMessage($"*{status}*");
+        if (allowed)
+            act.Should().NotThrow();
+        else
+            act.Should().Throw<ForbiddenException>().WithMessage($"*{status}*");
     }
 
     [Theory]

@@ -20,7 +20,8 @@ internal sealed class FakeChannelAdapter(NotificationChannel channel) : INotific
 
     public Task SendAsync(NotificationMessage message, string? email, string? phone, CancellationToken ct)
     {
-        lock (this) Attempts++;
+        lock (this)
+            Attempts++;
 
         if (AlwaysThrow is not null)
             throw AlwaysThrow;

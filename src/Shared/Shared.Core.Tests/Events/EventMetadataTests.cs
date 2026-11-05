@@ -78,7 +78,7 @@ public sealed class LoggingBehaviorTests
 
         await behavior.Handle(new PingQuery(), async _ =>
         {
-            await Task.Delay(handlerDuration);
+            await Task.Delay(handlerDuration, CancellationToken.None);
             return "pong";
         }, CancellationToken.None);
 

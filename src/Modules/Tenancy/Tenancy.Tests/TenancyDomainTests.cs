@@ -132,7 +132,10 @@ public sealed class TenantTests
         var info = tenant.ToInfo();
         info.Should().BeEquivalentTo(new
         {
-            tenant.Id, Identifier = "acme", Isolation = TenantIsolation.Dedicated, ConnectionSecretRef = "acme-db",
+            tenant.Id,
+            Identifier = "acme",
+            Isolation = TenantIsolation.Dedicated,
+            ConnectionSecretRef = "acme-db",
             Region = "eu"
         });
     }

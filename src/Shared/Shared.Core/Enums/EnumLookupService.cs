@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -122,7 +123,7 @@ public class EnumLookupService : IEnumLookupService
     /// <summary>
     /// Creates an EnumItemDto from an enum value by reading its LocalizedDescription attribute.
     /// </summary>
-    private EnumItemDto CreateEnumItem(Enum enumValue, Type enumType)
+    private static EnumItemDto CreateEnumItem(Enum enumValue, Type enumType)
     {
         var memberName = enumValue.ToString();
         var field = enumType.GetField(memberName);
@@ -130,7 +131,7 @@ public class EnumLookupService : IEnumLookupService
 
         return new EnumItemDto
         {
-            Id = Convert.ToInt32(enumValue),
+            Id = Convert.ToInt32(enumValue, CultureInfo.InvariantCulture),
             Key = memberName,
             NameEn = attribute?.DescriptionEn ?? memberName,
             NameAr = attribute?.DescriptionAr ?? memberName

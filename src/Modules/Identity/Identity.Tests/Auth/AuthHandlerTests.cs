@@ -315,10 +315,10 @@ public sealed class ExternalLoginSuccessPathTests
     private static readonly ExternalLoginCallbackCommand Callback = new(null);
 
     [Fact]
-    public void Initiation_builds_an_escaped_challenge_url()
+    public async Task Initiation_builds_an_escaped_challenge_url()
     {
-        var result = new ExternalLoginHandler(NullLogger<ExternalLoginHandler>.Instance)
-            .Handle(new ExternalLoginCommand("Google", "/a b?x=1"), default).Result;
+        var result = await new ExternalLoginHandler(NullLogger<ExternalLoginHandler>.Instance)
+            .Handle(new ExternalLoginCommand("Google", "/a b?x=1"), default);
 
         result.RedirectUrl.Should().Be("/api/identity/auth/challenge/Google?returnUrl=%2Fa%20b%3Fx%3D1");
     }

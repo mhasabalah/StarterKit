@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Subscriptions.Domains.Subscriptions.Services;
 
@@ -52,7 +53,7 @@ public class ProcessRenewalRemindersJob(
                 {
                     SubscriberName = subscriber?.DisplayName ?? string.Empty,
                     PlanName = sub.PlanName,
-                    ExpiryDate = sub.RenewalDate!.Value.ToString("yyyy-MM-dd"),
+                    ExpiryDate = sub.RenewalDate!.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     RenewalUrl = $"{frontendBaseUrl}/subscription/renew"
                 };
 

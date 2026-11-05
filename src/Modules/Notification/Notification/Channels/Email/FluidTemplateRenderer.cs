@@ -185,11 +185,11 @@ public sealed class FluidTemplateRenderer : IEmailTemplateRenderer
             Name = name;
         }
 
-        public bool Exists       => true;
-        public bool IsDirectory  => false;
+        public bool Exists => true;
+        public bool IsDirectory => false;
         public DateTimeOffset LastModified => DateTimeOffset.UtcNow;
-        public long Length       => Encoding.UTF8.GetByteCount(_content);
-        public string Name       { get; }
+        public long Length => Encoding.UTF8.GetByteCount(_content);
+        public string Name { get; }
         public string? PhysicalPath => null;
 
         public Stream CreateReadStream()

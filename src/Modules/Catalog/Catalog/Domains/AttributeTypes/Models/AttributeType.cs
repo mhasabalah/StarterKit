@@ -75,7 +75,8 @@ public class AttributeType : Entity<Guid>, IMustHaveTenant
     /// <summary>Text: non-empty. Number: invariant-culture decimal ("." separator, no grouping). Boolean: "true"/"false" (any case).</summary>
     public static bool IsValidValue(AttributeDataType dataType, string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return false;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
 
         return dataType switch
         {

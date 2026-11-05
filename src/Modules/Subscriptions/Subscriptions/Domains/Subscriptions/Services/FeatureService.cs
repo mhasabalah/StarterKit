@@ -7,7 +7,7 @@ public class FeatureService(
     IDistributedCache cache,
     SubscriptionsDbContext dbContext,
     ISubscriberIdProvider subscriberIdProvider)
-    : IFeatureService
+    : IFeatureService, IDisposable
 {
     private readonly SemaphoreSlim _sync = new(1, 1);
     private Dictionary<string, string>? _features;
@@ -116,5 +116,11 @@ public class FeatureService(
         {
             _sync.Release();
         }
+    }
+
+    public void Dispose()
+    {
+        _sync.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

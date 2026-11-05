@@ -128,6 +128,6 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
 
         domainEntities.ForEach(entity => entity.ClearDomainEvents());
 
-        return domainEvents.ToImmutableList();
+        return domainEvents;
     }
 }

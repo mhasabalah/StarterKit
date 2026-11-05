@@ -89,7 +89,8 @@ public sealed class TenantMover(
             var all = new Dictionary<string, long>(StringComparer.Ordinal);
             foreach (var contextType in registry.ContextTypes)
             {
-                foreach (var (table, rows) in await CopyContextAsync(contextType, source, target, ct)) all[table] = rows;
+                foreach (var (table, rows) in await CopyContextAsync(contextType, source, target, ct))
+                    all[table] = rows;
             }
 
             copied = all;
@@ -159,7 +160,8 @@ public sealed class TenantMover(
             {
                 await using var scope = services.CreateAsyncScope();
                 var context = (DbContext)scope.ServiceProvider.GetRequiredService(contextType);
-                if (!await context.Database.CanConnectAsync(ct)) continue; // never created
+                if (!await context.Database.CanConnectAsync(ct))
+                    continue; // never created
                 await TenantDataPurger.PurgeRowsAsync(context, location.Id, ct);
             }
         }
@@ -172,7 +174,8 @@ public sealed class TenantMover(
             {
                 var tenant = await sp.GetRequiredService<TenancyDbContext>().Tenants.AsNoTracking()
                     .FirstOrDefaultAsync(t => t.Id == tenantId, token);
-                if (tenant is not { Status: TenantStatus.Migrating, MoveTargetIsolation: not null }) return null;
+                if (tenant is not { Status: TenantStatus.Migrating, MoveTargetIsolation: not null })
+                    return null;
                 return (tenant.ToInfo(), tenant.ToMoveTargetInfo());
             }
         }, ct);

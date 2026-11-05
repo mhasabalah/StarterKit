@@ -110,10 +110,12 @@ public class ResponseWrapperMiddleware
     /// <summary>Empty bodies (e.g. <c>Results.Ok()</c>) and JSON bodies are wrapped; anything else is not.</summary>
     private static bool IsWrappable(HttpContext context, MemoryStream body)
     {
-        if (body.Length == 0) return true;
+        if (body.Length == 0)
+            return true;
 
         var contentType = context.Response.ContentType;
-        if (string.IsNullOrEmpty(contentType)) return false;
+        if (string.IsNullOrEmpty(contentType))
+            return false;
 
         var mediaType = contentType.Split(';', 2)[0].Trim();
         return mediaType.Equals("application/json", StringComparison.OrdinalIgnoreCase) ||
@@ -125,7 +127,8 @@ public class ResponseWrapperMiddleware
     /// <summary>Fallback for endpoints the marker filter can't see: root object with isSuccess + statusCode + errors.</summary>
     private static bool IsEnvelope(JsonElement root)
     {
-        if (root.ValueKind != JsonValueKind.Object) return false;
+        if (root.ValueKind != JsonValueKind.Object)
+            return false;
 
         bool hasSuccess = false, hasStatus = false, hasErrors = false;
         foreach (var property in root.EnumerateObject())

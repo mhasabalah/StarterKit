@@ -13,7 +13,8 @@ public static class ClientIp
     public static IPAddress? GetRemoteIp(HttpContext context)
     {
         var ip = context.Connection.RemoteIpAddress;
-        if (ip is null) return null;
+        if (ip is null)
+            return null;
         return ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip;
     }
 

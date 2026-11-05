@@ -28,7 +28,8 @@ public sealed class TenantEntityInterceptor(ITenantContext tenantContext, ILogge
 
     private void Apply(DbContext? context)
     {
-        if (context is null) return;
+        if (context is null)
+            return;
 
         var isHost = tenantContext.IsHostScope;
         var current = tenantContext.TenantId;

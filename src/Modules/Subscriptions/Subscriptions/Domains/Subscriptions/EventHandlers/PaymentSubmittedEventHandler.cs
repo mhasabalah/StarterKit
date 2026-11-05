@@ -1,3 +1,4 @@
+using System.Globalization;
 using Subscriptions.Domains.Subscriptions.Services;
 
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
@@ -37,7 +38,7 @@ public class PaymentSubmittedEventHandler(
             SubscriberName = subscriber?.DisplayName ?? "Unknown subscriber",
             ApplicantEmail = subscriber?.Email ?? string.Empty,
             PlanName = planName,
-            ProofUploadedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
+            ProofUploadedAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm UTC", CultureInfo.InvariantCulture),
             AdminReviewUrl = $"{frontendBaseUrl}/admin/subscriptions/{notification.SubscriptionId}"
         };
 

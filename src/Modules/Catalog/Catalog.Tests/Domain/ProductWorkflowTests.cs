@@ -26,8 +26,8 @@ public class ProductWorkflowTests
     {
         var data = new TheoryData<ProductStatus, WorkflowAction>();
         foreach (var status in Enum.GetValues<ProductStatus>())
-        foreach (var action in Enum.GetValues<WorkflowAction>())
-            data.Add(status, action);
+            foreach (var action in Enum.GetValues<WorkflowAction>())
+                data.Add(status, action);
         return data;
     }
 
@@ -35,13 +35,27 @@ public class ProductWorkflowTests
     {
         switch (action)
         {
-            case WorkflowAction.Submit: product.SubmitForReview(); break;
-            case WorkflowAction.Approve: product.Approve(AdminId, "Looks good"); break;
-            case WorkflowAction.Reject: product.Reject(AdminId, "Bad photos"); break;
-            case WorkflowAction.RequestChanges: product.RequestChanges(AdminId, "Fix the title"); break;
-            case WorkflowAction.Publish: product.Publish(); break;
-            case WorkflowAction.Archive: product.Archive(); break;
-            case WorkflowAction.ReturnToDraft: product.ReturnToDraft(); break;
+            case WorkflowAction.Submit:
+                product.SubmitForReview();
+                break;
+            case WorkflowAction.Approve:
+                product.Approve(AdminId, "Looks good");
+                break;
+            case WorkflowAction.Reject:
+                product.Reject(AdminId, "Bad photos");
+                break;
+            case WorkflowAction.RequestChanges:
+                product.RequestChanges(AdminId, "Fix the title");
+                break;
+            case WorkflowAction.Publish:
+                product.Publish();
+                break;
+            case WorkflowAction.Archive:
+                product.Archive();
+                break;
+            case WorkflowAction.ReturnToDraft:
+                product.ReturnToDraft();
+                break;
         }
     }
 

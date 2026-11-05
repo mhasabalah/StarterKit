@@ -15,13 +15,13 @@ public class OtlpExporterPlanTests
 
     private static ObservabilityOptions Options(bool collector = false, string collectorEndpoint = "http://localhost:4317",
         bool jaeger = false, string jaegerEndpoint = "http://localhost:14317") => new()
-    {
-        InstrumentationName = "test",
-        UseOTLPExporter = collector,
-        OTLPOptions = new OTLPOptions { OTLPGrpcExporterEndpoint = collectorEndpoint },
-        UseJaegerExporter = jaeger,
-        JaegerOptions = new JaegerOptions { OTLPGrpcExporterEndpoint = jaegerEndpoint }
-    };
+        {
+            InstrumentationName = "test",
+            UseOTLPExporter = collector,
+            OTLPOptions = new OTLPOptions { OTLPGrpcExporterEndpoint = collectorEndpoint },
+            UseJaegerExporter = jaeger,
+            JaegerOptions = new JaegerOptions { OTLPGrpcExporterEndpoint = jaegerEndpoint }
+        };
 
     [Fact]
     public void Nothing_configured_exports_nowhere()

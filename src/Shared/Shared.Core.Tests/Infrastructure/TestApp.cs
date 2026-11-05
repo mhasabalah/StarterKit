@@ -35,7 +35,8 @@ public sealed class TestApp : IAsyncDisposable
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
         builder.WebHost.UseTestServer();
         builder.Configuration.Sources.Clear();
-        if (configuration is not null) builder.Configuration.AddInMemoryCollection(configuration);
+        if (configuration is not null)
+            builder.Configuration.AddInMemoryCollection(configuration);
 
         var logs = new CapturingLoggerProvider();
         builder.Logging.ClearProviders();
@@ -80,7 +81,8 @@ public static class HttpContextTestExtensions
 {
     public static async Task<string> ReadBodyAsync(this HttpContext context)
     {
-        if (context.Response.Body.CanSeek) context.Response.Body.Seek(0, SeekOrigin.Begin);
+        if (context.Response.Body.CanSeek)
+            context.Response.Body.Seek(0, SeekOrigin.Begin);
         using var reader = new StreamReader(context.Response.Body);
         return await reader.ReadToEndAsync();
     }

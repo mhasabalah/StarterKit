@@ -87,7 +87,8 @@ internal static class TenantMessageStamp
 {
     public static void Stamp(SendContext context, ITenantContext tenantContext)
     {
-        if (context.Headers.TryGetHeader(TenantMessageHeaders.HeaderName, out _)) return; // explicit wins
+        if (context.Headers.TryGetHeader(TenantMessageHeaders.HeaderName, out _))
+            return; // explicit wins
 
         if (tenantContext.TenantId is { } tenantId)
         {

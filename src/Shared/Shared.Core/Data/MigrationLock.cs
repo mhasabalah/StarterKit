@@ -18,6 +18,8 @@ public sealed class MigrationLock : IAsyncDisposable
     private MigrationLock(NpgsqlConnection? connection) => _connection = connection;
 
     /// <summary>Waits up to <paramref name="timeout"/> for the lock; no-op for an empty connection string.</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1068:CancellationToken parameters must come last",
+        Justification = "Public signature used by the host and tests; the trailing optional TimeProvider is a test seam.")]
     public static async Task<MigrationLock> AcquireAsync(string? connectionString, TimeSpan timeout, ILogger logger,
         CancellationToken cancellationToken = default, TimeProvider? timeProvider = null)
     {

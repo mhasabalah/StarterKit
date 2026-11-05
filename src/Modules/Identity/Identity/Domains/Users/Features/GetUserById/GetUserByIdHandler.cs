@@ -18,7 +18,7 @@ public class GetUserByIdHandler(
         logger.LogInformation("Fetching user details for ID: {UserId}", query.UserId);
 
         var user = await userManager.FindByIdAsync(query.UserId.ToString());
-        
+
         if (user == null)
         {
             logger.LogWarning("User not found: {UserId}", query.UserId);
@@ -27,7 +27,7 @@ public class GetUserByIdHandler(
 
         // Get roles
         var roles = await userManager.GetRolesAsync(user);
-        
+
         // Check lockout status
         var isLocked = await userManager.IsLockedOutAsync(user);
         var lockoutEnd = await userManager.GetLockoutEndDateAsync(user);
@@ -59,7 +59,7 @@ public class GetUserByIdHandler(
         };
 
         logger.LogInformation("Successfully fetched user details for: {UserName}", user.UserName);
-        
+
         return userDto;
     }
 }

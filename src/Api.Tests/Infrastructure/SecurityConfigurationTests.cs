@@ -48,10 +48,12 @@ public sealed class SecurityConfigurationTests
                                  !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")))
         {
             var text = File.ReadAllText(file);
-            foreach (Match m in literal.Matches(text)) used.Add(m.Groups["name"].Value);
+            foreach (Match m in literal.Matches(text))
+                used.Add(m.Groups["name"].Value);
             // Unknown constant names can't compile in real code; they only appear in doc comments (e.g. "X").
             foreach (Match m in constant.Matches(text))
-                if (constants.TryGetValue(m.Groups["name"].Value, out var name)) used.Add(name);
+                if (constants.TryGetValue(m.Groups["name"].Value, out var name))
+                    used.Add(name);
         }
 
         used.Should().NotBeEmpty();

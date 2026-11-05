@@ -97,7 +97,7 @@ public class LedgerEntry
             RefundId = refund.Id,
             InvoiceId = invoiceId,
             ActorId = actorId,
-            Description = Truncate($"Refund ({refund.RefundType})"),
+            Description = Truncate($"Refund ({refund.RefundType})")!,
             PlanId = refund.PlanId,
             PlanName = refund.PlanName,
             Reference = Truncate(refund.ExternalTransactionRef, 200)
@@ -154,7 +154,7 @@ public class LedgerEntry
             PaymentId = creditNote.PaymentId,
             InvoiceId = creditNote.Id,
             ActorId = actorId,
-            Description = Truncate($"Credit note {creditNote.InvoiceNumber}"),
+            Description = Truncate($"Credit note {creditNote.InvoiceNumber}")!,
             PlanId = creditNote.PlanId,
             PlanName = creditNote.PlanName,
             Reference = creditNote.InvoiceNumber

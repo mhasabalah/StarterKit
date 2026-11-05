@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionExpiredEventHandler(
@@ -23,7 +24,7 @@ public class SubscriptionExpiredEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = sub?.PlanName ?? "Plan",
-            GracePeriodEndsAt = sub?.GracePeriodEndsAt?.ToString("yyyy-MM-dd") ?? string.Empty,
+            GracePeriodEndsAt = sub?.GracePeriodEndsAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty,
             RenewalUrl = $"{frontendBaseUrl}/subscription/renew"
         };
 
