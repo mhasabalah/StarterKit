@@ -1,3 +1,5 @@
+using Tenancy.Domains.FeatureFlags.Models;
+
 namespace Tenancy.Data;
 
 /// <summary>
@@ -16,6 +18,8 @@ public class TenancyDbContext(DbContextOptions<TenancyDbContext> options) : AppD
     public DbSet<TenantRole> Roles => Set<TenantRole>();
     public DbSet<TenantInvitation> Invitations => Set<TenantInvitation>();
     public DbSet<TenantAuditLog> AuditLogs => Set<TenantAuditLog>();
+    public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
+    public DbSet<FeatureFlagOverride> FeatureFlagOverrides => Set<FeatureFlagOverride>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

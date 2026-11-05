@@ -190,6 +190,139 @@ namespace Tenancy.Data.Migrations
                     b.ToTable("branches", "tenancy");
                 });
 
+            modelBuilder.Entity("Tenancy.Domains.FeatureFlags.Models.FeatureFlag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("key");
+
+                    b.Property<bool>("KillSwitch")
+                        .HasColumnType("boolean")
+                        .HasColumnName("kill_switch");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<int>("RolloutPercent")
+                        .HasColumnType("integer")
+                        .HasColumnName("rollout_percent");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_feature_flags");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_feature_flags_key");
+
+                    b.ToTable("feature_flags", "tenancy", t =>
+                        {
+                            t.HasCheckConstraint("ck_feature_flags_rollout", "rollout_percent BETWEEN 0 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("Tenancy.Domains.FeatureFlags.Models.FeatureFlagOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<Guid>("FeatureFlagId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("feature_flag_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_feature_flag_overrides");
+
+                    b.HasIndex("FeatureFlagId", "TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_feature_flag_overrides_tenant")
+                        .HasFilter("tenant_id IS NOT NULL");
+
+                    b.HasIndex("FeatureFlagId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_feature_flag_overrides_user")
+                        .HasFilter("user_id IS NOT NULL");
+
+                    b.ToTable("feature_flag_overrides", "tenancy", t =>
+                        {
+                            t.HasCheckConstraint("ck_feature_flag_overrides_one_target", "(tenant_id IS NULL) <> (user_id IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Tenancy.Domains.Invitations.Models.TenantInvitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -589,12 +722,21 @@ namespace Tenancy.Data.Migrations
                         .HasConstraintName("fk_branches_branches_parent_id");
                 });
 
+            modelBuilder.Entity("Tenancy.Domains.FeatureFlags.Models.FeatureFlagOverride", b =>
+                {
+                    b.HasOne("Tenancy.Domains.FeatureFlags.Models.FeatureFlag", null)
+                        .WithMany("Overrides")
+                        .HasForeignKey("FeatureFlagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_feature_flag_overrides_feature_flags_feature_flag_id");
+                });
+
             modelBuilder.Entity("Tenancy.Domains.Tenants.Models.Tenant", b =>
                 {
                     b.OwnsMany("Tenancy.Domains.Tenants.Models.TenantDomain", "Domains", b1 =>
                         {
                             b1.Property<Guid>("Id")
-                                .ValueGeneratedOnAdd()
                                 .HasColumnType("uuid")
                                 .HasColumnName("id");
 
@@ -636,6 +778,11 @@ namespace Tenancy.Data.Migrations
                         });
 
                     b.Navigation("Domains");
+                });
+
+            modelBuilder.Entity("Tenancy.Domains.FeatureFlags.Models.FeatureFlag", b =>
+                {
+                    b.Navigation("Overrides");
                 });
 #pragma warning restore 612, 618
         }
