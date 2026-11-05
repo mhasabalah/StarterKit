@@ -59,7 +59,7 @@ The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md).
 
 | Module | What it does | Docs |
 |---|---|---|
-| **Identity** | Register/login, JWT + rotating refresh tokens, token blacklist, roles → fine-grained permissions, 2FA (TOTP), OTP, email confirmation, admin and user management, audited impersonation, external login hooks, session/device management, API keys (scoped PATs), KMS-protected Data Protection keys | [wiki/Identity](wiki/Identity/README.md) |
+| **Identity** | Register/login, JWT + rotating refresh tokens, token blacklist, roles → fine-grained permissions, 2FA (TOTP), OTP, email confirmation, admin and user management, audited impersonation, external login hooks, session/device management, API keys (scoped PATs), KMS-protected Data Protection keys, CAPTCHA bot protection (Turnstile, swappable) on anonymous auth flows | [wiki/Identity](wiki/Identity/README.md) |
 | **Tenancy** | Tenants, branch trees, memberships, tenant roles, invitations, custom domains, export/deletion/move, audit (multi-tenancy control plane) | [wiki/Modules/Tenancy](wiki/Modules/Tenancy.md) |
 | **Attachment** | Validated uploads (magic bytes), thumbnails, anonymous pending uploads, entity access policies, reconciliation; Local / Azure Blob / S3 | [wiki/Attachment](wiki/Attachment/README.md) |
 | **Subscriptions** | Plans and features, subscription lifecycle, proof-based payments, invoices, refunds, price changes, append-only ledger, Stripe + Paymob adapters, trials, coupons, dunning, usage metering and quotas | [wiki/Modules/Subscriptions](wiki/Modules/Subscriptions.md) |

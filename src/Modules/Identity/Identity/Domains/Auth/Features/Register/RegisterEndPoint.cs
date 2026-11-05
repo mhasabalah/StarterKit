@@ -1,3 +1,4 @@
+using Shared.Core.BotProtection;
 using Identity.Contracts.Auth.Commands;
 
 namespace Identity.Domains.Auth.Features.Register;
@@ -9,7 +10,7 @@ public class RegisterEndPoint : ICarterModule
         app.MapPost("api/auth/register", async (RegisterCommand command, ISender sender) =>
         {
             var result = await sender.Send(command);
-            
+
             return Results.Ok(new ApiResponse<RegisterResult>(
                 true,
                 StatusCodes.Status200OK,
@@ -24,6 +25,7 @@ public class RegisterEndPoint : ICarterModule
         .WithDescription("Register a new user with email and password")
         .AllowAnonymous()
         .RequireRateLimiting("auth")
+        .RequireHumanVerification("register")
         .HasApiVersion(1.0);
     }
 }

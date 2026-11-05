@@ -35,7 +35,7 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | G11 | Generic business-entity audit trail (`IAuditable`, same-transaction `audit_entries`) | ✅ |
 | G12 | Runtime feature flags (per tenant/user, % rollout, kill switch, `.RequireFlag`) | ✅ |
 | G13 | In-app notification inbox + real-time push (SignalR) | ⬜ |
-| G14 | Bot protection (CAPTCHA/Turnstile) on register, login, forgot-password, OTP | 🚧 |
+| G14 | Bot protection (CAPTCHA/Turnstile) on register, login, forgot-password, OTP | ✅ |
 
 **P2 — market-dependent**
 

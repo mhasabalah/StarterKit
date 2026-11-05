@@ -117,4 +117,30 @@ public sealed class ProductionConfigurationGuardTests
 
         act.Should().NotThrow();
     }
+
+    [Theory]
+    [InlineData("Production", "")]
+    [InlineData("Docker", null)]
+    [InlineData("Production", "CHANGE_ME")]
+    public void BotProtection_enabled_without_a_real_secret_blocks_startup(string environment, string? secret)
+    {
+        var config = Config(("BotProtection:Enabled", "true"), ("BotProtection:SecretKey", secret));
+
+        var act = () => ProductionConfigurationGuard.EnsureBotProtectionConfigured(config, environment);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*BotProtection:SecretKey*");
+    }
+
+    [Theory]
+    [InlineData("Production", "true", "a-real-secret")]
+    [InlineData("Production", "false", "")]
+    [InlineData("Development", "true", "")]
+    public void BotProtection_is_allowed_when_disabled_configured_or_relaxed(string environment, string enabled, string secret)
+    {
+        var config = Config(("BotProtection:Enabled", enabled), ("BotProtection:SecretKey", secret));
+
+        var act = () => ProductionConfigurationGuard.EnsureBotProtectionConfigured(config, environment);
+
+        act.Should().NotThrow();
+    }
 }

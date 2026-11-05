@@ -1,3 +1,4 @@
+using Shared.Core.BotProtection;
 using Identity.Contracts.Onboarding.Commands;
 
 namespace Identity.Domains.Onboarding.Features.ResendOtp;
@@ -20,6 +21,7 @@ public class ResendOtpEndPoint : ICarterModule
             .ProducesProblem(404)
             .AllowAnonymous()
             .RequireRateLimiting("otp")
+            .RequireHumanVerification("resend-otp")
             .HasApiVersion(1.0);
     }
 }

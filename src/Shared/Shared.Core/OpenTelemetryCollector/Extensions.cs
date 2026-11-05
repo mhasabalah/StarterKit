@@ -91,6 +91,7 @@ public static class Extensions
                     .AddProcessInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter(InstrumentationOptions.MeterName)
+                    .AddMeter(BotProtection.BotProtectionMetrics.MeterName)
                     .AddMeter(observabilityOptions.InstrumentationName)
                     .AddView(
                         "http.server.request.duration",
