@@ -12,6 +12,8 @@ using Shared.Core.Extensions;
 using Shared.Core.Web;
 using Notification;
 using Notification.Contracts;
+using Webhooks;
+using Webhooks.Contracts;
 using Aspire.Seq;
 using Hangfire;
 using Hangfire.Dashboard;
@@ -57,7 +59,8 @@ builder.Services.AddMassTransitWithAssemblies(
     SubscriptionsRoot.AssemblyName,
     CatalogRoot.AssemblyName,
     TenancyRoot.AssemblyName,
-    NotificationRoot.AssemblyName);
+    NotificationRoot.AssemblyName,
+    WebhooksRoot.AssemblyName);
 
 // Register Generic Enum Lookup Service (using Contracts assemblies where enums are defined)
 builder.Services.AddEnumLookup(
@@ -67,13 +70,15 @@ builder.Services.AddEnumLookup(
     typeof(Subscriptions.Contracts.Subscriptions.Enums.SubscriptionStatus).Assembly, // Subscriptions.Contracts (SubscriptionStatus)
     CatalogContractsRoot.AssemblyName, // Catalog.Contracts (ProductStatus, ProductType, Currency, AttributeDataType)
     NotificationContractsRoot.AssemblyName, // Notification.Contracts (NotificationChannel, NotificationDeliveryStatus, EmailTemplate, ...)
-    NotificationRoot.AssemblyName); // Notification (EmailProvider, delivery-failure kinds)
+    NotificationRoot.AssemblyName, // Notification (EmailProvider, delivery-failure kinds)
+    WebhooksContractsRoot.AssemblyName); // Webhooks.Contracts (WebhookDeliveryStatus)
 
 builder.Services.AddIdentityModule(configuration);
 builder.Services.AddTenancyModule(configuration); // before Subscriptions: overrides its subscriber defaults
 builder.Services.AddAttachmentModule(configuration);
 builder.Services.AddCatalogModule(configuration);
 builder.Services.AddSubscriptionsModule(configuration);
+builder.Services.AddWebhooksModule(configuration); // consumes Catalog/Subscriptions public events
 builder.Services.AddNotificationModule(configuration);
 
 // Register Hangfire dashboard filter
@@ -111,6 +116,7 @@ app.UseTenancyModule(); // control plane first: the Default tenant must exist be
 app.UseAttachmentModule();
 app.UseCatalogModule();
 app.UseSubscriptionsModule();
+app.UseWebhooksModule();
 app.UseNotificationModule();
 
 if (migrateOnly)
