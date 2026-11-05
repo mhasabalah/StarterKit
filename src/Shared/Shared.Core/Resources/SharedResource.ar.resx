@@ -45,4 +45,13 @@
   <data name="Error.Validation" xml:space="preserve">
     <value>حدث خطأ في التحقق من صحة البيانات.</value>
   </data>
+  <data name="BotProtection.Required" xml:space="preserve">
+    <value>يرجى إكمال التحقق من أنك لست روبوتًا ثم المحاولة مرة أخرى.</value>
+  </data>
+  <data name="BotProtection.Invalid" xml:space="preserve">
+    <value>فشل التحقق من أنك لست روبوتًا. يرجى المحاولة مرة أخرى.</value>
+  </data>
+  <data name="BotProtection.Unavailable" xml:space="preserve">
+    <value>خدمة التحقق غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.</value>
+  </data>
 </root>
