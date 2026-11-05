@@ -1,28 +1,28 @@
 {% comment %}Variables: SubscriberName, PlanName, CancelledDate, SupportWhatsApp, SupportEmail{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}تم إلغاء اشتراكك{% else %}Your Subscription Has Been Cancelled{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، تم إلغاء اشتراكك في المنصة. إذا كنت تعتقد أن هذا خطأ أو تحتاج مساعدة، يُرجى التواصل معنا.
+    مرحباً <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، تم إلغاء اشتراكك في المنصة. إذا كنت تعتقد أن هذا خطأ أو تحتاج مساعدة، يُرجى التواصل معنا.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your subscription has been cancelled. If you believe this is an error or need assistance, please contact us.
+    Hello <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, your subscription has been cancelled. If you believe this is an error or need assistance, please contact us.
   {% endif %}
 </p>
 
 {% capture card_content %}
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};width:160px;white-space:nowrap;">
       {% if culture == 'ar' %}الخطة{% else %}Plan{% endif %}
     </td>
-    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ PlanName }}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:{{ t.text }};">{{ PlanName }}</td>
   </tr>
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}تاريخ الإلغاء{% else %}Cancelled On{% endif %}</td>
-    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#0f172a;">{{ CancelledDate }}</td>
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};">{% if culture == 'ar' %}تاريخ الإلغاء{% else %}Cancelled On{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:{{ t.text }};">{{ CancelledDate }}</td>
   </tr>
 </table>
 {% endcapture %}
@@ -31,10 +31,10 @@
 
 {% include 'Components/Spacer' %}
 
-<p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+<p class="sk-p" style="margin:0;font-size:13px;color:{{ t.textSubtle }};text-align:center;">
   {% if culture == 'ar' %}
-    للمساعدة أو إعادة التفعيل تواصل معنا عبر واتساب: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+    للمساعدة أو إعادة التفعيل تواصل معنا عبر واتساب: <strong style="color:{{ t.textBody }};">{{ SupportWhatsApp }}</strong> أو البريد الإلكتروني: <strong style="color:{{ t.textBody }};">{{ SupportEmail }}</strong>
   {% else %}
-    For help or to reactivate, contact us on WhatsApp: <strong style="color:#374151;">{{ SupportWhatsApp }}</strong> or email: <strong style="color:#374151;">{{ SupportEmail }}</strong>
+    For help or to reactivate, contact us on WhatsApp: <strong style="color:{{ t.textBody }};">{{ SupportWhatsApp }}</strong> or email: <strong style="color:{{ t.textBody }};">{{ SupportEmail }}</strong>
   {% endif %}
 </p>

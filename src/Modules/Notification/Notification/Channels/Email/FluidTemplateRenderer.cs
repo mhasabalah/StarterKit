@@ -14,12 +14,15 @@ public sealed class FluidTemplateRenderer : IEmailTemplateRenderer
     private readonly Dictionary<string, IFluidTemplate> _templates;
     private readonly TemplateOptions _options;
     private readonly EmailOptions _emailOptions;
+    private readonly Dictionary<string, object> _tokens;
 
     private const string BaseLayoutKey = "Layouts/BaseLayout";
+    private const string PreheaderKey = "starterkit.preheader";
 
     public FluidTemplateRenderer(IOptions<EmailOptions> emailOptions)
     {
         _emailOptions = emailOptions.Value;
+        _tokens = EmailDesignTokens.Build(_emailOptions.Theme);
         _templates = new Dictionary<string, IFluidTemplate>(StringComparer.OrdinalIgnoreCase);
         var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var assembly = typeof(FluidTemplateRenderer).Assembly;
@@ -54,6 +57,14 @@ public sealed class FluidTemplateRenderer : IEmailTemplateRenderer
         _options.Filters.AddFilter("safe_url", (input, _, _) =>
             new ValueTask<FluidValue>(new StringValue(
                 EmailContentSafety.SanitizeUrl(input.ToStringValue(), _emailOptions))));
+
+        // Design system: {{ 'Inbox preview text' | set_preheader }} records the preheader (outputs nothing); the
+        // layout renders it as the hidden preview line. Body-template assignments do not reach the layout context.
+        _options.Filters.AddFilter("set_preheader", (input, _, context) =>
+        {
+            context.AmbientValues[PreheaderKey] = input.ToStringValue();
+            return new ValueTask<FluidValue>(StringValue.Empty);
+        });
 
         // CQ2: Every EmailTemplate enum value must have a matching .liquid file.
         foreach (var value in Enum.GetValues<EmailTemplate>())
@@ -90,6 +101,9 @@ public sealed class FluidTemplateRenderer : IEmailTemplateRenderer
         var layoutContext = new TemplateContext(_options);
         SetGlobals(layoutContext, cultureValue);
         layoutContext.SetValue("content", bodyContent);
+
+        layoutContext.SetValue("preheader",
+            bodyContext.AmbientValues.TryGetValue(PreheaderKey, out var preheader) ? preheader as string ?? string.Empty : string.Empty);
         return await _templates[BaseLayoutKey].RenderAsync(layoutContext, Encoder);
     }
 
@@ -110,6 +124,17 @@ public sealed class FluidTemplateRenderer : IEmailTemplateRenderer
         context.SetValue("appBaseUrl", _emailOptions.AppBaseUrl);
         context.SetValue("supportEmail", _emailOptions.SupportEmail);
         context.SetValue("currentYear", DateTime.UtcNow.Year);
+
+        // Design system: tokens (t.*) and brand assets. Templates never hard-code colors.
+        context.SetValue("t", _tokens);
+        context.SetValue("logoUrl", _emailOptions.Theme.LogoUrl ?? string.Empty);
+        context.SetValue("logoWidth", Math.Clamp(_emailOptions.Theme.LogoWidth, 40, 300));
+        context.SetValue("helpCenterUrl", _emailOptions.Theme.HelpCenterUrl ?? string.Empty);
+        context.SetValue("privacyUrl", _emailOptions.Theme.PrivacyUrl ?? string.Empty);
+        context.SetValue("companyAddress", _emailOptions.Theme.CompanyAddress ?? string.Empty);
+        context.SetValue("dir", cultureValue == "ar" ? "rtl" : "ltr");
+        context.SetValue("align", cultureValue == "ar" ? "right" : "left");
+        context.SetValue("alignEnd", cultureValue == "ar" ? "left" : "right");
     }
 
     /// <summary>

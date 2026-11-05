@@ -71,7 +71,8 @@ builder.Services.AddEnumLookup(
     CatalogContractsRoot.AssemblyName, // Catalog.Contracts (ProductStatus, ProductType, Currency, AttributeDataType)
     NotificationContractsRoot.AssemblyName, // Notification.Contracts (NotificationChannel, NotificationDeliveryStatus, EmailTemplate, ...)
     NotificationRoot.AssemblyName, // Notification (EmailProvider, delivery-failure kinds)
-    WebhooksContractsRoot.AssemblyName); // Webhooks.Contracts (WebhookDeliveryStatus)
+    WebhooksContractsRoot.AssemblyName, // Webhooks.Contracts (WebhookDeliveryStatus)
+    typeof(Identity.Contracts.Sso.SsoProtocol).Assembly); // Identity.Contracts (SsoProtocol, SsoConnectionStatus)
 
 builder.Services.AddIdentityModule(configuration);
 builder.Services.AddTenancyModule(configuration); // before Subscriptions: overrides its subscriber defaults

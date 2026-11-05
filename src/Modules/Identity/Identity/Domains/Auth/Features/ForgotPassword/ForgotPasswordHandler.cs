@@ -34,6 +34,7 @@ public class ForgotPasswordHandler(
     IOtpCodeService otpCodeService,
     IPhoneNumberNormalizer phoneNormalizer,
     IOptions<PasswordResetOptions> resetOptions,
+    Identity.Services.Sso.ISsoEnforcementPolicy ssoPolicy,
     ILogger<ForgotPasswordHandler> logger)
     : ICommandHandler<ForgotPasswordCommand, ForgotPasswordResult>
 {
@@ -64,6 +65,13 @@ public class ForgotPasswordHandler(
             user.Email!.EndsWith(ApplicationUser.PhonePlaceholderEmailDomain, StringComparison.OrdinalIgnoreCase))
         {
             logger.LogInformation("Password reset email not sent (unknown, unconfirmed or ineligible account)");
+            return;
+        }
+
+        // The company IdP owns the credential: a local password would bypass SSO enforcement. Same generic response.
+        if (!await ssoPolicy.IsPasswordResetAllowedAsync(user, cancellationToken))
+        {
+            logger.LogInformation("Password reset email not sent for user {UserId}: SSO is enforced", user.Id);
             return;
         }
 

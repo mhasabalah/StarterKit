@@ -1,11 +1,12 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
-namespace Tenancy.Services;
+namespace Shared.Core.Net;
 
-/// <summary>Proves that a tenant controls a custom domain.</summary>
-public interface ITenantDomainVerifier
+/// <summary>Proves control of a domain through a DNS TXT record (tenant custom domains, SSO email domains).</summary>
+public interface IDnsTxtVerifier
 {
     /// <summary>True when the TXT record <paramref name="recordName"/> contains <paramref name="expectedValue"/>.</summary>
     Task<bool> HasTxtRecordAsync(string recordName, string expectedValue, CancellationToken cancellationToken = default);
@@ -15,10 +16,10 @@ public interface ITenantDomainVerifier
 /// DNS-over-HTTPS TXT lookup (JSON API, e.g. Cloudflare <c>https://cloudflare-dns.com/dns-query</c>) - no extra DNS
 /// library needed. Endpoint: <c>MultiTenancy:DomainVerification:DohEndpoint</c>.
 /// </summary>
-public sealed class DnsOverHttpsDomainVerifier(
+public sealed class DnsOverHttpsTxtVerifier(
     HttpClient httpClient,
     IConfiguration configuration,
-    ILogger<DnsOverHttpsDomainVerifier> logger) : ITenantDomainVerifier
+    ILogger<DnsOverHttpsTxtVerifier> logger) : IDnsTxtVerifier
 {
     public const string DefaultEndpoint = "https://cloudflare-dns.com/dns-query";
 

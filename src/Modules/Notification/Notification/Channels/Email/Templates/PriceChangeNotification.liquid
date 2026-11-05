@@ -1,43 +1,43 @@
 {% comment %}Variables: SubscriberName, PlanName, OldPrice, NewPrice, Currency, EffectiveAt, DaysUntilEffective, PortalUrl{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}إشعار بتغيير سعر الاشتراك{% else %}Subscription Price Change Notice{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، نودّ إعلامكم بتغيير سعر خطة <strong>{{ PlanName }}</strong>.
+    مرحباً <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، نودّ إعلامكم بتغيير سعر خطة <strong>{{ PlanName }}</strong>.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, we're writing to inform you of an upcoming price change for the <strong>{{ PlanName }}</strong> plan.
+    Hello <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, we're writing to inform you of an upcoming price change for the <strong>{{ PlanName }}</strong> plan.
   {% endif %}
 </p>
 
 {% capture card_content %}
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;width:160px;white-space:nowrap;">
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};width:160px;white-space:nowrap;">
       {% if culture == 'ar' %}السعر الحالي{% else %}Current Price{% endif %}
     </td>
-    <td style="padding:5px 0;font-size:14px;color:#0f172a;">{{ OldPrice }} {{ Currency }}</td>
+    <td style="padding:5px 0;font-size:14px;color:{{ t.text }};">{{ OldPrice }} {{ Currency }}</td>
   </tr>
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}السعر الجديد{% else %}New Price{% endif %}</td>
-    <td style="padding:5px 0;font-size:14px;font-weight:700;color:#0f172a;">{{ NewPrice }} {{ Currency }}</td>
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};">{% if culture == 'ar' %}السعر الجديد{% else %}New Price{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:700;color:{{ t.text }};">{{ NewPrice }} {{ Currency }}</td>
   </tr>
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}تاريخ التطبيق{% else %}Effective Date{% endif %}</td>
-    <td style="padding:5px 0;font-size:14px;font-weight:600;color:#dc2626;">{{ EffectiveAt }}</td>
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};">{% if culture == 'ar' %}تاريخ التطبيق{% else %}Effective Date{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;font-weight:600;color:{{ t.danger }};">{{ EffectiveAt }}</td>
   </tr>
   <tr>
-    <td style="padding:5px 0;font-size:13px;color:#64748b;">{% if culture == 'ar' %}المتبقي{% else %}Days Remaining{% endif %}</td>
-    <td style="padding:5px 0;font-size:14px;color:#0f172a;">{{ DaysUntilEffective }} {% if culture == 'ar' %}يوم{% else %}days{% endif %}</td>
+    <td style="padding:5px 0;font-size:13px;color:{{ t.textMuted }};">{% if culture == 'ar' %}المتبقي{% else %}Days Remaining{% endif %}</td>
+    <td style="padding:5px 0;font-size:14px;color:{{ t.text }};">{{ DaysUntilEffective }} {% if culture == 'ar' %}يوم{% else %}days{% endif %}</td>
   </tr>
 </table>
 {% endcapture %}
 {% if culture == 'ar' %}{% assign card_title = 'تفاصيل التغيير' %}{% else %}{% assign card_title = 'Price Change Details' %}{% endif %}
 {% include 'Components/Card' %}
 
-<p style="margin:16px 0;font-size:14px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:16px 0;font-size:14px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
     سيُطبَّق السعر الجديد عند تجديد اشتراكك بعد تاريخ التطبيق. لن يتأثر اشتراكك الحالي.
   {% else %}

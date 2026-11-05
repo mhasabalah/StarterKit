@@ -213,7 +213,22 @@ Notification is the exception: its context is in `Persistence/`.
   - `RoleConstants` exists in Identity (names + seeded ids) and in `Shared.Core.Authorization` (names); keep them in
     sync.
   - Seeded role ids: User `1111…`, Admin `3333…`, SuperAdmin `4444…`, Finance `6666…`, Support `7777…`.
-  - Privileged roles need 2FA (`wiki/Identity/Permissions-2FA-and-Admin-Audit.md`).
+  - Privileged roles need 2FA (`wiki/Identity/Permissions-2FA-and-Admin-Audit.md`). A user-verified passkey
+    sign-in counts as MFA.
+- **Passkeys, SSO, SCIM** (Identity; `wiki/Identity/Passkeys.md`, `Enterprise-SSO.md`, `SCIM.md`):
+  - Passkeys use the built-in `IPasskeyHandler<ApplicationUser>` only through `IPasskeyService`; ceremony state stays
+    server-side and single use. Never add a cookie-based passkey flow.
+  - SSO connections and SCIM directories are control-plane rows scoped by `TenantId` explicitly. Email linking and JIT
+    apply only to DNS-verified domains (`SsoConnection.CoversVerified`). Tokens never travel in a URL: callbacks hand
+    out a one-time code for `POST /api/auth/sso/exchange`, to an allow-listed `returnUrl`.
+  - Every NON-SSO sign-in path (password, passkey, social) and password reset calls `ISsoEnforcementPolicy`.
+  - SSO availability (sign-in, discovery, enforcement) is ONE check, `ISsoEntitlement` (plan feature `sso`):
+    enforcement must lapse with sign-in, never block passwords while SSO is unavailable.
+  - Role ids an admin assigns to directory-driven memberships go through `ITenantRoleGuard` (Tenancy contract).
+  - Exceptions and aggregate invariants without DI localize through `IdentityText.Get(key, args)` (same resx).
+  - Outbound calls to customer-supplied URLs (IdPs, webhooks) go through `Shared.Core.Net.GuardedConnector`.
+  - Memberships from directories only via Tenancy `ProvisionMemberCommand`; deprovisioning suspends and revokes
+    sessions, never deletes.
 - **Notifications.** Inject `INotificationSender`:
   `.For(userId)` / `.ToEmail(addr)` → `.WithEmail(EmailTemplate.X, model.ToDictionary())` → `.SendAsync(...)`.
   Security mail forces `NotificationChannel.Email`. There is no other email API.
@@ -223,6 +238,9 @@ Notification is the exception: its context is in `Persistence/`.
   - Real time = the push-only hub `/hubs/notifications` (`IRealtimeNotifier`, best effort, never throws). Commands
     stay REST. A token in the URL (`?access_token=`) is accepted ONLY under `RealtimePaths.HubPrefix`, and every
     revocation check runs on the validated token (`TokenBlacklistJwtBearerEvents`).
+  - Email templates are built from the design-system components; colors only as tokens (`{{ t.* }}`, defined in
+    `EmailDesignTokens`), never hex in a `.liquid` file (`EmailDesignSystemTests`). Preheader via `| set_preheader`;
+    never a secret in it. Guide: `wiki/Modules/Notification-Email-Design-System.md`.
   - Push goes only through `IPushProvider` (FCM adapter; FirebaseAdmin stays in Notification). Devices are bound to
     the registering session (`sid`). Guide: `wiki/Modules/Notification-Realtime-and-Push.md`.
 - **Localization.**

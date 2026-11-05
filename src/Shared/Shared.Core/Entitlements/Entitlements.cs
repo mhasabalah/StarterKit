@@ -27,6 +27,9 @@ public static class EntitlementKeys
     public const string MaxItems = "max_items";
     public const string MaxStorageGb = "max_storage_gb";
     public const string MaxUsers = "max_users";
+
+    /// <summary>Plan feature: enterprise SSO (SAML/OIDC) and SCIM provisioning.</summary>
+    public const string Sso = "sso";
 }
 
 /// <summary>Default when no billing module is installed: everything is allowed, nothing is limited.</summary>

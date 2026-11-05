@@ -6,6 +6,12 @@ public sealed class NotificationOptions
     public NotificationChannel[] DefaultChannelOrder { get; set; } =
         [NotificationChannel.WhatsApp, NotificationChannel.Email];
 
+    /// <summary>
+    /// Lifetime shown in one-time-code emails (Notification:OtpEmailLifetimeMinutes). Display only: Identity's
+    /// <c>IOtpCodeService</c> enforces the real expiry, so keep the two equal.
+    /// </summary>
+    public int OtpEmailLifetimeMinutes { get; set; } = 10;
+
     /// <summary>Days to keep rows in <c>notification.notification_log</c> (Notification:LogRetentionDays). Default: 90.</summary>
     public int LogRetentionDays { get; set; } = 90;
 

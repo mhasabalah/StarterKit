@@ -1,14 +1,14 @@
 {% comment %}Variables: FirstName, ConfirmUrl, ExpiresInHours{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}تأكيد البريد الإلكتروني{% else %}Confirm your email address{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    مرحباً <strong style="color:#0f172a;">{{ FirstName }}</strong>، يرجى تأكيد بريدك الإلكتروني لحسابك في {{ brandName }} بالنقر على الزر أدناه.
+    مرحباً <strong style="color:{{ t.text }};">{{ FirstName }}</strong>، يرجى تأكيد بريدك الإلكتروني لحسابك في {{ brandName }} بالنقر على الزر أدناه.
   {% else %}
-    Hello <strong style="color:#0f172a;">{{ FirstName }}</strong>, please confirm the email address of your {{ brandName }} account by clicking the button below.
+    Hello <strong style="color:{{ t.text }};">{{ FirstName }}</strong>, please confirm the email address of your {{ brandName }} account by clicking the button below.
   {% endif %}
 </p>
 

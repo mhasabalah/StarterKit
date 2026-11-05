@@ -1,0 +1,10 @@
+{% comment %}
+  Badge - small inline status pill
+  Required: badge_text     Optional: badge_tone = neutral (default) | info | success | warning | danger
+{% endcomment %}
+{% if badge_tone == 'success' %}{% assign _b_bg = t.successBg %}{% assign _b_color = t.successText %}
+{% elsif badge_tone == 'warning' %}{% assign _b_bg = t.warningBg %}{% assign _b_color = t.warningText %}
+{% elsif badge_tone == 'danger' %}{% assign _b_bg = t.dangerBg %}{% assign _b_color = t.dangerText %}
+{% elsif badge_tone == 'info' %}{% assign _b_bg = t.infoBg %}{% assign _b_color = t.infoText %}
+{% else %}{% assign _b_bg = t.bg %}{% assign _b_color = t.textNeutral %}{% endif %}
+<span style="display:inline-block;padding:2px 10px;border-radius:999px;background-color:{{ _b_bg }};color:{{ _b_color }};font-size:{{ t.fontSizeXs }};font-weight:700;letter-spacing:0.02em;">{{ badge_text }}</span>

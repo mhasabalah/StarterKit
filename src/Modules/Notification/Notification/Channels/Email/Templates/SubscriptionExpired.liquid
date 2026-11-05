@@ -1,22 +1,22 @@
 {% comment %}Variables: SubscriberName, PlanName, GracePeriodEndsAt, RenewalUrl{% endcomment %}
 
-<h2 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.35;">
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
   {% if culture == 'ar' %}انتهت صلاحية اشتراكك{% else %}Your Subscription Has Expired{% endif %}
 </h2>
 
-<p style="margin:0 0 20px 0;font-size:15px;color:#4b5563;line-height:1.75;">
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
   {% if culture == 'ar' %}
-    عزيزي <strong style="color:#0f172a;">{{ SubscriberName }}</strong>، انتهت صلاحية اشتراك خطة <strong>{{ PlanName }}</strong>.
+    عزيزي <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>، انتهت صلاحية اشتراك خطة <strong>{{ PlanName }}</strong>.
   {% else %}
-    Dear <strong style="color:#0f172a;">{{ SubscriberName }}</strong>, your <strong>{{ PlanName }}</strong> subscription has expired.
+    Dear <strong style="color:{{ t.text }};">{{ SubscriberName }}</strong>, your <strong>{{ PlanName }}</strong> subscription has expired.
   {% endif %}
 </p>
 
 {% capture card_content %}
-<p style="margin:0;font-size:14px;color:#64748b;">
+<p class="sk-p" style="margin:0;font-size:14px;color:{{ t.textMuted }};">
   {% if culture == 'ar' %}تنتهي فترة السماح في{% else %}Grace period ends on{% endif %}
 </p>
-<p style="margin:6px 0 0 0;font-size:17px;font-weight:700;color:#dc2626;">{{ GracePeriodEndsAt }}</p>
+<p class="sk-p" style="margin:6px 0 0 0;font-size:17px;font-weight:700;color:{{ t.danger }};">{{ GracePeriodEndsAt }}</p>
 {% endcapture %}
 {% if culture == 'ar' %}{% assign card_title = 'فترة السماح' %}{% else %}{% assign card_title = 'Grace Period' %}{% endif %}
 {% include 'Components/Card' %}

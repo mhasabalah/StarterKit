@@ -51,6 +51,34 @@ public sealed record RemoveMemberCommand(Guid UserId) : ICommand<RemoveMemberRes
 
 public sealed record RemoveMemberResult(Guid UserId);
 
+/// <summary>Who provisions a member without an invitation.</summary>
+public enum MemberProvisioningSource
+{
+    /// <summary>Just-in-time on the first enterprise SSO sign-in.</summary>
+    Sso = 0,
+
+    /// <summary>SCIM 2.0 directory sync (Entra ID, Okta, Google Workspace, ...).</summary>
+    Scim = 1
+}
+
+/// <summary>
+/// Directory provisioning in the CURRENT tenant (system action: SSO JIT or SCIM, not a member's request).
+/// Idempotent: creates the membership when missing, otherwise only applies what is set.
+/// <list type="bullet">
+/// <item><see cref="RoleIds"/> null = keep the roles (new members get none); a list replaces them. Unknown role ids
+/// are ignored.</item>
+/// <item><see cref="Active"/> null = keep the status (new members are active); false suspends, true reactivates.
+/// The owner is never suspended by a directory.</item>
+/// </list>
+/// </summary>
+public sealed record ProvisionMemberCommand(
+    Guid UserId,
+    MemberProvisioningSource Source,
+    IReadOnlyList<Guid>? RoleIds = null,
+    bool? Active = null) : ICommand<ProvisionMemberResult>;
+
+public sealed record ProvisionMemberResult(Guid UserId, bool Created, TenantMembershipStatus Status);
+
 /// <summary>The caller leaves the current tenant (owners must transfer ownership first).</summary>
 public sealed record LeaveTenantCommand : ICommand<LeaveTenantResult>;
 

@@ -69,6 +69,11 @@ public class E2ETestFactory : WebApplicationFactory<Program>
                 ["JwtSettings:Issuer"] = "StarterKitTests",
                 ["JwtSettings:Audience"] = "StarterKitTests",
                 ["JwtSettings:RequireHttpsMetadata"] = "false",
+
+                // Enterprise SSO against the in-process fake IdP (http on loopback) and the test frontend origin.
+                ["Identity:Sso:AllowInsecureIdentityProviders"] = "true",
+                ["Identity:Sso:PublicBaseUrl"] = "http://localhost",
+                ["Identity:Sso:AllowedReturnOrigins:0"] = "http://localhost:3000",
             });
         });
 
