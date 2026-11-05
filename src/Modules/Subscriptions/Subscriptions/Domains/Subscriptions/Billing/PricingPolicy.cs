@@ -4,7 +4,14 @@ namespace Subscriptions.Domains.Subscriptions.Billing;
 /// <param name="PeriodPrice">Price of the new period (tax basis), becomes the subscription's price snapshot.</param>
 /// <param name="DeferredProration">Deferred upgrade proration included in this bill (tax basis).</param>
 /// <param name="AmountDue">Gross amount of the renewal payment.</param>
-public readonly record struct RenewalCharge(decimal PeriodPrice, decimal DeferredProration, decimal AmountDue);
+/// <param name="CouponDiscount">Coupon discount taken off <paramref name="PeriodPrice"/> (tax basis); 0 = none.</param>
+/// <param name="CouponCode">The coupon behind <paramref name="CouponDiscount"/>.</param>
+public readonly record struct RenewalCharge(
+    decimal PeriodPrice,
+    decimal DeferredProration,
+    decimal AmountDue,
+    decimal CouponDiscount = 0m,
+    string? CouponCode = null);
 
 /// <summary>
 /// The ONE place prices are derived (previously duplicated in the past-due job, renewal approval and renewal
@@ -57,10 +64,33 @@ public static class PricingPolicy
         return PlanPriceAt(plan, at);
     }
 
-    public static RenewalCharge RenewalCharge(decimal periodPrice, decimal deferredProration, TaxPolicy tax)
+    /// <param name="coupon">The subscription's active coupon, if any; discounts the period price (not the deferred proration).</param>
+    public static RenewalCharge RenewalCharge(
+        decimal periodPrice,
+        decimal deferredProration,
+        TaxPolicy tax,
+        CouponTerms? coupon = null)
     {
         var deferred = Math.Max(0m, deferredProration);
-        return new RenewalCharge(periodPrice, deferred, TaxCalculator.AmountDue(periodPrice + deferred, tax));
+        var discount = CouponPricing.Discount(periodPrice, coupon);
+        return new RenewalCharge(
+            periodPrice,
+            deferred,
+            TaxCalculator.AmountDue(periodPrice - discount + deferred, tax),
+            discount,
+            discount > 0m ? coupon!.Code : null);
+    }
+
+    /// <summary>
+    /// Gross amount of the FIRST bill of a new subscription: the plan's effective price less the coupon discount.
+    /// </summary>
+    public static (decimal AmountDue, decimal CouponDiscount) ActivationCharge(
+        decimal planPrice,
+        TaxPolicy tax,
+        CouponTerms? coupon = null)
+    {
+        var discount = CouponPricing.Discount(planPrice, coupon);
+        return (TaxCalculator.AmountDue(planPrice - discount, tax), discount);
     }
 
     /// <summary>

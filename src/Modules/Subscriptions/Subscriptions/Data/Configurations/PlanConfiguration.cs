@@ -28,6 +28,7 @@ public class PlanConfiguration : IEntityTypeConfiguration<Plan>
         builder.Property(x => x.PriceEffectiveAt).IsRequired(false);
         builder.Property(x => x.PriceChangeAnnouncedAt).IsRequired(false);
         builder.Property(x => x.DiscountPercent).HasPrecision(5, 2).IsRequired(false);
+        builder.Property(x => x.TrialDays).IsRequired().HasDefaultValue(0);
 
         builder.HasIndex(x => x.SeedKey)
             .IsUnique()

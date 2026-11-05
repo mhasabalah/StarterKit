@@ -4,6 +4,12 @@ using Subscriptions.Options;
 
 namespace Subscriptions.Domains.Subscriptions.Entitlements;
 
+/// <summary>The current subscriber's plan snapshot (features with quota values, limits), memoized per request.</summary>
+public interface IEntitlementSnapshotSource
+{
+    Task<EntitlementSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// <see cref="IEntitlementService"/> answered from the subscriber's Active/PastDue subscription (plan features and
 /// limits are snapshotted on it). With <c>Subscriptions:Entitlements:Enforce = false</c> (default) every feature is
@@ -14,14 +20,14 @@ public sealed class PlanEntitlementService(
     ISubscriberIdProvider subscriberIdProvider,
     IEntitlementCache cache,
     IOptions<SubscriptionOptions> options,
-    ILogger<PlanEntitlementService> logger) : IEntitlementService
+    ILogger<PlanEntitlementService> logger) : IEntitlementService, IEntitlementSnapshotSource
 {
     private EntitlementSnapshot? _snapshot;
 
     public async Task<bool> HasFeatureAsync(string key, CancellationToken cancellationToken = default)
     {
         var snapshot = await GetSnapshotAsync(cancellationToken);
-        var has = snapshot.Features.TryGetValue(key, out var value) && bool.TryParse(value, out var on) && on;
+        var has = snapshot.Features.TryGetValue(key, out var value) && FeatureValue.IsEnabled(value);
 
         if (options.Value.Entitlements.Enforce)
             return has;
@@ -49,7 +55,7 @@ public sealed class PlanEntitlementService(
         };
     }
 
-    private async Task<EntitlementSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
+    public async Task<EntitlementSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
         if (_snapshot is not null)
             return _snapshot;
@@ -65,7 +71,7 @@ public sealed class PlanEntitlementService(
         var row = await dbContext.Subscriptions
             .AsNoTracking()
             .Where(x => x.SubscriberId == subscriberId.Value &&
-                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue))
+                        (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.PastDue || x.Status == SubscriptionStatus.Trialing))
             .OrderByDescending(x => x.UpdatedAt)
             .Select(x => new { x.FeaturesJson, x.MaxItems, x.MaxStorageGb, x.MaxUsers })
             .FirstOrDefaultAsync(cancellationToken);

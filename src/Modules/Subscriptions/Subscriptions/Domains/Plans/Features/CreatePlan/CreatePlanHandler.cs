@@ -12,6 +12,7 @@ public class CreatePlanCommandValidator : AbstractValidator<CreatePlanCommand>
         RuleFor(x => x.Name.Ar).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Currency).NotEmpty().MaximumLength(3);
+        RuleFor(x => x.TrialDays).InclusiveBetween(0, Plan.MaxTrialDays);
         RuleFor(x => x.BillingCycleInMonths).Must(x => x is 1 or 12);
     }
 }
@@ -31,7 +32,8 @@ public class CreatePlanHandler(IPlanRepository planRepository, IAdminAuditWriter
             command.MaxStorageGb,
             command.MaxUsers,
             command.IsPublic,
-            command.DiscountPercent);
+            command.DiscountPercent,
+            trialDays: command.TrialDays);
 
         audit.Record("CreatePlan", plan.Id, "Plan", amount: plan.Price, currency: plan.Currency,
             after: new { Name = plan.Name.En, plan.Price, plan.Currency, plan.BillingCycleInMonths, plan.DiscountPercent, plan.IsPublic });

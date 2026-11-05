@@ -14,4 +14,5 @@ public record UpdatePlanCommand(
     bool IsActive,
     bool IsPublic,
     long Version,
-    decimal? DiscountPercent = null) : ICommand;
+    decimal? DiscountPercent = null,
+    int TrialDays = 0) : ICommand;

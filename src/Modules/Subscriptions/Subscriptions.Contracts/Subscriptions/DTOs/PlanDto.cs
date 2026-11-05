@@ -13,4 +13,5 @@ public record PlanDto(
     List<PlanFeatureDto> Features,
     decimal? DiscountPercent = null,
     decimal? UpcomingPrice = null,
-    DateTimeOffset? PriceEffectiveAt = null);
+    DateTimeOffset? PriceEffectiveAt = null,
+    int TrialDays = 0);

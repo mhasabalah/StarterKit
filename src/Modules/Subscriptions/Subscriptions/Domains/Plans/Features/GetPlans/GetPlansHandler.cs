@@ -49,6 +49,7 @@ public class GetPlansHandler(SubscriptionsDbContext dbContext)
                 x.DiscountPercent,
                 x.PendingPrice,
                 x.PriceEffectiveAt,
+                x.TrialDays,
                 FeatureKeys = x.Features.Select(f => f.Key).ToList()
             })
             .ToListAsync(cancellationToken);
@@ -70,7 +71,8 @@ public class GetPlansHandler(SubscriptionsDbContext dbContext)
                 .ToList(),
             p.DiscountPercent,
             p.PendingPrice,
-            p.PriceEffectiveAt))
+            p.PriceEffectiveAt,
+            p.TrialDays))
             .ToList();
     }
 }

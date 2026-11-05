@@ -15,10 +15,10 @@ public class InboundWebhookEventRepository(SubscriptionsDbContext context) : IIn
 
         var inserted = await context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO subscriptions.inbound_webhook_events
-                (id, provider, event_id, type, provider_reference, amount, currency, payload, status, received_at, attempts)
+                (id, provider, event_id, type, provider_reference, amount, currency, provider_refund_id, payment_reference, payload, status, received_at, attempts)
             VALUES
                 ({id}, {provider}, {webhookEvent.EventId}, {type}, {webhookEvent.ProviderReference},
-                 {webhookEvent.Amount}, {webhookEvent.Currency}, {rawBody}::jsonb, {status}, {receivedAt}, 0)
+                 {webhookEvent.Amount}, {webhookEvent.Currency}, {webhookEvent.ProviderRefundId}, {webhookEvent.PaymentReference}, {rawBody}::jsonb, {status}, {receivedAt}, 0)
             ON CONFLICT (provider, event_id) DO NOTHING
             """, ct);
 

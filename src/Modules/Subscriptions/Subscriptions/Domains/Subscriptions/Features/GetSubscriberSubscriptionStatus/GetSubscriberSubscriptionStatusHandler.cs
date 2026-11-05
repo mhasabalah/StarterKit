@@ -52,6 +52,6 @@ public class GetSubscriberSubscriptionStatusHandler(SubscriptionsDbContext dbCon
             subscription.MaxItems ?? 0,
             subscription.MaxStorageGb ?? 0,
             FeaturesJson.Deserialize(subscription.FeaturesJson)
-                .ToDictionary(x => x.Key, x => bool.TryParse(x.Value, out var enabled) && enabled));
+                .ToDictionary(x => x.Key, x => FeatureValue.IsEnabled(x.Value)));
     }
 }

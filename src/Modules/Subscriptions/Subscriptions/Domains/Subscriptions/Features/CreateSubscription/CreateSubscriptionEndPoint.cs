@@ -3,7 +3,7 @@ using Subscriptions.Contracts.Subscriptions.Commands;
 
 namespace Subscriptions.Domains.Subscriptions.Features.CreateSubscription;
 
-public record CreateSubscriptionRequest(Guid PlanId);
+public record CreateSubscriptionRequest(Guid PlanId, string? CouponCode = null);
 
 public class CreateSubscriptionEndPoint : ICarterModule
 {
@@ -15,7 +15,7 @@ public class CreateSubscriptionEndPoint : ICarterModule
                     var subscriberId = subscribers.GetCurrentSubscriberId()
                         ?? throw new ForbiddenException("Unauthorized");
 
-                    var result = await sender.Send(new CreateSubscriptionCommand(subscriberId, request.PlanId), ct);
+                    var result = await sender.Send(new CreateSubscriptionCommand(subscriberId, request.PlanId, request.CouponCode), ct);
                     return Results.Created($"{EndpointConfig.BaseApiPath}/subscriptions/{result.SubscriptionId}",
                         ApiResponseExtensions.Success(result));
                 })

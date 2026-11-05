@@ -10,7 +10,10 @@ public static class FeaturesJson
 {
     public const string Empty = "{}";
 
-    public static string FromPlan(Plan plan) => Serialize(plan.Features.Select(x => x.Key));
+    public static string FromPlan(Plan plan) =>
+        JsonSerializer.Serialize(plan.Features
+            .GroupBy(x => x.Key, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => FeatureValue.For(g.First())));
 
     public static string Serialize(IEnumerable<string> enabledKeys) =>
         JsonSerializer.Serialize(enabledKeys.Distinct(StringComparer.Ordinal).ToDictionary(x => x, _ => "true"));

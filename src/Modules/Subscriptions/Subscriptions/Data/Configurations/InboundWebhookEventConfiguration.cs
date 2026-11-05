@@ -14,6 +14,8 @@ public class InboundWebhookEventConfiguration : IEntityTypeConfiguration<Inbound
         builder.Property(x => x.EventId).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Type).HasMaxLength(30).IsRequired();
         builder.Property(x => x.ProviderReference).HasMaxLength(200);
+        builder.Property(x => x.ProviderRefundId).HasMaxLength(200);
+        builder.Property(x => x.PaymentReference).HasMaxLength(200);
         builder.Property(x => x.Amount).HasPrecision(18, 2);
         builder.Property(x => x.Currency).HasMaxLength(3);
         builder.Property(x => x.Payload).HasColumnType("jsonb").IsRequired();

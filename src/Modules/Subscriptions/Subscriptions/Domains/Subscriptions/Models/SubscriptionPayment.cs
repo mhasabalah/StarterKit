@@ -25,6 +25,12 @@ public class SubscriptionPayment : Aggregate<Guid>
     /// <summary>Renewal payments: deferred upgrade proration included in <see cref="Amount"/> (tax basis).</summary>
     public decimal IncludedProrationAmount { get; private set; }
 
+    /// <summary>Coupon redeemed on this bill (snapshot); null = none.</summary>
+    public string? CouponCode { get; private set; }
+
+    /// <summary>Coupon discount already taken off this bill's price (tax basis, before tax). 0 = none.</summary>
+    public decimal CouponDiscountAmount { get; private set; }
+
     /// <summary>Proration payments: the plan before the upgrade (used to revert an unpaid upgrade).</summary>
     public Guid? OriginalPlanId { get; private set; }
 
@@ -104,6 +110,16 @@ public class SubscriptionPayment : Aggregate<Guid>
             Status = PaymentStatus.Pending,
             CreatedAt = now
         };
+    }
+
+    /// <summary>Records the coupon behind this bill's amount (snapshot for the invoice).</summary>
+    public void RecordCoupon(string code, decimal discountAmount)
+    {
+        if (discountAmount <= 0m)
+            return;
+
+        CouponCode = code;
+        CouponDiscountAmount = discountAmount;
     }
 
     /// <summary>A zero-amount, already paid activation payment for a complimentary (comp) activation.</summary>

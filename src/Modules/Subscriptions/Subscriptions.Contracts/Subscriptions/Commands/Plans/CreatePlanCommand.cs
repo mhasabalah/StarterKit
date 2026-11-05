@@ -12,4 +12,5 @@ public record CreatePlanCommand(
     int? MaxStorageGb,
     int? MaxUsers,
     bool IsPublic,
-    decimal? DiscountPercent = null) : ICommand<Guid>;
+    decimal? DiscountPercent = null,
+    int TrialDays = 0) : ICommand<Guid>;

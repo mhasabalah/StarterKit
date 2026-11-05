@@ -77,17 +77,20 @@ public class LedgerEntry
         SubscriptionRefundRequest refund,
         Guid? invoiceId,
         Guid actorId,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt,
+        decimal? amount = null)
     {
-        if (refund.RequestedAmount <= 0m)
-            throw new ArgumentOutOfRangeException(nameof(refund), refund.RequestedAmount, "A refund must be positive.");
+        // amount < RequestedAmount: the provider's own webhook already booked the rest of this refund.
+        var refunded = amount ?? refund.RequestedAmount;
+        if (refunded <= 0m)
+            throw new ArgumentOutOfRangeException(nameof(refund), refunded, "A refund must be positive.");
 
         return new LedgerEntry
         {
             Id = Guid.NewGuid(),
             OccurredAt = occurredAt,
             Type = LedgerEntryType.Refund,
-            Amount = -refund.RequestedAmount,
+            Amount = -refunded,
             Currency = refund.Currency,
             SubscriptionId = refund.SubscriptionId,
             SubscriberId = refund.SubscriberId,
@@ -99,6 +102,38 @@ public class LedgerEntry
             PlanName = refund.PlanName,
             Reference = Truncate(refund.ExternalTransactionRef, 200)
         };
+    }
+
+    /// <summary>
+    /// A refund the payment provider reported on its own (dashboard refund): no refund request exists.
+    /// <paramref name="providerRefundId"/> is the reference. Amount is the NEGATED refunded amount.
+    /// </summary>
+    public static LedgerEntry ForProviderRefund(
+        Subscription subscription,
+        Guid paymentId,
+        decimal amount,
+        string currency,
+        Guid? invoiceId,
+        Guid actorId,
+        DateTimeOffset occurredAt,
+        string provider,
+        string providerRefundId)
+    {
+        if (amount <= 0m)
+            throw new ArgumentOutOfRangeException(nameof(amount), amount, "A refund must be positive.");
+
+        return New(
+            LedgerEntryType.Refund,
+            -amount,
+            currency,
+            subscription,
+            actorId,
+            occurredAt,
+            $"Refund reported by {provider}",
+            provider,
+            providerRefundId,
+            paymentId,
+            invoiceId);
     }
 
     /// <summary>A standalone credit note (negative amounts) issued against an invoice.</summary>
