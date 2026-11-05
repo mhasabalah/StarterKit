@@ -180,3 +180,79 @@ public sealed class RecordingAuditWriter : Identity.Domains.Audit.Services.IIden
         Entries.Add(new Entry(Identity.Domains.Audit.Models.IdentityAuditActions.AccountErased, userId, "User",
             null, null, null, userId));
 }
+
+/// <summary>Localizer that returns the key (arguments appended) so tests can assert which message was chosen.</summary>
+public sealed class KeyLocalizer<T> : Microsoft.Extensions.Localization.IStringLocalizer<T>
+{
+    public Microsoft.Extensions.Localization.LocalizedString this[string name] => new(name, name);
+
+    public Microsoft.Extensions.Localization.LocalizedString this[string name, params object[] arguments] =>
+        new(name, arguments.Length == 0 ? name : $"{name}:{string.Join(",", arguments)}");
+
+    public IEnumerable<Microsoft.Extensions.Localization.LocalizedString> GetAllStrings(bool includeParentCultures) => [];
+}
+
+/// <summary>
+/// An <see cref="IQueryable{T}"/> over a list that EF's async operators (FirstOrDefaultAsync...) accept, for mocking
+/// <c>UserManager.Users</c> without a database.
+/// </summary>
+public static class AsyncQueryable
+{
+    public static IQueryable<T> From<T>(IEnumerable<T> items) => new TestAsyncEnumerable<T>(items);
+
+    private sealed class TestAsyncEnumerable<T> : EnumerableQuery<T>, IAsyncEnumerable<T>, IQueryable<T>
+    {
+        public TestAsyncEnumerable(IEnumerable<T> enumerable) : base(enumerable) { }
+
+        public TestAsyncEnumerable(System.Linq.Expressions.Expression expression) : base(expression) { }
+
+        public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new TestAsyncEnumerator<T>(this.AsEnumerable().GetEnumerator());
+
+        IQueryProvider IQueryable.Provider => new TestAsyncQueryProvider<T>(this);
+    }
+
+    private sealed class TestAsyncEnumerator<T>(IEnumerator<T> inner) : IAsyncEnumerator<T>
+    {
+        public T Current => inner.Current;
+
+        public ValueTask<bool> MoveNextAsync() => ValueTask.FromResult(inner.MoveNext());
+
+        public ValueTask DisposeAsync()
+        {
+            inner.Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class TestAsyncQueryProvider<TEntity>(IQueryProvider inner) : Microsoft.EntityFrameworkCore.Query.IAsyncQueryProvider
+    {
+        public IQueryable CreateQuery(System.Linq.Expressions.Expression expression) =>
+            new TestAsyncEnumerable<TEntity>(expression);
+
+        public IQueryable<TElement> CreateQuery<TElement>(System.Linq.Expressions.Expression expression) =>
+            new TestAsyncEnumerable<TElement>(expression);
+
+        public object? Execute(System.Linq.Expressions.Expression expression) => inner.Execute(expression);
+
+        public TResult Execute<TResult>(System.Linq.Expressions.Expression expression) => inner.Execute<TResult>(expression);
+
+        public TResult ExecuteAsync<TResult>(System.Linq.Expressions.Expression expression, CancellationToken cancellationToken)
+        {
+            var resultType = typeof(TResult).GetGenericArguments()[0];
+            var result = typeof(IQueryProvider)
+                .GetMethods()
+                .First(m => m is { Name: nameof(IQueryProvider.Execute), IsGenericMethod: true })
+                .MakeGenericMethod(resultType)
+                .Invoke(inner, [expression]);
+
+            return (TResult)typeof(Task).GetMethod(nameof(Task.FromResult))!
+                .MakeGenericMethod(resultType)
+                .Invoke(null, [result])!;
+        }
+    }
+
+    /// <summary>Makes <c>manager.Users</c> answer from <paramref name="users"/>.</summary>
+    public static void WithUserQuery(this Mock<UserManager<ApplicationUser>> manager, params ApplicationUser[] users) =>
+        manager.Setup(m => m.Users).Returns(From(users));
+}
