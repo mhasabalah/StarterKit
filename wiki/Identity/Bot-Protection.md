@@ -1,0 +1,98 @@
+# Bot protection (CAPTCHA)
+
+Anonymous endpoints that create accounts, send mail/SMS or check passwords are abuse targets. Rate limiting
+(`auth` / `otp` policies) caps volume per client; bot protection adds a human challenge on top. It is a port in
+`Shared.Core/BotProtection`, so any module can protect a public endpoint and the provider stays replaceable.
+
+## How it works
+
+1. The frontend renders the provider widget (Cloudflare Turnstile by default) with the **site key**.
+2. The widget yields a one-time token. The frontend sends it in the **`X-Captcha-Token`** header (request bodies are
+   unchanged).
+3. An endpoint declared with `.RequireHumanVerification("action")` calls `IHumanVerifier` before the handler runs.
+
+```csharp
+app.MapPost("api/auth/login", ...)
+   .AllowAnonymous()
+   .RequireRateLimiting("auth")
+   .RequireHumanVerification("login");
+```
+
+Protected endpoints (action name in quotes):
+
+| Endpoint | Action |
+|---|---|
+| `POST /api/auth/login` | `login` |
+| `POST /api/auth/register` | `register` |
+| `POST /api/auth/forgot-password` | `forgot-password` |
+| `POST /api/identity/onboarding/register` | `onboarding-register` |
+| `POST /api/identity/onboarding/resend-otp` | `resend-otp` |
+
+Deliberately **not** protected: refresh, reset-password and verify-reset-otp (they need a secret token or an OTP the
+caller already holds, and are rate limited), verify-phone/2FA verify, external login redirects, and every
+authenticated endpoint. Tenancy invitations are sent by authenticated members, so they are out of scope.
+
+## Errors
+
+| Situation | Status | `errorCode` |
+|---|---|---|
+| Header missing or blank | 400 | `captcha_required` |
+| Token rejected (invalid, expired, reused, wrong hostname/action) | 400 | `captcha_invalid` |
+| Provider unreachable and `FailOpen=false` | 503 | `captcha_unavailable` |
+
+400 (not 403) is used because the request is incomplete or malformed from the caller's side, not an authorization
+decision; clients that log users out on 401/403 must not do so here. Branch on `errorCode`: on `captcha_required` /
+`captcha_invalid`, reset the widget and ask for a new token (tokens are single use). Messages are localized (en, ar).
+
+## Configuration (`BotProtection`)
+
+| Key | Default | Notes |
+|---|---|---|
+| `Enabled` | `false` | Off in dev/tests: `NoOpHumanVerifier` is registered and no header is needed |
+| `Provider` | `Turnstile` | `None` \| `Turnstile` |
+| `SecretKey` | empty | Never commit. Env `BotProtection__SecretKey` or Docker secret file `BotProtection__SecretKey` / `turnstile_secret` |
+| `SiteKey` | empty | Public; for the frontend |
+| `AllowedHostnames` | `[]` | When set, the token's hostname must match (e.g. `app.example.com`) |
+| `TimeoutSeconds` | `5` | Provider call budget (1 to 30) |
+| `FailOpen` | `true` | See below |
+| `Actions` | `[]` | Empty = all declared endpoints. Set e.g. `["register","resend-otp"]` to protect only those |
+
+Options are validated on start (Enabled needs a provider and a secret). In non-development environments
+`ProductionConfigurationGuard` also refuses to boot when `Enabled=true` and the secret is empty or `CHANGE_ME`.
+`appsettings.json` ships an empty `SecretKey` (not `CHANGE_ME`) because the placeholder guard would otherwise block
+production boots that leave the feature off.
+
+Cloudflare test secrets (dev and CI): `1x0000000000000000000000000000000AA` always passes,
+`2x0000000000000000000000000000000AA` always fails. Pair them with the test site keys from the Turnstile docs.
+
+## Fail-open trade-off
+
+If the provider times out, errors or returns 5xx, the adapter either lets the request through (`FailOpen=true`,
+default) or rejects it (`FailOpen=false`, 503). Fail-open keeps sign-in available during a Cloudflare outage at the
+cost of a temporary gap an attacker could exploit by degrading the provider (hard to do) while rate limiting still
+applies. Choose fail-closed if abuse costs you more than downtime. An **invalid** token is always rejected.
+Each degraded call logs a warning and counts `provider_error`.
+
+## Observability
+
+Counter `bot_protection.verifications` (meter `StarterKit.BotProtection`) tagged `outcome`
+(`success` | `failure` | `provider_error`) and `action`. Alert on a rising `provider_error` share (outage, fail-open
+active) or a spike of `failure` (an attack).
+
+## Action binding
+
+Set `data-action="login"` (etc.) on the widget with the same names as above. The adapter compares the echoed
+action when present, so a token minted on one form cannot be replayed on another.
+
+## Adding a provider (hCaptcha, reCAPTCHA)
+
+1. Implement `IHumanVerifier` in `Shared.Core/BotProtection` (a typed `HttpClient`, using `BotProtectionOptions`).
+2. Add a `BotProtectionProvider` value and one `case` in `AddBotProtection`.
+3. Add adapter tests with a fake `HttpMessageHandler` (see `TurnstileHumanVerifierTests`).
+
+Nothing else changes: endpoints, errors, config shape and metrics are provider-neutral.
+
+## Tests
+
+`Shared.Core.Tests/BotProtection` (adapter and filter), `Api.E2ETests/Identity/BotProtectionE2ETests` (HTTP, fake
+verifier swapped in), `ProductionConfigurationGuardTests` (boot guard).
