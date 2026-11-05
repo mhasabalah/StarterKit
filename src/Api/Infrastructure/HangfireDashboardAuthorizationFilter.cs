@@ -47,7 +47,9 @@ public sealed class HangfireDashboardAuthorizationFilter : IDashboardAuthorizati
     {
         var user = httpContext.User;
 
+        // An API key never opens the dashboard, whatever its owner is (scopes do not cover it).
         return user.Identity?.IsAuthenticated == true &&
+               !ApiKeyPrincipal.IsApiKey(user) &&
                (user.IsInRole(RoleConstants.Admin) || user.IsInRole(RoleConstants.SuperAdmin));
     }
 

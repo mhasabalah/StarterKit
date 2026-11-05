@@ -232,6 +232,11 @@ public static class RateLimitingExtensions
     /// <summary>"user:{id}" for authenticated callers, otherwise "ip:{client ip}".</summary>
     public static string GetUserOrIpKey(HttpContext ctx)
     {
+        // API keys get their own bucket: one noisy integration must not exhaust its owner's interactive budget.
+        if (ctx.User.Identity?.IsAuthenticated == true &&
+            ctx.User.FindFirstValue(Authorization.ApiKeyClaimTypes.KeyId) is { Length: > 0 } keyId)
+            return $"apikey:{keyId}";
+
         var userId = GetUserId(ctx);
         return userId is not null ? $"user:{userId}" : GetIpKey(ctx);
     }

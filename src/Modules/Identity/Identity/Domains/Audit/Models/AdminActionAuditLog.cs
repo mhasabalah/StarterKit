@@ -93,6 +93,8 @@ public static class IdentityAuditActions
     public const string TwoFactorRecoveryCodesRegenerated = "2fa.recovery_codes_regenerated";
     public const string TwoFactorRecoveryCodeUsed = "2fa.recovery_code_used";
     public const string ImpersonationStarted = "impersonation.started";
+    public const string SessionRevoked = "session.revoked";
+    public const string ApiKeyRevoked = "api_key.revoked";
 }
 
 public static class IdentityAuditTargets

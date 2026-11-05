@@ -35,6 +35,7 @@ Access tokens carry roles only; `PermissionClaimsTransformation` adds the `permi
 | `billing.export` | x | x | x | | |
 | `plans.manage` | x | x | x | | |
 | `payment-settings.manage` | x | x | x | | |
+| `billing.coupons.manage` | x | x | x | | |
 | `users.read` | x | x | | x | |
 | `users.manage` | x | x | | | |
 | `admins.manage` | x | | | | |

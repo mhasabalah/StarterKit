@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 using Shared.Core.Web;
 
@@ -23,6 +24,7 @@ public class RegenerateRecoveryCodesEndPoint : ICarterModule
                     new RegenerateRecoveryCodesCommand(userId.Value, request.Code), cancellationToken);
                 return Results.Ok(ApiResponse.Success(result, result.Message));
             })
+            .DisallowApiKey()
             .WithName("RegenerateRecoveryCodes")
             .WithApiVersionSet(app.NewApiVersionSet("Identity").Build())
             .WithTags("Two-Factor Authentication")

@@ -1,3 +1,4 @@
+using Shared.Core.Authorization;
 using Identity.Contracts.Auth.Commands;
 
 namespace Identity.Domains.Auth.Features.Logout;
@@ -25,6 +26,7 @@ public class LogoutEndPoint : ICarterModule
         .WithSummary("Logout and invalidate tokens")
         .WithDescription(@"Revokes the current access token and optionally the refresh token.
             Set logoutAllDevices=true to revoke all refresh tokens for this user.")
+        .DisallowApiKey() // sessions are ended by interactive sessions, never by a machine key
         .RequireAuthorization() // Must be authenticated to logout
         .HasApiVersion(1.0);
     }

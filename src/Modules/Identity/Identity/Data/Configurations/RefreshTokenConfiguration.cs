@@ -37,6 +37,12 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
             .HasMaxLength(45)
             .IsRequired();
 
+        entity.Property(e => e.UserAgent)
+            .HasMaxLength(512);
+
+        entity.Property(e => e.DeviceName)
+            .HasMaxLength(100);
+
         entity.Property(e => e.RevokedByIp)
             .HasMaxLength(45);
 
