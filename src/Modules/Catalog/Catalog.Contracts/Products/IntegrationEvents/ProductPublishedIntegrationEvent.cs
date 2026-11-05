@@ -10,6 +10,7 @@ namespace Catalog.Contracts.Products.IntegrationEvents;
 /// Carries ids and a minimal projection only, never the aggregate. The urn is the stable wire name - never change it.
 /// </summary>
 [MessageUrn("catalog.product-published.v1")]
+[PublicWebhookEvent(Description = "A product went live in the catalog.")]
 public sealed class ProductPublishedIntegrationEvent : IntegrationEvent
 {
     public Guid ProductId { get; init; }
