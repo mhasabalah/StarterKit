@@ -1,3 +1,6 @@
+using Notification.Contracts.InApp;
+using Notification.Contracts.Push;
+
 namespace Notification.Dispatch;
 
 /// <summary>
@@ -19,13 +22,23 @@ public sealed record NotificationMessage
     /// <summary>WhatsApp payload — present only when a WhatsApp message should be sent.</summary>
     public WhatsAppPayload? WhatsApp { get; init; }
 
+    /// <summary>In-app (inbox + real-time) payload. Delivered by <c>InAppDeliveryJob</c>, not the fallback chain.</summary>
+    public InAppContent? InApp { get; init; }
+
+    /// <summary>Push payload. Delivered by <c>PushDeliveryJob</c>, not the fallback chain.</summary>
+    public PushContent? Push { get; init; }
+
+    /// <summary>True when the email/WhatsApp fallback chain has something to deliver.</summary>
+    public bool HasFallbackChainPayload => Email is not null || WhatsApp is not null;
+
     /// <summary>
     /// Derived label for logging and persistence.
-    /// Prefers the email template name; falls back to WhatsApp; then "unknown".
+    /// Prefers the email template name; falls back to WhatsApp, the in-app category, then "push" / "unknown".
     /// </summary>
     public string TemplateName => Email?.Template.ToString()
         ?? WhatsApp?.Template.ToString()
-        ?? "unknown";
+        ?? InApp?.Category
+        ?? (Push is not null ? "push" : "unknown");
 
     /// <summary>
     /// Returns <c>true</c> when this message carries a payload for the given channel.
@@ -36,6 +49,8 @@ public sealed record NotificationMessage
     {
         NotificationChannel.Email => Email is not null,
         NotificationChannel.WhatsApp => WhatsApp is not null,
+        NotificationChannel.InApp => InApp is not null,
+        NotificationChannel.Push => Push is not null,
         _ => false
     };
 }

@@ -53,13 +53,15 @@ wiki/
 - [0008](Decisions/0008-feature-flags.md): own feature-flag port (no Microsoft.FeatureManagement)
 - [0009](Decisions/0009-outbound-webhooks.md): outbound customer webhooks module
 - [0011](Decisions/0011-audit-trail.md): generic same-transaction audit trail
+- [0012](Decisions/0012-realtime-inbox-and-push.md): in-app inbox, SignalR hub and FCM push as additive channels
 
 ## Modules
 
 - [Catalog](Modules/Catalog.md): the **reference module**; wiring checklist; removing the sample
 - [Tenancy](Modules/Tenancy.md): control plane
 - [Subscriptions](Modules/Subscriptions.md): plans, subscriptions, billing
-- [Notification](Modules/Notification.md): email and WhatsApp delivery
+- [Notification](Modules/Notification.md): email, WhatsApp, in-app and push delivery
+  - [Notification-Realtime-and-Push](Modules/Notification-Realtime-and-Push.md): in-app inbox, SignalR hub, FCM push devices
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 
 ## Multi-tenancy

@@ -11,7 +11,7 @@ explanations live in `wiki/`.
 - optional multi-tenancy (tenants, branches, memberships, shared or dedicated DBs)
 - attachments (Local / Azure Blob / S3)
 - subscriptions and billing
-- email + WhatsApp notifications
+- notifications: email + WhatsApp (fallback chain), an in-app inbox with real-time SignalR events, FCM push
 - Redis, Hangfire, MassTransit with a transactional outbox, OpenTelemetry, .NET Aspire
 - Docker/Nginx/GitHub Actions deployment
 
@@ -65,7 +65,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Attachment**: files.
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
 - **Catalog**: the sample; products, categories, tags, wishlist.
-- **Notification**: every email/WhatsApp delivery and its log.
+- **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 
 Shared projects hold **no** business state. Anything with its own schema, jobs or endpoints is a module.
@@ -217,6 +217,14 @@ Notification is the exception: its context is in `Persistence/`.
 - **Notifications.** Inject `INotificationSender`:
   `.For(userId)` / `.ToEmail(addr)` → `.WithEmail(EmailTemplate.X, model.ToDictionary())` → `.SendAsync(...)`.
   Security mail forces `NotificationChannel.Email`. There is no other email API.
+  - In-app and push are ADDITIVE channels (never in a channel order): `.WithInApp(new InAppContent(...))`,
+    `.WithPush(...)`. Each channel group is its own Hangfire job sharing one correlation id; keep the chain's
+    idempotency check on chain rows only.
+  - Real time = the push-only hub `/hubs/notifications` (`IRealtimeNotifier`, best effort, never throws). Commands
+    stay REST. A token in the URL (`?access_token=`) is accepted ONLY under `RealtimePaths.HubPrefix`, and every
+    revocation check runs on the validated token (`TokenBlacklistJwtBearerEvents`).
+  - Push goes only through `IPushProvider` (FCM adapter; FirebaseAdmin stays in Notification). Devices are bound to
+    the registering session (`sid`). Guide: `wiki/Modules/Notification-Realtime-and-Push.md`.
 - **Localization.**
   - User-facing text and validation messages use `IStringLocalizer<<M>Resource>`, with every key in both the `en`
     and `ar` resx files.
@@ -300,7 +308,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 |---|---|
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. **Register new modules in `Modules`.** |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
-| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
 | `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id`; parameterless `IgnoreQueryFilters()` appears |

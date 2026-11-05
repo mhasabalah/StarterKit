@@ -16,10 +16,11 @@ public sealed class UpdateUserPreferenceEndPoint : ICarterModule
                     if (validationError is not null)
                         return ApiResponseExtensions.BadRequest(validationError);
 
-                    var now = await preferences.UpsertAsync(userId, request.ChannelOrder, ct);
+                    var now = await preferences.UpsertAsync(userId, request.ChannelOrder, request.PushEnabled, ct);
+                    var pushEnabled = request.PushEnabled ?? await preferences.IsPushEnabledAsync(userId, ct);
 
                     return Results.Ok(ApiResponseExtensions.Success(
-                        new UpdatePreferenceResponse(userId, request.ChannelOrder, now)));
+                        new UpdatePreferenceResponse(userId, request.ChannelOrder, now, pushEnabled)));
                 })
             .WithName("UpdateUserNotificationPreference")
             .WithApiVersionSet(app.NewApiVersionSet("Notifications").Build())

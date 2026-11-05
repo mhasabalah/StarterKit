@@ -14,6 +14,12 @@ public static class ChannelOrderRules
         if (channelOrder.Any(c => !Enum.IsDefined(c)))
             return "channelOrder contains an unknown channel.";
 
+        // In-app and push are delivered IN ADDITION to the chain (inbox always, push per PushEnabled), never instead of it.
+        var additive = channelOrder.Where(c => c.IsAdditive()).ToArray();
+        if (additive.Length > 0)
+            return $"{string.Join(", ", additive)} cannot be part of channelOrder: in-app and push are always delivered " +
+                   "alongside it (use pushEnabled to turn push off).";
+
         if (channelOrder.Distinct().Count() != channelOrder.Length)
             return "channelOrder must not contain duplicates.";
 

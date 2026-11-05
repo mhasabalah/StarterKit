@@ -36,9 +36,12 @@ public class DockerSecretsConfigurationProvider(string secretsPath, string? envi
             ["dataprotection_cert_password"] = ["Identity:DataProtection:Certificate:Password"],
         };
 
-    /// <summary>Secret files that are binary (e.g. a PFX) and must not be loaded as configuration values.</summary>
+    /// <summary>
+    /// Secret files read BY PATH, never loaded as configuration values: binary certificates (PFX) and key files
+    /// (e.g. the FCM service-account JSON, <c>Push:CredentialsFile</c>) - a private key has no business in IConfiguration.
+    /// </summary>
     public static readonly IReadOnlySet<string> BinarySecretExtensions =
-        new HashSet<string>([".pfx", ".p12"], StringComparer.OrdinalIgnoreCase);
+        new HashSet<string>([".pfx", ".p12", ".json"], StringComparer.OrdinalIgnoreCase);
 
     public override void Load()
     {

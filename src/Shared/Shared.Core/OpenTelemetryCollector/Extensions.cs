@@ -106,7 +106,11 @@ public static class Extensions
                     )
                     .AddMeter("System.Runtime")
                     .AddMeter("Microsoft.AspNetCore.Hosting")
-                    .AddMeter("Microsoft.AspNetCore.Server.Kestrel");
+                    .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
+                    // SignalR: signalr.server.active_connections / connection.duration (notification hub).
+                    .AddMeter("Microsoft.AspNetCore.Http.Connections")
+                    // Notification module: in-app / push / real-time counters (Notification.Dispatch.NotificationMetrics).
+                    .AddMeter("StarterKit.Notification");
 
                 AddMetricsExporters(metrics, observabilityOptions, exporterPlan);
             });

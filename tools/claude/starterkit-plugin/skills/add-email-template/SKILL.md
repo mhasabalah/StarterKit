@@ -41,6 +41,30 @@ await notifications
   Identity directly.
 - Links: relative URLs are resolved against `Email:AppBaseUrl` through `INotificationLinkResolver`.
 
+## Also in-app and push? (no template needed)
+
+If the user should also see it in the app inbox (real-time) and/or get a phone/web push, add the ADDITIVE channels
+on the same builder. They need no template files, only bilingual text:
+
+```csharp
+await notifications
+    .For(userId, culture)
+    .WithEmail(EmailTemplate.<X>, model.ToDictionary())
+    .WithInApp(new InAppContent(
+        new LocalizedText("<title en>", "<title ar>"),
+        new LocalizedText("<body en>", "<body ar>"),
+        Category: "<module>.<event>",                 // e.g. "billing.invoice-issued"; clients route by it
+        ActionUrl: "/<app route>",                    // relative, or a host in Email:AllowedLinkHosts
+        Data: new Dictionary<string, string> { ["<id>"] = id.ToString() }))   // ids only, no PII
+    .WithPush()                                       // same text; WithPush(sensitive: true) for personal content
+    .SendAsync(cancellationToken: ct);
+```
+
+- They are delivered IN ADDITION to the email (never as fallback) and need a user recipient.
+- Never put `InApp`/`Push` in a channel order; `SendAsync(NotificationChannel.Push)` sends ONLY the push.
+- Test: assert on your fake `INotificationBuilder` (it must implement `WithInApp` / `WithPush`).
+- Guide: `wiki/Modules/Notification-Realtime-and-Push.md`.
+
 ## Verify
 
 ```bash

@@ -1,11 +1,24 @@
 using Hangfire.Common;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Notification.Contracts.Realtime;
+using StackExchange.Redis;
+using RedisOptions = Shared.Core.Options.RedisOptions;
 
 namespace Notification;
 
 /// <summary>
-/// The Notification module: delivers messages to people over every channel (email, WhatsApp) with one dispatch
-/// pipeline (preferences, fallback, retries, idempotency), one delivery log (<c>notification.notification_log</c>)
-/// and synchronous one-time code delivery (<see cref="IOtpDeliveryService"/>). Other modules use <c>Notification.Contracts</c> only (<see cref="INotificationSender"/>).
+/// The Notification module: delivers messages to people over every channel with one dispatch pipeline and one delivery
+/// log (<c>notification.notification_log</c>):
+/// <list type="bullet">
+/// <item>email / WhatsApp - a fallback chain (preferences, fallback, retries, idempotency);</item>
+/// <item>in-app - the user's inbox (<c>notification.inbox_notification</c>) + real-time SignalR events on
+/// <see cref="NotificationHubContract.Path"/> (Redis backplane across replicas);</item>
+/// <item>push - FCM to the user's session-bound devices (<c>notification.push_device</c>);</item>
+/// <item>synchronous one-time code delivery (<see cref="IOtpDeliveryService"/>).</item>
+/// </list>
+/// Other modules use <c>Notification.Contracts</c> only (<see cref="INotificationSender"/>).
 /// </summary>
 public static class NotificationModule
 {
@@ -28,9 +41,14 @@ public static class NotificationModule
         services.AddTransient<NotificationDailyPurgeJob>();
         services.AddTransient<NotificationDailyFailureSummaryJob>();
         services.AddSingleton<NotificationFailedStateFilter>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddMetrics();
+        services.AddSingleton<NotificationMetrics>();
 
         AddEmailChannel(services);
         AddWhatsAppChannel(services);
+        AddInAppChannel(services, configuration);
+        AddPushChannel(services);
 
         // One-time code DELIVERY (synchronous, not through the dispatch job). Identity issues and verifies codes.
         services.AddTransient<IOtpDeliveryService, OtpDeliveryService>();
@@ -46,6 +64,8 @@ public static class NotificationModule
         app.UseMigration<NotificationDbContext>();
 
         GlobalJobFilters.Filters.Add(app.Services.GetRequiredService<NotificationFailedStateFilter>());
+
+        MapRealtimeHub(app);
 
         var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
         recurringJobs.AddOrUpdate(
@@ -64,6 +84,10 @@ public static class NotificationModule
         var emailOptions = app.Services.GetRequiredService<IOptions<EmailOptions>>().Value;
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Notification");
         logger.LogInformation("Email provider: {Provider}", ResolveEmailProvider(emailOptions, app.Environment));
+        var pushOptions = app.Services.GetRequiredService<IOptions<PushOptions>>().Value;
+        logger.LogInformation(
+            "Push provider: {Provider} (configured: {Configured}, credentials: {HasCredentials})",
+            ResolvePushProvider(pushOptions), pushOptions.Provider, pushOptions.HasCredentials);
 
         // Smoke-render every email template in every culture with a populated sample model.
         // Development: throw (fail loudly). Elsewhere: log a warning per broken template.
@@ -86,6 +110,37 @@ public static class NotificationModule
                 ? EmailProvider.NoOp
                 : EmailProvider.Smtp
         };
+
+    /// <summary>Resolves <see cref="PushProvider.Auto"/>: FCM when credentials are configured, otherwise NoOp.</summary>
+    public static PushProvider ResolvePushProvider(PushOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.Provider switch
+        {
+            PushProvider.Fcm => PushProvider.Fcm,
+            PushProvider.NoOp => PushProvider.NoOp,
+            _ => options.HasCredentials ? PushProvider.Fcm : PushProvider.NoOp
+        };
+    }
+
+    /// <summary>Parses <see cref="RealtimeOptions.Transports"/>; an unknown name throws (also caught by options validation).</summary>
+    public static HttpTransportType ParseTransports(IEnumerable<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        var result = HttpTransportType.None;
+        foreach (var name in names)
+        {
+            result |= TryParseTransport(name, out var transport)
+                ? transport
+                : throw new InvalidOperationException($"Realtime:Transports contains an unknown transport '{name}'.");
+        }
+
+        return result;
+    }
+
+    private static bool TryParseTransport(string? name, out HttpTransportType transport) =>
+        Enum.TryParse(name, ignoreCase: true, out transport)
+        && transport is HttpTransportType.WebSockets or HttpTransportType.ServerSentEvents or HttpTransportType.LongPolling;
 
     /// <summary>Renders every template × culture; returns the failures (template, culture, exception).</summary>
     public static IReadOnlyList<(EmailTemplate Template, NotificationCulture Culture, Exception Error)> SmokeRenderAllTemplates(
@@ -130,6 +185,8 @@ public static class NotificationModule
         services.AddOptions<NotificationOptions>()
             .Bind(configuration.GetSection("Notification"))
             .Validate(o => o.DefaultChannelOrder is { Length: > 0 }, "Notification:DefaultChannelOrder must not be empty.")
+            .Validate(o => o.DefaultChannelOrder is null || !o.DefaultChannelOrder.Any(c => c.IsAdditive()),
+                "Notification:DefaultChannelOrder must not contain InApp or Push (they are delivered alongside the chain).")
             .Validate(o => o.FallbackAfterAttempts > 0, "Notification:FallbackAfterAttempts must be > 0.")
             .ValidateOnStart();
 
@@ -153,6 +210,101 @@ public static class NotificationModule
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<WhatsAppOptions>, WhatsAppOptionsValidator>();
         services.AddSingleton(sp => new WhatsAppTemplateRegistry(sp.GetRequiredService<IOptions<WhatsAppOptions>>().Value));
+
+        // Push: the FCM service-account JSON is overlaid from the Docker secret (never stored in appsettings).
+        services.AddOptions<PushOptions>()
+            .Bind(configuration.GetSection(PushOptions.SectionName))
+            .PostConfigure(o => o.CredentialsJson = configuration["fcm_service_account_json"] ?? o.CredentialsJson)
+            .Validate(o => o.Provider != PushProvider.Fcm || o.HasCredentials,
+                "Push:Provider is Fcm but no credentials are configured (secret fcm_service_account_json or Push:CredentialsFile).")
+            .Validate(o => o.MaxAttempts is >= 1 and <= 10, "Push:MaxAttempts must be between 1 and 10.")
+            .Validate(o => o.MaxDevicesPerUser is >= 1 and <= 100, "Push:MaxDevicesPerUser must be between 1 and 100.")
+            .Validate(o => o.StaleDeviceDays > 0, "Push:StaleDeviceDays must be > 0.")
+            .Validate(o => o.DefaultTimeToLive > TimeSpan.Zero && o.DefaultTimeToLive <= TimeSpan.FromDays(28),
+                "Push:DefaultTimeToLive must be between 1 second and 28 days (the FCM maximum).")
+            .ValidateOnStart();
+
+        services.AddOptions<InboxOptions>()
+            .Bind(configuration.GetSection(InboxOptions.SectionName))
+            .Validate(o => o.RetentionDays > 0, "Inbox:RetentionDays must be > 0.")
+            .ValidateOnStart();
+
+        services.AddOptions<RealtimeOptions>()
+            .Bind(configuration.GetSection(RealtimeOptions.SectionName))
+            .Validate(o => o.TransportNames is { Length: > 0 } && o.TransportNames.All(t => TryParseTransport(t, out _)),
+                "Realtime:Transports must list at least one of WebSockets, ServerSentEvents, LongPolling (and nothing else).")
+            .Validate(o => o.KeepAliveInterval > TimeSpan.Zero && o.ClientTimeoutInterval > o.KeepAliveInterval,
+                "Realtime:ClientTimeoutInterval must be greater than Realtime:KeepAliveInterval (> 0).")
+            .ValidateOnStart();
+    }
+
+    private static void AddInAppChannel(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddTransient<IInboxNotificationRepository, InboxNotificationRepository>();
+        services.AddTransient<InAppDeliveryJob>();
+
+        var realtime = configuration.GetSection(RealtimeOptions.SectionName).Get<RealtimeOptions>() ?? new RealtimeOptions();
+        if (!realtime.Enabled)
+        {
+            services.AddSingleton<IRealtimeNotifier, NoOpRealtimeNotifier>();
+            return;
+        }
+
+        var signalR = services.AddSignalR(o =>
+        {
+            o.KeepAliveInterval = realtime.KeepAliveInterval;
+            o.ClientTimeoutInterval = realtime.ClientTimeoutInterval;
+            // Server -> client only: clients send nothing but the handshake and pings.
+            o.MaximumReceiveMessageSize = 4 * 1024;
+            o.EnableDetailedErrors = false;
+        });
+        services.AddSingleton<IUserIdProvider, NotificationHubUserIdProvider>();
+        services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
+
+        // Scale-out: with Redis on, every replica relays hub sends through Redis pub/sub, so a send from the replica
+        // that runs the Hangfire job reaches a socket held by another replica. A DEDICATED connection: the backplane
+        // owns (and disposes) its multiplexer, and pub/sub traffic stays off the cache connection.
+        var redis = configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
+        if (realtime.UseRedisBackplane && redis.Enabled)
+        {
+            // Resolved lazily (first hub use), like every other options value; AddRedisCache already fails fast on a
+            // missing production secret.
+            signalR.AddStackExchangeRedis(o =>
+            {
+                o.Configuration = RedisConnectionConfiguration.Resolve(configuration, redis).Clone();
+                o.Configuration.ChannelPrefix = RedisChannel.Literal(redis.InstanceName.TrimEnd(':') + ":signalr");
+            });
+        }
+    }
+
+    private static void AddPushChannel(IServiceCollection services)
+    {
+        services.AddTransient<IPushDeviceRepository, PushDeviceRepository>();
+        services.AddTransient<PushDeliveryJob>();
+        services.AddSingleton<FcmPushProvider>();
+        services.AddSingleton<NoOpPushProvider>();
+        services.AddSingleton<IPushProvider>(sp =>
+            ResolvePushProvider(sp.GetRequiredService<IOptions<PushOptions>>().Value) == PushProvider.Fcm
+                ? sp.GetRequiredService<FcmPushProvider>()
+                : sp.GetRequiredService<NoOpPushProvider>());
+    }
+
+    private static void MapRealtimeHub(WebApplication app)
+    {
+        var realtime = app.Services.GetRequiredService<IOptions<RealtimeOptions>>().Value;
+        if (!realtime.Enabled)
+            return;
+
+        app.MapHub<NotificationHub>(NotificationHubContract.Path, o =>
+            {
+                o.Transports = ParseTransports(realtime.TransportNames);
+                // Drop the socket when its access token expires: a revoked session or password change cannot keep a
+                // connection alive beyond one access-token lifetime (clients reconnect with a fresh token).
+                o.CloseOnAuthenticationExpiration = true;
+                o.ApplicationMaxBufferSize = 4 * 1024;
+            })
+            .RequireAuthorization()
+            .DisallowApiKey();
     }
 
     private static void AddEmailChannel(IServiceCollection services)

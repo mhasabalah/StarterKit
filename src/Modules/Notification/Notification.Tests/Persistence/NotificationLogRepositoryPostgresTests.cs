@@ -59,9 +59,13 @@ public sealed class NotificationLogRepositoryPostgresTests : IAsyncLifetime
         await using var db = new NotificationDbContext(_options);
 
         (await db.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
-        (await db.Database.GetAppliedMigrationsAsync()).Should().ContainSingle().Which.Should().EndWith("_InitialNotification");
+        (await db.Database.GetAppliedMigrationsAsync()).Should().SatisfyRespectively(
+            first => first.Should().EndWith("_InitialNotification"),
+            second => second.Should().EndWith("_AddInboxAndPushDevices"));
         (await db.NotificationLogs.CountAsync()).Should().Be(0);
         (await db.UserNotificationPreferences.CountAsync()).Should().Be(0);
+        (await db.InboxNotifications.CountAsync()).Should().Be(0);
+        (await db.PushDevices.CountAsync()).Should().Be(0);
     }
 
     [Fact]

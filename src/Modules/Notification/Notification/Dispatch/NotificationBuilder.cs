@@ -1,8 +1,11 @@
+using Notification.Contracts.InApp;
+using Notification.Contracts.Push;
+
 namespace Notification.Dispatch;
 
 /// <summary>
 /// <see cref="INotificationBuilder"/> returned by <see cref="INotificationSender"/>.
-/// Chain <c>.WithEmail()</c> and/or <c>.WithWhatsApp()</c>, then call <c>.SendAsync()</c>.
+/// Chain <c>.WithEmail()</c>, <c>.WithWhatsApp()</c>, <c>.WithInApp()</c> and/or <c>.WithPush()</c>, then call <c>.SendAsync()</c>.
 /// </summary>
 internal sealed class NotificationBuilder : INotificationBuilder
 {
@@ -14,6 +17,9 @@ internal sealed class NotificationBuilder : INotificationBuilder
     private readonly INotificationRecipientResolver? _recipients;
     private EmailPayload? _email;
     private WhatsAppPayload? _whatsApp;
+    private InAppContent? _inApp;
+    private PushContent? _push;
+    private bool? _pushFromInAppSensitive;
 
     internal NotificationBuilder(
         Guid userId,
@@ -50,6 +56,40 @@ internal sealed class NotificationBuilder : INotificationBuilder
         return this;
     }
 
+    public INotificationBuilder WithInApp(InAppContent content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(content.Title);
+        ArgumentNullException.ThrowIfNull(content.Body);
+        ArgumentException.ThrowIfNullOrWhiteSpace(content.Category);
+        if (content.Category.Length > InAppContent.CategoryMaxLength)
+            throw new ArgumentException($"Category must not exceed {InAppContent.CategoryMaxLength} characters.", nameof(content));
+        if (content.Data is { Count: > InAppContent.MaxDataEntries })
+            throw new ArgumentException($"Data must not exceed {InAppContent.MaxDataEntries} entries.", nameof(content));
+        _inApp = content;
+        return this;
+    }
+
+    public INotificationBuilder WithPush(PushContent content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(content.Title);
+        ArgumentNullException.ThrowIfNull(content.Body);
+        if (content.Data is { Count: > PushContent.MaxDataEntries })
+            throw new ArgumentException($"Data must not exceed {PushContent.MaxDataEntries} entries.", nameof(content));
+        _push = content;
+        _pushFromInAppSensitive = null;
+        return this;
+    }
+
+    public INotificationBuilder WithPush(bool sensitive = false)
+    {
+        // Resolved at SendAsync so WithInApp may come before or after this call.
+        _push = null;
+        _pushFromInAppSensitive = sensitive;
+        return this;
+    }
+
     /// <summary>
     /// Enqueues the notification for asynchronous dispatch.
     /// Pass <paramref name="forcedChannel"/> to bypass user channel preferences
@@ -74,8 +114,30 @@ internal sealed class NotificationBuilder : INotificationBuilder
             EmailOverride = _emailOverride,
             PhoneOverride = _phoneOverride,
             Email = _email,
-            WhatsApp = _whatsApp
+            WhatsApp = _whatsApp,
+            InApp = _inApp,
+            Push = ResolvePush()
         };
         return await _enqueuer.EnqueueAsync(message, forcedChannel, ct);
+    }
+
+    private PushContent? ResolvePush()
+    {
+        if (_push is not null)
+            return _push;
+        if (_pushFromInAppSensitive is not { } sensitive)
+            return null;
+
+        var inApp = _inApp ?? throw new InvalidOperationException(
+            "WithPush() without content reuses the in-app payload: call WithInApp(...) as well, or pass a PushContent.");
+
+        var data = new Dictionary<string, string>(inApp.Data ?? new Dictionary<string, string>(), StringComparer.Ordinal)
+        {
+            ["category"] = inApp.Category
+        };
+        if (!string.IsNullOrWhiteSpace(inApp.ActionUrl))
+            data["actionUrl"] = inApp.ActionUrl;
+
+        return new PushContent(inApp.Title, inApp.Body, data, sensitive);
     }
 }

@@ -518,6 +518,22 @@ NGINX_API_RATE_LIMIT=100
 NGINX_AUTH_RATE_LIMIT=10
 ```
 
+### Real-time hubs (`/hubs/`)
+
+SignalR (`/hubs/notifications`, [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md)) has
+its own `location /hubs/` in `deployment/nginx/conf.d/app-production.conf` (and in `infra/nginx/conf.d/*`):
+
+- WebSocket upgrade: `proxy_set_header Upgrade $http_upgrade` and `Connection $connection_upgrade` (a `map` in
+  `nginx.conf`: `upgrade` for upgrade requests, empty otherwise so upstream keepalive keeps working);
+- `proxy_buffering off`, `proxy_read_timeout 3600s` (well above the 15s hub keep-alive), `proxy_next_upstream off`;
+- a per-IP **connection** budget (`limit_conn hub_conn 50`) instead of a request rate: one socket is one request
+  that lasts for hours, and it replaces the server-wide `conn_limit 20` for this location;
+- **no token in the logs**: the access token travels as `?access_token=`, so the production hub location logs with
+  `json_hubs` (path only, `$uri`); the infra configs turn the hub access log off.
+
+With more than one API replica behind `least_conn` there are no sticky sessions: clients must connect with
+WebSockets and `skipNegotiation: true` (or add sticky sessions here), and the API uses the Redis backplane.
+
 ---
 
 ## ⚡ Performance Tuning

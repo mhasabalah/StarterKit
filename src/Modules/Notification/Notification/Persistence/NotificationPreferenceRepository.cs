@@ -8,7 +8,11 @@ public interface INotificationPreferenceRepository
     /// <summary>The user's channel order, falling back to <see cref="NotificationOptions.DefaultChannelOrder"/>.</summary>
     Task<NotificationChannel[]> ResolveChannelOrderAsync(Guid userId, CancellationToken ct = default);
 
-    Task<DateTime> UpsertAsync(Guid userId, NotificationChannel[] channelOrder, CancellationToken ct = default);
+    /// <summary>Stores the channel order; <paramref name="pushEnabled"/> null keeps the current push setting (default on).</summary>
+    Task<DateTime> UpsertAsync(Guid userId, NotificationChannel[] channelOrder, bool? pushEnabled = null, CancellationToken ct = default);
+
+    /// <summary>False only when the user explicitly turned push off.</summary>
+    Task<bool> IsPushEnabledAsync(Guid userId, CancellationToken ct = default);
 }
 
 public sealed class NotificationPreferenceRepository(
@@ -27,7 +31,14 @@ public sealed class NotificationPreferenceRepository(
     public async Task<NotificationChannel[]> ResolveChannelOrderAsync(Guid userId, CancellationToken ct = default)
         => await GetChannelOrderAsync(userId, ct) ?? options.Value.DefaultChannelOrder;
 
-    public async Task<DateTime> UpsertAsync(Guid userId, NotificationChannel[] channelOrder, CancellationToken ct = default)
+    public async Task<bool> IsPushEnabledAsync(Guid userId, CancellationToken ct = default) =>
+        await db.UserNotificationPreferences.AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Select(x => (bool?)x.PushEnabled)
+            .FirstOrDefaultAsync(ct) ?? true;
+
+    public async Task<DateTime> UpsertAsync(
+        Guid userId, NotificationChannel[] channelOrder, bool? pushEnabled = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
         var existing = await db.UserNotificationPreferences.FirstOrDefaultAsync(x => x.UserId == userId, ct);
@@ -39,12 +50,14 @@ public sealed class NotificationPreferenceRepository(
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 ChannelOrder = channelOrder,
+                PushEnabled = pushEnabled ?? true,
                 UpdatedAt = now
             });
         }
         else
         {
             existing.ChannelOrder = channelOrder;
+            existing.PushEnabled = pushEnabled ?? existing.PushEnabled;
             existing.UpdatedAt = now;
         }
 

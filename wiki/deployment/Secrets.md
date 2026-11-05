@@ -33,8 +33,10 @@ line of `Program.cs`) loads every file in `/run/secrets` into configuration:
   secret, not an env var, so it does not show in `docker inspect`.
 - **Any other file** becomes a key from its name, with `__` turned into `:`. For example, `Storage__S3__SecretKey`
   maps to `Storage:S3:SecretKey`.
-- **Binary files** (`.pfx`, `.p12`) are not loaded as values. They are referenced by path, for example
-  `Identity:DataProtection:Certificate:Path=/run/secrets/dataprotection_cert.pfx`.
+- **Binary and key files** (`.pfx`, `.p12`, `.json`) are not loaded as values. They are referenced by path, for
+  example `Identity:DataProtection:Certificate:Path=/run/secrets/dataprotection_cert.pfx` or the FCM service-account
+  key `Push:CredentialsFile=/run/secrets/fcm_service_account.json` (`docker-compose.push.yml`): a private key never
+  enters configuration.
 
 ## Creating the secret files
 
