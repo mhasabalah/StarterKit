@@ -6,10 +6,18 @@ using Shared.Core.Web;
 
 namespace Identity.Domains.Auth.Features.Logout;
 
+/// <summary>
+/// Logout ends the caller's SESSION, not just the presented tokens: the refresh-token family behind the access
+/// token's <c>sid</c> is revoked and the <c>sid</c> is blacklisted (via <see cref="ISessionManager"/>, the same path as
+/// "revoke this device"), so every access token the session ever minted stops working at once. The presented access
+/// token is blacklisted too (tokens without a <c>sid</c>), and the presented refresh token is revoked in case it belongs
+/// to another family. <c>LogoutAllDevices</c> ends every session of the user.
+/// </summary>
 public class LogoutHandler(
     ITokenBlacklistService tokenBlacklistService,
     IRefreshTokenRepository refreshTokens,
     ISessionRevoker sessionRevoker,
+    ISessionManager sessionManager,
     IHttpContextService httpContextService,
     ILogger<LogoutHandler> logger) : ICommandHandler<LogoutCommand, LogoutResult>
 {
@@ -33,6 +41,11 @@ public class LogoutHandler(
             await sessionRevoker.RevokeAllAsync(userId, "User logged out from all devices", cancellationToken);
             logger.LogInformation("User {UserId} logged out from all devices", userId);
             return new LogoutResult(true, "Logged out from all devices successfully");
+        }
+
+        if (sessionManager.GetCurrentSessionId() is { } sessionId)
+        {
+            await sessionManager.RevokeAsync(userId, sessionId, "User logout", cancellationToken);
         }
 
         if (!string.IsNullOrEmpty(command.RefreshToken))

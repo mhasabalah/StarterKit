@@ -46,4 +46,6 @@
   <data name="Validation.FileStream.Required" xml:space="preserve"><value>File stream is required.</value></data>
   <data name="Validation.DisplayOrder.Min" xml:space="preserve"><value>Display order cannot be negative.</value></data>
   <data name="Validation.IsPrimary.Required" xml:space="preserve"><value>IsPrimary flag is required.</value></data>
+  <data name="Attachment.MalwareDetected" xml:space="preserve"><value>The file was rejected by the malware scanner.</value></data>
+  <data name="Attachment.ScannerUnavailable" xml:space="preserve"><value>The file could not be checked for malware right now. Please try again later.</value></data>
 </root>

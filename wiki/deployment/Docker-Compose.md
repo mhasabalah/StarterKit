@@ -11,6 +11,7 @@ them with repeated `-f` flags. Without `-f`, `docker compose` merges `docker-com
 | `docker-compose.observability.yml` | Observability overlay | `otel-collector`, `prometheus`, `grafana`, `tempo`, `loki`, exporters (`node`, `cadvisor`, `postgres`, `redis`), `jaeger` (`--profile jaeger`) |
 | `docker-compose.override.observability.yml` | Dev tweaks for the overlay | Dev ports; enables Jaeger without the profile |
 | `docker-compose.rabbitmq.yml` | Messaging overlay | `rabbitmq` + switches the API to `Messaging:Transport=RabbitMq` (needs `secrets/rabbitmq_password.txt`) |
+| `docker-compose.clamav.yml` | Malware-scanning overlay | `clamav` (clamd, ~1.5 GB RAM, healthy after 1-2 min) + turns on upload scanning with `RequireVirusScanning=true` ([details](../Attachment/Security.md#malware-scanning)) |
 | `docker-compose.dataprotection.yml` | Security overlay (**recommended in production**) | Encrypts the Data Protection key ring with `secrets/dataprotection_cert.pfx`; the API refuses to start without it |
 | `docker-compose.push.yml` | Push overlay (optional) | Real push notifications through FCM with `secrets/fcm_service_account.json` (read by path); without it pushes are logged by the NoOp provider ([guide](../Modules/Notification-Realtime-and-Push.md#fcm--apns-setup)) |
 
@@ -29,11 +30,12 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml \
 docker compose -f docker-compose.yml --env-file .env.prod up -d
 
 # Production + recommended overlays
-docker compose -f docker-compose.yml -f docker-compose.dataprotection.yml \
+docker compose -f docker-compose.yml -f docker-compose.dataprotection.yml -f docker-compose.clamav.yml \
   -f docker-compose.observability.yml --env-file .env.prod up -d
 
 # Durable messaging with RabbitMQ (alternative: Messaging:Transport=PostgreSql, no extra service)
 docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml --env-file .env.prod up -d
+docker compose -f docker-compose.yml -f docker-compose.clamav.yml --env-file .env.prod up -d   # + ClamAV upload scanning
 ```
 
 `make help` lists shortcuts (`make dev`, `make logs-api`, `make db-backup`, `make health`, ...).

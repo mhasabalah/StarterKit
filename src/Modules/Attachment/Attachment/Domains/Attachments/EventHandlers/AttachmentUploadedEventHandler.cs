@@ -29,8 +29,12 @@ public class AttachmentUploadedEventHandler(
 
         var userId = attachment.EntityId.Value;
 
+        // Only OLDER avatars are replaced. Several avatars can become Ready together (one pending session
+        // associated at once, same CreatedAt): if each removed "all the others" they would delete each other and
+        // the user would end up with none. "Older" uses GetUserAvatarHandler's order (CreatedAt, then Id), so
+        // exactly the avatar that query returns survives, whatever order these handlers run in.
         var oldAvatars = (await repository.GetByEntityAsync(EntityType.User, userId, cancellationToken))
-            .Where(a => a.Category == AttachmentCategory.UserAvatar && a.Id != attachment.Id)
+            .Where(a => a.Category == AttachmentCategory.UserAvatar && a.Id != attachment.Id && IsOlder(a, attachment))
             .ToList();
 
         if (oldAvatars.Count > 0)
@@ -45,4 +49,11 @@ public class AttachmentUploadedEventHandler(
             logger.LogInformation("{Count} old avatar(s) of user {UserId} replaced", oldAvatars.Count, userId);
         }
     }
+
+    /// <summary>
+    /// <paramref name="candidate"/> sorts before <paramref name="current"/> by (CreatedAt, Id). <see cref="Guid"/>
+    /// compares in the same order as PostgreSQL <c>uuid</c>, so this matches the SQL ORDER BY of the avatar query.
+    /// </summary>
+    internal static bool IsOlder(AttachmentFile candidate, AttachmentFile current) =>
+        (candidate.CreatedAt, candidate.Id).CompareTo((current.CreatedAt, current.Id)) < 0;
 }

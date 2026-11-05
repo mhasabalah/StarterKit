@@ -102,12 +102,67 @@ Thumbnails decode with `DecoderOptions.TargetSize` and `MaxFrames = 1`; EXIF is 
 
 ### Malware scanning
 
-```csharp
-services.AddSingleton<IMalwareScanner, ClamAvScanner>(); // after AddAttachmentModule
+Step 8 runs only for files that passed every other check, so the scanner never sees obviously invalid input.
+
+**Built-in adapter: ClamAV.** `Infrastructure/Validation/ClamAv/ClamAvMalwareScanner.cs` talks to the ClamAV daemon
+(clamd) over TCP with its `INSTREAM` protocol. There is no third-party client library; one connection is used per
+file. Turn it on with configuration only:
+
+```json
+"Attachment": { "Validation": {
+  "EnableVirusScanning": true,
+  "RequireVirusScanning": true,
+  "Scanner": { "Provider": "ClamAv", "Host": "clamav", "Port": 3310, "TimeoutSeconds": 30, "FailOpen": false }
+} }
 ```
 
-Set `Attachment:Validation:EnableVirusScanning=true`. If scanning is enabled and only the built-in
-`NoOpMalwareScanner` is registered, the application **fails at startup**.
+How to run clamd:
+- **Compose.** Add the overlay [`docker-compose.clamav.yml`](../../docker-compose.clamav.yml). It runs
+  `clamav/clamav:1.4`, keeps signatures in a volume and sets the API variables above.
+- **Aspire.** Pass `dotnet run -- Attachment:ClamAv=true` (see [Aspire](../Infrastructure/Aspire.md)).
+
+**Outcomes.** Every one ends in a stable `errorCode` that clients can branch on:
+
+| Scanner says | Result |
+|---|---|
+| clean | upload continues |
+| infected | **400 `malware_detected`** (`MalwareDetectedException`). The signature is logged, never returned. Nothing is stored. |
+| no verdict (unreachable, timeout, `ERROR`, stream over clamd's limit, any exception from a custom scanner) | **503 `malware_scanner_unavailable`** (`FileScanUnavailableException`). The upload **fails closed**; nothing is stored. |
+| no verdict and `Scanner:FailOpen=true` | the file is accepted **unscanned**. An error is logged and the metric records `skipped_fail_open`. |
+
+**Operations.**
+- **Health.** The check `clamav` (`zPING` → `PONG`) is part of `/health`. Its failure status is **Degraded**, not
+  Unhealthy: a scanner outage must not take the whole API out of rotation, and uploads already fail closed.
+- **Metric.** `attachment.malware.scans` (meter `StarterKit.Attachment`), tagged `result`:
+  `clean` / `infected` / `unavailable` / `skipped_fail_open`. Alert on `infected` (someone is uploading malware) and
+  on `unavailable`.
+- **`AlertExceedsMax yes` is required.** By default clamd answers `OK` for content it **skipped**: a file over
+  `MaxFileSize`, or an archive over `MaxScanSize`/`MaxFiles`/`MaxRecursion`. With the setting it answers
+  `Heuristics.Limits.Exceeded... FOUND`, so the upload is rejected. The compose overlay and the Aspire container set
+  it through `CLAMD_CONF_AlertExceedsMax=yes` (the image writes `CLAMD_CONF_<Option>` variables into `clamd.conf`).
+  `ClamAvContainerTests` proves it against the real image.
+- **Size limits.** clamd refuses streams over `StreamMaxLength` (default 100M, equal to the default largest upload);
+  such an upload gets 503. If you raise an upload limit, raise `CLAMD_CONF_StreamMaxLength` and
+  `CLAMD_CONF_MaxFileSize` together.
+- **Client messages.** The 503 body carries the generic server-error text, like every 5xx. Clients branch on
+  `errorCode` and show their own "try again later".
+- **Memory.** clamd needs about 1.5 GB resident; the overlay limits it to 3 GB.
+
+**Startup posture.** `MalwareScannerStartupCheck` enforces three rules:
+- Scanning enabled while only the built-in `NoOpMalwareScanner` is registered → the app **fails to start**.
+- Scanning off outside Development/Testing → a **warning** at startup.
+- `RequireVirusScanning=true` with scanning off → the app **fails to start**. Set it in production once clamd runs;
+  the compose overlay does.
+
+**Another engine.** Register your own adapter after `AddAttachmentModule` and keep `Scanner:Provider=None`:
+
+```csharp
+services.AddSingleton<IMalwareScanner, MyCloudAvScanner>();
+```
+
+It must read the stream from its current position, must not dispose the stream, and must **throw** when it cannot
+give a verdict (preferably `MalwareScannerUnavailableException`). Never return clean in that case. Decision record:
+[ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md).
 
 ### Request body limits
 
@@ -170,7 +225,11 @@ Handlers throw the shared exceptions only: `ForbiddenException` (403), `Unauthor
 | `Attachment:Download:InlineContentTypes` | jpeg/png/gif/webp/bmp | everything else is `attachment` |
 | `Attachment:Download:SigningKey` | empty | >= 32 chars; else derived from `JwtSettings:SecretKey`; else random per process (warning) |
 | `Attachment:Validation:MaxImageMegapixels` | 40 | decompression-bomb guard |
-| `Attachment:Validation:EnableVirusScanning` | false | requires an `IMalwareScanner` |
+| `Attachment:Validation:EnableVirusScanning` | false | requires a real `IMalwareScanner` (see [Malware scanning](#malware-scanning)) |
+| `Attachment:Validation:RequireVirusScanning` | false | refuse to start while scanning is off (production) |
+| `Attachment:Validation:Scanner:Provider` | None | `ClamAv` registers the clamd adapter + `clamav` health check |
+| `Attachment:Validation:Scanner:Host` / `Port` / `TimeoutSeconds` / `ChunkSizeBytes` | localhost / 3310 / 30 / 65536 | clamd connection |
+| `Attachment:Validation:Scanner:FailOpen` | false | true = accept unscanned files while clamd is down |
 | `Attachment:Pending:CleanupBatchSize` / `CleanupIntervalHours` | 100 / 6 | now actually used |
 | `Attachment:Reconciliation:*` | see [Reliability.md](Reliability.md#6-configuration-attachmentreconciliation) | sweeper schedule, timeouts, backoff, retention, storage scan |
 
@@ -185,7 +244,14 @@ Obsolete (still bind, ignored): `Storage:Local:BaseUrl`, `Storage:S3:UsePublicAc
 
 `src/Modules/Attachment/Attachment.Tests` (`dotnet test src/Modules/Attachment/Attachment.Tests`):
 
-- `Unit/FileValidationServiceTests` - spoofing, blocked types, magic bytes, size, megapixel bomb, text markup, scanner.
+- `Unit/FileValidationServiceTests` - spoofing, blocked types, magic bytes, size, megapixel bomb, text markup, scanner
+  outcomes (infected, fail-closed, fail-open) and the startup posture.
+- `Unit/ClamAvMalwareScannerTests` - the clamd protocol against an in-process fake clamd: framing, OK/FOUND/ERROR,
+  refused connection, timeout, caller cancellation, ping.
+- `Integration/ClamAvContainerTests` - **opt-in** (`STARTERKIT_CLAMAV_TESTS=1`, Docker, ~1 min): real clamd detects
+  the EICAR test file.
+- `Unit/AvatarReplacementTests` - a new avatar replaces only older ones (two avatars associated together used to
+  delete each other).
 - `Unit/EntityAccessPolicyTests` - self/other/admin/anonymous x User, deny-by-default, custom policy, delete rules.
 - `Unit/PendingSessionServiceTests` - forged/foreign/tampered sessions, anonymous fingerprint.
 - `Unit/LocalStorageContractTests` - provider contract on the current OS, path traversal, signed URLs.

@@ -17,6 +17,7 @@ test, and the architecture tests keep the design honest. Copy-ready templates: `
 | **Multi-tenant E2E** | `src/Api.E2ETests/MultiTenancy` | s, Docker | `MultiTenantE2EFixture`: tenant A can never read or modify tenant B |
 | **Orchestration** | `src/Aspire/AppHost.Tests` | s to min, Docker | AppHost model and settings; live startup |
 | **Browser smoke** | `tests/e2e` (Playwright, TS) | min, running stack | A handful of critical journeys, with Mailhog helpers for emails |
+| **Opt-in live** | `FcmLiveTests` (`FCM_CREDENTIALS_FILE` + `FCM_TEST_TOKEN`), `ClamAvContainerTests` (`STARTERKIT_CLAMAV_TESTS=1`) | min, real service / heavy image | Real external engines: skipped unless the variable is set, so CI stays fast. Run before changing that adapter |
 
 Stack: **xUnit 2, FluentAssertions 7, Moq 4, Testcontainers, Microsoft.AspNetCore.Mvc.Testing**. Don't introduce
 other assertion or mocking libraries.

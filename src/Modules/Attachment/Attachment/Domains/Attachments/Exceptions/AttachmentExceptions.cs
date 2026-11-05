@@ -37,3 +37,23 @@ public class PendingSessionAccessDeniedException()
 
 public class DisplayOrderConflictException(int displayOrder)
     : ConflictException($"Display order {displayOrder} is already used in this session.");
+
+/// <summary>The malware scanner flagged the upload. 400 <c>malware_detected</c>; the signature is logged, never returned.</summary>
+public class MalwareDetectedException : BadRequestException
+{
+    public const string MalwareDetectedCode = "malware_detected";
+
+    public MalwareDetectedException(string message) : base(message) => ErrorCode = MalwareDetectedCode;
+}
+
+/// <summary>
+/// The upload could not be scanned (scanner down, timed out or errored) and scanning fails closed.
+/// 503 <c>malware_scanner_unavailable</c>: the client may retry later.
+/// </summary>
+public class FileScanUnavailableException : CustomException
+{
+    public const string ScannerUnavailableCode = "malware_scanner_unavailable";
+
+    public FileScanUnavailableException(string message, Exception innerException)
+        : base(message, innerException, HttpStatusCode.ServiceUnavailable) => ErrorCode = ScannerUnavailableCode;
+}
