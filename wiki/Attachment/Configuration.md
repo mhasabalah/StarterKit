@@ -112,6 +112,8 @@ app.UseAttachmentModule();  // Creates upload directory, configures static files
 {
   "Validation": {
     "EnableVirusScanning": false,
+    "RequireVirusScanning": false,
+    "Scanner": { "Provider": "None", "Host": "localhost", "Port": 3310, "TimeoutSeconds": 30, "FailOpen": false },
     "EnableContentVerification": true,
     "BlockedExtensions": [".exe", ".dll", ".bat", ".cmd", ".sh", ".ps1"]
   }
@@ -121,7 +123,10 @@ app.UseAttachmentModule();  // Creates upload directory, configures static files
 **Security Features**:
 - **Content Verification**: Validates file content matches extension (prevents `.exe` renamed to `.jpg`)
 - **Blocked Extensions**: Always rejected regardless of MIME type
-- **Virus Scanning**: Hook for future antivirus integration (ClamAV, Windows Defender)
+- **Virus Scanning**: built-in ClamAV adapter (`Scanner:Provider=ClamAv`, run clamd with
+  `docker-compose.clamav.yml`). It fails closed: while clamd is down, uploads get 503 `malware_scanner_unavailable`.
+  An infected file gets 400 `malware_detected`. `RequireVirusScanning=true` refuses to start without scanning. Details:
+  [Security.md](Security.md#malware-scanning).
 
 ### Image Processing Options
 
@@ -176,6 +181,8 @@ app.UseAttachmentModule();  // Creates upload directory, configures static files
     "Validation": {
       "MaxImageSizeBytes": 10485760,
       "EnableVirusScanning": true,
+      "RequireVirusScanning": true,
+      "Scanner": { "Provider": "ClamAv", "Host": "clamav" },
       "EnableContentVerification": true
     }
   }

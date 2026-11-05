@@ -128,25 +128,58 @@ public sealed class SessionRevocationTests
         sessions.Verify(s => s.IssueAsync(_user, It.IsAny<string?>(), true, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    private readonly Mock<ISessionManager> _sessions = new();
+
+    private LogoutHandler Logout() => new(_blacklist.Object, _repo.Object, _revoker.Object, _sessions.Object, _http.Object,
+        NullLogger<LogoutHandler>.Instance);
+
     [Fact]
     public async Task Logout_all_devices_revokes_every_session()
     {
-        await new LogoutHandler(_blacklist.Object, _repo.Object, _revoker.Object, _http.Object,
-                NullLogger<LogoutHandler>.Instance)
-            .Handle(new LogoutCommand(LogoutAllDevices: true), default);
+        await Logout().Handle(new LogoutCommand(LogoutAllDevices: true), default);
 
         _revoker.Verify(r => r.RevokeAllAsync(_user.Id, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _sessions.Verify(s => s.RevokeAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never, "all sessions are already gone");
     }
 
     [Fact]
-    public async Task Single_logout_revokes_only_the_given_refresh_token()
+    public async Task Single_logout_ends_the_callers_session_by_sid_not_just_the_presented_tokens()
     {
-        await new LogoutHandler(_blacklist.Object, _repo.Object, _revoker.Object, _http.Object,
-                NullLogger<LogoutHandler>.Instance)
-            .Handle(new LogoutCommand("raw-refresh"), default);
+        var sid = Guid.NewGuid();
+        _sessions.Setup(s => s.GetCurrentSessionId()).Returns(sid);
+
+        await Logout().Handle(new LogoutCommand("raw-refresh"), default);
+
+        // Family revoked + sid blacklisted (SessionManager): every access token of this session dies, not only this one.
+        _sessions.Verify(s => s.RevokeAsync(_user.Id, sid, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repo.Verify(r => r.RevokeAsync(_user.Id, TokenHasher.Hash("raw-refresh"), It.IsAny<string>(),
+            It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _revoker.Invocations.Should().BeEmpty("other devices stay signed in");
+    }
+
+    [Fact]
+    public async Task Single_logout_blacklists_the_presented_access_token()
+    {
+        var jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().WriteToken(
+            new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(expires: DateTime.UtcNow.AddMinutes(5)));
+        _http.Setup(h => h.GetHeaderValue("Authorization")).Returns($"Bearer {jwt}");
+
+        await Logout().Handle(new LogoutCommand(), default);
+
+        _blacklist.Verify(b => b.BlacklistTokenAsync(jwt, It.IsAny<DateTime>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Single_logout_without_a_sid_still_revokes_the_presented_refresh_token()
+    {
+        _sessions.Setup(s => s.GetCurrentSessionId()).Returns((Guid?)null); // legacy / impersonation token
+
+        await Logout().Handle(new LogoutCommand("raw-refresh"), default);
 
         _repo.Verify(r => r.RevokeAsync(_user.Id, TokenHasher.Hash("raw-refresh"), It.IsAny<string>(),
             It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
-        _revoker.Invocations.Should().BeEmpty();
+        _sessions.Verify(s => s.RevokeAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
