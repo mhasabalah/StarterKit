@@ -17,9 +17,12 @@ public sealed class UserDeletedNotificationConsumer(NotificationDbContext db, IL
 
         var logs = await db.NotificationLogs.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
         var preferences = await db.UserNotificationPreferences.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        var inbox = await db.InboxNotifications.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        var devices = await db.PushDevices.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
 
         logger.LogInformation(
-            "Erased notification data of deleted user {UserId}: {Logs} log row(s), {Preferences} preference row(s)",
-            userId, logs, preferences);
+            "Erased notification data of deleted user {UserId}: {Logs} log row(s), {Preferences} preference row(s), " +
+            "{Inbox} inbox entr(ies), {Devices} push device(s)",
+            userId, logs, preferences, inbox, devices);
     }
 }

@@ -23,6 +23,93 @@ namespace Notification.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Notification.Persistence.Entities.InboxNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("action_url");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("category");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Data")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("data");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("severity");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inbox_notifications");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("idx_inbox_notification_expires");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("idx_inbox_notification_tenant");
+
+                    b.HasIndex("UserId", "CorrelationId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_inbox_notification_user_correlation");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("idx_inbox_notification_user_created");
+
+                    b.HasIndex("UserId", "TenantId")
+                        .HasDatabaseName("idx_inbox_notification_user_unread")
+                        .HasFilter("read_at IS NULL");
+
+                    b.ToTable("inbox_notification", "notification");
+                });
+
             modelBuilder.Entity("Notification.Persistence.Entities.NotificationLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -103,6 +190,66 @@ namespace Notification.Data.Migrations
                     b.ToTable("notification_log", "notification");
                 });
 
+            modelBuilder.Entity("Notification.Persistence.Entities.PushDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("app_version");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<string>("Locale")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("locale");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("platform");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("token");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_push_devices");
+
+                    b.HasIndex("LastSeenAt")
+                        .HasDatabaseName("idx_push_device_last_seen");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("ux_push_device_token");
+
+                    b.HasIndex("UserId", "LastSeenAt")
+                        .HasDatabaseName("idx_push_device_user_last_seen");
+
+                    b.ToTable("push_device", "notification");
+                });
+
             modelBuilder.Entity("Notification.Persistence.Entities.UserNotificationPreference", b =>
                 {
                     b.Property<Guid>("Id")
@@ -114,6 +261,10 @@ namespace Notification.Data.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("channel_order");
+
+                    b.Property<bool>("PushEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("push_enabled");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

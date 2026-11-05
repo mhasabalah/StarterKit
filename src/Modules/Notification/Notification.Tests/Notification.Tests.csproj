@@ -19,6 +19,9 @@
         <PackageReference Include="FluentAssertions" />
         <PackageReference Include="Moq" />
         <PackageReference Include="Testcontainers.PostgreSql" />
+        <PackageReference Include="Testcontainers.Redis" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     </ItemGroup>
 
     <ItemGroup>
@@ -49,6 +52,8 @@
         <Using Include="Notification.Verification" />
         <Using Include="Notification.Tests.Fakes" />
         <Using Include="Notification.Features.Preferences" />
+        <Using Include="Notification.Channels.Push" />
+        <Using Include="Notification.Realtime" />
     </ItemGroup>
 
 </Project>

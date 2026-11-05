@@ -8,7 +8,9 @@ public sealed class NotificationTenantPurgeHandler(NotificationDbContext db, ILo
     {
         var deleted = await db.NotificationLogs.Where(x => x.TenantId == notification.TenantId)
             .ExecuteDeleteAsync(cancellationToken);
-        logger.LogInformation("Purged {Count} notification log row(s) of tenant {TenantId}", deleted,
-            notification.TenantId);
+        var inbox = await db.InboxNotifications.Where(x => x.TenantId == notification.TenantId)
+            .ExecuteDeleteAsync(cancellationToken);
+        logger.LogInformation("Purged {Count} notification log row(s) and {Inbox} inbox entr(ies) of tenant {TenantId}",
+            deleted, inbox, notification.TenantId);
     }
 }

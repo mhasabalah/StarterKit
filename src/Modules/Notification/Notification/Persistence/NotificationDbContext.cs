@@ -7,6 +7,8 @@ public sealed class NotificationDbContext(DbContextOptions<NotificationDbContext
 {
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
+    public DbSet<InboxNotification> InboxNotifications => Set<InboxNotification>();
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -15,6 +17,8 @@ public sealed class NotificationDbContext(DbContextOptions<NotificationDbContext
         builder.ToSnakeCaseTables();
         builder.ApplyConfiguration(new NotificationLogConfiguration());
         builder.ApplyConfiguration(new UserNotificationPreferenceConfiguration());
+        builder.ApplyConfiguration(new InboxNotificationConfiguration());
+        builder.ApplyConfiguration(new PushDeviceConfiguration());
     }
 }
 
