@@ -75,6 +75,7 @@ wiki/
 - [README](Identity/README.md): module overview, OTP, email confirmation, security configuration
 - [Users-and-Admins-API](Identity/Users-and-Admins-API.md): every Identity route with its authorization
 - [Permissions, 2FA and admin audit](Identity/Permissions-2FA-and-Admin-Audit.md)
+- [Bot protection (CAPTCHA)](Identity/Bot-Protection.md): `.RequireHumanVerification`, Turnstile adapter, fail-open, adding a provider
 - [Replacing the identity provider](Identity/Replacing-the-Identity-Provider.md)
 - JWT: [technical guide](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) · [frontend guide](Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md) · [token refresh strategies](Identity/jwt/TokenRefreshStrategies.md)
 

@@ -1,3 +1,4 @@
+using Shared.Core.BotProtection;
 using Identity.Contracts.Auth.Commands;
 
 namespace Identity.Domains.Auth.Features.ForgotPassword;
@@ -25,6 +26,7 @@ public class ForgotPasswordEndPoint : ICarterModule
                 "Always returns 200 regardless of whether the account exists.")
             .AllowAnonymous()
             .RequireRateLimiting("otp")
+            .RequireHumanVerification("forgot-password")
             .HasApiVersion(1.0);
     }
 }
