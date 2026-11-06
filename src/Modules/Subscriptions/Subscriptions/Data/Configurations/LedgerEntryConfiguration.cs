@@ -17,7 +17,7 @@ public class LedgerEntryConfiguration : IEntityTypeConfiguration<LedgerEntry>
 
         builder.Property(x => x.OccurredAt).IsRequired();
         builder.Property(x => x.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(x => x.Amount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.Amount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
         builder.Property(x => x.SubscriptionId).IsRequired();
         builder.Property(x => x.SubscriberId).IsRequired();

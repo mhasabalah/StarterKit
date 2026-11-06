@@ -85,7 +85,7 @@ public sealed class TrialReminderProcessor(
             PlanName = subscription.PlanName,
             TrialEndDate = endsAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             DaysLeft = Math.Max(1, (int)Math.Ceiling((endsAt - now).TotalDays)),
-            PriceAfterTrial = $"{gross.ToString("F2", CultureInfo.InvariantCulture)} {subscription.Currency}",
+            PriceAfterTrial = $"{CurrencyRules.FormatWithCode(gross, subscription.Currency)}",
             SubscriptionUrl = $"{frontendBaseUrl}/subscription"
         };
 

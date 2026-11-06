@@ -108,8 +108,8 @@ public sealed class InvoiceDocument(InvoicePdfModel model) : IDocument
 
                     table.Cell().Padding(8).Text(model.Description);
                     table.Cell().Padding(8).AlignCenter().Text("1");
-                    table.Cell().Padding(8).AlignRight().Text($"{model.NetAmount:F2} {model.Currency}");
-                    table.Cell().Padding(8).AlignRight().Text($"{model.NetAmount:F2} {model.Currency}");
+                    table.Cell().Padding(8).AlignRight().Text($"{CurrencyRules.FormatWithCode(model.NetAmount, model.Currency)}");
+                    table.Cell().Padding(8).AlignRight().Text($"{CurrencyRules.FormatWithCode(model.NetAmount, model.Currency)}");
                 });
 
                 column.Item().LineHorizontal(1).LineColor("#e2e8f0");
@@ -124,13 +124,13 @@ public sealed class InvoiceDocument(InvoicePdfModel model) : IDocument
                     });
 
                     table.Cell().Padding(4).Text("Subtotal (excl. VAT)");
-                    table.Cell().Padding(4).AlignRight().Text($"{model.NetAmount:F2} {model.Currency}");
+                    table.Cell().Padding(4).AlignRight().Text($"{CurrencyRules.FormatWithCode(model.NetAmount, model.Currency)}");
 
                     table.Cell().Padding(4).Text($"VAT ({model.TaxRateLabel})").FontColor("#64748b");
-                    table.Cell().Padding(4).AlignRight().Text($"{model.TaxAmount:F2} {model.Currency}").FontColor("#64748b");
+                    table.Cell().Padding(4).AlignRight().Text($"{CurrencyRules.FormatWithCode(model.TaxAmount, model.Currency)}").FontColor("#64748b");
 
                     table.Cell().Padding(4).Text("Total").Bold().FontSize(14).FontColor("#0f172a");
-                    table.Cell().Padding(4).AlignRight().Text($"{model.TotalAmount:F2} {model.Currency}").Bold().FontSize(14).FontColor("#0f172a");
+                    table.Cell().Padding(4).AlignRight().Text($"{CurrencyRules.FormatWithCode(model.TotalAmount, model.Currency)}").Bold().FontSize(14).FontColor("#0f172a");
                 });
 
                 column.Item().AlignRight()

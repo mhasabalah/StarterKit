@@ -54,6 +54,7 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
             {
                 ["ConnectionStrings:starterkit"] = _container.GetConnectionString(),
                 ["Subscriptions:Tax:Rate"] = "0.15",
+                ["Subscriptions:Dunning:AutoRetry:Enabled"] = "true",
                 ["Subscriptions:Tax:PricesIncludeTax"] = "true",
                 ["Subscriptions:UpgradeSlaHours"] = "72",
                 ["Subscriptions:TrustMinCycles"] = "2",

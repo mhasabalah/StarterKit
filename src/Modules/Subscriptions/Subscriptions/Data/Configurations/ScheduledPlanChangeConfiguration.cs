@@ -15,7 +15,7 @@ public class ScheduledPlanChangeConfiguration : IEntityTypeConfiguration<Schedul
         builder.Property(x => x.CurrentPlanId).IsRequired();
         builder.Property(x => x.NewPlanId).IsRequired();
         builder.Property(x => x.NewPlanName).HasMaxLength(200).IsRequired();
-        builder.Property(x => x.NewPrice).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.NewPrice).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.NewBillingCycleInMonths).IsRequired();
         builder.Property(x => x.NewFeaturesJson).HasColumnType("jsonb").IsRequired();
         builder.Property(x => x.ChangeType).HasConversion<int>().IsRequired();

@@ -95,11 +95,62 @@ public static class ProductionConfigurationGuard
         }
     }
 
+    /// <summary>
+    /// Payment gateway mode guard (<c>Subscriptions:PaymentGateways:&lt;Name&gt;:Mode</c> = Sandbox | Live, default Sandbox):
+    /// <list type="bullet">
+    /// <item>in EVERY environment an enabled gateway whose key contradicts its mode is refused (<c>sk_test_</c>/<c>rk_test_</c>
+    /// in Live, <c>sk_live_</c>/<c>rk_live_</c> in Sandbox), so test keys never take real orders and live keys never run
+    /// against a half-configured sandbox;</item>
+    /// <item>in Production an enabled Sandbox gateway (the Fake adapter counts as one) is refused unless
+    /// <c>AllowSandboxInProduction=true</c>.</item>
+    /// </list>
+    /// </summary>
+    public static void EnsurePaymentGatewayModes(IConfiguration configuration, string environmentName)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var production = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase);
+        foreach (var gateway in configuration.GetSection("Subscriptions:PaymentGateways").GetChildren())
+        {
+            if (!gateway.GetValue<bool>("Enabled"))
+            {
+                continue;
+            }
+
+            var isLive = string.Equals(gateway["Mode"], "Live", StringComparison.OrdinalIgnoreCase);
+            var key = gateway["ApiKey"] ?? string.Empty;
+            var testKey = key.StartsWith("sk_test_", StringComparison.Ordinal) || key.StartsWith("rk_test_", StringComparison.Ordinal);
+            var liveKey = key.StartsWith("sk_live_", StringComparison.Ordinal) || key.StartsWith("rk_live_", StringComparison.Ordinal);
+
+            if (isLive && testKey)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start: payment gateway '{gateway.Key}' is Mode=Live but its ApiKey is a test key.");
+            }
+
+            if (!isLive && liveKey)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start: payment gateway '{gateway.Key}' is Mode=Sandbox (the default) but its ApiKey is a live key. " +
+                    "Set Subscriptions:PaymentGateways:" + gateway.Key + ":Mode=Live.");
+            }
+
+            var sandbox = !isLive || string.Equals(gateway.Key, "Fake", StringComparison.OrdinalIgnoreCase);
+            if (production && sandbox && !gateway.GetValue<bool>("AllowSandboxInProduction"))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start in Production: payment gateway '{gateway.Key}' is a sandbox gateway. " +
+                    "Use live keys with Mode=Live, or set AllowSandboxInProduction=true for a demo stack.");
+            }
+        }
+    }
+
     public static WebApplicationBuilder EnsureProductionReadyConfiguration(this WebApplicationBuilder builder)
     {
         EnsureNoPlaceholders(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureDurableMessaging(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureBotProtectionConfigured(builder.Configuration, builder.Environment.EnvironmentName);
+        EnsurePaymentGatewayModes(builder.Configuration, builder.Environment.EnvironmentName);
         return builder;
     }
 }

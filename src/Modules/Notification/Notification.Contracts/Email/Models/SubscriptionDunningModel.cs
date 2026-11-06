@@ -17,6 +17,12 @@ public sealed class SubscriptionDunningModel
     /// <summary>True for the last reminder before the grace period ends.</summary>
     public bool IsFinal { get; set; }
 
+    /// <summary>
+    /// Why the automatic card charge did not collect the payment, when one was tried: <c>authentication_required</c>,
+    /// <c>declined</c>, <c>expired</c> or <c>unavailable</c>. Empty = no automatic charge was tried.
+    /// </summary>
+    public string AutoRetryReason { get; set; } = string.Empty;
+
     public Dictionary<string, object> ToDictionary() => new()
     {
         ["SubscriberName"] = SubscriberName,
@@ -24,6 +30,7 @@ public sealed class SubscriptionDunningModel
         ["AmountDue"] = AmountDue,
         ["GraceDeadline"] = GraceDeadline,
         ["PaymentUrl"] = PaymentUrl,
-        ["IsFinal"] = IsFinal
+        ["IsFinal"] = IsFinal,
+        ["AutoRetryReason"] = AutoRetryReason
     };
 }

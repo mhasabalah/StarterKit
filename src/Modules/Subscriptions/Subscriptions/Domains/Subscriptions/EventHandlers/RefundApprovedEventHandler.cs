@@ -24,7 +24,7 @@ public class RefundApprovedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = planName,
-            Amount = notification.ApprovedAmount.ToString("F2", CultureInfo.InvariantCulture),
+            Amount = CurrencyRules.Format(notification.ApprovedAmount, notification.Currency),
             Currency = notification.Currency,
             SupportWhatsApp = instructions?.SupportWhatsApp ?? string.Empty,
             SupportEmail = instructions?.SupportEmail ?? string.Empty

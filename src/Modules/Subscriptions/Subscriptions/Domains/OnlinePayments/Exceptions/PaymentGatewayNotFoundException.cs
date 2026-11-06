@@ -26,3 +26,6 @@ public class PaymentGatewayException : CustomException
         ErrorCode = "payment_gateway_error";
     }
 }
+
+public class SavedPaymentMethodNotFoundException(Guid id)
+    : NotFoundException($"Saved payment method '{id}' not found.");

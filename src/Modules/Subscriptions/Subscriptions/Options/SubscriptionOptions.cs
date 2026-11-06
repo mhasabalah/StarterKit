@@ -87,13 +87,17 @@ public class TrialOptions
 /// Section <c>Subscriptions:Dunning</c>: while a renewal is overdue (PastDue) the subscriber is reminded on
 /// <see cref="ScheduleDays"/> (days after it went past due), each time with a fresh checkout link, and once more
 /// <see cref="FinalNoticeDaysBeforeGraceEnd"/> days before the grace period ends. Each step is recorded and never re-sent.
-/// Automatic card retries are NOT part of this (they need stored payment methods).
+/// Automatic card retries (<see cref="AutoRetry"/>, off by default) charge the subscriber's saved default method
+/// before each step's email.
 /// </summary>
 public class DunningOptions
 {
     public static readonly int[] DefaultScheduleDays = [1, 3, 5];
 
     public bool Enabled { get; set; } = true;
+
+    /// <summary>Automatic off-session retries of the overdue payment on the subscriber's saved card.</summary>
+    public DunningAutoRetryOptions AutoRetry { get; set; } = new();
 
     /// <summary>Days after past due to remind on. Null/empty = <see cref="DefaultScheduleDays"/> (1, 3, 5).</summary>
     public int[]? ScheduleDays { get; set; }
@@ -106,6 +110,28 @@ public class DunningOptions
 
     public IReadOnlyList<int> EffectiveScheduleDays =>
         ScheduleDays is { Length: > 0 } days ? days : DefaultScheduleDays;
+}
+
+/// <summary>
+/// Section <c>Subscriptions:Dunning:AutoRetry</c>. When enabled (default OFF), checkout offers to save the card for
+/// future payments (Stripe) and every dunning step first tries ONE off-session charge of the subscriber's default saved
+/// method (idempotent per payment + step). Success settles the payment like a webhook would and sends no reminder;
+/// a refusal (3-D Secure needed, declined, provider outage) falls back to the usual email with a fresh checkout link
+/// and the reason. See wiki/Modules/Billing.md.
+/// </summary>
+public class DunningAutoRetryOptions
+{
+    public bool Enabled { get; set; }
+}
+
+/// <summary>Whether a gateway entry talks to the provider's test environment or to real money.</summary>
+public enum PaymentGatewayMode
+{
+    /// <summary>Test keys, test cards, no real money. The default, so a half-configured deployment can never charge.</summary>
+    Sandbox = 0,
+
+    /// <summary>Live keys, real money.</summary>
+    Live = 1
 }
 
 /// <summary>Section <c>Subscriptions:Metering</c>.</summary>
@@ -205,10 +231,24 @@ public class PaymentGatewayOptions
 {
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// <see cref="PaymentGatewayMode.Sandbox"/> (default) or <see cref="PaymentGatewayMode.Live"/>. The host refuses to
+    /// boot when the keys do not match the mode (<c>sk_test_</c> in Live, <c>sk_live_</c> in Sandbox) and when a
+    /// Sandbox gateway is enabled in Production without <see cref="AllowSandboxInProduction"/>.
+    /// </summary>
+    public PaymentGatewayMode Mode { get; set; } = PaymentGatewayMode.Sandbox;
+
+    /// <summary>Explicit opt-in to run a Sandbox (or the Fake) gateway in the Production environment (demo stacks).</summary>
+    public bool AllowSandboxInProduction { get; set; }
+
     /// <summary>Webhook signing secret (and/or API key, per adapter).</summary>
     public string? Secret { get; set; }
 
-    /// <summary>Provider base URL; the Fake adapter uses it for the hosted checkout page, Paymob for its API host.</summary>
+    /// <summary>
+    /// Provider base URL; the Fake adapter uses it for the hosted checkout page, Paymob for its API host. Paymob has
+    /// one host for both modes and tells them apart by the keys, so the default (<c>https://accept.paymob.com</c>) is
+    /// right for Sandbox and Live; set it only for a regional host or a test double.
+    /// </summary>
     public string? BaseUrl { get; set; }
 
     /// <summary>

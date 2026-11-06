@@ -15,7 +15,7 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
         builder.Property(x => x.Code).IsRequired().HasMaxLength(Coupon.MaxCodeLength);
         builder.Property(x => x.Description).HasMaxLength(500);
         builder.Property(x => x.DiscountType).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(x => x.Value).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.Value).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(false);
         builder.Property(x => x.Duration).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.DurationPeriods).IsRequired(false);

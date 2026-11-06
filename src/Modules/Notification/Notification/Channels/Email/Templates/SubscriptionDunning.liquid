@@ -1,4 +1,4 @@
-{% comment %}Variables: SubscriberName, PlanName, AmountDue, GraceDeadline, PaymentUrl, IsFinal{% endcomment %}
+{% comment %}Variables: SubscriberName, PlanName, AmountDue, GraceDeadline, PaymentUrl, IsFinal, AutoRetryReason{% endcomment %}
 
 <h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.warningStrong }};line-height:1.35;">
   {% if IsFinal %}
@@ -32,6 +32,25 @@
 {% endcapture %}
 {% if culture == 'ar' %}{% assign card_title = 'تفاصيل الدفع' %}{% else %}{% assign card_title = 'Payment Details' %}{% endif %}
 {% include 'Components/Card' %}
+
+{% if AutoRetryReason != blank %}
+  {% assign alert_type = 'info' %}
+  {% case AutoRetryReason %}
+    {% when 'authentication_required' %}
+      {% assign alert_text_en = 'We tried to charge your saved card, but your bank asks you to confirm the payment. Please pay with the button below.' %}
+      {% assign alert_text_ar = 'حاولنا الخصم من بطاقتك المحفوظة لكن البنك يطلب منك تأكيد الدفعة. يرجى الدفع عبر الزر أدناه.' %}
+    {% when 'declined' %}
+      {% assign alert_text_en = 'We tried to charge your saved card, but it was declined. Please pay with the button below or use another card.' %}
+      {% assign alert_text_ar = 'حاولنا الخصم من بطاقتك المحفوظة لكن تم رفضها. يرجى الدفع عبر الزر أدناه أو استخدام بطاقة أخرى.' %}
+    {% when 'expired' %}
+      {% assign alert_text_en = 'Your saved card has expired, so we could not charge it. Please pay with the button below.' %}
+      {% assign alert_text_ar = 'انتهت صلاحية بطاقتك المحفوظة ولذلك لم نتمكن من الخصم منها. يرجى الدفع عبر الزر أدناه.' %}
+    {% else %}
+      {% assign alert_text_en = 'We could not charge your saved card right now. Please pay with the button below.' %}
+      {% assign alert_text_ar = 'تعذر الخصم من بطاقتك المحفوظة حاليًا. يرجى الدفع عبر الزر أدناه.' %}
+  {% endcase %}
+  {% include 'Components/Alert' %}
+{% endif %}
 
 {% if IsFinal %}
   {% assign alert_type = 'warning' %}

@@ -41,6 +41,7 @@ internal sealed class InboundWebhookProcessor(
     IInvoiceIssuer invoiceIssuer,
     ILedgerRepository ledger,
     IAdminAuditWriter audit,
+    ISavedMethodRecorder savedMethodRecorder,
     IOptions<SubscriptionOptions> options,
     TimeProvider timeProvider,
     ILogger<InboundWebhookProcessor> logger) : IInboundWebhookProcessor
@@ -68,6 +69,9 @@ internal sealed class InboundWebhookProcessor(
         Subscription? subscription = null;
         SettlementResult? result = null;
         IReadOnlyList<SubscriptionInvoice> creditNotes = [];
+        string? savedMethodJson = null;
+        var provider = string.Empty;
+        string? paymentReference = null;
 
         await using (var transaction = await inbox.BeginTransactionAsync(ct))
         {
@@ -78,6 +82,9 @@ internal sealed class InboundWebhookProcessor(
             try
             {
                 (subscription, result, creditNotes) = await ApplyAsync(inbound, now, ct);
+                savedMethodJson = inbound.SavedMethod;
+                provider = inbound.Provider;
+                paymentReference = inbound.PaymentReference;
                 inbound.MarkProcessed(now);
                 await inbox.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
@@ -93,6 +100,13 @@ internal sealed class InboundWebhookProcessor(
         if (subscription is not null && result is not null)
         {
             await settlement.AfterCommitAsync(subscription, result, ct);
+        }
+
+        // The subscriber agreed to save the card at checkout: store it now that the payment is safely settled.
+        if (subscription is not null && result is not null && savedMethodJson is not null &&
+            System.Text.Json.JsonSerializer.Deserialize<SavedMethodCapture>(savedMethodJson) is { } capture)
+        {
+            await savedMethodRecorder.RecordAsync(provider, subscription.SubscriberId, capture, paymentReference, ct);
         }
 
         foreach (var note in creditNotes)
@@ -164,7 +178,7 @@ internal sealed class InboundWebhookProcessor(
         var alreadyRefunded = await onlineRefunds.SumForSessionAsync(session.Id, ct);
         if (alreadyRefunded + amount > session.Amount)
             throw new WebhookRejectedException(
-                $"Refund of {amount:F2} {session.Currency} exceeds the money received: {session.Amount:F2} paid, {alreadyRefunded:F2} already refunded.");
+                $"Refund of {CurrencyRules.FormatWithCode(amount, session.Currency)} exceeds the money received: {CurrencyRules.Format(session.Amount, session.Currency)} paid, {CurrencyRules.Format(alreadyRefunded, session.Currency)} already refunded.");
 
         var subscription = await subscriptionRepository.GetByIdAsync(session.SubscriptionId, ct)
             ?? throw new WebhookRejectedException("The subscription no longer exists.");
@@ -219,7 +233,7 @@ internal sealed class InboundWebhookProcessor(
             !string.Equals(inbound.Currency, session.Currency, StringComparison.OrdinalIgnoreCase))
         {
             throw new WebhookRejectedException(
-                $"Amount mismatch: expected {session.Amount:F2} {session.Currency}, provider reported {amount:F2} {inbound.Currency}.");
+                $"Amount mismatch: expected {CurrencyRules.FormatWithCode(session.Amount, session.Currency)}, provider reported {CurrencyRules.FormatWithCode(amount, inbound.Currency)}.");
         }
 
         var subscription = await subscriptionRepository.GetByIdAsync(session.SubscriptionId, ct)
@@ -233,7 +247,7 @@ internal sealed class InboundWebhookProcessor(
 
         if (payment.OutstandingAmount != amount)
             throw new WebhookRejectedException(
-                $"Amount mismatch: {payment.OutstandingAmount:F2} {payment.Currency} is outstanding, provider reported {amount:F2}.");
+                $"Amount mismatch: {CurrencyRules.FormatWithCode(payment.OutstandingAmount, payment.Currency)} is outstanding, provider reported {CurrencyRules.Format(amount, payment.Currency)}.");
 
         settlement.EnsureSettleable(subscription, payment);
 

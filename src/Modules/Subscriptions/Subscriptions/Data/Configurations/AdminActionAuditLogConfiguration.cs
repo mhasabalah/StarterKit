@@ -10,7 +10,7 @@ public class AdminActionAuditLogConfiguration : IEntityTypeConfiguration<AdminAc
         builder.Property(x => x.Action).IsRequired().HasMaxLength(100);
         builder.Property(x => x.TargetType).IsRequired().HasMaxLength(50);
         builder.Property(x => x.Reason).HasMaxLength(1000);
-        builder.Property(x => x.Amount).HasPrecision(18, 2).IsRequired(false);
+        builder.Property(x => x.Amount).HasMoneyPrecision().IsRequired(false);
         builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(false);
         builder.Property(x => x.BeforeJson).HasColumnType("jsonb").IsRequired(false);
         builder.Property(x => x.AfterJson).HasColumnType("jsonb").IsRequired(false);

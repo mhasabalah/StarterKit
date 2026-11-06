@@ -14,11 +14,11 @@ public class SubscriptionPaymentConfiguration
 
         builder.Property(x => x.SubscriptionId).IsRequired();
         builder.Property(x => x.Purpose).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(x => x.Amount).HasPrecision(18, 2);
-        builder.Property(x => x.IncludedProrationAmount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.Amount).HasMoneyPrecision();
+        builder.Property(x => x.IncludedProrationAmount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.OriginalPlanId).IsRequired(false);
         builder.Property(x => x.CouponCode).HasMaxLength(50).IsRequired(false);
-        builder.Property(x => x.CouponDiscountAmount).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
+        builder.Property(x => x.CouponDiscountAmount).HasMoneyPrecision().IsRequired().HasDefaultValue(0m);
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.Status).HasConversion<int>().IsRequired();
         builder.Property(x => x.PaymentMethodId);
@@ -30,7 +30,7 @@ public class SubscriptionPaymentConfiguration
         builder.Property(x => x.ProofContentHash).HasMaxLength(64);
         builder.Property(x => x.DuplicateProof).IsRequired().HasDefaultValue(false);
         builder.Property(x => x.DuplicateOfPaymentId);
-        builder.Property(x => x.AmountReceived).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
+        builder.Property(x => x.AmountReceived).HasMoneyPrecision().IsRequired().HasDefaultValue(0m);
         builder.Property(x => x.SubmittedAt).IsRequired(false);
         builder.Property(x => x.Notes).HasMaxLength(1000);
         builder.Property(x => x.CreatedAt).IsRequired();

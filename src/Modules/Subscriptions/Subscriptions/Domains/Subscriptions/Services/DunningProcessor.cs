@@ -1,5 +1,9 @@
+using Shared.Contracts.Localization;
 using System.Globalization;
+using Notification.Contracts.InApp;
 using Subscriptions.Contracts.Subscriptions.Commands;
+using Subscriptions.Domains.OnlinePayments.Services;
+using Subscriptions.Resources;
 using Subscriptions.Options;
 
 namespace Subscriptions.Domains.Subscriptions.Services;
@@ -11,7 +15,9 @@ namespace Subscriptions.Domains.Subscriptions.Services;
 /// (<see cref="DunningNotice"/>, unique per payment + step) BEFORE the email, so a step never re-sends, even when two
 /// runs overlap. When a run finds several steps due (the job was down), only the latest is sent; the others are
 /// recorded as superseded. A renewal whose proof is under review (Submitted) is not nagged.
-/// Automatic card retries are out of scope (they need saved payment methods).
+/// With <c>Subscriptions:Dunning:AutoRetry:Enabled</c> each step first tries ONE off-session charge of the subscriber's
+/// saved default card (<see cref="IOffSessionRetryService"/>, ADR 0018): success settles the payment and sends no
+/// reminder; anything else sends the reminder with the reason, plus an in-app notice.
 /// </summary>
 public interface IDunningProcessor
 {
@@ -103,6 +109,17 @@ public sealed class DunningProcessor(
             dbContext.DunningNotices.Add(DunningNotice.Record(subscriptionId, payment.Id, step, sent: step == send, now));
         await dbContext.SaveChangesAsync(ct); // a unique-index race surfaces as ConflictException: the other run sends
 
+        // Automatic retry first: a collected payment needs no reminder (the settlement sends the invoice).
+        var retry = await services.GetRequiredService<IOffSessionRetryService>()
+            .TryChargeAsync(subscription, payment, send, now, ct);
+        if (retry.Outcome == AutoRetryOutcome.Succeeded)
+        {
+            logger.LogInformation(
+                "Dunning step {Step} collected payment {PaymentId} of subscription {SubscriptionId} off-session.",
+                send, payment.Id, subscriptionId);
+            return false;
+        }
+
         var frontendBaseUrl = configuration["Application:FrontendBaseUrl"] ?? "http://localhost:3000";
         var renewalUrl = $"{frontendBaseUrl}/subscription/renew";
         var paymentUrl = await TryCreateCheckoutAsync(services, subscription, payment, frontendBaseUrl, ct) ?? renewalUrl;
@@ -112,15 +129,33 @@ public sealed class DunningProcessor(
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = subscription.PlanName,
-            AmountDue = $"{payment.OutstandingAmount.ToString("F2", CultureInfo.InvariantCulture)} {payment.Currency}",
+            AmountDue = CurrencyRules.FormatWithCode(payment.OutstandingAmount, payment.Currency),
             GraceDeadline = graceEnd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             PaymentUrl = paymentUrl,
-            IsFinal = send == DunningNotice.FinalStep
+            IsFinal = send == DunningNotice.FinalStep,
+            AutoRetryReason = retry.Reason ?? string.Empty
         };
+
+        var deadline = model.GraceDeadline;
+        var inApp = new InAppContent(
+            Title: LocalizedText.Create(
+                SubscriptionsText.En("Billing.PaymentFailed.Title"), SubscriptionsText.Ar("Billing.PaymentFailed.Title")),
+            Body: LocalizedText.Create(
+                SubscriptionsText.En("Billing.PaymentFailed.Body", model.AmountDue, subscription.PlanName, deadline),
+                SubscriptionsText.Ar("Billing.PaymentFailed.Body", model.AmountDue, subscription.PlanName, deadline)),
+            Category: "billing.payment-failed",
+            ActionUrl: "/subscription/renew",
+            Severity: NotificationSeverity.Warning,
+            Data: new Dictionary<string, string>
+            {
+                ["subscriptionId"] = subscriptionId.ToString(),
+                ["paymentId"] = payment.Id.ToString()
+            });
 
         await services.GetRequiredService<INotificationSender>()
             .For(subscription.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionDunning, model.ToDictionary())
+            .WithInApp(inApp)
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: ct);
 
         logger.LogInformation(

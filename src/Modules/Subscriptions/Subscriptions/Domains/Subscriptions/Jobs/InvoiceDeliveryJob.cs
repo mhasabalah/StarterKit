@@ -111,7 +111,7 @@ public class InvoiceDeliveryJob(
             SubscriberName = invoice.BuyerName,
             InvoiceNumber = invoice.InvoiceNumber,
             InvoiceType = invoice.IsCreditNote ? "Credit Note" : invoice.Type.ToString(),
-            Amount = invoice.TotalAmount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture),
+            Amount = CurrencyRules.Format(invoice.TotalAmount, invoice.Currency),
             Currency = invoice.Currency,
             IssuedAt = invoice.IssuedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
             PortalUrl = $"{frontendBaseUrl}/invoices"

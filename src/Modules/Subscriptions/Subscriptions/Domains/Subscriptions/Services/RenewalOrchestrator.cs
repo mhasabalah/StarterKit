@@ -138,7 +138,8 @@ public sealed class RenewalOrchestrator(
         var plan = await dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == subscription.PlanId, ct);
         var periodPrice = PricingPolicy.RenewalPeriodPrice(subscription, plan, subscription.RenewalDate!.Value);
         var charge = PricingPolicy.RenewalCharge(
-            periodPrice, subscription.DeferredProrationAmount, settings.Tax.ToPolicy(), subscription.ActiveCoupon);
+            periodPrice, subscription.DeferredProrationAmount, settings.Tax.ToPolicy(), subscription.ActiveCoupon,
+            subscription.Currency);
 
         var payment = subscription.MarkPastDue(charge, settings.GracePeriodDays, now);
         dbContext.Payments.Add(payment);
@@ -165,7 +166,8 @@ public sealed class RenewalOrchestrator(
         var settings = options.Value;
         var plan = await dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == subscription.PlanId, ct);
         var periodPrice = PricingPolicy.RenewalPeriodPrice(subscription, plan, subscription.RenewalDate!.Value);
-        var charge = PricingPolicy.RenewalCharge(periodPrice, 0m, settings.Tax.ToPolicy(), subscription.ActiveCoupon);
+        var charge = PricingPolicy.RenewalCharge(
+            periodPrice, 0m, settings.Tax.ToPolicy(), subscription.ActiveCoupon, subscription.Currency);
 
         var payment = subscription.EndTrial(charge, settings.Trials.PostTrialGraceDays, now);
         dbContext.Payments.Add(payment);
