@@ -50,10 +50,42 @@ public sealed class PushDeliveryJob(
             return;
         }
 
-        if (!await preferences.IsPushEnabledAsync(delivery.UserId, ct))
+        var preference = await preferences.GetDeliveryPreferenceAsync(delivery.UserId, ct);
+        if (preference is { PushEnabled: false })
         {
             if (delivery.Attempt == 1)
                 await LogAsync(correlationId, delivery, NotificationDeliveryStatus.Skipped, "The user turned push notifications off.", ct);
+            return;
+        }
+
+        var category = delivery.Category ?? delivery.Content.Data?.GetValueOrDefault("category");
+        if (NotificationPolicy.IsMuted(preference, category, NotificationChannel.Push))
+        {
+            if (delivery.Attempt == 1)
+                await LogAsync(correlationId, delivery, NotificationDeliveryStatus.Skipped,
+                    $"The user muted push for the '{Notification.Contracts.Preferences.NotificationCategoryGroups.GroupOf(category)}' group.", ct);
+            return;
+        }
+
+        // Quiet hours DEFER the push to the end of the window instead of dropping it, unless its time-to-live would
+        // expire first (the provider would discard it anyway). The remaining TTL shrinks by the wait, so the total
+        // lifetime the sender asked for is kept.
+        if (NotificationPolicy.QuietHoursEnd(preference, category, timeProvider.GetUtcNow()) is { } quietEnd)
+        {
+            var wait = quietEnd - timeProvider.GetUtcNow();
+            var ttl = EffectiveTimeToLive(delivery.Content, options);
+            if (wait >= ttl)
+            {
+                if (delivery.Attempt == 1)
+                    await LogAsync(correlationId, delivery, NotificationDeliveryStatus.Skipped,
+                        "Quiet hours last longer than the notification's time-to-live.", ct);
+                return;
+            }
+
+            var deferred = delivery with { Content = delivery.Content with { TimeToLive = ttl - wait } };
+            jobs.Schedule<PushDeliveryJob>(job => job.ExecuteAsync(deferred, correlationId, CancellationToken.None), wait);
+            logger.LogInformation("Push deferred by quiet hours until {Until}. UserId: {UserId} CorrelationId: {CorrelationId}",
+                quietEnd, delivery.UserId, correlationId);
             return;
         }
 
@@ -162,9 +194,7 @@ public sealed class PushDeliveryJob(
         var data = InAppContentRenderer.Data(content.Data, PushContent.MaxDataEntries) ?? new Dictionary<string, string>(StringComparer.Ordinal);
         data["correlationId"] = correlationId.ToString("D");
 
-        var ttl = content.TimeToLive is { } requested && requested > TimeSpan.Zero ? requested : options.DefaultTimeToLive;
-        if (ttl > TimeSpan.FromDays(28))
-            ttl = TimeSpan.FromDays(28); // FCM maximum
+        var ttl = EffectiveTimeToLive(content, options);
 
         return new PushMessage(
             InAppContentRenderer.Text(title.For(delivery.Culture), 200),
@@ -172,6 +202,12 @@ public sealed class PushDeliveryJob(
             data,
             correlationId.ToString("N"),
             ttl);
+    }
+
+    internal static TimeSpan EffectiveTimeToLive(PushContent content, PushOptions options)
+    {
+        var ttl = content.TimeToLive is { } requested && requested > TimeSpan.Zero ? requested : options.DefaultTimeToLive;
+        return ttl > TimeSpan.FromDays(28) ? TimeSpan.FromDays(28) : ttl; // FCM / APNs maximum
     }
 
     private Task LogAsync(Guid correlationId, PushDelivery delivery, NotificationDeliveryStatus status, string? error,

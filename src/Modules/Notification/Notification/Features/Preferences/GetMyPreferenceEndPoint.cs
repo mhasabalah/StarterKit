@@ -4,7 +4,10 @@ public sealed record MyPreferenceDto(
     Guid UserId,
     NotificationChannel[] ChannelOrder,
     bool IsDefault,
-    bool PushEnabled = true);
+    bool PushEnabled = true,
+    IReadOnlyDictionary<string, ChannelMuteSet>? CategoryMutes = null,
+    QuietHoursDto? QuietHours = null,
+    string? TimeZone = null);
 
 public sealed class GetMyPreferenceEndPoint : ICarterModule
 {
@@ -24,9 +27,7 @@ public sealed class GetMyPreferenceEndPoint : ICarterModule
                         .AsNoTracking()
                         .FirstOrDefaultAsync(x => x.UserId == userId, ct);
 
-                    var result = preference is not null
-                        ? new MyPreferenceDto(userId, preference.ChannelOrder, IsDefault: false, preference.PushEnabled)
-                        : new MyPreferenceDto(userId, options.Value.DefaultChannelOrder, IsDefault: true);
+                    var result = PreferenceRules.ToDto(userId, preference, options.Value.DefaultChannelOrder);
 
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })
@@ -36,7 +37,7 @@ public sealed class GetMyPreferenceEndPoint : ICarterModule
             .Produces<ApiResponse<MyPreferenceDto>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status401Unauthorized)
             .WithSummary("Get my notification preference")
-            .WithDescription("Returns the calling user's channel preference, or system default if none set.")
+            .WithDescription("Returns the calling user's channel order, push switch, per-group mutes and quiet hours, or the system default if none set.")
             .RequireAuthorization()
             .RequireRateLimiting("search")
             .HasApiVersion(1.0);

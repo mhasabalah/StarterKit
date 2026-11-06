@@ -10,18 +10,9 @@ public sealed class UpdateUserPreferenceEndPoint : ICarterModule
                     UpdatePreferenceRequest request,
                     INotificationPreferenceRepository preferences,
                     IEnumerable<INotificationChannelAdapter> adapters,
+                    IStringLocalizer<NotificationResource> localizer,
                     CancellationToken ct) =>
-                {
-                    var validationError = ChannelOrderRules.Validate(request.ChannelOrder, adapters);
-                    if (validationError is not null)
-                        return ApiResponseExtensions.BadRequest(validationError);
-
-                    var now = await preferences.UpsertAsync(userId, request.ChannelOrder, request.PushEnabled, ct);
-                    var pushEnabled = request.PushEnabled ?? await preferences.IsPushEnabledAsync(userId, ct);
-
-                    return Results.Ok(ApiResponseExtensions.Success(
-                        new UpdatePreferenceResponse(userId, request.ChannelOrder, now, pushEnabled)));
-                })
+                    await PreferenceRules.ApplyAsync(userId, request, preferences, adapters, localizer, ct))
             .WithName("UpdateUserNotificationPreference")
             .WithApiVersionSet(app.NewApiVersionSet("Notifications").Build())
             .WithTags("Notifications")

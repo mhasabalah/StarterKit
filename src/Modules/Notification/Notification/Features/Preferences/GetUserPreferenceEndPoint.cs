@@ -15,9 +15,7 @@ public sealed class GetUserPreferenceEndPoint : ICarterModule
                         .AsNoTracking()
                         .FirstOrDefaultAsync(x => x.UserId == userId, ct);
 
-                    var result = preference is not null
-                        ? new MyPreferenceDto(userId, preference.ChannelOrder, IsDefault: false, preference.PushEnabled)
-                        : new MyPreferenceDto(userId, options.Value.DefaultChannelOrder, IsDefault: true);
+                    var result = PreferenceRules.ToDto(userId, preference, options.Value.DefaultChannelOrder);
 
                     return Results.Ok(ApiResponseExtensions.Success(result));
                 })

@@ -35,4 +35,10 @@
   <data name="Validation.Platform.Invalid" xml:space="preserve"><value>Platform must be Android, Ios or Web.</value></data>
   <data name="Validation.AppVersion.MaxLength" xml:space="preserve"><value>App version must not exceed 50 characters.</value></data>
   <data name="Validation.Locale.MaxLength" xml:space="preserve"><value>Locale must not exceed 20 characters.</value></data>
+  <data name="Validation.Preference.UnknownGroup" xml:space="preserve"><value>Unknown notification category group '{0}'.</value></data>
+  <data name="Validation.Preference.SecurityNotMutable" xml:space="preserve"><value>Security notifications cannot be muted.</value></data>
+  <data name="Validation.Preference.QuietHours.Invalid" xml:space="preserve"><value>Quiet hours need a start and an end time written as HH:mm.</value></data>
+  <data name="Validation.Preference.QuietHours.SameTime" xml:space="preserve"><value>The quiet hours start and end must be different.</value></data>
+  <data name="Validation.Preference.TimeZone.Invalid" xml:space="preserve"><value>The time zone must be a valid IANA id such as Africa/Cairo.</value></data>
+  <data name="Validation.Preference.TimeZone.Required" xml:space="preserve"><value>A time zone is required when quiet hours are set.</value></data>
 </root>

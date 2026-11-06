@@ -16,7 +16,8 @@ public sealed record PushDelivery(
     NotificationCulture Culture,
     PushContent Content,
     IReadOnlyList<Guid>? DeviceIds = null,
-    int Attempt = 1);
+    int Attempt = 1,
+    string? Category = null);
 
 /// <summary>Channels delivered alongside (not as part of) the email/WhatsApp fallback chain.</summary>
 public static class AdditiveChannels
