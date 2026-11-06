@@ -6,7 +6,9 @@ don't load `CLAUDE.md`.
 
 ## Non-negotiable rules
 
-1. **Never commit or push.** Leave changes in the working tree; the user reviews and commits.
+1. **Commit and open PRs only when the user asks, and only on a feature branch** (`feature/...`, `fix/...`). Never
+   commit on, push to or merge into `master` / `develop`. Never force-push, skip hooks or merge a PR: the user reviews
+   and merges. Build and tests must pass first (`CLAUDE.md` > Rules > Git).
 2. After any code change, run `dotnet build StarterKit.slnx` and fix all errors. Then run the relevant tests and
    `dotnet test src/Api.Tests`, the architecture guardrails.
 3. Modules talk only through `ISender` + the other module's `.Contracts`, or through integration events
