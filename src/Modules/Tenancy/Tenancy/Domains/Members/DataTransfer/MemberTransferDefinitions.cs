@@ -302,7 +302,7 @@ internal sealed class MemberRow
 
         var row = new MemberRow
         {
-            Email = email is null ? string.Empty : TenantInvitation.NormalizeEmail(email),
+            Email = email is null ? string.Empty : email.Trim().ToLowerInvariant(),
             RoleNames = MemberTransferColumns.SplitList(record.Get(MemberTransferColumns.Roles))
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             Branches = branches
