@@ -44,7 +44,7 @@ internal sealed class ReceivePaymentWebhookHandler(
             command.RawBody, command.Headers, command.Query ?? new Dictionary<string, string>()));
         if (parsed.Failure == WebhookFailure.InvalidSignature)
             throw new InvalidWebhookSignatureException();
-        if (!parsed.IsValid || parsed.Event!.Amount < 0m || decimal.Round(parsed.Event.Amount, 2) != parsed.Event.Amount)
+        if (!parsed.IsValid || parsed.Event!.Amount < 0m || !Currency.HasValidScale(parsed.Event.Amount, parsed.Event.Currency))
             throw new InvalidWebhookPayloadException();
 
         var stored = await processor.StoreAsync(gateway.Name, parsed.Event, command.RawBody, cancellationToken);

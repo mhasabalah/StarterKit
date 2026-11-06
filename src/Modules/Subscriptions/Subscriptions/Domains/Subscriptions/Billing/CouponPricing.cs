@@ -32,18 +32,22 @@ public static class CouponPricing
 {
     public const decimal MinimumCharge = 0.01m;
 
-    public static decimal Discount(decimal price, CouponDiscountType type, decimal value)
+    /// <summary>The smallest charge a coupon leaves: one minor unit of the currency (0.01 USD, 1 JPY, 0.001 KWD).</summary>
+    public static decimal MinimumChargeFor(string? currency) => Currency.SmallestUnit(currency);
+
+    public static decimal Discount(decimal price, CouponDiscountType type, decimal value, string? currency = null)
     {
-        if (price <= MinimumCharge || value <= 0m)
+        var minimum = MinimumChargeFor(currency);
+        if (price <= minimum || value <= 0m)
             return 0m;
 
         var raw = type == CouponDiscountType.Percent
             ? price * Math.Min(value, 100m) / 100m
             : value;
 
-        return Math.Min(TaxCalculator.Round(raw), price - MinimumCharge);
+        return Math.Min(Currency.Round(raw, currency), price - minimum);
     }
 
-    public static decimal Discount(decimal price, CouponTerms? coupon) =>
-        coupon is null ? 0m : Discount(price, coupon.Type, coupon.Value);
+    public static decimal Discount(decimal price, CouponTerms? coupon, string? currency = null) =>
+        coupon is null ? 0m : Discount(price, coupon.Type, coupon.Value, currency);
 }

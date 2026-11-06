@@ -34,7 +34,7 @@ public static class BillingDashboardCalculator
             .Select(c =>
             {
                 var mrr = c.Sum(g => g.PriceSum / g.BillingCycleInMonths);
-                return new RecurringRevenueDto(c.Key, Round(mrr), Round(mrr * 12m), c.Sum(g => g.Count));
+                return new RecurringRevenueDto(c.Key, Currency.Round(mrr, c.Key), Currency.Round(mrr * 12m, c.Key), c.Sum(g => g.Count));
             })
             .OrderBy(x => x.Currency, StringComparer.Ordinal)
             .ToList();
@@ -97,8 +97,10 @@ public static class BillingDashboardCalculator
         IEnumerable<LedgerAmountGroup> rows)
     {
         decimal gross = 0m, refunds = 0m, credits = 0m, adjustments = 0m;
+        string? currency = null;
         foreach (var row in rows)
         {
+            currency ??= row.Currency;
             switch (row.Type)
             {
                 case LedgerEntryType.Payment:
@@ -116,12 +118,10 @@ public static class BillingDashboardCalculator
             }
         }
 
-        gross = Round(gross);
-        refunds = Round(refunds);
-        credits = Round(credits);
-        adjustments = Round(adjustments);
+        gross = Currency.Round(gross, currency);
+        refunds = Currency.Round(refunds, currency);
+        credits = Currency.Round(credits, currency);
+        adjustments = Currency.Round(adjustments, currency);
         return (gross, refunds, credits, adjustments, gross - refunds - credits + adjustments);
     }
-
-    private static decimal Round(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 }

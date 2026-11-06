@@ -52,7 +52,8 @@ public class CreateSubscriptionHandler(
             : await CouponLookup.FindRedeemableAsync(
                 dbContext, command.CouponCode, command.SubscriberId, plan.Id, plan.Currency, now, cancellationToken);
 
-        var (amountDue, couponDiscount) = PricingPolicy.ActivationCharge(price, options.Value.Tax.ToPolicy(), coupon?.Terms);
+        var (amountDue, couponDiscount) = PricingPolicy.ActivationCharge(
+            price, options.Value.Tax.ToPolicy(), coupon?.Terms, plan.Currency);
 
         var subscription = Subscription.Create(
             command.SubscriberId, PlanSnapshot.From(plan, price), amountDue, now, coupon?.Terms, couponDiscount);

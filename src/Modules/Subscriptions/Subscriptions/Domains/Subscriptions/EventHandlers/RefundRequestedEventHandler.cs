@@ -35,7 +35,7 @@ public class RefundRequestedEventHandler(
         {
             SubscriberName = subscriber?.DisplayName ?? "Unknown subscriber",
             PlanName = refund?.PlanName ?? "Plan",
-            Amount = notification.RequestedAmount.ToString("F2", CultureInfo.InvariantCulture),
+            Amount = CurrencyRules.Format(notification.RequestedAmount, notification.Currency),
             Currency = notification.Currency,
             RefundType = refund?.RefundType.ToString() ?? string.Empty
         };

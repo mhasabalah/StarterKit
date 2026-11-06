@@ -21,6 +21,9 @@ public class InboundWebhookEvent
     /// <summary>The provider's payment / charge / transaction id the event reports, if any.</summary>
     public string? PaymentReference { get; private set; }
 
+    /// <summary>The saved payment method the success event reported (JSON of <c>SavedMethodCapture</c>), if any.</summary>
+    public string? SavedMethod { get; private set; }
+
     /// <summary>The raw JSON body as received (jsonb).</summary>
     public string Payload { get; private set; } = default!;
 

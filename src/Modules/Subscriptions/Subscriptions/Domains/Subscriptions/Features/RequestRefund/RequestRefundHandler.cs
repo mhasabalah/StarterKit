@@ -109,7 +109,8 @@ internal static class RefundInputs
             periodEnd,
             serviceEnd,
             options.RefundFullWindowDays,
-            options.RefundProratedWindowDays);
+            options.RefundProratedWindowDays,
+            subscription.Currency);
     }
 
     /// <summary>Σ paid − Σ approved/processed refunds (optionally excluding one refund request).</summary>

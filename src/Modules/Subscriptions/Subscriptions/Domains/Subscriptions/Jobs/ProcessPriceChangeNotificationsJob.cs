@@ -77,8 +77,8 @@ public class ProcessPriceChangeNotificationsJob(
                     {
                         SubscriberName = subscriber?.DisplayName ?? string.Empty,
                         PlanName = plan.Name,
-                        OldPrice = plan.Price.ToString("F2", CultureInfo.InvariantCulture),
-                        NewPrice = plan.PendingPrice.ToString("F2", CultureInfo.InvariantCulture),
+                        OldPrice = CurrencyRules.Format(plan.Price, plan.Currency),
+                        NewPrice = CurrencyRules.Format(plan.PendingPrice, plan.Currency),
                         Currency = plan.Currency,
                         EffectiveAt = plan.PriceEffectiveAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                         DaysUntilEffective = daysUntilEffective.ToString(CultureInfo.InvariantCulture),

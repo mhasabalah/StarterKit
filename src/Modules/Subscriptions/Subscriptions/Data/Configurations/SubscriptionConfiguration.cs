@@ -17,8 +17,8 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.Property(x => x.ComplimentaryUntil).IsRequired(false);
         builder.Property(x => x.PlanId).IsRequired();
         builder.Property(x => x.PlanName).IsRequired().HasMaxLength(200);
-        builder.Property(x => x.Price).HasPrecision(18, 2);
-        builder.Property(x => x.DeferredProrationAmount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.Price).HasMoneyPrecision();
+        builder.Property(x => x.DeferredProrationAmount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.BillingCycleInMonths).IsRequired();
         builder.Property(x => x.FeaturesJson).HasColumnType("jsonb").IsRequired();
@@ -35,7 +35,7 @@ public class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
         builder.Property(x => x.CouponId).IsRequired(false);
         builder.Property(x => x.CouponCode).HasMaxLength(50).IsRequired(false);
         builder.Property(x => x.CouponDiscountType).HasConversion<string>().HasMaxLength(20).IsRequired(false);
-        builder.Property(x => x.CouponValue).HasPrecision(18, 2).IsRequired(false);
+        builder.Property(x => x.CouponValue).HasMoneyPrecision().IsRequired(false);
         builder.Property(x => x.CouponPeriodsRemaining).IsRequired(false);
         builder.Ignore(x => x.ActiveCoupon);
 

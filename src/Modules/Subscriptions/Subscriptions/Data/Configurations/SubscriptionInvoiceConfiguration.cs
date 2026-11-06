@@ -36,15 +36,15 @@ public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<Subscri
         builder.Property(x => x.SellerTaxId).HasMaxLength(100);
 
         // Tax snapshot: no database defaults (the rate comes from configuration at issue time, never a constant).
-        builder.Property(x => x.NetAmount).HasPrecision(18, 2).IsRequired();
-        builder.Property(x => x.TaxAmount).HasPrecision(18, 2).IsRequired();
-        builder.Property(x => x.TotalAmount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.NetAmount).HasMoneyPrecision().IsRequired();
+        builder.Property(x => x.TaxAmount).HasMoneyPrecision().IsRequired();
+        builder.Property(x => x.TotalAmount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.TaxRate).HasPrecision(7, 4).IsRequired();
         builder.Property(x => x.PricesIncludeTax).IsRequired();
         builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
-        builder.Property(x => x.CreditedAmount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.CreditedAmount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.CouponCode).HasMaxLength(50).IsRequired(false);
-        builder.Property(x => x.CouponDiscountAmount).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
+        builder.Property(x => x.CouponDiscountAmount).HasMoneyPrecision().IsRequired().HasDefaultValue(0m);
 
         builder.Property(x => x.PdfStorageKey).HasMaxLength(500);
         builder.Property(x => x.ErrorMessage).HasMaxLength(500);

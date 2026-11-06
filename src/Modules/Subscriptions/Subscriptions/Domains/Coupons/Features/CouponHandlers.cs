@@ -27,7 +27,12 @@ public class CreateCouponCommandValidator : AbstractValidator<CreateCouponComman
         RuleFor(x => x.Duration).IsInEnum();
         RuleFor(x => x.Value).GreaterThan(0m);
         RuleFor(x => x.Value).LessThanOrEqualTo(100m).When(x => x.DiscountType == CouponDiscountType.Percent);
-        RuleFor(x => x.Currency).NotEmpty().Length(3).When(x => x.DiscountType == CouponDiscountType.FixedAmount);
+        RuleFor(x => x.Currency).NotEmpty().Length(3).Must(CurrencyRules.IsKnown)
+            .WithMessage("'{PropertyValue}' is not a valid ISO 4217 currency code.")
+            .When(x => x.DiscountType == CouponDiscountType.FixedAmount);
+        RuleFor(x => x.Value).Must((command, value) => CurrencyRules.HasValidScale(value, command.Currency))
+            .When(x => x.DiscountType == CouponDiscountType.FixedAmount && CurrencyRules.IsKnown(x.Currency))
+            .WithMessage(x => $"A {x.Currency} amount has at most {CurrencyRules.Exponent(x.Currency)} decimals.");
         RuleFor(x => x.DurationPeriods).NotNull().GreaterThan(0).When(x => x.Duration == CouponDuration.Repeating);
         RuleFor(x => x.MaxRedemptions).GreaterThan(0).When(x => x.MaxRedemptions is not null);
     }

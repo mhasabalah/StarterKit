@@ -177,7 +177,7 @@ public class LedgerEntry
 
         return New(
             LedgerEntryType.Adjustment,
-            decimal.Round(amount, 2, MidpointRounding.AwayFromZero),
+            CurrencyRules.Round(amount, subscription.Currency),
             subscription.Currency,
             subscription,
             actorId,

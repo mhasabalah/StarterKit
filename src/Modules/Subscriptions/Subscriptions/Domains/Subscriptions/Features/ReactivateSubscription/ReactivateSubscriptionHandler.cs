@@ -77,7 +77,7 @@ public class ReactivateSubscriptionHandler(
         {
             var from = subscription.Status;
             var periodPrice = PricingPolicy.RenewalPeriodPrice(subscription, plan, now);
-            var amountDue = TaxCalculator.AmountDue(periodPrice, options.Value.Tax.ToPolicy());
+            var amountDue = TaxCalculator.AmountDue(periodPrice, options.Value.Tax.ToPolicy(), subscription.Currency);
             payment = subscription.Reactivate(periodPrice, amountDue, options.Value.ReactivationWindowDays, now);
 
             dbContext.TransitionLogs.Add(SubscriptionTransitionLog.Create(

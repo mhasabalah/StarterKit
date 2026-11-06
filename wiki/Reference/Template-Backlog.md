@@ -11,7 +11,7 @@ BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
 
 Senior gap review of features a production SaaS needs. ✅ = shipped (wave 6, PR #11), 🚧 = in progress, ⬜ = open.
 
-Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 18,3
+Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-rounding.md)): money columns are numeric(19,4) and rounded per ISO 4217 currency.
 
 **P0 — before the first real customer**
 
@@ -128,8 +128,8 @@ Wave 9 (2026-11-06, [ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-clo
   `/health` reports `Degraded` (200). The compose overlay's own `clamav` service comes up healthy with
   `AlertExceedsMax yes`.
 
-Follow-ups known up front: automatic off-session card retry in dunning (needs saved payment methods); Stripe/Paymob
-sandbox keys per project.
+Follow-ups known up front, now done (ADR [0018](../Decisions/0018-off-session-dunning-retries-on-saved-cards.md)): automatic
+off-session card retry in dunning on saved payment methods; sandbox vs live gateway mode and sandbox keys per project.
 
 Wave 8 (2026-11-05, ADRs [0013](../Decisions/0013-enterprise-sso-and-scim.md) / [0014](../Decisions/0014-passkeys-on-built-in-identity.md)):
 G15 + G16 shipped, plus the email design system v2 ([page](../Modules/Notification-Email-Design-System.md)), the

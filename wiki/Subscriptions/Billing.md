@@ -20,6 +20,30 @@ PendingApproval ──approve──► Active ──renewal boundary──► Pa
   `ux_subscriptions_subscriber_open`. A unique violation (Postgres `23505`) becomes a **409** in
   `SubscriptionsDbContext.SaveChangesAsync`. Approval never cancels another subscription.
 
+## Currency and decimals
+
+Money is stored as `numeric(19,4)` and rounded in the domain per ISO 4217 currency: 0 decimals (JPY, KRW), 2 (USD,
+SAR, EGP), 3 (KWD, BHD, OMR, JOD, TND), 4 (CLF). `Currency` is the one helper (`Round`, `HasValidScale`,
+`ToMinorUnits`, `Format`); plans and coupons require a real ISO code and an amount that fits it; provider amounts
+(Stripe, Paymob) use the same minor-unit rules. See ADR
+[0017](../Decisions/0017-money-precision-and-per-currency-rounding.md). Never `Round(x, 2)` or `ToString("F2")` money.
+
+## Sandbox and live gateways
+
+Each `Subscriptions:PaymentGateways:<Name>` entry has `Mode` = `Sandbox` (default) or `Live`. The host refuses to boot
+when the key contradicts the mode (`sk_test_` with Live, `sk_live_` with Sandbox) and, in Production, when a sandbox
+gateway (the Fake adapter too) is enabled without `AllowSandboxInProduction=true`.
+
+Getting sandbox keys per project:
+
+- **Stripe.** Dashboard in test mode: Developers > API keys gives `sk_test_...` (`ApiKey`). Create a webhook endpoint
+  to `/api/v1/webhooks/payments/Stripe` (events listed in `StripePaymentGateway`, plus `payment_intent.succeeded` and
+  `payment_intent.payment_failed` when auto-retry is on) and copy its `whsec_...` into `Secret`; locally,
+  `stripe listen --forward-to` prints one. Test card `4242 4242 4242 4242`; `4000 0025 0000 3155` asks for 3-D Secure.
+- **Paymob.** A test-mode account gives test secret/public keys and integration ids; the same host serves both modes
+  (`BaseUrl` only for a regional host). Point the integration callback at `/api/v1/webhooks/payments/Paymob`.
+- Keep real values in user-secrets, environment variables or Docker secrets; `CHANGE_ME` in committed files.
+
 ## Tax (`Subscriptions:Tax`)
 
 | Key | Default | Meaning |
@@ -366,7 +390,26 @@ dotnet ef migrations add AdminBillingConsole --context SubscriptionsDbContext \
 `FinalNoticeDaysBeforeGraceEnd` (1) day before the grace period ends. Each step is a `dunning_notices` row, unique per
 payment + step, written before the email, so it never re-sends. Several steps due at once (job was down): only the
 latest is sent, the rest are recorded as superseded. A renewal whose proof is under review is not nagged.
-Automatic card retries need stored payment methods and are out of scope.
+With `Dunning:AutoRetry:Enabled` each step first tries one automatic card charge (see
+[Saved cards and automatic retries](#saved-cards-and-automatic-retries)).
+
+### Saved cards and automatic retries
+
+Off by default (`Subscriptions:Dunning:AutoRetry:Enabled`). Design and reasons: ADR
+[0018](../Decisions/0018-off-session-dunning-retries-on-saved-cards.md).
+
+- **Saving.** With auto-retry on and a gateway that supports it (Stripe, Fake), the hosted checkout asks to keep the
+  card (`setup_future_usage=off_session`) and reuses the subscriber's existing provider customer. After the payment
+  settles, the first card becomes the default `saved_payment_methods` row (provider references, brand, last4, expiry).
+- **Managing.** `GET /api/v1/subscriptions/saved-payment-methods`, `POST .../{id}/default`, `DELETE .../{id}`. The
+  subscriber (tenant billing permission in multi-tenant mode) only; no impersonation, no API keys. Removing revokes
+  locally, then detaches at the provider.
+- **Retrying.** Before a step's email: one off-session charge of the default card. `payment_attempts` is unique per
+  payment + step; the provider idempotency key is `dunning:{paymentId}:{step}`. Success settles through the webhook
+  path (invoice, ledger) and sends no reminder. 3-D Secure needed, declined, expired card or provider outage: the usual
+  email with a fresh checkout link, the reason in the email, and an in-app notice (`billing.payment-failed`).
+- **Fake gateway outcomes** (dev/tests): a saved method reference containing `declined`, `action` or `transient`
+  fails that way; anything else succeeds.
 
 ### Metering and quotas
 
@@ -393,4 +436,6 @@ Automatic card retries need stored payment methods and are out of scope.
 
 `Subscriptions:Trials:{ReminderDaysBeforeEnd,PostTrialGraceDays,ReminderCron}`,
 `Subscriptions:Dunning:{Enabled,ScheduleDays,FinalNoticeDaysBeforeGraceEnd,Cron}`,
+`Subscriptions:Dunning:AutoRetry:Enabled`,
+`Subscriptions:PaymentGateways:<Name>:{Mode,AllowSandboxInProduction}`,
 `Subscriptions:Metering:{FlushCron,MonthlyCounterTtlDays}`.

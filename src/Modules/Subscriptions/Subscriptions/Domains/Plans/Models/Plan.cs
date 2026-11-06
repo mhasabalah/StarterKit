@@ -50,6 +50,7 @@ public class Plan : Aggregate<Guid>
         int trialDays = 0)
     {
         EnsureValidTrialDays(trialDays);
+        EnsureValidMoney(price, currency);
         return new Plan
         {
             Id = Guid.NewGuid(),
@@ -68,6 +69,17 @@ public class Plan : Aggregate<Guid>
             TrialDays = trialDays,
             UpdatedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    /// <summary>A price needs a real ISO 4217 currency and no more decimals than that currency has (KWD 3, JPY 0).</summary>
+    private static void EnsureValidMoney(decimal price, string currency)
+    {
+        if (!CurrencyRules.IsKnown(currency))
+            throw new BadRequestException($"'{currency}' is not a valid ISO 4217 currency code.");
+
+        if (!CurrencyRules.HasValidScale(price, currency))
+            throw new BadRequestException(
+                $"A {currency} price has at most {CurrencyRules.Exponent(currency)} decimals.");
     }
 
     private static void EnsureValidTrialDays(int trialDays)
@@ -90,6 +102,9 @@ public class Plan : Aggregate<Guid>
         int trialDays = 0)
     {
         EnsureValidTrialDays(trialDays);
+        EnsureValidMoney(Price, currency);
+        if (PendingPrice is { } pending)
+            EnsureValidMoney(pending, currency);
         TrialDays = trialDays;
         Name = name;
         Description = description;
@@ -106,6 +121,7 @@ public class Plan : Aggregate<Guid>
 
     public void ForcePrice(decimal newPrice)
     {
+        EnsureValidMoney(newPrice, Currency);
         // Clears any pending scheduled change — immediate override wins.
         PendingPrice = null;
         PriceEffectiveAt = null;
@@ -144,6 +160,7 @@ public class Plan : Aggregate<Guid>
 
     public void SchedulePriceChange(decimal newPrice, DateTimeOffset effectiveAt)
     {
+        EnsureValidMoney(newPrice, Currency);
         PendingPrice = newPrice;
         PriceEffectiveAt = effectiveAt.ToUniversalTime(); // timestamptz: Npgsql only writes offset 0
         PriceChangeAnnouncedAt = DateTimeOffset.UtcNow;

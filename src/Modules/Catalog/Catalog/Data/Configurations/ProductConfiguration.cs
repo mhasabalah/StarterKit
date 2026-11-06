@@ -21,8 +21,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         // Owned value object #2: pricing with a computed (ignored) DiscountPercentage.
         builder.OwnsOne(p => p.Pricing, pricing =>
         {
-            pricing.Property(x => x.Price).HasColumnName("price").HasPrecision(18, 2).IsRequired();
-            pricing.Property(x => x.CompareAtPrice).HasColumnName("compare_at_price").HasPrecision(18, 2);
+            pricing.Property(x => x.Price).HasColumnName("price").HasMoneyPrecision().IsRequired();
+            pricing.Property(x => x.CompareAtPrice).HasColumnName("compare_at_price").HasMoneyPrecision();
             pricing.Property(x => x.Currency).HasColumnName("currency").HasConversion<string>()
                 .HasMaxLength(10).IsRequired();
             pricing.Ignore(x => x.DiscountPercentage);

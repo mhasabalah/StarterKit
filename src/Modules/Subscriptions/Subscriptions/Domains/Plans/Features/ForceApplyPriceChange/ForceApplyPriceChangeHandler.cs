@@ -44,7 +44,7 @@ public class ForceApplyPriceChangeHandler(
             "ForceApplyPriceChange",
             plan.Id,
             "Plan",
-            reason: $"Forced immediate price change from {plan.Currency} {oldPrice:F2} to {plan.Currency} {command.NewPrice:F2}"
+            reason: $"Forced immediate price change from {plan.Currency} {CurrencyRules.Format(oldPrice, plan.Currency)} to {plan.Currency} {CurrencyRules.Format(command.NewPrice, plan.Currency)}"
                 + (hadPendingSchedule ? " (cancelled existing scheduled change)" : string.Empty),
             amount: command.NewPrice, currency: plan.Currency, before: new { Price = oldPrice, HadPendingSchedule = hadPendingSchedule }, after: new { Price = command.NewPrice },
             adminId: command.AdminId);
@@ -81,8 +81,8 @@ public class ForceApplyPriceChangeHandler(
                 {
                     SubscriberName = subscriber?.DisplayName ?? string.Empty,
                     PlanName = plan.Name.En,
-                    OldPrice = oldPrice.ToString("F2", CultureInfo.InvariantCulture),
-                    NewPrice = plan.Price.ToString("F2", CultureInfo.InvariantCulture),
+                    OldPrice = CurrencyRules.Format(oldPrice, plan.Currency),
+                    NewPrice = CurrencyRules.Format(plan.Price, plan.Currency),
                     Currency = plan.Currency,
                     EffectiveAt = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     DaysUntilEffective = "0",

@@ -17,4 +17,6 @@ link it here.
 | [0013](0013-enterprise-sso-and-scim.md) | Per-tenant SSO (OIDC/SAML) and SCIM inside Identity, without dynamic auth schemes | Accepted |
 | [0014](0014-passkeys-on-built-in-identity.md) | Passkeys on .NET 10 Identity's built-in WebAuthn, server-side ceremony state | Accepted |
 | [0015](0015-malware-scanning-clamd-fail-closed.md) | Upload malware scanning with ClamAV over an own TCP client, failing closed | Accepted |
+| [0017](0017-money-precision-and-per-currency-rounding.md) | Money columns are numeric(19,4); rounding and scale are per ISO 4217 currency in the domain | Accepted |
+| [0018](0018-off-session-dunning-retries-on-saved-cards.md) | Idempotent off-session card retries before the dunning reminder; sandbox/live gateway mode | Accepted |
 | [0016](0016-bulk-data-transfer-on-hangfire.md) | Bulk import/export as leased, checkpointed Hangfire jobs on their own queue (same image, role switch) | Accepted |
