@@ -35,7 +35,6 @@ public sealed class MemberTransferDefinitionTests(TenancyPostgresFixture fx) : I
         _tenant = new TenantInfo(_tenantId, identifier, "Members Co");
         fx.PlanLimits.MaxUsers = null;
         fx.Users.Add(_ownerId, $"owner-{_ownerId:N}@example.com", "Owner Person");
-        fx.Http.Real = new HttpContextService(new HttpContextAccessor()); // no HTTP request, like a Hangfire job
     }
 
     public Task DisposeAsync()
@@ -155,8 +154,12 @@ public sealed class MemberTransferDefinitionTests(TenancyPostgresFixture fx) : I
         await fx.SendInTenant(_tenantId, _ownerId, new ProvisionMemberCommand(userId, MemberProvisioningSource.Scim,
             [SystemTenantRoles.IdOf(_tenantId, SystemTenantRoles.BranchManager)]));
         var branchId = await fx.WithDb(db => db.Branches.Where(b => b.TenantId == _tenantId && b.Code == "ALEX").Select(b => b.Id).SingleAsync());
-        await fx.SendInTenant(_tenantId, _ownerId, new UpdateMemberCommand(userId,
-            [SystemTenantRoles.IdOf(_tenantId, SystemTenantRoles.BranchManager)], [new BranchAssignment(branchId, false)]));
+        await fx.WithDb(async db =>
+        {
+            var membership = await db.Memberships.SingleAsync(m => m.TenantId == _tenantId && m.UserId == userId);
+            membership.SetBranches([new BranchAssignment(branchId, false)]);
+            return await db.SaveChangesAsync();
+        });
 
         var exported = await ExportAsync();
 
@@ -183,45 +186,61 @@ public sealed class MemberTransferDefinitionTests(TenancyPostgresFixture fx) : I
     private async Task<IReadOnlyList<ImportRowResult>> ApplyAsync(Guid requester, bool dryRun, params ImportRecord[] records)
     {
         IReadOnlyList<ImportRowResult> results = [];
-        await fx.WithServices(async sp =>
+        fx.Http.Real = new HttpContextService(new HttpContextAccessor()); // no HTTP request, like a Hangfire job
+        try
         {
-            TenantMembershipInfo? membership;
-            using (TenantScope.BeginHostScope())
+            await fx.WithServices(async sp =>
             {
-                membership = await sp.GetRequiredService<ITenantMembershipResolver>()
-                    .GetMembershipAsync(requester, _tenantId, CancellationToken.None);
-            }
+                TenantMembershipInfo? membership;
+                using (TenantScope.BeginHostScope())
+                {
+                    membership = await sp.GetRequiredService<ITenantMembershipResolver>()
+                        .GetMembershipAsync(requester, _tenantId, CancellationToken.None);
+                }
 
-            // What TransferJobRunner does around the definition.
-            using var scope = TenantScope.Begin(_tenant, membership: membership);
-            using var acting = ActingUser.Begin(requester);
-            var definition = sp.GetServices<IImportDefinition>().Single(d => d.Key == MemberTransferColumns.Key);
-            results = await definition.ApplyBatchAsync(records,
-                new ImportContext(Guid.NewGuid(), requester, dryRun, "en"), CancellationToken.None);
-        });
+                // What TransferJobRunner does around the definition.
+                using var scope = TenantScope.Begin(_tenant, membership: membership);
+                using var acting = ActingUser.Begin(requester);
+                var definition = sp.GetServices<IImportDefinition>().Single(d => d.Key == MemberTransferColumns.Key);
+                results = await definition.ApplyBatchAsync(records,
+                    new ImportContext(Guid.NewGuid(), requester, dryRun, "en"), CancellationToken.None);
+            });
+        }
+        finally
+        {
+            fx.Http.Real = null;
+        }
         return results;
     }
 
     private async Task<List<IReadOnlyList<string?>>> ExportAsync()
     {
         var rows = new List<IReadOnlyList<string?>>();
-        await fx.WithServices(async sp =>
+        fx.Http.Real = new HttpContextService(new HttpContextAccessor()); // no HTTP request, like a Hangfire job
+        try
         {
-            TenantMembershipInfo? membership;
-            using (TenantScope.BeginHostScope())
+            await fx.WithServices(async sp =>
             {
-                membership = await sp.GetRequiredService<ITenantMembershipResolver>()
-                    .GetMembershipAsync(_ownerId, _tenantId, CancellationToken.None);
-            }
+                TenantMembershipInfo? membership;
+                using (TenantScope.BeginHostScope())
+                {
+                    membership = await sp.GetRequiredService<ITenantMembershipResolver>()
+                        .GetMembershipAsync(_ownerId, _tenantId, CancellationToken.None);
+                }
 
-            using var scope = TenantScope.Begin(_tenant, membership: membership);
-            using var acting = ActingUser.Begin(_ownerId);
-            var export = sp.GetServices<IExportDefinition>().Single(d => d.Key == MemberTransferColumns.Key);
-            await foreach (var row in export.StreamAsync(
-                               new ExportContext(Guid.NewGuid(), _ownerId, new Dictionary<string, string>(), "en"),
-                               CancellationToken.None))
-                rows.Add(row);
-        });
+                using var scope = TenantScope.Begin(_tenant, membership: membership);
+                using var acting = ActingUser.Begin(_ownerId);
+                var export = sp.GetServices<IExportDefinition>().Single(d => d.Key == MemberTransferColumns.Key);
+                await foreach (var row in export.StreamAsync(
+                                   new ExportContext(Guid.NewGuid(), _ownerId, new Dictionary<string, string>(), "en"),
+                                   CancellationToken.None))
+                    rows.Add(row);
+            });
+        }
+        finally
+        {
+            fx.Http.Real = null;
+        }
         return rows;
     }
 
