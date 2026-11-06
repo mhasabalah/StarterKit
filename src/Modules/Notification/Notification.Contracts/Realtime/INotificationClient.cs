@@ -20,6 +20,9 @@ public interface INotificationClient
 
     /// <summary>An entry was deleted on another tab/device.</summary>
     Task NotificationDeleted(NotificationDeletedEvent deleted);
+
+    /// <summary>A transient event from another module (e.g. job progress). Not stored: re-read over REST on reconnect.</summary>
+    Task UserEvent(UserEvent userEvent);
 }
 
 /// <summary>Hub route and client method names (for non-.NET clients).</summary>
@@ -31,6 +34,7 @@ public static class NotificationHubContract
     public const string UnreadCountChanged = nameof(INotificationClient.UnreadCountChanged);
     public const string NotificationsRead = nameof(INotificationClient.NotificationsRead);
     public const string NotificationDeleted = nameof(INotificationClient.NotificationDeleted);
+    public const string UserEvent = nameof(INotificationClient.UserEvent);
 }
 
 /// <param name="TenantId">Inbox scope the count belongs to (null = no tenant / single-tenant).</param>

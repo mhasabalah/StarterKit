@@ -28,7 +28,7 @@ public sealed class UsageService(
 {
     public async Task RecordAsync(string key, long quantity = 1, CancellationToken cancellationToken = default)
     {
-        if (quantity <= 0 || subscribers.GetCurrentSubscriberId() is not { } subscriberId)
+        if (quantity <= 0 || subscribers.GetPayingSubscriberId() is not { } subscriberId)
             return;
 
         try
@@ -45,7 +45,7 @@ public sealed class UsageService(
 
     public async Task<long> GetUsageAsync(string key, CancellationToken cancellationToken = default)
     {
-        if (subscribers.GetCurrentSubscriberId() is not { } subscriberId)
+        if (subscribers.GetPayingSubscriberId() is not { } subscriberId)
             return 0;
 
         var plan = await snapshots.GetSnapshotAsync(cancellationToken);
@@ -54,7 +54,7 @@ public sealed class UsageService(
 
     public async Task<QuotaResult> TryConsumeAsync(string key, long quantity = 1, CancellationToken cancellationToken = default)
     {
-        if (subscribers.GetCurrentSubscriberId() is not { } subscriberId)
+        if (subscribers.GetPayingSubscriberId() is not { } subscriberId)
             return new QuotaResult(true, 0, null);
 
         var enforce = options.Value.Entitlements.Enforce;

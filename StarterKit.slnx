@@ -40,6 +40,12 @@
     <Project Path="src/Modules/Webhooks/Webhooks.Tests/Webhooks.Tests.csproj" />
     <Project Path="src/Modules/Webhooks/Webhooks.IntegrationTests/Webhooks.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/DataTransfer/">
+    <Project Path="src/Modules/DataTransfer/DataTransfer.Contracts/DataTransfer.Contracts.csproj" />
+    <Project Path="src/Modules/DataTransfer/DataTransfer/DataTransfer.csproj" />
+    <Project Path="src/Modules/DataTransfer/DataTransfer.Tests/DataTransfer.Tests.csproj" />
+    <Project Path="src/Modules/DataTransfer/DataTransfer.IntegrationTests/DataTransfer.IntegrationTests.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/UserDirectory.Contracts/UserDirectory.Contracts.csproj" />

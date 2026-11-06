@@ -45,12 +45,47 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | G16 | Passkeys (WebAuthn) ([Passkeys](../Identity/Passkeys.md)) | ✅ |
 | G17 | Full-text search abstraction (Postgres `tsvector` first) | ⬜ |
 | G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
-| G19 | Bulk CSV/Excel import/export jobs with progress and error report | ⬜ |
+| G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
 | G21 | Durable saga repository (= #27) | ⬜ |
-| G22 | Load/performance tests (k6 or NBomber) with a CI baseline | ⬜ |
+| G22 | Load/performance tests (k6 or NBomber) with a CI baseline (🚧 DataTransfer engine baseline done: `datatransfer-perf.yml`) | ⬜ |
 | G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
+
+Wave 10 (2026-11-06, [ADR 0016](../Decisions/0016-bulk-data-transfer-on-hangfire.md)): **G19 bulk import/export.**
+- New `DataTransfer` module (engine) + `catalog.products` definitions (reference); owning modules plug in through
+  `DataTransfer.Contracts`.
+- Jobs on their own Hangfire queue `data-transfer`; `Hangfire:Servers:<Name>:Enabled` + `docker-compose.worker.yml`
+  run the same image as worker replicas.
+- Lease + per-batch checkpoint + own retry + stall sweep; dry run, `BestEffort` / `ValidateFirst`, error report, cancel,
+  7-day retention; Sylvan streaming readers, own CSV/XLSX writers with the formula-injection guard and zip-bomb limits.
+- Attachment: `EntityType.DataTransferJob` and the trusted `OpenAttachmentContentQuery`.
+- Found by the E2E tests: a multipart form leaves missing enum fields at `0` (property initializers are not applied),
+  so the request fields are nullable with defaults in the endpoint.
+- `/starterkit:review` of the wave (15 issues, all fixed):
+  - Security: jobs now re-check the requester's membership and run in their branch scope. Before this fix, a branch
+    manager's export saw every branch; a multi-tenant E2E now guards it. Auditors need the definition permission
+    for files.
+  - `datatransfer-queue` health check.
+  - Retention purge in keyset batches (it stopped at 100 per night).
+  - Localized engine messages (en/ar).
+  - Idempotent cancel (the version made a running cancel 409).
+  - One file parse fewer.
+  - Tenant-first `(tenant_id, created_at, id)` products index for exports.
+  - Export size checked before the upload; module 4xx errors no longer retried.
+  - Tests: Excel-authored workbooks (shared strings, numeric codes, dates, 3 server cultures), lease loss, shutdown,
+    error cap, server roles, validators in en/ar.
+- Senior follow-ups, done in the same wave:
+  - **Live progress:** `datatransfer.job-progress` user events over the notification hub (new generic
+    `IUserEventPublisher` / `UserEvent` hub method), throttled.
+  - **Plans:** `bulk_import` / `bulk_export` features and the `data_transfer_rows` metered quota, counted per batch.
+  - **Fix found on the way:** feature gates and quotas threw 403 for every tenant member without
+    `tenant.billing.manage`. New `ISubscriberIdProvider.GetPayingSubscriberId()` for plan reads.
+  - **`ActingUser`** scope for background work, so `CreatedBy` and the audit trail name the requester.
+  - **Typed XLSX cells:** `TransferColumn.Kind` (Number, Date), bold frozen header, column widths.
+  - **G22 slice:** the opt-in `PerformanceBaselineTests` (100k rows: about 64k rows/s import, 93k rows/s export) and
+    the nightly `datatransfer-perf.yml`.
+- Follow-ups: more definitions per project (users, categories); full G22 HTTP load tests (k6/NBomber).
 
 Wave 9 (2026-11-06, [ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md)): **all P0s are done.**
 

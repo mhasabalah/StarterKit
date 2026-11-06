@@ -1,6 +1,8 @@
 using Attachment.Contracts.Authorization;
 using Catalog.Data.Seed;
 using Catalog.Domains.Categories.Cache;
+using Catalog.Domains.Products.DataTransfer;
+using DataTransfer.Contracts.Definitions;
 using Catalog.Domains.Products.Jobs;
 using Catalog.Domains.Products.Mappings;
 using Catalog.Options;
@@ -45,6 +47,10 @@ public static class CatalogModule
         // Cross-module: tell the Attachment module who may attach to / read files of a Product (deny-by-default there).
         services.AddAttachmentEntityPolicy<ProductAttachmentAccessPolicy>(
             Attachment.Contracts.Attachments.Dtos.EntityType.Product);
+
+        // Cross-module: bulk CSV/Excel import/export of products through the DataTransfer module (catalog.products).
+        services.AddImportDefinition<ProductImportDefinition>();
+        services.AddExportDefinition<ProductExportDefinition>();
 
         services.AddMediator(CatalogRoot.AssemblyName);
         services.AddCustomMapster(CatalogRoot.AssemblyName);

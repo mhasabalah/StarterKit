@@ -247,6 +247,7 @@ public static class NotificationModule
         if (!realtime.Enabled)
         {
             services.AddSingleton<IRealtimeNotifier, NoOpRealtimeNotifier>();
+            services.AddSingleton<IUserEventPublisher, NullUserEventPublisher>();
             return;
         }
 
@@ -260,6 +261,7 @@ public static class NotificationModule
         });
         services.AddSingleton<IUserIdProvider, NotificationHubUserIdProvider>();
         services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
+        services.AddSingleton<IUserEventPublisher, SignalRUserEventPublisher>();
 
         // Scale-out: with Redis on, every replica relays hub sends through Redis pub/sub, so a send from the replica
         // that runs the Hangfire job reaches a socket held by another replica. A DEDICATED connection: the backplane

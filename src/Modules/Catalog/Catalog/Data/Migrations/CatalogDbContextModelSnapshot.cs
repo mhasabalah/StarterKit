@@ -294,6 +294,9 @@ namespace Catalog.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_products_sku");
 
+                    b.HasIndex("TenantId", "CreatedAt", "Id")
+                        .HasDatabaseName("ix_products_tenant_id_created_at_id");
+
                     b.ToTable("products", "catalog");
                 });
 

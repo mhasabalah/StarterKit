@@ -75,6 +75,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.HasIndex(p => p.CategoryId);
         builder.HasIndex(p => p.IsFeatured);
         builder.HasIndex(p => p.CreatedAt);
+        // Tenant-first, deterministic order for streaming exports (DataTransfer catalog.products): the sort is an index scan.
+        builder.HasIndex(p => new { p.TenantId, p.CreatedAt, p.Id });
         builder.HasIndex(p => new { p.IsDeleted, p.DeletedAt });
     }
 }

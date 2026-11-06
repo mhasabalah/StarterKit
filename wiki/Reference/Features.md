@@ -48,6 +48,7 @@ before building it, and to brief a product owner. Backlog and status: [Template 
 | WhatsApp | Cloud API templates, fallback with email | [Notification](../Modules/Notification.md) |
 | In-app + push | Inbox, SignalR hub (Redis backplane), FCM push to session-bound devices | [Realtime and push](../Modules/Notification-Realtime-and-Push.md) |
 | Outbound webhooks | Standard Webhooks signatures, retries, delivery log, SSRF guard, auto-disable | [Webhooks](../Modules/Webhooks.md) |
+| Bulk import/export | CSV/XLSX jobs, dry run, error report, progress, cancel, resumable, worker replicas | [DataTransfer](../Modules/DataTransfer.md) |
 | Messaging | Domain + integration events, transactional outbox, dead letters admin, InMemory / PostgreSQL / RabbitMQ | [Messaging](../Architecture/Messaging.md) |
 
 ## Files

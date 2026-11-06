@@ -381,6 +381,13 @@ Automatic card retries need stored payment methods and are out of scope.
 - Fails **open** when the store is down (warning log + `metering.store.failures` metric). Like `RequireFeature`, a
   quota is only enforced with `Subscriptions:Entitlements:Enforce=true`; otherwise usage is counted and never denied.
 - `GET /api/v1/subscriptions/me/usage` lists every metered feature of the plan with used / limit / next reset.
+- **Who pays.** Entitlement and metering reads use `ISubscriberIdProvider.GetPayingSubscriberId()`: in multi-tenant
+  mode the current tenant, for ANY member and for background work (no billing permission needed). Only managing the
+  subscription (`GetCurrentSubscriberId()`: checkout, invoices, refunds) requires `tenant.billing.manage`. Before this
+  split, a feature gate or quota on a member route threw 403 for every member without the billing permission. In
+  single-tenant mode the payer is the signed-in user, or the `ActingUser` of background work.
+- Well-known keys (`EntitlementKeys`): `bulk_import`, `bulk_export` (features) and `data_transfer_rows` (metered,
+  e.g. `100000/Monthly`), used by the DataTransfer module.
 
 ### Config keys
 

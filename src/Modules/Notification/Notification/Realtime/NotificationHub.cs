@@ -91,6 +91,37 @@ public sealed class SignalRRealtimeNotifier(
     }
 }
 
+/// <summary>
+/// <see cref="IUserEventPublisher"/> over the hub (best effort, like the inbox events). The event is checked against the
+/// contract limits before it is sent; an invalid one is dropped with a warning, never thrown.
+/// </summary>
+public sealed class SignalRUserEventPublisher(
+    IHubContext<NotificationHub, INotificationClient> hub,
+    NotificationMetrics metrics,
+    ILogger<SignalRUserEventPublisher> logger) : IUserEventPublisher
+{
+    public async Task PublishAsync(Guid userId, UserEvent userEvent, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userEvent.Type) || userEvent.Type.Length > UserEvent.TypeMaxLength ||
+            userEvent.Data.Count > UserEvent.MaxDataEntries)
+        {
+            logger.LogWarning("User event {Type} for {UserId} dropped: outside the contract limits", userEvent.Type, userId);
+            return;
+        }
+
+        try
+        {
+            await hub.Clients.User(userId.ToString("D")).UserEvent(userEvent);
+            metrics.RealtimeSent(NotificationHubContract.UserEvent, success: true);
+        }
+        catch (Exception ex)
+        {
+            metrics.RealtimeSent(NotificationHubContract.UserEvent, success: false);
+            logger.LogWarning(ex, "User event {Type} to user {UserId} failed (clients resync over REST)", userEvent.Type, userId);
+        }
+    }
+}
+
 /// <summary>Used when <c>Realtime:Enabled = false</c>: no hub, clients poll the unread count.</summary>
 public sealed class NoOpRealtimeNotifier : IRealtimeNotifier
 {
