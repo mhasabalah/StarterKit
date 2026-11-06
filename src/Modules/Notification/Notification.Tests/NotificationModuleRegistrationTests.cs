@@ -115,6 +115,23 @@ public sealed class NotificationModuleRegistrationTests
     }
 
     [Fact]
+    public void With_apns_enabled_ios_native_tokens_are_routed_to_apns_and_the_rest_to_the_fallback()
+    {
+        using var provider = Build(new()
+        {
+            ["Redis:Enabled"] = "false",
+            ["Push:Apns:Enabled"] = "true",
+            ["Push:Apns:KeyId"] = "ABC123DEFG",
+            ["Push:Apns:TeamId"] = "TEAM123456",
+            ["Push:Apns:BundleId"] = "com.example.app",
+            ["Push:Apns:PrivateKeyFile"] = "/run/secrets/apns.p8"
+        });
+
+        provider.GetRequiredService<IPushProvider>().Should().BeOfType<RoutingPushProvider>()
+            .Which.Name.Should().Be("NoOp+Apns");
+    }
+
+    [Fact]
     public void Without_credentials_Auto_push_resolves_to_NoOp_and_the_delivery_jobs_resolve()
     {
         using var provider = Build(new() { ["Redis:Enabled"] = "false" });

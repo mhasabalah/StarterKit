@@ -88,6 +88,8 @@ public static class NotificationModule
         logger.LogInformation(
             "Push provider: {Provider} (configured: {Configured}, credentials: {HasCredentials})",
             ResolvePushProvider(pushOptions), pushOptions.Provider, pushOptions.HasCredentials);
+        logger.LogInformation("Push APNs direct adapter: {State}", pushOptions.Apns.Enabled
+            ? (pushOptions.Apns.UseSandbox ? "enabled (sandbox)" : "enabled (production)") : "disabled (iOS through FCM)");
 
         // Smoke-render every email template in every culture with a populated sample model.
         // Development: throw (fail loudly). Elsewhere: log a warning per broken template.
@@ -214,7 +216,12 @@ public static class NotificationModule
         // Push: the FCM service-account JSON is overlaid from the Docker secret (never stored in appsettings).
         services.AddOptions<PushOptions>()
             .Bind(configuration.GetSection(PushOptions.SectionName))
-            .PostConfigure(o => o.CredentialsJson = configuration["fcm_service_account_json"] ?? o.CredentialsJson)
+            .PostConfigure(o =>
+            {
+                o.CredentialsJson = configuration["fcm_service_account_json"] ?? o.CredentialsJson;
+                o.Apns.PrivateKey = configuration["apns_private_key"] ?? o.Apns.PrivateKey;
+            })
+            .Validate(o => o.Apns.Validate() is null, "Push:Apns is enabled but incomplete (KeyId, TeamId, BundleId and the .p8 key are required).")
             .Validate(o => o.Provider != PushProvider.Fcm || o.HasCredentials,
                 "Push:Provider is Fcm but no credentials are configured (secret fcm_service_account_json or Push:CredentialsFile).")
             .Validate(o => o.MaxAttempts is >= 1 and <= 10, "Push:MaxAttempts must be between 1 and 10.")
@@ -285,10 +292,19 @@ public static class NotificationModule
         services.AddTransient<PushDeliveryJob>();
         services.AddSingleton<FcmPushProvider>();
         services.AddSingleton<NoOpPushProvider>();
+        // Direct APNs (Push:Apns:Enabled): a typed HTTP/2 client; connections are recycled so DNS changes are honored.
+        services.AddHttpClient<ApnsPushProvider>()
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
         services.AddSingleton<IPushProvider>(sp =>
-            ResolvePushProvider(sp.GetRequiredService<IOptions<PushOptions>>().Value) == PushProvider.Fcm
+        {
+            var options = sp.GetRequiredService<IOptions<PushOptions>>().Value;
+            IPushProvider fallback = ResolvePushProvider(options) == PushProvider.Fcm
                 ? sp.GetRequiredService<FcmPushProvider>()
-                : sp.GetRequiredService<NoOpPushProvider>());
+                : sp.GetRequiredService<NoOpPushProvider>();
+            return options.Apns.Enabled
+                ? new RoutingPushProvider(fallback, sp.GetRequiredService<ApnsPushProvider>())
+                : fallback;
+        });
     }
 
     private static void MapRealtimeHub(WebApplication app)

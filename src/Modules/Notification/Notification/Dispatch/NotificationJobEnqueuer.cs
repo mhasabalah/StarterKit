@@ -43,7 +43,7 @@ public sealed class NotificationJobEnqueuer(
 
         if (runPush)
         {
-            var push = new PushDelivery(message.UserId, message.Culture, message.Push!);
+            var push = new PushDelivery(message.UserId, message.Culture, message.Push!, Category: message.Category);
             jobs.Add(jobClient.Enqueue<PushDeliveryJob>(job => job.ExecuteAsync(push, correlationId, CancellationToken.None)));
         }
 

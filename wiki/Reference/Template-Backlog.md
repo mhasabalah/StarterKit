@@ -143,8 +143,10 @@ and request-culture security alerts, enforcement lapsing with the plan, and the 
 By design and documented: a missing `email_verified` claim is accepted on a DNS-verified domain (Entra never sends
 it); SCIM deactivation revokes all sessions of the account.
 
-Follow-ups of G13/G18 (2026-11-05, [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)): per-category mute and
-quiet hours for push; a direct APNs adapter behind `IPushProvider` if FCM is not wanted for iOS; push and in-app
+Follow-ups of G13/G18 (2026-11-05, [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)): ~~per-category mute and
+quiet hours~~ (done: per-group mutes and quiet hours, see
+[Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md#mutes-and-quiet-hours)); ~~a direct APNs
+adapter behind `IPushProvider`~~ (done: `Push:Apns`); push and in-app
 payloads on the existing business events (only the channel exists - no sender uses it yet); an OTP email template so
 `VerificationPurpose.EmailVerification` stops returning `ChannelUnavailable`; drop the hub socket immediately on
 session revocation (today: at access-token expiry).

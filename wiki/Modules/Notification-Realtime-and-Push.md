@@ -232,7 +232,8 @@ duplicate replaces the shown one. Silent/background pushes are not used.
 | `PUT /api/v1/notifications/devices` | the user, no API key | register / refresh |
 | `GET /api/v1/notifications/devices` | the user, no API key | token masked (`...abcdefgh`) |
 | `DELETE /api/v1/notifications/devices/{id}` | the user, no API key | |
-| `PUT /api/v1/notifications/preferences { channelOrder, pushEnabled? }` | the user | `pushEnabled` omitted = unchanged |
+| `PUT /api/v1/notifications/preferences { channelOrder, pushEnabled?, categoryMutes?, quietHours?, timeZone? }` | the user | omitted = unchanged; `categoryMutes` replaces the whole map |
+| `GET /api/v1/notifications/preferences/category-groups` | the user | the mutable groups with `en`/`ar` names |
 | `/hubs/notifications` | the user (JWT, header or `?access_token=`), no API key | SignalR |
 
 A foreign or unknown id is always 404 (never 403), so ids cannot be probed.
@@ -250,17 +251,45 @@ in another tenant ignores them or refreshes.
 |---|---|
 | `Inbox` | `RetentionDays` (90) |
 | `Realtime` | `Enabled` (true; false = no hub, clients poll), `Transports` (comma-separated, `WebSockets,ServerSentEvents,LongPolling`; Docker: `WebSockets`), `KeepAliveInterval` (15s), `ClientTimeoutInterval` (30s), `UseRedisBackplane` (true) |
-| `Push` | `Provider` (`Auto` = FCM when credentials exist, else NoOp; `Fcm`; `NoOp`), `ProjectId`, `CredentialsFile` or the `fcm_service_account_json` secret, `DefaultTimeToLive` (1 day, max 28), `MaxAttempts` (4), `RetryDelaysSeconds` ([30,120,600]), `MaxDevicesPerUser` (10), `StaleDeviceDays` (60) |
+| `Push` | `Apns` (`Enabled`, `KeyId`, `TeamId`, `BundleId`, `PrivateKeyFile`, `UseSandbox`; key in secret `apns_private_key`), `Provider` (`Auto` = FCM when credentials exist, else NoOp; `Fcm`; `NoOp`), `ProjectId`, `CredentialsFile` or the `fcm_service_account_json` secret, `DefaultTimeToLive` (1 day, max 28), `MaxAttempts` (4), `RetryDelaysSeconds` ([30,120,600]), `MaxDevicesPerUser` (10), `StaleDeviceDays` (60) |
 
 Everything is validated at startup (`ValidateOnStart`): `Push:Provider=Fcm` without credentials, an unknown transport
 or a bad interval refuses to boot. `Realtime:Transports` is a string, not an array: configuration merges arrays by
 index, so an environment file could never remove a transport from one.
 
+## Mutes and quiet hours
+
+A category is `<group>.<event>` (`billing.invoice-issued`); the group is the part before the first dot. Groups:
+`billing`, `security`, `membership`, `catalog`, `data-transfer`, `webhooks`, `system` (no dot or an unknown group =
+`system`). The list, with `en`/`ar` names, is `NotificationCategoryGroups` (Notification.Contracts) and the
+`category-groups` endpoint.
+
+- **Mutes** are per group and per channel: `categoryMutes: { "billing": { "push": true, "inApp": false, "email": false } }`.
+  A muted in-app or push delivery is logged `Skipped` and never stored or sent.
+- **Never muted:** the `security` group on any channel (the validator rejects it; delivery ignores a stale row), and
+  email forced with `SendAsync(NotificationChannel.Email)` (security mail).
+- **Email category.** Email-only sends have no in-app payload, so name the category with the optional
+  `.InCategory("billing.invoice-issued")` on the builder. Without it the in-app category is used; with neither, the
+  email is never muted. `InCategory` is a default interface method (returns the builder), so test doubles need no change.
+- **Quiet hours:** `quietHours: { enabled, start: "22:00", end: "07:00" }` plus `timeZone` (IANA, e.g. `Africa/Cairo`;
+  validated with `TimeZoneInfo`, so slim container images need `tzdata`). The window may cross midnight. During it a
+  push is DEFERRED: the job is rescheduled to the window end with the remaining time-to-live reduced by the wait, and
+  dropped (logged `Skipped`) when the TTL would expire first. In-app entries are still stored and counted as unread,
+  but the live SignalR event is not sent. The `security` group ignores quiet hours. `enabled: false` removes the window.
+
 ## FCM / APNs setup
 
 1. Create a Firebase project; add the Android, iOS and/or Web apps (the client SDKs give the registration token).
 2. iOS: upload the APNs authentication key (`.p8`) in Firebase → Project settings → Cloud Messaging. Pushes to iOS go
-   through FCM; there is no separate APNs adapter.
+   through FCM unless you enable the direct adapter below.
+
+   **Direct APNs (optional).** Set `Push:Apns:Enabled=true` with `KeyId`, `TeamId`, `BundleId` (placeholders
+   `CHANGE_ME` count as missing) and the `.p8` key from the secret `apns_private_key` or `Push:Apns:PrivateKeyFile`;
+   `UseSandbox=true` for development-build tokens (a token only works in the environment that issued it, and a wrong
+   one comes back `BadDeviceToken`, which deletes the device). No NuGet package: HTTP/2 with an ES256 JWT cached about
+   50 minutes. `RoutingPushProvider` sends iOS devices holding a NATIVE APNs token (hexadecimal) to Apple and every
+   other device, including iOS devices with a Firebase token, through FCM. Errors: `BadDeviceToken`/`Unregistered`
+   delete the device, 429/5xx/`ExpiredProviderToken` retry, anything else is rejected.
 3. Generate a service-account key (Project settings → Service accounts) with only the "Firebase Cloud Messaging API
    Admin" role, save it as `secrets/fcm_service_account.json` and run with the overlay:
    `docker compose -f docker-compose.yml -f docker-compose.push.yml up -d`. The key is read by path

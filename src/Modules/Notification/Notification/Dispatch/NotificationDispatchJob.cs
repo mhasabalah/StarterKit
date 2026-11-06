@@ -1,3 +1,4 @@
+using Notification.Contracts.Preferences;
 using UserDirectory.Contracts.Queries;
 
 namespace Notification.Dispatch;
@@ -62,6 +63,32 @@ public sealed class NotificationDispatchJob(
         // Skip channels for which this message carries no payload (no Skipped row - keeps the audit trail clean).
         // Additive channels are never part of the chain, even if a stale preference lists them.
         var relevantChannels = channelOrder.Where(c => !c.IsAdditive() && message.HasPayloadFor(c)).ToArray();
+
+        var emailMuted = false;
+
+        // The user's per-group email mute. Forced email (security mail) and the security group are never muted.
+        if (relevantChannels.Contains(NotificationChannel.Email) && message.UserId != Guid.Empty && message.Category is not null
+            && NotificationCategoryGroups.IsMutable(NotificationCategoryGroups.GroupOf(message.Category)))
+        {
+            var preference = await preferences.GetDeliveryPreferenceAsync(message.UserId, ct);
+            if (NotificationPolicy.IsMuted(preference, message.Category, NotificationChannel.Email,
+                    forced: forcedChannel == NotificationChannel.Email))
+            {
+                if (history.All(h => h.Channel != NotificationChannel.Email || h.Status != NotificationDeliveryStatus.Skipped))
+                {
+                    await repository.InsertAsync(NewLog(correlationId, message, NotificationChannel.Email,
+                        NotificationDeliveryStatus.Skipped, null,
+                        $"The user muted email for the '{NotificationCategoryGroups.GroupOf(message.Category)}' group."), ct);
+                }
+
+                emailMuted = true;
+                relevantChannels = relevantChannels.Where(c => c != NotificationChannel.Email).ToArray();
+            }
+        }
+
+        if (relevantChannels.Length == 0 && emailMuted)
+            return; // the user muted the only channel this message has - logged as Skipped above
+
         if (relevantChannels.Length == 0)
         {
             logger.LogWarning(

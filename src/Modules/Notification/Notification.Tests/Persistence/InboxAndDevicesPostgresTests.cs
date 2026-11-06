@@ -69,7 +69,7 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
     private async Task<InboxNotification> DeliverAsync(Guid userId, Guid? tenantId = null, string title = "Hello")
     {
         await using var db = Db();
-        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), _realtime,
+        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), new NotificationPreferenceRepository(db, MsOptions.Create(new NotificationOptions())), _realtime,
             MsOptions.Create(new EmailOptions { AppBaseUrl = "https://app.example.com" }),
             MsOptions.Create(new InboxOptions { RetentionDays = 30 }), new NotificationMetrics(), _clock,
             NullLogger<InAppDeliveryJob>.Instance, Tenant(tenantId));
@@ -106,7 +106,7 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
     public async Task A_re_run_of_the_delivery_job_keeps_exactly_one_entry_and_one_Sent_row()
     {
         await using var db = Db();
-        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), _realtime,
+        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), new NotificationPreferenceRepository(db, MsOptions.Create(new NotificationOptions())), _realtime,
             MsOptions.Create(new EmailOptions()), MsOptions.Create(new InboxOptions()), new NotificationMetrics(), _clock,
             NullLogger<InAppDeliveryJob>.Instance);
         var delivery = new InAppDelivery(_me, NotificationCulture.En,

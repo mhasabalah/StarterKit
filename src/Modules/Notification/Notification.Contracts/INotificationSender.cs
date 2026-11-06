@@ -52,6 +52,15 @@ public interface INotificationBuilder
     INotificationBuilder WithPush(bool sensitive = false);
 
     /// <summary>
+    /// Sets the category (<c>&lt;group&gt;.&lt;event&gt;</c>, e.g. <c>billing.invoice-issued</c>) used for the user's
+    /// per-group mutes and quiet hours. Needed for EMAIL-ONLY sends; with an in-app payload the in-app category is used
+    /// when this is not called. Without any category, email is never muted. Security mail (the <c>security</c> group or
+    /// <c>SendAsync(NotificationChannel.Email)</c>) is never muted. The default implementation ignores the category, so
+    /// test doubles keep compiling; the real builder overrides it.
+    /// </summary>
+    INotificationBuilder InCategory(string category) => this;
+
+    /// <summary>
     /// Enqueues the notification. <paramref name="forcedChannel"/> bypasses user channel preferences (use it for
     /// security mail that preferences must never suppress); it applies to the email/WhatsApp chain only - in-app and
     /// push payloads are always delivered when attached. Returns the correlation id of the delivery log.
