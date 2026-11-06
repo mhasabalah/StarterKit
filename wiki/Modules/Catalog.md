@@ -142,7 +142,10 @@ Why attachments are cleaned up on **purge**, not on soft delete: a restored prod
 | GET | `/admin/products`, `/admin/products/{id}`, `/admin/products/pending` | admin |
 | POST / PATCH | `/admin/products/{id}/restore`, `/admin/products/{id}/featured` | admin |
 | GET | `/categories/tree` | public (cached) |
-| GET / POST / PUT / DELETE | `/categories`, `/tags`, `/attribute-types` | GET tags/attribute types public; everything else admin |
+| GET / POST / PUT / DELETE | `/categories` | `catalog.categories.manage` (tenant permission; Owner and Administrator hold it) |
+| GET / POST / PUT / DELETE | `/tags`, `/attribute-types` | GET public; everything else admin |
+
+Bulk: `catalog.categories` import/export definitions (`Domains/Categories/DataTransfer`), see [DataTransfer](DataTransfer.md).
 
 ## Tests
 

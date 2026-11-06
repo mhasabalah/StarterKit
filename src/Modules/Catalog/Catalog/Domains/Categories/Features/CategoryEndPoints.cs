@@ -1,7 +1,9 @@
+using Shared.Core.MultiTenancy.Authorization;
+
 namespace Catalog.Domains.Categories.Features;
 
 // Lookup admin CRUD grouped in one Carter module per CLAUDE.md naming ("grouped route modules: <X>Module").
-// Writes are AdminOnly; the tree is public and cached.
+// Writes need catalog.categories.manage (tenant data); the tree is public and cached.
 
 public record UpdateCategoryRequest(
     LocalizedText Name,
@@ -36,9 +38,9 @@ public class CategoriesModule : ICarterModule
             .Produces<ApiResponse<List<CategoryDto>>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden)
-            .WithSummary("Get Categories (Admin)")
-            .WithDescription("Flat list with raw bilingual names; `includeInactive=true` for deactivated ones. Admin only.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithSummary("Get Categories")
+            .WithDescription("Flat list with raw bilingual names; `includeInactive=true` for deactivated ones. Requires `catalog.categories.manage`.")
+            .RequireTenantPermission(TenantPermissions.CategoriesManage)
             .HasApiVersion(1.0);
 
         app.MapPost(EndpointConfig.BaseApiPath + "/categories",
@@ -52,8 +54,8 @@ public class CategoriesModule : ICarterModule
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .WithSummary("Create Category")
-            .WithDescription("Create a category (optional parent). Slug must be unique. Admin only.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithDescription("Create a category (optional parent). Slug must be unique. Requires `catalog.categories.manage`.")
+            .RequireTenantPermission(TenantPermissions.CategoriesManage)
             .HasApiVersion(1.0);
 
         app.MapPut(EndpointConfig.BaseApiPath + "/categories/{id:guid}",
@@ -71,8 +73,8 @@ public class CategoriesModule : ICarterModule
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .WithSummary("Update Category")
-            .WithDescription("Rename / move / (de)activate. Moving under a descendant is rejected. Admin only.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithDescription("Rename / move / (de)activate. Moving under a descendant is rejected. Requires `catalog.categories.manage`.")
+            .RequireTenantPermission(TenantPermissions.CategoriesManage)
             .HasApiVersion(1.0);
 
         app.MapDelete(EndpointConfig.BaseApiPath + "/categories/{id:guid}",
@@ -82,8 +84,8 @@ public class CategoriesModule : ICarterModule
             .Produces<ApiResponse<DeleteCategoryResult>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .WithSummary("Deactivate Category")
-            .WithDescription("Deactivates (never deletes) the category. Admin only.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithDescription("Deactivates (never deletes) the category. Requires `catalog.categories.manage`.")
+            .RequireTenantPermission(TenantPermissions.CategoriesManage)
             .HasApiVersion(1.0);
     }
 }

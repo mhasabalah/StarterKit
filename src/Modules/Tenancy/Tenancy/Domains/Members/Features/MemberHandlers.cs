@@ -20,7 +20,7 @@ public class GetMembersHandler(TenancyDbContext dbContext, ISender sender)
             memberships = memberships.Where(m => m.RoleIds.Contains(roleId));
 
         var page = await memberships
-            .OrderByDescending(m => m.IsOwner).ThenBy(m => m.JoinedAt)
+            .OrderByDescending(m => m.IsOwner).ThenBy(m => m.JoinedAt).ThenBy(m => m.Id)
             .PagedResult(query.PageNumber, query.PageSize, cancellationToken);
 
         var rows = page.Result ?? [];

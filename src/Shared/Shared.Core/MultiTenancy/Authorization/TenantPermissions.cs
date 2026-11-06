@@ -35,6 +35,9 @@ public static class TenantPermissions
     // Business modules (sample)
     public const string ProductsManage = "catalog.products.manage";
 
+    /// <summary>Category CRUD and bulk import/export (Catalog module). Owner and Administrator hold it by default.</summary>
+    public const string CategoriesManage = "catalog.categories.manage";
+
     /// <summary>Outbound webhooks: endpoints, secrets, deliveries (Webhooks module).</summary>
     public const string WebhooksManage = "webhooks.manage";
 
@@ -53,7 +56,7 @@ public static class TenantPermissions
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
-        AuditRead, BillingManage, ProductsManage, WebhooksManage, SsoManage, DataImport, DataExport
+        AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

@@ -39,6 +39,7 @@ route, see `/swagger`.
 | `members` | `tenant.members.read` / `.manage` | Update roles and branches, suspend, reactivate, remove |
 | `tenant-roles`, `tenant-permissions` | `tenant.roles.manage` | Custom tenant roles from `TenantPermissions` |
 | `tenant-invitations` | `tenant.members.manage`; accept = invitee | Invite, resend, revoke, `accept` |
+| (DataTransfer) `tenancy.members` | `tenant.members.manage` + `datatransfer.import`/`export` | Bulk invite by email / export members, see [DataTransfer](DataTransfer.md) |
 | `tenant-audit` | `tenant.audit.read` | Tenant audit trail |
 | `host/tenants` | Platform staff, `.HostOnly()` + `tenants.read` / `tenants.manage` | List, suspend, reactivate, `provision`, `isolation` (shared or dedicated DB), `move` / `retry` / `abort` |
 
