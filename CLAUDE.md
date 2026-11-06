@@ -394,7 +394,8 @@ change. **Use the matching skill instead of improvising.**
 | New product from the template | `/starterkit:new-project` |
 | Documentation | `/starterkit:update-docs` |
 
-The plugin's hooks block `git commit`/`git push` and warn on forbidden C# patterns after edits. Spec Kit
+The plugin's hooks keep git work off `master`/`develop` (no force-push, no `--no-verify`, no PR merge) and warn on
+forbidden C# patterns after edits. Spec Kit
 (`/speckit-*`) is available for spec → plan → tasks flows; its principles are in `.specify/memory/constitution.md`.
 
 ## Documentation
@@ -413,7 +414,17 @@ The plugin's hooks block `git commit`/`git push` and warn on forbidden C# patter
   relevant tests and `dotnet test src/Api.Tests`.
 - The build treats warnings as errors: fix them, or relax a rule in `.editorconfig` with a justification; never `#pragma`
   without one (`wiki/Architecture/CodingStandards.md` → Analyzers).
-- **Never commit or push.** Leave changes in the working tree for the user to review.
+- **Git: commit and open PRs only when the user asks, and only on a feature branch.**
+  - Branch first (`feature/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`). Never commit on, push to, or
+    merge into `master` / `develop`; they change only through a reviewed PR.
+  - Before committing, the build, the relevant tests and `dotnet test src/Api.Tests` must pass. Stage only the files
+    of the change (no secrets, build output or scratch files). Use a conventional commit message
+    (`feat(module): ...`, `fix: ...`).
+  - Open the PR with `gh pr create --base master` (or the base the user names). The body has a summary and the test
+    plan with real results.
+  - Never force-push, rewrite pushed history, skip hooks (`--no-verify`), merge a PR, or delete a remote branch: the
+    user reviews and merges.
+  - The plugin hook `guard-git.sh` enforces these limits.
 - Never put real credentials, hostnames or IPs in committed files. Use `CHANGE_ME`, `api.example.com`,
   `YOUR_SERVER_IP`. Secrets come from `./secrets/*.txt` (Docker secrets, git-ignored) or environment variables.
 - CI/CD:

@@ -1,5 +1,5 @@
 {
-  "description": "StarterKit guardrails: block agent commits/pushes (the user reviews and commits) and warn on forbidden C# patterns right after an edit.",
+  "description": "StarterKit guardrails: keep agent git work on feature branches (no commits or pushes to master/develop, no force-push, no --no-verify, no PR merge) and warn on forbidden C# patterns right after an edit.",
   "hooks": {
     "PreToolUse": [
       {

@@ -86,7 +86,8 @@ A context is tenant data if it implements `ITenantDataContext`.
   every unique index on a tenant entity must include `tenant_id`. The only exception is a deliberately global index,
   added with a stated reason to `GlobalUniqueIndexAllowList`. Raw-SQL indexes are not in the model, so getting them
   right is up to you.
-- Never commit. The user reviews the migration diff.
+- Commit only when the user asks, on a feature branch (CLAUDE.md > Rules > Git); otherwise leave the migration diff
+  for review.
 
 ## Verify
 

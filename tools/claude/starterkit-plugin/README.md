@@ -41,7 +41,7 @@ boundaries, tenancy, outbox, jobs, auth, naming, concurrency and localization.
 
 | Event | Script | Behaviour |
 |---|---|---|
-| PreToolUse (Bash/PowerShell) | `hooks/guard-git.sh` | Blocks `git commit` / `git push`: the user reviews and commits. Set `STARTERKIT_ALLOW_GIT_COMMIT=1` to allow it for a session. |
+| PreToolUse (Bash/PowerShell) | `hooks/guard-git.sh` | Git limits (CLAUDE.md > Rules > Git): blocks a commit while on `master`/`develop`, a push to them, any force-push, `--no-verify`, `gh pr merge`, deleting a remote branch, and `git reset --hard`. Commits and PRs on feature branches are allowed. `STARTERKIT_ALLOW_PROTECTED_GIT=1` lifts it for a session. |
 | PostToolUse (Edit/Write `*.cs`) | `hooks/check-csharp-guardrails.sh` | Warns on: parameterless `IgnoreQueryFilters()`, `[FromServices]`, publishing from features, `DateTime.UtcNow` in handlers/jobs, hand-rolled scopes in jobs, manual `Version` writes. |
 
 The hooks need `bash`: Git Bash on Windows, or the system shell on Linux and macOS.
