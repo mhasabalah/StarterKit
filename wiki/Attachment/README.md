@@ -75,6 +75,8 @@ Thumbnails are generated in the background after the upload; read the attachment
   authorize the entity yourself).
 - Need to hand a private file to a client after your own checks? Send `GetAttachmentReadUrlQuery` and
   redirect to the returned URL (see Subscriptions `GetPaymentProof` / `GetInvoicePdf`).
+- Need the bytes in the background (e.g. a bulk import job)? Send `OpenAttachmentContentQuery` (trusted, no check)
+  and dispose the returned stream. DataTransfer stores its files as `EntityType.DataTransferJob`.
 
 ## Related Documentation
 

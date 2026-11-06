@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>1.3</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+
+  <!-- رسائل التحقق لوحدة نقل البيانات. -->
+  <data name="Validation.Id.Required" xml:space="preserve"><value>المعرّف مطلوب.</value></data>
+  <data name="Validation.DefinitionKey.Required" xml:space="preserve"><value>تعريف الاستيراد/التصدير مطلوب.</value></data>
+  <data name="Validation.DefinitionKey.MaxLength" xml:space="preserve"><value>يجب ألا يتجاوز مفتاح التعريف {MaxLength} حرفًا.</value></data>
+  <data name="Validation.File.Required" xml:space="preserve"><value>يجب رفع ملف غير فارغ.</value></data>
+  <data name="Validation.File.TooLarge" xml:space="preserve"><value>حجم الملف كبير جدًا.</value></data>
+  <data name="Validation.FileName.MaxLength" xml:space="preserve"><value>يجب ألا يتجاوز اسم الملف {MaxLength} حرفًا.</value></data>
+  <data name="Validation.Mode.Invalid" xml:space="preserve"><value>وضع الاستيراد غير صالح.</value></data>
+  <data name="Validation.Policy.Invalid" xml:space="preserve"><value>سياسة الاستيراد غير صالحة.</value></data>
+  <data name="Validation.Format.Invalid" xml:space="preserve"><value>صيغة الملف غير صالحة (استخدم Csv أو Xlsx).</value></data>
+  <data name="Validation.FileKind.Invalid" xml:space="preserve"><value>نوع الملف المطلوب غير صالح.</value></data>
+  <data name="Validation.Filter.TooLarge" xml:space="preserve"><value>عدد عناصر عامل التصفية في التصدير كبير جدًا.</value></data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve"><value>يجب أن يكون رقم الصفحة أكبر من صفر.</value></data>
+  <data name="Validation.PageSize.Range" xml:space="preserve"><value>يجب أن يكون حجم الصفحة بين 1 و100.</value></data>
+
+  <!-- Engine messages (TransferText): file, row, export and job failures. {0} = value/limit. -->
+  <data name="Transfer.File.unsupported_format" xml:space="preserve"><value>ارفع ملف ‎.csv أو ‎.xlsx.</value></data>
+  <data name="Transfer.File.missing_source" xml:space="preserve"><value>لا يوجد ملف مصدر لهذه المهمة.</value></data>
+  <data name="Transfer.File.missing_columns" xml:space="preserve"><value>أعمدة مطلوبة غير موجودة: {0}.</value></data>
+  <data name="Transfer.File.duplicate_column" xml:space="preserve"><value>العمود '{0}' مكرر.</value></data>
+  <data name="Transfer.File.no_known_columns" xml:space="preserve"><value>صف العناوين لا يحتوي على أي عمود معروف.</value></data>
+  <data name="Transfer.File.empty_file" xml:space="preserve"><value>الملف لا يحتوي على صف عناوين.</value></data>
+  <data name="Transfer.File.too_many_columns" xml:space="preserve"><value>الملف يحتوي على أكثر من {0} عمودًا.</value></data>
+  <data name="Transfer.File.too_many_rows" xml:space="preserve"><value>الملف يحتوي على أكثر من {0} صف.</value></data>
+  <data name="Transfer.File.invalid_csv" xml:space="preserve"><value>تعذرت قراءة ملف CSV قرب الصف {0}: تحقق من علامات الاقتباس ونهايات الأسطر.</value></data>
+  <data name="Transfer.File.invalid_xlsx" xml:space="preserve"><value>الملف ليس مصنف ‎.xlsx قابلًا للقراءة.</value></data>
+  <data name="Transfer.File.file_too_large" xml:space="preserve"><value>حجم الملف أكبر من {0} بايت.</value></data>
+  <data name="Transfer.File.uncompressed_too_large" xml:space="preserve"><value>ملف إكسل كبير جدًا بعد فك الضغط.</value></data>
+  <data name="Transfer.Export.too_many_rows" xml:space="preserve"><value>التصدير يتجاوز {0} صف؛ ضيّق عامل التصفية.</value></data>
+  <data name="Transfer.Export.too_large" xml:space="preserve"><value>ملف التصدير أكبر من {0} بايت؛ ضيّق عامل التصفية أو استخدم Xlsx.</value></data>
+  <data name="Transfer.Row.invalid" xml:space="preserve"><value>الصف غير صالح.</value></data>
+  <data name="Transfer.Row.no_result" xml:space="preserve"><value>لم تتم معالجة الصف.</value></data>
+  <data name="Transfer.Row.cell_too_long" xml:space="preserve"><value>القيمة أطول من {0} حرفًا.</value></data>
+  <data name="Transfer.Job.validation_failed" xml:space="preserve"><value>{0} صف غير صالح؛ لم يُحفظ أي شيء. راجع تقرير الأخطاء.</value></data>
+  <data name="Transfer.Job.internal_error" xml:space="preserve"><value>فشلت المهمة بعد {0} محاولات.</value></data>
+  <data name="Transfer.Job.requester_no_longer_authorized" xml:space="preserve"><value>لم يعد لصاحب الطلب صلاحية الوصول إلى هذه البيانات؛ تم إيقاف المهمة.</value></data>
+  <data name="Transfer.Job.rejected" xml:space="preserve"><value>تم رفض الملف: {0}</value></data>
+  <data name="Transfer.Job.quota_exceeded" xml:space="preserve"><value>نفدت حصة الصفوف في باقتك ({0} من {1})؛ الصفوف المكتوبة قبل ذلك تبقى محفوظة.</value></data>
+  <!-- API errors, job states, file kinds, sheet name (TransferText). -->
+  <data name="Transfer.Error.job_not_found" xml:space="preserve"><value>مهمة النقل {0} غير موجودة.</value></data>
+  <data name="Transfer.Error.definition_not_found" xml:space="preserve"><value>لا يوجد تعريف استيراد/تصدير باسم '{0}'.</value></data>
+  <data name="Transfer.Error.file_not_found" xml:space="preserve"><value>لا يوجد {0} لهذه المهمة.</value></data>
+  <data name="Transfer.Error.import_already_running" xml:space="preserve"><value>يوجد استيراد لـ '{0}' قيد الانتظار أو التنفيذ بالفعل.</value></data>
+  <data name="Transfer.Error.authentication_required" xml:space="preserve"><value>يجب تسجيل الدخول.</value></data>
+  <data name="Transfer.Error.permission_required" xml:space="preserve"><value>الصلاحية '{0}' مطلوبة لهذه البيانات.</value></data>
+  <data name="Transfer.FileKind.Source" xml:space="preserve"><value>ملف مصدر</value></data>
+  <data name="Transfer.FileKind.Result" xml:space="preserve"><value>ملف نتيجة</value></data>
+  <data name="Transfer.FileKind.ErrorReport" xml:space="preserve"><value>تقرير أخطاء</value></data>
+  <data name="Transfer.State.commit_needs_dry_run" xml:space="preserve"><value>يمكن تنفيذ الاستيراد التجريبي فقط.</value></data>
+  <data name="Transfer.State.dry_run_not_completed" xml:space="preserve"><value>لم يكتمل الاستيراد التجريبي بعد.</value></data>
+  <data name="Transfer.State.dry_run_without_source" xml:space="preserve"><value>لا يوجد ملف مصدر للاستيراد التجريبي.</value></data>
+  <data name="Transfer.State.filter_too_large" xml:space="preserve"><value>عامل التصفية في التصدير كبير جدًا.</value></data>
+  <data name="Transfer.State.definition_required" xml:space="preserve"><value>مفتاح تعريف صالح مطلوب.</value></data>
+  <data name="Transfer.State.requester_required" xml:space="preserve"><value>المستخدم صاحب الطلب مطلوب.</value></data>
+  <data name="Transfer.State.already_finished" xml:space="preserve"><value>انتهت المهمة بالفعل.</value></data>
+  <data name="Transfer.Sheet.name" xml:space="preserve"><value>البيانات</value></data>
+</root>

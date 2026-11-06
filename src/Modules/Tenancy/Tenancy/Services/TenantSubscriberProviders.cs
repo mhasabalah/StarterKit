@@ -33,6 +33,13 @@ public sealed class TenantSubscriberIdProvider(
 
         return tenantId;
     }
+
+    /// <summary>
+    /// Multi-tenant: the current tenant, whoever the caller is (members without the billing permission, background
+    /// jobs). Single-tenant: the signed-in or acting user.
+    /// </summary>
+    public Guid? GetPayingSubscriberId() =>
+        options.Value.Enabled ? tenantContext.TenantId : httpContextService.GetUserIdAsGuid();
 }
 
 /// <summary>

@@ -58,6 +58,7 @@ endpoints (trusted calls, see below) or by admins.
 | `GetAttachmentsByEntityQuery` | `CanReadAsync` -> all files; otherwise public + own uploads (SQL filter) | same |
 | `GetAttachmentByIdQuery`, download | public, admin, uploader, or `CanReadAsync` | same |
 | `GetAttachmentReadUrlQuery` | (no endpoint) | **no check** - only for callers that already authorized |
+| `OpenAttachmentContentQuery` | (no endpoint) | **no check** - stream of the stored file, for background processing |
 
 `EnforceEntityAccessPolicy` is an `init` property on the command records; only the Attachment endpoints set it.
 

@@ -17,7 +17,7 @@ namespace Api.Tests.Architecture;
 public sealed class ModuleBoundaryTests
 {
     /// <summary>Business modules under src/Modules. Each has &lt;Name&gt; and &lt;Name&gt;.Contracts assemblies.</summary>
-    public static readonly string[] Modules = ["Identity", "Attachment", "Subscriptions", "Catalog", "Tenancy", "Notification", "Webhooks"];
+    public static readonly string[] Modules = ["Identity", "Attachment", "Subscriptions", "Catalog", "Tenancy", "Notification", "Webhooks", "DataTransfer"];
 
     /// <summary>Shared kernel that must stay module-agnostic.</summary>
     private static readonly string[] CoreShared = ["Shared.Contracts", "Shared.Core", "Shared.Messaging"];

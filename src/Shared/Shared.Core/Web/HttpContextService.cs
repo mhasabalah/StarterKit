@@ -17,8 +17,14 @@ public class HttpContextService : IHttpContextService
     private HttpContext? Context => _httpContextAccessor.HttpContext;
     private ClaimsPrincipal? User => Context?.User;
 
+    /// <summary>
+    /// The signed-in user; outside any HTTP request, the user of an explicit <see cref="ActingUser"/> scope (background
+    /// work on someone's behalf), else null.
+    /// </summary>
     public string? GetUserId()
     {
+        if (Context is null)
+            return ActingUser.Current?.ToString();
         return User?.FindFirstValue(ClaimTypes.NameIdentifier);
     }
 

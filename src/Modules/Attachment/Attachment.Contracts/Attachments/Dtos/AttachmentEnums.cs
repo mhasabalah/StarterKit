@@ -57,5 +57,12 @@ public enum EntityType
     Company = 3,
 
     [LocalizedDescription("Other", "آخر")]
-    Other = 4
+    Other = 4,
+
+    /// <summary>
+    /// Files of a bulk import/export job (DataTransfer module): uploaded sources, export results, error reports.
+    /// No HTTP policy is registered: they are read only through the DataTransfer endpoints (trusted queries).
+    /// </summary>
+    [LocalizedDescription("Data transfer job", "مهمة نقل بيانات")]
+    DataTransferJob = 5
 }
