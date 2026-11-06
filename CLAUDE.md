@@ -252,6 +252,13 @@ Notification is the exception: its context is in `Persistence/`.
   `AddAuditTrail()` / `AddTenantAuditTrail()` (RLS in the migration for tenant data). `AuditTrailInterceptor` writes
   `audit_entries` in the same `SaveChanges`. Mark secrets and noisy fields `[AuditIgnore]`. Guarded by
   `AuditTrailArchitectureTests`.
+- **Malware scanning** (Attachment, [ADR-0015](wiki/Decisions/0015-malware-scanning-clamd-fail-closed.md)):
+  - Uploads are scanned through `IMalwareScanner`. The built-in adapter is ClamAV
+    (`Attachment:Validation:Scanner:Provider=ClamAv`, `docker-compose.clamav.yml`).
+  - It fails CLOSED: no verdict gives 503 `malware_scanner_unavailable`, infected gives 400 `malware_detected`. A
+    custom scanner must throw when it cannot scan, never return clean.
+  - The `clamav` health check reports Degraded only.
+  - Production should set `RequireVirusScanning=true`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
   Invalidate explicitly from domain event handlers (see `Catalog/Domains/Categories/Cache/CategoryTreeCache.cs`).
   Cache failures must never fail the request.

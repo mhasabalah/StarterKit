@@ -7,6 +7,7 @@ The full documentation, including triggers, jobs, the GitHub environment, reposi
 |---|---|
 | `hybrid-ci-cd.yml` | Build and test, then the GHCR image, then deploy (manual approval, self-hosted runner) |
 | `quality.yml` | Docs check, C# whitespace ratchet, plugin manifests: on every push and PR |
+| `clamav-live.yml` | Real ClamAV image test (`ClamAvContainerTests`): nightly, on PRs touching the scanner, on demand |
 | `rollback.yml` | Manual production rollback (type `ROLLBACK`) |
 | `database-backup.yml` | pgBackRest full (Sun) and differential (Mon–Sat) backups |
 | `health-monitoring.yml` | Health and resource checks every 6 h |

@@ -6,11 +6,16 @@ namespace AppHost;
 /// AppHost switches. Set them in <c>appsettings.json</c>, user secrets, environment variables
 /// (<c>Observability__FullStack=true</c>) or the command line (<c>dotnet run -- Observability:FullStack=true</c>).
 /// </summary>
-public sealed record AppHostSettings(bool ObservabilityFullStack, MessagingTransport Transport, int? PostgresHostPort)
+public sealed record AppHostSettings(
+    bool ObservabilityFullStack,
+    MessagingTransport Transport,
+    int? PostgresHostPort,
+    bool ClamAv = false)
 {
     public const string ObservabilityFullStackKey = "Observability:FullStack";
     public const string TransportKey = "Messaging:Transport";
     public const string PostgresHostPortKey = "Postgres:HostPort";
+    public const string ClamAvKey = "Attachment:ClamAv";
 
     public static AppHostSettings From(IConfiguration configuration)
     {
@@ -34,7 +39,8 @@ public sealed record AppHostSettings(bool ObservabilityFullStack, MessagingTrans
         return new AppHostSettings(
             configuration.GetValue(ObservabilityFullStackKey, defaultValue: false),
             transport,
-            postgresPort);
+            postgresPort,
+            configuration.GetValue(ClamAvKey, defaultValue: false));
     }
 }
 

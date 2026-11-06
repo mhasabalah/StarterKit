@@ -92,4 +92,6 @@
   <data name="Validation.IsPrimary.Required" xml:space="preserve">
     <value>حقل IsPrimary مطلوب.</value>
   </data>
+  <data name="Attachment.MalwareDetected" xml:space="preserve"><value>رفض فاحص البرامج الضارة هذا الملف.</value></data>
+  <data name="Attachment.ScannerUnavailable" xml:space="preserve"><value>تعذر فحص الملف بحثًا عن البرامج الضارة حاليًا. يرجى المحاولة لاحقًا.</value></data>
 </root>

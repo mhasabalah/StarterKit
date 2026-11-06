@@ -1,0 +1,70 @@
+# ==============================================
+# StarterKit ClamAV Overlay (optional, recommended in production)
+# ==============================================
+# Adds a ClamAV daemon (clamd) and turns on upload malware scanning in the API (Attachment module,
+# ClamAvMalwareScanner over TCP 3310). Uploads fail CLOSED: while clamd is down they get
+# 503 malware_scanner_unavailable, and /health reports "clamav" as Degraded (the API stays in rotation).
+#   dev:  docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.clamav.yml up -d
+#   prod: docker compose -f docker-compose.yml -f docker-compose.clamav.yml up -d
+#
+# Sizing: clamd keeps the signature database in memory (~1.2-1.5 GB resident, about twice that briefly while
+# freshclam reloads new signatures). The first start loads signatures for 1-2 minutes before it is healthy.
+# Size limits (clamav/clamav:1.4 defaults, checked with `clamconf`): StreamMaxLength = MaxFileSize = 100M, which
+# equals the template's largest upload limit (Attachment:Validation:MaxVideoSizeBytes). A bigger stream is refused
+# and the upload gets 503 (never accepted unscanned). AlertExceedsMax=yes (set below) is REQUIRED: without it clamd
+# answers "OK" for content it skipped (a file over MaxFileSize, an archive over MaxScanSize/MaxFiles/MaxRecursion);
+# with it the reply is "Heuristics.Limits.Exceeded... FOUND" and the upload is rejected. Raise limits with more
+# CLAMD_CONF_<Option> variables (the image writes them into clamd.conf), e.g. StreamMaxLength and MaxFileSize together.
+# Docs: wiki/Attachment/Security.md ("Malware scanning").
+# ==============================================
+
+volumes:
+  clamav-db:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_clamav_db
+
+services:
+
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-clamav
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+      # freshclam checks for signature updates this many times per day.
+      FRESHCLAM_CHECKS: ${CLAMAV_FRESHCLAM_CHECKS:-12}
+      # Skipped content must never come back "OK" (see the header).
+      CLAMD_CONF_AlertExceedsMax: "yes"
+    volumes:
+      # Signatures survive restarts, so a restart does not re-download ~300 MB.
+      - clamav-db:/var/lib/clamav
+    networks:
+      - backend
+    # No published port: only the API talks to clamd, over the internal network.
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 5m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${CLAMAV_CPUS:-1.0}'
+          memory: ${CLAMAV_MEMORY_LIMIT:-3g}
+
+  api:
+    environment:
+      Attachment__Validation__EnableVirusScanning: "true"
+      Attachment__Validation__RequireVirusScanning: "true"
+      Attachment__Validation__Scanner__Provider: ClamAv
+      Attachment__Validation__Scanner__Host: clamav
+      Attachment__Validation__Scanner__Port: "3310"
+    depends_on:
+      clamav:
+        condition: service_healthy

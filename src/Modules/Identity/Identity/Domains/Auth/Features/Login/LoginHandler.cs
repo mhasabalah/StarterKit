@@ -51,8 +51,10 @@ public class LoginHandler(
 
         if (result.IsLockedOut)
         {
+            // Same answer as a wrong password: a distinct "locked out" message would confirm to whoever caused the
+            // lockout (5 guesses at a stranger's email) that the account exists. The log keeps the real reason.
             logger.LogWarning("Login failed: user {UserId} is locked out", user.Id);
-            throw new UnauthorizedException("Account is locked out. Please try again later.");
+            throw new UnauthorizedException(InvalidCredentialsMessage);
         }
 
         if (!result.Succeeded)
