@@ -208,6 +208,14 @@ The Catalog definition creates Draft products owned by the requester. It updates
 owns it and its status lets the owner edit it, and it validates with the same `ProductDetailsValidator` as the API
 (localized row messages).
 
+### Shipped definitions
+
+| Key | Owner | Permission | Notes |
+|---|---|---|---|
+| `catalog.products` | Catalog | `catalog.products.manage` | Upsert by SKU; Draft products owned by the requester |
+| `catalog.categories` | Catalog | `catalog.categories.manage` | Upsert by slug; columns `slug, name_en, name_ar, parent, display_order, active`. `parent` is a slug that must already exist or appear in an EARLIER row (empty = top level); loops are row errors (`parent_cycle`); empty `display_order`/`active` keep the current value. Export lists parents first, so it re-imports as is. Events invalidate the cached tree |
+| `tenancy.members` | Tenancy | `tenant.members.manage` | Import INVITES by email (`email, roles, branches`): role names and branch codes (`;` separated, `CODE:self` = only that branch) are resolved once per batch, then `InviteMemberCommand` runs as the requester (seat limit, anti-escalation, audit, email). An existing member or pending invitation is `Unchanged`; seat limit is a row error `tenant_limit_exceeded`; a role beyond the requester's own permissions is `forbidden`. A dry run validates (including grant rules) and invites nobody; the plan seat limit is only enforced by a real run. Export adds name, status, joined at (filter `status`). In single-tenant mode the requester has no membership, so role grants by non-owners are refused |
+
 ## Running the workers
 
 Jobs run on the Hangfire server of queue `data-transfer` (`Hangfire:Servers:DataTransfer`, 2 workers by default),

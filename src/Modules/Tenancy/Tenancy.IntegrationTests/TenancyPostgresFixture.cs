@@ -36,6 +36,9 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
     /// <summary>The Subscriptions side of <c>GetActivePlanLimitsQuery</c> (seat limits). Null = no plan limit.</summary>
     public FakePlanLimits PlanLimits { get; } = new();
 
+    /// <summary>The Identity side of <c>GetUserSummariesQuery</c> (member names / e-mails).</summary>
+    public FakeUserDirectory Users { get; } = new();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -58,6 +61,11 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IHttpContextService>(Http);
         services.AddSingleton(Jobs.Object);
+        // The invitation e-mail is queued through these; fail-soft in the mailer, so loose mocks are enough.
+        services.AddSingleton(Mock.Of<Notification.Contracts.INotificationSender>());
+        services.AddSingleton(Mock.Of<Notification.Contracts.INotificationLinkResolver>());
+        services.AddSingleton<IRequestHandler<UserDirectory.Contracts.Queries.GetUserSummariesQuery,
+            IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>>(Users);
         services.AddMultiTenancy(configuration);
         services.AddTenancyModule(configuration);
         services.AddSingleton<IRequestHandler<Subscriptions.Contracts.Subscriptions.Queries.GetActivePlanLimitsQuery,
@@ -124,14 +132,20 @@ public sealed class FakeHttpContextService : IHttpContextService
 {
     private Guid? _userId;
 
+    /// <summary>
+    /// When set, user and roles come from this service instead (the REAL <see cref="HttpContextService"/> without an
+    /// HTTP request answers with the <see cref="ActingUser"/> of a background job).
+    /// </summary>
+    public IHttpContextService? Real { get; set; }
+
     public void SetUser(Guid? userId) => _userId = userId;
 
-    public string? GetUserId() => _userId?.ToString();
+    public string? GetUserId() => Real is null ? _userId?.ToString() : Real.GetUserId();
     public long? GetUserIdAsLong() => null;
-    public Guid? GetUserIdAsGuid() => _userId;
-    public string? GetUserName() => _userId?.ToString();
+    public Guid? GetUserIdAsGuid() => Real is null ? _userId : Real.GetUserIdAsGuid();
+    public string? GetUserName() => GetUserId();
     public string? GetEmail() => null;
-    public IEnumerable<string> GetRoles() => _userId is null ? [] : [RoleConstants.User];
+    public IEnumerable<string> GetRoles() => Real is not null ? Real.GetRoles() : _userId is null ? [] : [RoleConstants.User];
     public bool IsAuthenticated() => _userId is not null;
     public string? GetClaimValue(string claimType) => null;
     public IEnumerable<string> GetClaimValues(string claimType) => [];
@@ -160,4 +174,19 @@ public sealed class FakePlanLimits : IRequestHandler<Subscriptions.Contracts.Sub
         MaxUsers is null
             ? throw new Shared.Core.Exceptions.NotFoundException("No active plan.")
             : Task.FromResult(new Subscriptions.Contracts.Subscriptions.DTOs.ActivePlanLimitsDto(null, null, MaxUsers, "Active", null));
+}
+
+/// <summary>Answers <c>GetUserSummariesQuery</c> from a settable map (users unknown to it are omitted).</summary>
+public sealed class FakeUserDirectory : IRequestHandler<UserDirectory.Contracts.Queries.GetUserSummariesQuery,
+    IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, UserDirectory.Contracts.Queries.UserSummaryDto> _users = new();
+
+    public void Add(Guid userId, string email, string displayName) =>
+        _users[userId] = new UserDirectory.Contracts.Queries.UserSummaryDto(userId, displayName, email, null, true);
+
+    public Task<IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>> Handle(
+        UserDirectory.Contracts.Queries.GetUserSummariesQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>(
+            request.UserIds.Where(_users.ContainsKey).Select(id => _users[id]).ToList());
 }

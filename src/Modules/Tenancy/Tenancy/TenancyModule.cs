@@ -1,3 +1,4 @@
+using DataTransfer.Contracts.Definitions;
 using Hangfire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -7,6 +8,7 @@ using Shared.Core.FeatureFlags;
 using Subscriptions.Contracts.Subscribers;
 using Tenancy.Data.Seed;
 using Tenancy.Domains.FeatureFlags.Services;
+using Tenancy.Domains.Members.DataTransfer;
 using Tenancy.Domains.Members.Features;
 using Tenancy.Jobs;
 using Tenancy.Services;
@@ -61,6 +63,8 @@ public static class TenancyModule
         // Notifications addressed to a tenant subscriber reach its owner.
         services.AddScoped<Notification.Contracts.INotificationRecipientResolver, TenantNotificationRecipientResolver>();
 
+        services.AddImportDefinition<MemberImportDefinition>();
+        services.AddExportDefinition<MemberExportDefinition>();
         services.AddMediator(TenancyRoot.AssemblyName);
         services.AddCustomMapster(TenancyRoot.AssemblyName);
         services.AddCarterWithAssemblies(TenancyRoot.AssemblyName);
