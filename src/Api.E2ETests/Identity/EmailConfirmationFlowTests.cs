@@ -5,8 +5,6 @@ using Api.E2ETests.Infrastructure;
 using FluentAssertions;
 using Identity.Domains.Users.Models;
 using Microsoft.AspNetCore.Identity;
-using Hangfire;
-using Hangfire.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Core.Authorization;
 using Xunit;
@@ -60,25 +58,6 @@ public class EmailConfirmationFlowTests(E2ETestFixture fixture)
         return await users.GenerateEmailConfirmationTokenAsync((await users.FindByIdAsync(userId.ToString()))!);
     });
 
-    private static int DispatchJobsAddressedTo(JobStorage storage, string email)
-    {
-        var api = storage.GetMonitoringApi();
-        var jobs = new List<Job?>();
-        foreach (var queue in api.Queues())
-        {
-            jobs.AddRange(api.EnqueuedJobs(queue.Name, 0, 1000).Select(j => j.Value.Job));
-        }
-
-        jobs.AddRange(api.ProcessingJobs(0, 1000).Select(j => j.Value.Job));
-        jobs.AddRange(api.SucceededJobs(0, 1000).Select(j => j.Value.Job));
-        jobs.AddRange(api.FailedJobs(0, 1000).Select(j => j.Value.Job));
-        jobs.AddRange(api.ScheduledJobs(0, 1000).Select(j => j.Value.Job));
-
-        return jobs.Count(job => job is not null &&
-                                 job.Type.Name == "NotificationDispatchJob" &&
-                                 job.Args.Count > 0 && JsonSerializer.Serialize(job.Args[0]).Contains(email, StringComparison.OrdinalIgnoreCase));
-    }
-
     [Fact]
     public async Task Register_queues_a_confirmation_and_only_a_valid_token_confirms()
     {
@@ -90,10 +69,9 @@ public class EmailConfirmationFlowTests(E2ETestFixture fixture)
         // The confirmation mail was handed to the Notification module: a dispatch job addressed to this email exists
         // in the app's Hangfire storage as soon as register returns (the delivery-log row appears only when a worker
         // runs the job, which is slow under suite load). Any state counts: a worker may already have picked it up.
-        var queued = await fixture.WithScopeAsync(sp =>
-            Task.FromResult(DispatchJobsAddressedTo(sp.GetRequiredService<JobStorage>(), email)));
+        var queued = await new AuthFlow(fixture).QueuedMailsToAsync(email);
 
-        queued.Should().Be(1, "registering by email sends exactly one confirmation link");
+        queued.Should().ContainSingle("registering by email sends exactly one confirmation link");
 
         var anonymous = fixture.CreateAnonymousClient();
 
@@ -109,6 +87,14 @@ public class EmailConfirmationFlowTests(E2ETestFixture fixture)
 
         // Confirmed email is now eligible for forgot-password (generic 200 either way, but no longer a dead end).
         (await anonymous.PostAsJsonAsync("/api/auth/forgot-password", new { identifier = email }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // The journey ends where the user wants it to: signing in with the registered password works.
+        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = Password });
+        login.StatusCode.Should().Be(HttpStatusCode.OK, await login.Content.ReadAsStringAsync());
+        var accessToken = JsonSerializer.Deserialize<Envelope<RegisterData>>(await login.Content.ReadAsStringAsync(), Json)!
+            .Data!.AccessToken;
+        (await fixture.Factory.CreateClientWithToken(accessToken).GetAsync("/api/v1/me/sessions"))
             .StatusCode.Should().Be(HttpStatusCode.OK);
     }
 

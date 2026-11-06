@@ -47,6 +47,21 @@ public sealed class LocalStorageContractTests : IDisposable
     }
 
     [Fact]
+    public async Task Delete_succeeds_while_a_reader_still_has_the_file_open()
+    {
+        // A thumbnail job or a download can be reading the file when the user deletes it. Linux always allowed this;
+        // on Windows it failed ("being used by another process") until reads shared Delete.
+        const string path = "temp/s1/open.txt";
+        await _storage.UploadToPathAsync(Content("still readable"), path, "text/plain");
+
+        await using var reader = await _storage.OpenReadAsync(path);
+        await _storage.DeleteAsync(path);
+
+        (await _storage.ExistsAsync(path)).Should().BeFalse();
+        (await ReadAll(reader)).Should().Be("still readable", "the open reader keeps its bytes");
+    }
+
+    [Fact]
     public async Task Copy_and_move_create_target_folders()
     {
         await _storage.UploadToPathAsync(Content("x"), "temp/s1/a.txt", "text/plain");

@@ -16,3 +16,4 @@ link it here.
 | [0012](0012-realtime-inbox-and-push.md) | In-app inbox, SignalR hub and FCM push as additive notification channels | Accepted |
 | [0013](0013-enterprise-sso-and-scim.md) | Per-tenant SSO (OIDC/SAML) and SCIM inside Identity, without dynamic auth schemes | Accepted |
 | [0014](0014-passkeys-on-built-in-identity.md) | Passkeys on .NET 10 Identity's built-in WebAuthn, server-side ceremony state | Accepted |
+| [0015](0015-malware-scanning-clamd-fail-closed.md) | Upload malware scanning with ClamAV over an own TCP client, failing closed | Accepted |

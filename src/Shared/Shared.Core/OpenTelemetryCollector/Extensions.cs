@@ -110,7 +110,9 @@ public static class Extensions
                     // SignalR: signalr.server.active_connections / connection.duration (notification hub).
                     .AddMeter("Microsoft.AspNetCore.Http.Connections")
                     // Notification module: in-app / push / real-time counters (Notification.Dispatch.NotificationMetrics).
-                    .AddMeter("StarterKit.Notification");
+                    .AddMeter("StarterKit.Notification")
+                    // Attachment module: attachment.malware.scans by result (Attachment...Validation.MalwareScanMetrics).
+                    .AddMeter("StarterKit.Attachment");
 
                 AddMetricsExporters(metrics, observabilityOptions, exporterPlan);
             });

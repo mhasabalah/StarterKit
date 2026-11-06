@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using AuthenticationOptions = Microsoft.AspNetCore.Authentication.AuthenticationOptions;
 
 namespace Api.E2ETests.Infrastructure;
@@ -45,6 +46,9 @@ public class E2ETestFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("RateLimiting__Policies__3__PermitLimit", "10000");
         Environment.SetEnvironmentVariable("RateLimiting__Policies__4__Name", "otp");
         Environment.SetEnvironmentVariable("RateLimiting__Policies__4__PermitLimit", "10000");
+        // Same for uploads (20/min): the attachment flows upload from one IP across many tests.
+        Environment.SetEnvironmentVariable("RateLimiting__Policies__0__Name", "upload");
+        Environment.SetEnvironmentVariable("RateLimiting__Policies__0__PermitLimit", "10000");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -82,6 +86,11 @@ public class E2ETestFactory : WebApplicationFactory<Program>
 
     protected virtual void ConfigureTestServices(IServiceCollection services)
     {
+        // Real OTP flows over HTTP: keep the codes instead of only logging that one was "sent".
+        services.RemoveAll<global::Identity.Services.Sms.ISmsService>();
+        services.AddSingleton<E2ESmsOutbox>();
+        services.AddSingleton<global::Identity.Services.Sms.ISmsService>(sp => sp.GetRequiredService<E2ESmsOutbox>());
+
         // Replace authentication with the header-driven test scheme. A real "Authorization: Bearer" token without
         // test headers is forwarded to the app's JWT bearer scheme (real signature, blacklist and claim handling).
         services.AddAuthentication(defaultScheme: TestAuthHandler.SchemeName)

@@ -21,6 +21,7 @@ Requires Docker. The first run pulls the images.
 | `seq` | Log search (`ConnectionStrings:seq`) | Persistent + data volume |
 | `api` | `src/Api` | Per session |
 | `rabbitmq` | Only with `Messaging:Transport=RabbitMq` | Persistent + data volume |
+| `clamav` | Only with `Attachment:ClamAv=true`: clamd for upload malware scanning | Persistent + signature volume |
 
 Persistent containers survive AppHost restarts. Their generated passwords are stored in the AppHost user secrets
 (`dotnet user-secrets list --project src/Aspire/AppHost`). To start from scratch, remove the containers and volumes
@@ -37,6 +38,7 @@ unhealthy.
 | `Observability:FullStack` | `false` | Adds the Grafana stack (below) |
 | `Messaging:Transport` | `InMemory` | `InMemory` \| `PostgreSql` \| `RabbitMq` - passed to the API; `RabbitMq` adds the broker |
 | `Postgres:HostPort` | *(random)* | Fixed host port for a desktop SQL client, e.g. `55432` |
+| `Attachment:ClamAv` | `false` | Adds clamd and turns upload scanning on in the API (`Scanner:Provider=ClamAv`). The API does not wait for it: uploads get 503 `malware_scanner_unavailable` until signatures are loaded (1-2 min) |
 
 ```bash
 dotnet run -- Observability:FullStack=true Messaging:Transport=RabbitMq

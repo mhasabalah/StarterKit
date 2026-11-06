@@ -101,7 +101,11 @@ public sealed class LocalFileStorageService : IStorageService, IStorageListing
         if (!File.Exists(fullPath))
             throw new StoredFileNotFoundException(storagePath);
 
-        Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        // FileShare.Delete: a reader (thumbnail job, in-flight download) must not block a delete. Linux already allows
+        // unlinking an open file; without this flag Windows refuses with "being used by another process" and a
+        // user's delete fails with 500 while a background job happens to read the file.
+        Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 81920,
+            useAsync: true);
         return Task.FromResult(stream);
     }
 

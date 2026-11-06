@@ -226,6 +226,15 @@ public class ValidationOptions
     /// </summary>
     public bool EnableVirusScanning { get; set; }
 
+    /// <summary>
+    /// Refuse to start when <see cref="EnableVirusScanning"/> is false. Off by default; production deployments that
+    /// accept uploads from untrusted users should turn it on (without it startup only logs a warning).
+    /// </summary>
+    public bool RequireVirusScanning { get; set; }
+
+    /// <summary>Built-in scanner adapter selection (<c>Attachment:Validation:Scanner</c>).</summary>
+    public MalwareScannerOptions Scanner { get; set; } = new();
+
     /// <summary>Obsolete: content (magic-byte) verification is always on.</summary>
     public bool EnableContentVerification { get; set; } = true;
 
@@ -240,6 +249,38 @@ public class ValidationOptions
     {
         MaxFileSizeBytes, MaxImageSizeBytes, MaxDocumentSizeBytes, MaxVideoSizeBytes, MaxAudioSizeBytes
     }.Max();
+}
+
+public enum MalwareScannerProvider
+{
+    /// <summary>No built-in adapter: the no-op scanner, or one the host registers itself.</summary>
+    None = 0,
+
+    /// <summary>ClamAV daemon (clamd) over TCP, <c>INSTREAM</c> protocol.</summary>
+    ClamAv = 1
+}
+
+public class MalwareScannerOptions
+{
+    public MalwareScannerProvider Provider { get; set; } = MalwareScannerProvider.None;
+
+    /// <summary>clamd host name (the compose service is <c>clamav</c>).</summary>
+    public string Host { get; set; } = "localhost";
+
+    public int Port { get; set; } = 3310;
+
+    /// <summary>Connect + scan timeout for one file. Large documents on a busy clamd take seconds.</summary>
+    public int TimeoutSeconds { get; set; } = 30;
+
+    /// <summary>INSTREAM chunk size. clamd's <c>StreamMaxLength</c> must be at least the largest upload.</summary>
+    public int ChunkSizeBytes { get; set; } = 64 * 1024;
+
+    /// <summary>
+    /// When the scanner is unreachable or errors: false (default) rejects the upload with 503
+    /// <c>malware_scanner_unavailable</c>; true accepts it unscanned and logs an error. Never true in production
+    /// unless an outage is worse for you than an unscanned file.
+    /// </summary>
+    public bool FailOpen { get; set; }
 }
 
 public class ImageOptions

@@ -11,7 +11,10 @@ using Attachment.Infrastructure.Maintenance;
 using Attachment.Infrastructure.Security;
 using Attachment.Infrastructure.Storage;
 using Attachment.Infrastructure.Validation;
+using Attachment.Infrastructure.Validation.ClamAv;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Shared.Core.HealthCheck;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -49,8 +52,7 @@ public static class AttachmentModule
         services.AddAttachmentEntityPolicy<UserAttachmentEntityAccessPolicy>(EntityType.User);
 
         // Validation / processing / URLs.
-        services.TryAddSingleton<IMalwareScanner, NoOpMalwareScanner>();
-        services.AddHostedService<MalwareScannerStartupCheck>();
+        services.AddMalwareScanner(configuration);
         services.AddScoped<IImageProcessingService, SkiaImageProcessingService>(); // the image adapter: swap it here
         services.AddScoped<IFileValidationService, FileValidationService>();
         services.AddSingleton<IAttachmentUrls, AttachmentUrls>();
@@ -67,6 +69,38 @@ public static class AttachmentModule
         services.AddTransient<AttachmentReconciliationJob>();
         services.AddHostedService<JobSchedulerBootstrap>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// <c>Scanner:Provider=ClamAv</c> registers the clamd adapter and a <c>clamav</c> health check (Degraded on
+    /// failure, never unready). Otherwise the no-op scanner is a fallback only, so a scanner the host registers
+    /// itself wins. <see cref="MalwareScannerStartupCheck"/> enforces the production posture.
+    /// </summary>
+    private static IServiceCollection AddMalwareScanner(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.TryAddSingleton<MalwareScanMetrics>();
+        services.TryAddSingleton(TimeProvider.System); // scan timeout (no-op when the host registered one)
+
+        var provider = configuration
+            .GetSection($"{AttachmentOptions.SectionName}:Validation:Scanner")
+            .GetValue(nameof(MalwareScannerOptions.Provider), MalwareScannerProvider.None);
+
+        if (provider == MalwareScannerProvider.ClamAv)
+        {
+            services.TryAddSingleton<ClamAvMalwareScanner>();
+            services.AddSingleton<IMalwareScanner>(sp => sp.GetRequiredService<ClamAvMalwareScanner>());
+            services.AddHealthChecks().AddCheck<ClamAvHealthCheck>(
+                ClamAvHealthCheck.Name,
+                failureStatus: HealthStatus.Degraded,
+                tags: [HealthCheckTags.Ready]);
+        }
+        else
+        {
+            services.TryAddSingleton<IMalwareScanner, NoOpMalwareScanner>();
+        }
+
+        services.AddHostedService<MalwareScannerStartupCheck>();
         return services;
     }
 

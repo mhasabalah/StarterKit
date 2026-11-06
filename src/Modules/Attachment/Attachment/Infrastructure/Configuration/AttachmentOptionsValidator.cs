@@ -59,6 +59,18 @@ public class AttachmentOptionsValidator : IValidateOptions<AttachmentOptions>
         if (v.AllowedDocumentTypes is not { Length: > 0 })
             errors.Add("At least one allowed document MIME type must be specified");
 
+        if (v.Scanner.Provider == MalwareScannerProvider.ClamAv)
+        {
+            if (string.IsNullOrWhiteSpace(v.Scanner.Host))
+                errors.Add("Attachment:Validation:Scanner:Host is required when Provider is ClamAv");
+            if (v.Scanner.Port is < 1 or > 65535)
+                errors.Add("Attachment:Validation:Scanner:Port must be between 1 and 65535");
+            if (v.Scanner.TimeoutSeconds is < 1 or > 600)
+                errors.Add("Attachment:Validation:Scanner:TimeoutSeconds must be between 1 and 600");
+            if (v.Scanner.ChunkSizeBytes is < 1024 or > 4 * 1024 * 1024)
+                errors.Add("Attachment:Validation:Scanner:ChunkSizeBytes must be between 1024 and 4194304");
+        }
+
         if (options.Image.EnableThumbnailGeneration)
         {
             if (options.Image.ThumbnailWidth <= 0 || options.Image.ThumbnailHeight <= 0)

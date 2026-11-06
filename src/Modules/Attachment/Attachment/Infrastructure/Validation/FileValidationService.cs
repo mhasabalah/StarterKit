@@ -1,5 +1,8 @@
 using System.Text;
+using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Configuration;
+using Attachment.Resources;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Attachment.Infrastructure.ImageProcessing;
 
@@ -14,8 +17,12 @@ public sealed class FileValidationService(
     IOptions<AttachmentOptions> options,
     IMalwareScanner malwareScanner,
     IImageProcessingService images,
-    ILogger<FileValidationService> logger) : IFileValidationService
+    ILogger<FileValidationService> logger,
+    IStringLocalizer<AttachmentResource>? localizer = null,
+    MalwareScanMetrics? scanMetrics = null) : IFileValidationService
 {
+    private readonly MalwareScanMetrics metrics = scanMetrics ?? new MalwareScanMetrics();
+
     private const int HeaderLength = 8 * 1024;
     private const int TextSniffLength = 64 * 1024;
 
@@ -135,20 +142,57 @@ public sealed class FileValidationService(
             height = info.Height;
         }
 
-        // 8. Malware scan (startup guarantees a real scanner when enabled).
+        // 8. Malware scan (startup guarantees a real scanner when enabled). Last, so only well-formed files reach it.
         if (v.EnableVirusScanning)
-        {
-            stream.Position = 0;
-            var scan = await malwareScanner.ScanAsync(stream, safeName, cancellationToken);
-            if (!scan.IsClean)
-            {
-                logger.LogWarning("Malware detected in upload {FileName}: {Threat}", safeName, scan.ThreatName);
-                return FileValidationResult.Invalid(safeName, "The file was rejected by the malware scanner.");
-            }
-        }
+            await ScanAsync(stream, safeName, v.Scanner.FailOpen, cancellationToken);
 
         return new FileValidationResult(true, [], safeName,
             new DetectedFileType(rule.Extension, rule.ContentType, rule.Type, size, width, height));
+    }
+
+    /// <summary>
+    /// Infected → <see cref="MalwareDetectedException"/> (400, the signature is logged only). No verdict →
+    /// <see cref="FileScanUnavailableException"/> (503) unless <c>FailOpen</c>. Any scanner exception counts as
+    /// "no verdict", so a custom adapter that throws something else still fails closed.
+    /// </summary>
+    private async Task ScanAsync(Stream stream, string safeName, bool failOpen, CancellationToken cancellationToken)
+    {
+        stream.Position = 0;
+        MalwareScanResult scan;
+        try
+        {
+            scan = await malwareScanner.ScanAsync(stream, safeName, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            if (failOpen)
+            {
+                metrics.Scanned("skipped_fail_open");
+                logger.LogError(ex, "Malware scan unavailable; accepting {FileName} UNSCANNED (Scanner:FailOpen=true)", safeName);
+                return;
+            }
+
+            metrics.Scanned("unavailable");
+            throw new FileScanUnavailableException(
+                Text("Attachment.ScannerUnavailable", "The file could not be checked for malware right now. Please try again later."),
+                ex);
+        }
+
+        if (scan.IsClean)
+        {
+            metrics.Scanned("clean");
+            return;
+        }
+
+        metrics.Scanned("infected");
+        logger.LogWarning("Malware detected in upload {FileName}: {Threat}", safeName, scan.ThreatName);
+        throw new MalwareDetectedException(Text("Attachment.MalwareDetected", "The file was rejected by the malware scanner."));
+    }
+
+    private string Text(string key, string fallback)
+    {
+        var value = localizer?[key];
+        return value is null || value.ResourceNotFound ? fallback : value.Value;
     }
 
     private static async Task<string?> VerifyContentAsync(Stream stream, FileTypeRule rule, CancellationToken ct)

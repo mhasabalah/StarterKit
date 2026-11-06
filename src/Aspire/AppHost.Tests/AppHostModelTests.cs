@@ -164,6 +164,24 @@ public class AppHostModelTests
     }
 
     [Fact]
+    public async Task ClamAv_switch_adds_clamd_and_turns_scanning_on_in_the_api()
+    {
+        await using (var lean = await Model())
+        {
+            lean.Resources.Select(r => r.Name).Should().NotContain("clamav");
+        }
+
+        await using var builder = await Model($"{AppHostSettings.ClamAvKey}=true");
+
+        Resource(builder, "clamav");
+        var env = await ApiEnvironment(builder);
+        env.Should().Contain("Attachment__Validation__EnableVirusScanning", "true");
+        env.Should().Contain("Attachment__Validation__Scanner__Provider", "ClamAv");
+        env.Should().ContainKey("Attachment__Validation__Scanner__Host");
+        env.Should().ContainKey("Attachment__Validation__Scanner__Port");
+    }
+
+    [Fact]
     public async Task Postgres_host_port_is_random_unless_configured()
     {
         await using (var random = await Model())

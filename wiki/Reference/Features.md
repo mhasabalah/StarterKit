@@ -54,7 +54,7 @@ before building it, and to brief a product owner. Backlog and status: [Template 
 
 | Feature | Highlights | Docs |
 |---|---|---|
-| Attachments | Magic-byte validation, malware-scanner port, signed URLs, pending uploads, thumbnails (SkiaSharp), reconciliation; Local / Azure Blob / S3 | [Attachment](../Attachment/README.md) |
+| Attachments | Magic-byte validation, ClamAV malware scanning (fail-closed, `docker-compose.clamav.yml`), signed URLs, pending uploads, thumbnails (SkiaSharp), reconciliation; Local / Azure Blob / S3 | [Attachment](../Attachment/README.md) |
 
 ## Platform
 

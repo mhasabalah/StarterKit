@@ -1,4 +1,5 @@
 using Attachment.Contracts.Attachments.Dtos;
+using Attachment.Domains.Attachments.Exceptions;
 using Attachment.Infrastructure.Configuration;
 using Attachment.Infrastructure.Validation;
 using Attachment.Tests.TestSupport;
@@ -218,17 +219,116 @@ public sealed class FileValidationServiceTests
     }
 
     [Fact]
-    public async Task Malware_scanner_rejection_fails_validation_when_scanning_enabled()
+    public async Task Infected_upload_throws_malware_detected_without_leaking_the_signature()
+    {
+        var scanner = ScannerReturning(new MalwareScanResult(false, "Win.Test.EICAR_HDB-1"));
+        var options = TestOptions.Create(o => o.Validation.EnableVirusScanning = true);
+
+        var act = () => Validate(TestFiles.Pdf(), "doc.pdf", "application/pdf", options: options, scanner: scanner);
+
+        var thrown = await act.Should().ThrowAsync<MalwareDetectedException>();
+        thrown.Which.ErrorCode.Should().Be("malware_detected");
+        thrown.Which.Message.Should().NotContain("EICAR");
+    }
+
+    [Fact]
+    public async Task Unreachable_scanner_fails_closed_with_503_by_default()
+    {
+        var scanner = ScannerThrowing(new MalwareScannerUnavailableException("down"));
+        var options = TestOptions.Create(o => o.Validation.EnableVirusScanning = true);
+
+        var act = () => Validate(TestFiles.Pdf(), "doc.pdf", "application/pdf", options: options, scanner: scanner);
+
+        var thrown = await act.Should().ThrowAsync<FileScanUnavailableException>();
+        thrown.Which.ErrorCode.Should().Be("malware_scanner_unavailable");
+        thrown.Which.StatusCode.Should().Be(System.Net.HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task Any_exception_from_a_custom_scanner_also_fails_closed()
+    {
+        var scanner = ScannerThrowing(new InvalidOperationException("vendor SDK blew up"));
+        var options = TestOptions.Create(o => o.Validation.EnableVirusScanning = true);
+
+        var act = () => Validate(TestFiles.Pdf(), "doc.pdf", "application/pdf", options: options, scanner: scanner);
+
+        await act.Should().ThrowAsync<FileScanUnavailableException>();
+    }
+
+    [Fact]
+    public async Task Fail_open_accepts_the_file_when_the_scanner_is_unavailable()
+    {
+        var scanner = ScannerThrowing(new MalwareScannerUnavailableException("down"));
+        var options = TestOptions.Create(o =>
+        {
+            o.Validation.EnableVirusScanning = true;
+            o.Validation.Scanner.FailOpen = true;
+        });
+
+        var result = await Validate(TestFiles.Pdf(), "doc.pdf", "application/pdf", options: options, scanner: scanner);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Fail_open_never_accepts_an_infected_file()
+    {
+        var scanner = ScannerReturning(new MalwareScanResult(false, "EICAR"));
+        var options = TestOptions.Create(o =>
+        {
+            o.Validation.EnableVirusScanning = true;
+            o.Validation.Scanner.FailOpen = true;
+        });
+
+        var act = () => Validate(TestFiles.Pdf(), "doc.pdf", "application/pdf", options: options, scanner: scanner);
+
+        await act.Should().ThrowAsync<MalwareDetectedException>();
+    }
+
+    [Fact]
+    public async Task Invalid_files_are_rejected_before_they_reach_the_scanner()
+    {
+        var scanner = new Mock<IMalwareScanner>(MockBehavior.Strict);
+        var options = TestOptions.Create(o => o.Validation.EnableVirusScanning = true);
+
+        var result = await Validate(TestFiles.Png(), "photo.png", "text/html", options: options, scanner: scanner.Object);
+
+        result.IsValid.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(false, false, true, MalwareScanningPosture.DisabledAllowed)]
+    [InlineData(false, false, false, MalwareScanningPosture.DisabledWarning)]
+    [InlineData(false, true, false, MalwareScanningPosture.DisabledRejected)]
+    [InlineData(false, true, true, MalwareScanningPosture.DisabledRejected)]
+    [InlineData(true, true, false, MalwareScanningPosture.Enabled)]
+    public void Startup_posture_warns_or_refuses_when_scanning_is_off(
+        bool enabled, bool required, bool developmentLike, MalwareScanningPosture expected)
+    {
+        var options = TestOptions.Create(o =>
+        {
+            o.Validation.EnableVirusScanning = enabled;
+            o.Validation.RequireVirusScanning = required;
+        });
+        var provider = new ServiceCollection().AddSingleton(new Mock<IMalwareScanner>().Object).BuildServiceProvider();
+
+        MalwareScannerStartupCheck.Evaluate(options, provider, developmentLike).Should().Be(expected);
+    }
+
+    private static IMalwareScanner ScannerReturning(MalwareScanResult result)
     {
         var scanner = new Mock<IMalwareScanner>();
         scanner.Setup(s => s.ScanAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new MalwareScanResult(false, "EICAR"));
-        var options = TestOptions.Create(o => o.Validation.EnableVirusScanning = true);
+            .ReturnsAsync(result);
+        return scanner.Object;
+    }
 
-        var result = await Validate(TestFiles.Pdf(), "doc.pdf", "application/pdf", options: options, scanner: scanner.Object);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Contains("malware"));
+    private static IMalwareScanner ScannerThrowing(Exception exception)
+    {
+        var scanner = new Mock<IMalwareScanner>();
+        scanner.Setup(s => s.ScanAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(exception);
+        return scanner.Object;
     }
 
     [Fact]

@@ -18,9 +18,9 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | # | Item | Status |
 |---|---|---|
 | G1 | Real payment adapters (**Stripe + Paymob**) behind `IPaymentGateway`, `RefundAsync`, refund webhooks posting to the ledger | ✅ |
-| G2 | Real malware scanner adapter (ClamAV) replacing `NoOpMalwareScanner` | ⬜ |
+| G2 | Real malware scanner adapter (ClamAV) replacing `NoOpMalwareScanner` ([Security](../Attachment/Security.md#malware-scanning)) | ✅ |
 | G3 | Analyzers + `TreatWarningsAsErrors` (= #8) | ✅ |
-| G4 | Identity + Attachment module tests (= #10) | 🚧 |
+| G4 | Identity + Attachment module tests (= #10) | ✅ |
 | G5 | Data Protection keys: KMS option (Azure Key Vault, AWS KMS); certificate option already exists | ✅ |
 
 **P1 — expected by most SaaS products**
@@ -51,6 +51,47 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | G22 | Load/performance tests (k6 or NBomber) with a CI baseline | ⬜ |
 | G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
+
+Wave 9 (2026-11-06, [ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md)): **all P0s are done.**
+
+**G2: ClamAV malware scanning.**
+- Own clamd `INSTREAM` client (`ClamAvMalwareScanner`, no new package), selected with `Attachment:Validation:Scanner:Provider=ClamAv`.
+- Fails closed: 503 `malware_scanner_unavailable`, and 400 `malware_detected` for an infected file.
+- `FailOpen` is an explicit opt-out.
+- The `clamav` health check reports Degraded on failure, never unready.
+- `attachment.malware.scans` metric.
+- Startup warns when scanning is off; `RequireVirusScanning` makes that fatal.
+- clamd runs with `AlertExceedsMax yes`: without it, content clamd skipped (too big) is reported clean. The real-image test proves it.
+- `docker-compose.clamav.yml` and the Aspire switch `Attachment:ClamAv`.
+- Tests: in-process fake clamd; opt-in real-image test (`STARTERKIT_CLAMAV_TESTS=1`); HTTP E2E.
+
+**G4: the HTTP tests that were still open.**
+- Refresh rotation, and reuse revoking the family.
+- Logout and logout-all.
+- Change-password session kill.
+- Password lockout.
+- Forgot → reset → login by email link and by phone OTP.
+- Register → confirm → login.
+- Pending upload → associate → download, plus session ownership.
+- Unit tests for the onboarding verify-phone and resend handlers.
+
+**Bugs these tests found, now fixed:**
+- **Logout left the session alive.** It revoked only the presented tokens, so other access tokens of the same session kept working until they expired. Logout now ends the `sid` session through `ISessionManager`.
+- **Two avatars cancelled each other.** Associating two avatars at once made each delete the other, leaving the user with none. A new avatar now replaces only older ones.
+- **Windows file lock on delete.** Local storage opened reads without `FileShare.Delete`, so on Windows a delete failed with 500 while the thumbnail job was reading the file.
+- **Flaky E2E mail lookup.** It scanned Hangfire one state at a time and could miss or double-count a job. It now reads `hangfire.job` in one query.
+
+**Follow-ups of the review, done in the same PR:**
+- **Pending delete vs thumbnail race.** The thumbnail job could save the row mid-delete; the user got 409 and the
+  row survived its deleted file. The delete now re-reads once and completes, including the new thumbnail
+  (`Integration/PendingDeleteRaceTests`, real Postgres conflict).
+- **Lockout no longer enumerates accounts.** A locked-out account gets the same 401 `Invalid credentials` as an
+  unknown one.
+- **ClamAV in CI.** `clamav-live.yml` runs the real-image test nightly and on PRs that touch the scanner.
+- **Scanner timeout on `TimeProvider`.** The startup check exempts only `Development` and `Testing`, like Identity.
+- **Verified live.** The real API with real clamd: EICAR gets 400, a clean file gets 200; clamd stopped gives 503 and
+  `/health` reports `Degraded` (200). The compose overlay's own `clamav` service comes up healthy with
+  `AlertExceedsMax yes`.
 
 Follow-ups known up front: automatic off-session card retry in dunning (needs saved payment methods); Stripe/Paymob
 sandbox keys per project.

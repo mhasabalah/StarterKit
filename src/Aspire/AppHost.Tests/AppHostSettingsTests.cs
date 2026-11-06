@@ -57,4 +57,11 @@ public class AppHostSettingsTests
     {
         From((AppHostSettings.ObservabilityFullStackKey, "true")).ObservabilityFullStack.Should().BeTrue();
     }
+
+    [Fact]
+    public void ClamAv_switch_is_read_and_off_by_default()
+    {
+        From().ClamAv.Should().BeFalse();
+        From((AppHostSettings.ClamAvKey, "true")).ClamAv.Should().BeTrue();
+    }
 }

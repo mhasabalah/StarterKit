@@ -51,6 +51,23 @@ if (settings.Transport == MessagingTransport.RabbitMq)
     api.WithReference(rabbitmq).WaitFor(rabbitmq);
 }
 
+// Upload malware scanning (same image as docker-compose.clamav.yml). The first start loads signatures for 1-2 minutes;
+// the API does not wait for it - uploads get 503 malware_scanner_unavailable until clamd answers.
+if (settings.ClamAv)
+{
+    var clamav = builder.AddContainer("clamav", "clamav/clamav", "1.4")
+        .WithLifetime(ContainerLifetime.Persistent)
+        .WithVolume("starterkit-clamav-db", "/var/lib/clamav")
+        .WithEnvironment("CLAMD_CONF_AlertExceedsMax", "yes") // skipped content is never "OK" (docker-compose.clamav.yml)
+        .WithEndpoint(targetPort: 3310, name: "clamd", scheme: "tcp");
+
+    var clamd = clamav.GetEndpoint("clamd");
+    api.WithEnvironment("Attachment__Validation__EnableVirusScanning", "true")
+        .WithEnvironment("Attachment__Validation__Scanner__Provider", "ClamAv")
+        .WithEnvironment("Attachment__Validation__Scanner__Host", clamd.Property(EndpointProperty.Host))
+        .WithEnvironment("Attachment__Validation__Scanner__Port", clamd.Property(EndpointProperty.Port));
+}
+
 // ============================================================
 // 3. Observability
 // ============================================================
