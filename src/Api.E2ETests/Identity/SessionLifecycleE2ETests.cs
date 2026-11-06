@@ -139,7 +139,7 @@ public class SessionLifecycleE2ETests(E2ETestFixture fixture)
     }
 
     [Fact]
-    public async Task Repeated_wrong_passwords_lock_the_account_even_against_the_right_password()
+    public async Task Repeated_wrong_passwords_lock_the_account_without_revealing_that_it_exists()
     {
         var user = await _auth.SeedUserAsync();
 
@@ -148,8 +148,13 @@ public class SessionLifecycleE2ETests(E2ETestFixture fixture)
             (await _auth.TryLoginAsync(user.Email, "Wrong!Passw0rd")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         using var locked = await _auth.TryLoginAsync(user.Email, AuthFlow.Password);
-        locked.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await locked.Content.ReadAsStringAsync()).Should().Contain("locked out");
+        using var unknown = await _auth.TryLoginAsync($"nobody-{Guid.NewGuid():N}@example.com", AuthFlow.Password);
+        locked.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "the right password does not get in while locked");
+
+        // ...and the answer is the same as for an account that does not exist (no enumeration through lockout).
+        var lockedBody = await locked.Content.ReadFromJsonAsync<AuthFlow.Envelope<object>>(AuthFlow.Json);
+        var unknownBody = await unknown.Content.ReadFromJsonAsync<AuthFlow.Envelope<object>>(AuthFlow.Json);
+        lockedBody!.Errors.Should().Equal(unknownBody!.Errors);
     }
 
     [Fact]

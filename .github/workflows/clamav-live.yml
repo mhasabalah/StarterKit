@@ -1,0 +1,54 @@
+# ==============================================
+# Real ClamAV test (opt-in suite, run here instead of in every CI build)
+# ==============================================
+# Attachment.Tests/Integration/ClamAvContainerTests runs the real clamav/clamav image (the one in
+# docker-compose.clamav.yml): EICAR is detected, a clean file passes, and content over clamd's limits is never reported
+# clean (AlertExceedsMax). It pulls ~400 MB and waits for clamd to load signatures, so it is skipped by default
+# (STARTERKIT_CLAMAV_TESTS) and runs:
+#   - nightly: catches a new image or signature-format change before a deploy does
+#   - on PRs that touch the scanner, its tests or the overlay
+#   - on demand (Run workflow)
+# Docs: wiki/Attachment/Security.md ("Malware scanning"), ADR 0015.
+# ==============================================
+
+name: ClamAV live test
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # daily 02:30 UTC
+  pull_request:
+    paths:
+      - 'src/Modules/Attachment/Attachment/Infrastructure/Validation/**'
+      - 'src/Modules/Attachment/Attachment.Tests/Integration/ClamAvContainerTests.cs'
+      - 'docker-compose.clamav.yml'
+      - '.github/workflows/clamav-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clamav-live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clamav:
+    name: Real clamd scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Run the real ClamAV tests
+        env:
+          STARTERKIT_CLAMAV_TESTS: '1'
+        run: >
+          dotnet test src/Modules/Attachment/Attachment.Tests/Attachment.Tests.csproj --configuration Release
+          --filter "FullyQualifiedName~ClamAvContainerTests|FullyQualifiedName~ClamAvMalwareScannerTests"
+          --logger "console;verbosity=normal"

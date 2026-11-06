@@ -80,6 +80,7 @@ public static class AttachmentModule
     private static IServiceCollection AddMalwareScanner(this IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddSingleton<MalwareScanMetrics>();
+        services.TryAddSingleton(TimeProvider.System); // scan timeout (no-op when the host registered one)
 
         var provider = configuration
             .GetSection($"{AttachmentOptions.SectionName}:Validation:Scanner")
