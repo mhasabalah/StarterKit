@@ -26,6 +26,18 @@ public interface ISsoConnectionRepository
     /// </summary>
     Task TouchLastLoginAsync(Guid id, DateTime now, CancellationToken ct = default);
 
+    /// <summary>
+    /// Records a metadata refresh that changed nothing (<paramref name="refreshedAt"/>, clears the error) or failed
+    /// (<paramref name="error"/> code) WITHOUT loading/saving the aggregate: no version bump, no conflict with an admin edit.
+    /// </summary>
+    Task RecordMetadataRefreshAsync(Guid id, DateTime? refreshedAt, string? error, CancellationToken ct = default);
+
+    /// <summary>Active SAML connections that have a metadata URL (ids only; background refresh).</summary>
+    Task<List<Guid>> GetRefreshableSamlIdsAsync(CancellationToken ct = default);
+
+    /// <summary>Active SAML connections (ids only; certificate expiry alerts).</summary>
+    Task<List<Guid>> GetActiveSamlIdsAsync(CancellationToken ct = default);
+
     void Add(SsoConnection connection);
 
     void Remove(SsoConnection connection);
@@ -63,6 +75,26 @@ public sealed class SsoConnectionRepository(ApplicationIdentityDbContext dbConte
             .Where(c => c.Id == id && (c.LastLoginAt == null || c.LastLoginAt < threshold))
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.LastLoginAt, now), ct);
     }
+
+    public Task RecordMetadataRefreshAsync(Guid id, DateTime? refreshedAt, string? error, CancellationToken ct = default) =>
+        refreshedAt is { } at
+            ? dbContext.SsoConnections.Where(c => c.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.SamlMetadataRefreshedAt, at)
+                    .SetProperty(c => c.SamlMetadataLastError, (string?)null), ct)
+            : dbContext.SsoConnections.Where(c => c.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.SamlMetadataLastError, error), ct);
+
+    public Task<List<Guid>> GetRefreshableSamlIdsAsync(CancellationToken ct = default) =>
+        dbContext.SsoConnections.AsNoTracking()
+            .Where(c => c.Protocol == SsoProtocol.Saml && c.Status == SsoConnectionStatus.Active &&
+                        c.SamlIdpMetadataUrl != null)
+            .OrderBy(c => c.Id).Select(c => c.Id).ToListAsync(ct);
+
+    public Task<List<Guid>> GetActiveSamlIdsAsync(CancellationToken ct = default) =>
+        dbContext.SsoConnections.AsNoTracking()
+            .Where(c => c.Protocol == SsoProtocol.Saml && c.Status == SsoConnectionStatus.Active)
+            .OrderBy(c => c.Id).Select(c => c.Id).ToListAsync(ct);
 
     public void Add(SsoConnection connection) => dbContext.SsoConnections.Add(connection);
 

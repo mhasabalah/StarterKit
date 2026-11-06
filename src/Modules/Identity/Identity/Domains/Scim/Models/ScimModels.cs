@@ -69,6 +69,25 @@ public class ScimDirectory : Aggregate<Guid>, IAuditable
 }
 
 /// <summary>
+/// The SCIM enterprise user extension (RFC 7643 §4.3, <c>urn:ietf:params:scim:schemas:extension:enterprise:2.0:User</c>).
+/// <see cref="ManagerId"/> is the SCIM id (= account id) of a user of the SAME directory.
+/// </summary>
+public sealed record ScimEnterprise(
+    string? EmployeeNumber = null,
+    string? CostCenter = null,
+    string? Organization = null,
+    string? Division = null,
+    string? Department = null,
+    Guid? ManagerId = null)
+{
+    public const int MaxLength = 256;
+
+    public static ScimEnterprise Empty { get; } = new();
+
+    public bool IsEmpty => this == Empty;
+}
+
+/// <summary>
 /// The directory's view of one user (the SCIM resource). <see cref="UserId"/> is the account it provisions and
 /// also the SCIM <c>id</c>. Rows are per directory: the same person can be provisioned by two tenants.
 /// </summary>
@@ -79,29 +98,63 @@ public class ScimUser
     public string UserName { get; private set; } = default!;
     public string? ExternalId { get; private set; }
     public bool Active { get; private set; }
+    public string? EmployeeNumber { get; private set; }
+    public string? CostCenter { get; private set; }
+    public string? Organization { get; private set; }
+    public string? Division { get; private set; }
+    public string? Department { get; private set; }
+
+    /// <summary>The manager's SCIM id (account id) within the same directory.</summary>
+    public Guid? ManagerScimUserId { get; private set; }
+
     public DateTime Created { get; private set; }
     public DateTime LastModified { get; private set; }
     public long Revision { get; private set; }
+
+    /// <summary>The enterprise extension as a value.</summary>
+    public ScimEnterprise Enterprise =>
+        new(EmployeeNumber, CostCenter, Organization, Division, Department, ManagerScimUserId);
 
     private ScimUser()
     {
     }
 
-    public static ScimUser Create(Guid directoryId, Guid userId, string userName, string? externalId, bool active, DateTime now) =>
-        new()
+    public static ScimUser Create(Guid directoryId, Guid userId, string userName, string? externalId, bool active,
+        ScimEnterprise? enterprise, DateTime now)
+    {
+        var user = new ScimUser
         {
             DirectoryId = directoryId, UserId = userId, UserName = userName, ExternalId = externalId, Active = active,
             Created = now, LastModified = now, Revision = 1
         };
+        user.SetEnterprise(enterprise);
+        return user;
+    }
 
-    public void Update(string userName, string? externalId, bool active, DateTime now)
+    public void Update(string userName, string? externalId, bool active, ScimEnterprise enterprise, DateTime now)
     {
         UserName = userName;
         ExternalId = externalId;
         Active = active;
+        SetEnterprise(enterprise);
         LastModified = now;
         Revision++;
     }
+
+    private void SetEnterprise(ScimEnterprise? enterprise)
+    {
+        enterprise ??= ScimEnterprise.Empty;
+        EmployeeNumber = Cap(enterprise.EmployeeNumber);
+        CostCenter = Cap(enterprise.CostCenter);
+        Organization = Cap(enterprise.Organization);
+        Division = Cap(enterprise.Division);
+        Department = Cap(enterprise.Department);
+        ManagerScimUserId = enterprise.ManagerId == UserId ? null : enterprise.ManagerId; // nobody manages themselves
+    }
+
+    private static string? Cap(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null
+        : value.Trim() is { Length: > ScimEnterprise.MaxLength } t ? t[..ScimEnterprise.MaxLength] : value.Trim();
 }
 
 /// <summary>A directory group; optionally mapped to a tenant role. Members are account ids.</summary>

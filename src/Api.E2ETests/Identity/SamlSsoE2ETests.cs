@@ -39,8 +39,8 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    private readonly X509Certificate2 _idpCertificate = SelfSigned("CN=saml-e2e-idp");
-    private readonly X509Certificate2 _attackerCertificate = SelfSigned("CN=attacker");
+    private readonly SamlTestIdp _idp = new(IdpEntityId, IdpSsoUrl);
+    private readonly X509Certificate2 _attackerCertificate = SamlTestIdp.SelfSigned("CN=attacker");
     private readonly string _domain = $"saml-{Guid.NewGuid():N}.example";
 
     private sealed record Envelope<T>(bool IsSuccess, T? Data);
@@ -56,7 +56,7 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
         var email = $"grace@{_domain}";
 
         var acs = await PostResponseAsync(browser, connection,
-            SignedResponse(connection, requestId, "saml-user-1", email, _idpCertificate), relayState);
+            _idp.SignedResponse(connection, requestId, "saml-user-1", email), relayState);
 
         acs.StatusCode.Should().Be(HttpStatusCode.Redirect);
         var location = acs.Headers.Location!;
@@ -79,7 +79,7 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
 
         // The same response cannot be replayed.
         var replay = await PostResponseAsync(browser, connection,
-            SignedResponse(connection, requestId, "saml-user-1", email, _idpCertificate), relayState);
+            _idp.SignedResponse(connection, requestId, "saml-user-1", email), relayState);
         replay.Headers.Location!.ToString().Should().Contain("sso_error=");
     }
 
@@ -91,7 +91,7 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
         var (requestId, relayState) = await StartAsync(browser, connection.Id);
 
         var acs = await PostResponseAsync(browser, connection,
-            SignedResponse(connection, requestId, "saml-user-2", $"eve@{_domain}", _attackerCertificate), relayState);
+            _idp.SignedResponse(connection, requestId, "saml-user-2", $"eve@{_domain}", _attackerCertificate), relayState);
 
         acs.StatusCode.Should().Be(HttpStatusCode.Redirect);
         acs.Headers.Location!.ToString().Should().StartWith(ReturnUrl).And.Contain("sso_error=").And.NotContain("sso_code");
@@ -104,7 +104,7 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
         var (requestId, relayState) = await StartAsync(Browser(), connection.Id);
 
         var acs = await PostResponseAsync(Browser(), connection,
-            SignedResponse(connection, requestId, "saml-user-3", $"mallory@{_domain}", _idpCertificate), relayState);
+            _idp.SignedResponse(connection, requestId, "saml-user-3", $"mallory@{_domain}"), relayState);
 
         acs.StatusCode.Should().Be(HttpStatusCode.Redirect);
         acs.Headers.Location!.ToString().Should().Contain("sso_error=state_invalid");
@@ -130,7 +130,7 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
             protocol = "Saml",
             samlIdpEntityId = IdpEntityId,
             samlIdpSsoUrl = IdpSsoUrl,
-            samlIdpCertificates = new[] { Convert.ToBase64String(_idpCertificate.RawData) },
+            samlIdpCertificates = new[] { _idp.CertificateBase64 },
             jitProvisioning = true
         });
         var text = await created.Content.ReadAsStringAsync();
@@ -151,78 +151,16 @@ public sealed class SamlSsoE2ETests(E2ETestFixture fixture) : IDisposable
         return connection;
     }
 
-    /// <summary>GET start; returns the AuthnRequest id (decoded from the redirect) and the RelayState to echo back.</summary>
-    private static async Task<(string RequestId, string RelayState)> StartAsync(HttpClient browser, Guid connectionId)
-    {
-        var start = await browser.GetAsync($"{Sso}/{connectionId}/start?returnUrl={Uri.EscapeDataString(ReturnUrl)}");
-        start.StatusCode.Should().Be(HttpStatusCode.Redirect, await start.Content.ReadAsStringAsync());
-        var location = start.Headers.Location!;
-        location.ToString().Should().StartWith(IdpSsoUrl);
-
-        var query = System.Web.HttpUtility.ParseQueryString(location.Query);
-        var xml = Inflate(query["SAMLRequest"]!);
-        var id = Regex.Match(xml, "\\sID=\"([^\"]+)\"");
-        id.Success.Should().BeTrue(xml);
-        return (id.Groups[1].Value, query["RelayState"]!);
-    }
+    private Task<(string RequestId, string RelayState)> StartAsync(HttpClient browser, Guid connectionId) =>
+        _idp.StartAsync(browser, connectionId, ReturnUrl);
 
     private static Task<HttpResponseMessage> PostResponseAsync(
         HttpClient browser, SsoConnectionDto connection, string samlResponse, string relayState) =>
-        browser.PostAsync($"{Sso}/saml/{connection.Id}/acs", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["SAMLResponse"] = samlResponse,
-            ["RelayState"] = relayState
-        }));
-
-    /// <summary>What the IdP posts back: a signed Response for our entity id and ACS, in reply to our request.</summary>
-    private static string SignedResponse(
-        SsoConnectionDto connection, string inResponseTo, string subject, string email, X509Certificate2 signer)
-    {
-        var spEntityId = connection.ServiceProvider.SamlEntityId!;
-        var config = new Saml2Configuration { Issuer = IdpEntityId, SigningCertificate = signer };
-        var response = new Saml2AuthnResponse(config)
-        {
-            Status = Saml2StatusCodes.Success,
-            Destination = new Uri(connection.ServiceProvider.SamlAcsUrl!),
-            InResponseTo = new Saml2Id(inResponseTo),
-            NameId = new Saml2NameIdentifier(subject, NameIdentifierFormats.Persistent),
-            ClaimsIdentity = new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, subject),
-                new Claim(ClaimTypes.Email, email),
-                new Claim(ClaimTypes.GivenName, "Grace")
-            ], "saml")
-        };
-        response.CreateSecurityToken(spEntityId, subjectConfirmationLifetime: 5, issuedTokenLifetime: 60);
-
-        var binding = new Saml2PostBinding();
-        binding.Bind(response);
-        var match = Regex.Match(binding.PostContent, "name=\"SAMLResponse\" value=\"([^\"]+)\"");
-        match.Success.Should().BeTrue();
-        return WebUtility.HtmlDecode(match.Groups[1].Value);
-    }
-
-    /// <summary>HTTP-Redirect binding: base64 of raw DEFLATE.</summary>
-    private static string Inflate(string value)
-    {
-        using var input = new MemoryStream(Convert.FromBase64String(value));
-        using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-        using var reader = new StreamReader(deflate, Encoding.UTF8);
-        return reader.ReadToEnd();
-    }
-
-    private static X509Certificate2 SelfSigned(string subject)
-    {
-        using var rsa = RSA.Create(2048);
-        var request = new CertificateRequest(subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
-        return X509CertificateLoader.LoadPkcs12(certificate.Export(X509ContentType.Pkcs12, "p"), "p",
-            X509KeyStorageFlags.Exportable);
-    }
+        SamlTestIdp.PostResponseAsync(browser, connection.Id, samlResponse, relayState);
 
     public void Dispose()
     {
-        _idpCertificate.Dispose();
+        _idp.Dispose();
         _attackerCertificate.Dispose();
     }
 }
