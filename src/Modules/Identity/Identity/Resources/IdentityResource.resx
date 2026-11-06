@@ -273,4 +273,10 @@
   <data name="Sso.Connection.PublicEmailDomain" xml:space="preserve">
     <value>'{0}' is a public email provider and cannot be used for SSO.</value>
   </data>
+  <data name="Sso.Connection.NotSaml" xml:space="preserve">
+    <value>Only SAML connections have IdP metadata.</value>
+  </data>
+  <data name="Sso.Connection.MetadataUrlRequired" xml:space="preserve">
+    <value>A metadata URL must be configured first.</value>
+  </data>
 </root>

@@ -41,4 +41,19 @@ public sealed class SsoOptions
     /// SSO - the break-glass path if the IdP is down or misconfigured.
     /// </summary>
     public bool AllowBreakGlassPasswordLogin { get; set; } = true;
+
+    /// <summary>Cron of the recurring SAML metadata refresh (connections with a metadata URL). Default: every 6 hours.</summary>
+    public string MetadataRefreshCron { get; set; } = "0 */6 * * *";
+
+    /// <summary>Turns the recurring SAML metadata refresh off ("refresh now" in the admin API still works).</summary>
+    public bool MetadataRefreshEnabled { get; set; } = true;
+
+    /// <summary>Cron of the SAML certificate expiry check. Default: daily at 07:00 UTC.</summary>
+    public string CertificateExpiryCheckCron { get; set; } = "0 7 * * *";
+
+    /// <summary>
+    /// SSO administrators are alerted once for each of these "days before the IdP certificates expire" thresholds
+    /// (and once more for every smaller one that is crossed). Empty = no alerts.
+    /// </summary>
+    public int[] CertificateExpiryAlertDays { get; set; } = [30, 14, 7, 1];
 }

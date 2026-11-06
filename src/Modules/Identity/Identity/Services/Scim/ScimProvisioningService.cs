@@ -112,7 +112,8 @@ public sealed class ScimProvisioningService(
             throw ScimException.Uniqueness($"The account '{email}' is already provisioned by this directory.");
         }
 
-        var scim = ScimUser.Create(directory.Id, user.Id, userName, externalId, active, Now);
+        var enterprise = await KnownManagerAsync(directory.Id, ScimEnterpriseJson.FromResource(resource), ct);
+        var scim = ScimUser.Create(directory.Id, user.Id, userName, externalId, active, enterprise, Now);
         dbContext.ScimUsers.Add(scim);
         await SaveUniqueAsync(ct);
 
@@ -130,7 +131,9 @@ public sealed class ScimProvisioningService(
         ApplyName(user, resource);
         await userManager.UpdateAsync(user);
         var wasActive = scim.Active;
-        scim.Update(userName, ScimJson.Text(ScimJson.Get(resource, "externalId")), active, Now);
+        // PUT replaces the extension when the resource carries it; a resource without it leaves it untouched.
+        var enterprise = await KnownManagerAsync(directory.Id, ScimEnterpriseJson.FromResource(resource), ct) ?? scim.Enterprise;
+        scim.Update(userName, ScimJson.Text(ScimJson.Get(resource, "externalId")), active, enterprise, Now);
         await SaveUniqueAsync(ct);
 
         if (wasActive != active)
@@ -140,7 +143,10 @@ public sealed class ScimProvisioningService(
 
     /// <summary>
     /// RFC 7644 §3.5.2. Accepts what Entra ID and Okta send: op names in any case, path-less "replace" with an
-    /// object, <c>active</c> as a string, <c>name.givenName</c>-style paths. Unknown paths are ignored.
+    /// object, <c>active</c> as a string, <c>name.givenName</c>-style paths, enterprise extension paths
+    /// (<c>urn:...:enterprise:2.0:User:department</c>, <c>manager.value</c>). A path that is not an attribute of
+    /// the User (or enterprise) schema is a 400 <c>invalidPath</c>; known attributes this server does not store
+    /// (phone numbers, addresses, ...) are accepted and ignored.
     /// </summary>
     public async Task<ScimResult> PatchUserAsync(ScimDirectory directory, Guid id, JsonObject patch, CancellationToken ct)
     {
@@ -148,14 +154,32 @@ public sealed class ScimProvisioningService(
         var userName = scim.UserName;
         var externalId = scim.ExternalId;
         var active = scim.Active;
+        var enterprise = scim.Enterprise;
         var profileChanged = false;
 
-        foreach (var (op, path, value) in Operations(patch))
+        foreach (var (op, rawPath, value) in Operations(patch))
         {
+            var path = rawPath is null ? null : ScimUserPaths.StripCoreSchema(rawPath);
             if (op == "remove")
             {
-                if (string.Equals(path, "externalId", StringComparison.OrdinalIgnoreCase))
+                if (path is null)
+                    throw ScimException.InvalidPath("A remove operation needs a path.");
+
+                if (ScimUserPaths.EnterpriseRemainder(path) is { } removedExtension)
+                {
+                    enterprise = removedExtension.Length == 0
+                        ? ScimEnterprise.Empty
+                        : ScimEnterpriseJson.Apply(enterprise, removedExtension, null);
+                }
+                else if (string.Equals(path, "externalId", StringComparison.OrdinalIgnoreCase))
+                {
                     externalId = null;
+                }
+                else if (!ScimUserPaths.IsKnownCore(path))
+                {
+                    throw ScimException.InvalidPath($"'{path}' is not an attribute of the User schema.");
+                }
+
                 continue;
             }
 
@@ -164,8 +188,26 @@ public sealed class ScimProvisioningService(
                 ? obj.Select(p => (Path: p.Key, Value: p.Value))
                 : [(Path: path ?? string.Empty, Value: value)];
 
-            foreach (var (attribute, attributeValue) in assignments)
+            foreach (var (rawAttribute, attributeValue) in assignments)
             {
+                var attribute = ScimUserPaths.StripCoreSchema(rawAttribute);
+                if (ScimUserPaths.EnterpriseRemainder(attribute) is { } extension)
+                {
+                    if (extension.Length == 0)
+                    {
+                        if (attributeValue is not JsonObject extensionValues)
+                            throw ScimException.InvalidValue("The enterprise extension needs an object value.");
+                        foreach (var (name, extensionValue) in extensionValues)
+                            enterprise = ScimEnterpriseJson.Apply(enterprise, name, extensionValue);
+                    }
+                    else
+                    {
+                        enterprise = ScimEnterpriseJson.Apply(enterprise, extension, attributeValue);
+                    }
+
+                    continue;
+                }
+
                 switch (attribute.ToLowerInvariant())
                 {
                     case "active":
@@ -189,15 +231,23 @@ public sealed class ScimProvisioningService(
                         ApplyName(user, new JsonObject { ["name"] = name.DeepClone() });
                         profileChanged = true;
                         break;
+                    default:
+                        if (string.IsNullOrEmpty(attribute))
+                            throw ScimException.InvalidPath("An add or replace operation without a path needs an object value.");
+                        if (!ScimUserPaths.IsKnownCore(attribute))
+                            throw ScimException.InvalidPath($"'{attribute}' is not an attribute of the User schema.");
+                        break; // a known attribute this server does not store
                 }
             }
         }
+
+        enterprise = (await KnownManagerAsync(directory.Id, enterprise, ct))!;
 
         if (profileChanged)
             await userManager.UpdateAsync(user);
 
         var wasActive = scim.Active;
-        scim.Update(userName, externalId, active, Now);
+        scim.Update(userName, externalId, active, enterprise, Now);
         await SaveUniqueAsync(ct);
 
         if (wasActive != active)
@@ -397,6 +447,22 @@ public sealed class ScimProvisioningService(
     private async Task<ScimGroup> LoadGroupAsync(Guid directoryId, Guid id, CancellationToken ct) =>
         await dbContext.ScimGroups.FirstOrDefaultAsync(g => g.DirectoryId == directoryId && g.Id == id, ct)
         ?? throw ScimException.NotFound("Group");
+
+    /// <summary>
+    /// A manager must be a user of the same directory (the SCIM id this server returned). Anything else is dropped
+    /// rather than rejected: IdPs often send a manager before the manager has been provisioned.
+    /// </summary>
+    private async Task<ScimEnterprise?> KnownManagerAsync(Guid directoryId, ScimEnterprise? enterprise, CancellationToken ct)
+    {
+        if (enterprise?.ManagerId is not { } managerId)
+            return enterprise;
+
+        if (await dbContext.ScimUsers.AsNoTracking().AnyAsync(u => u.DirectoryId == directoryId && u.UserId == managerId, ct))
+            return enterprise;
+
+        logger.LogInformation("SCIM directory {DirectoryId}: manager {ManagerId} is not provisioned yet; ignored", directoryId, managerId);
+        return enterprise with { ManagerId = null };
+    }
 
     /// <summary>Only users this directory provisioned can be group members (unknown ids are dropped).</summary>
     private async Task<List<Guid>> KnownMembersAsync(Guid directoryId, IReadOnlyCollection<Guid> ids, CancellationToken ct)

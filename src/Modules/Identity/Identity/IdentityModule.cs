@@ -100,6 +100,8 @@ public static class IdentityModule
         services.AddScoped<SsoReturnUrlPolicy>();
         services.AddScoped<OidcSsoClient>();
         services.AddScoped<SamlSsoClient>();
+        services.AddScoped<SamlMetadataFetcher>();
+        services.AddScoped<SamlMetadataRefresher>();
         services.AddScoped<SsoAccountService>();
         services.AddScoped<SsoLoginFlow>();
         services.AddScoped<SsoConnectionMapper>();
@@ -128,6 +130,8 @@ public static class IdentityModule
 
         // Background jobs
         services.AddScoped<RefreshTokenCleanupJob>();
+        services.AddScoped<Identity.Domains.Sso.Jobs.RefreshSamlMetadataJob>();
+        services.AddScoped<Identity.Domains.Sso.Jobs.CheckSamlCertificateExpiryJob>();
         services.AddHostedService<IdentityJobSchedulerBootstrap>();
 
         services.AddMediator(IdentityRoot.AssemblyName);

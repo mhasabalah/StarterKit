@@ -169,6 +169,33 @@ public sealed class DeleteSsoConnectionHandler(
     }
 }
 
+public sealed class RefreshSamlMetadataCommandValidator : AbstractValidator<RefreshSamlMetadataCommand>
+{
+    public RefreshSamlMetadataCommandValidator() => RuleFor(x => x.Id).NotEmpty();
+}
+
+/// <summary>
+/// "Refresh now" for an SAML connection with a metadata URL. A failed refresh is an outcome, not an error: it is
+/// recorded on the connection and reported in the result.
+/// </summary>
+public sealed class RefreshSamlMetadataHandler(
+    ISsoConnectionRepository connections,
+    ITenantContext tenant,
+    SamlMetadataRefresher refresher) : ICommandHandler<RefreshSamlMetadataCommand, RefreshSamlMetadataResult>
+{
+    public async Task<RefreshSamlMetadataResult> Handle(RefreshSamlMetadataCommand command, CancellationToken cancellationToken)
+    {
+        var connection = await SsoConnectionLoader.LoadAsync(connections, tenant, command.Id, cancellationToken);
+        if (connection.Protocol != SsoProtocol.Saml)
+            throw new InvalidSsoConnectionException("Sso.Connection.NotSaml");
+        if (string.IsNullOrWhiteSpace(connection.SamlIdpMetadataUrl))
+            throw new InvalidSsoConnectionException("Sso.Connection.MetadataUrlRequired");
+
+        var result = await refresher.RefreshAsync(connection, cancellationToken);
+        return new RefreshSamlMetadataResult(connection.Id, result.Outcome.ToString(), result.Error, result.RefreshedAt);
+    }
+}
+
 public sealed class AddSsoDomainCommandValidator : AbstractValidator<AddSsoDomainCommand>
 {
     public AddSsoDomainCommandValidator()
@@ -329,6 +356,10 @@ public sealed class SsoConnectionMapper(SsoUrls urls)
         c.SamlIdpEntityId, c.SamlIdpSsoUrl, c.SamlIdpMetadataUrl,
         c.SamlIdpCertificates.Select(SsoCertificates.Describe).ToList(),
         c.SamlAllowIdpInitiated,
+        c.SamlMetadataRefreshedAt, c.SamlMetadataLastError,
+        c.SamlCertificatesNotAfter ?? (c.SamlIdpCertificates.Count == 0
+            ? null
+            : c.SamlIdpCertificates.Max(x => SsoCertificates.Describe(x).NotAfter)),
         c.EmailClaim, c.GivenNameClaim, c.FamilyNameClaim,
         c.JitProvisioning, c.DefaultRoleIds, c.EnforceSso, c.TrustIdpMfa,
         c.Domains.OrderBy(d => d.Domain).Select(ToDto).ToList(),
