@@ -81,9 +81,17 @@ Wave 9 (2026-11-06, [ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-clo
 - **Windows file lock on delete.** Local storage opened reads without `FileShare.Delete`, so on Windows a delete failed with 500 while the thumbnail job was reading the file.
 - **Flaky E2E mail lookup.** It scanned Hangfire one state at a time and could miss or double-count a job. It now reads `hangfire.job` in one query.
 
-**Follow-ups:**
-- Deleting a pending image can race its thumbnail job. The thumbnail save bumps the row version, so the delete gets 409 and the client must retry. The handler also deletes blobs before its own save. Fix: commit the row first, then delete the blobs, or retry on conflict.
-- `LoginHandler` returns a distinct "locked out" message once an account is locked, which confirms that the account exists to whoever caused the lockout. Decide whether to make it generic.
+**Follow-ups of the review, done in the same PR:**
+- **Pending delete vs thumbnail race.** The thumbnail job could save the row mid-delete; the user got 409 and the
+  row survived its deleted file. The delete now re-reads once and completes, including the new thumbnail
+  (`Integration/PendingDeleteRaceTests`, real Postgres conflict).
+- **Lockout no longer enumerates accounts.** A locked-out account gets the same 401 `Invalid credentials` as an
+  unknown one.
+- **ClamAV in CI.** `clamav-live.yml` runs the real-image test nightly and on PRs that touch the scanner.
+- **Scanner timeout on `TimeProvider`.** The startup check exempts only `Development` and `Testing`, like Identity.
+- **Verified live.** The real API with real clamd: EICAR gets 400, a clean file gets 200; clamd stopped gives 503 and
+  `/health` reports `Degraded` (200). The compose overlay's own `clamav` service comes up healthy with
+  `AlertExceedsMax yes`.
 
 Follow-ups known up front: automatic off-session card retry in dunning (needs saved payment methods); Stripe/Paymob
 sandbox keys per project.

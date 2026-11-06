@@ -101,7 +101,8 @@ public sealed class LoginHandlerTests
         var thrown = await Handler().Invoking(h => h.Handle(new LoginCommand(user.Email!, "pw"), default))
             .Should().ThrowAsync<UnauthorizedException>();
 
-        thrown.Which.Message.Should().Contain("locked out");
+        thrown.Which.Message.Should().Be(LoginHandler.InvalidCredentialsMessage,
+            "a lockout must not confirm that the account exists");
         _sessions.Invocations.Should().BeEmpty();
         // lockoutOnFailure: true is what makes repeated wrong passwords lock the account at all.
         _signIn.Verify(s => s.CheckPasswordSignInAsync(user, "pw", true), Times.Once);

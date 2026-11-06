@@ -56,6 +56,7 @@ public sealed class ClamAvContainerTests
                 o.Validation.Scanner.Port = clamd.GetMappedPublicPort(3310);
                 o.Validation.Scanner.TimeoutSeconds = 60;
             })),
+            TimeProvider.System,
             NullLogger<ClamAvMalwareScanner>.Instance);
 
         (await scanner.PingAsync()).Should().BeTrue();

@@ -29,4 +29,10 @@ public interface IPendingAttachmentRepository
     Task AddAsync(PendingAttachment pendingAttachment, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-reads a tracked row from the database, discarding unsaved changes (after a concurrency conflict). False when
+    /// the row no longer exists.
+    /// </summary>
+    Task<bool> ReloadAsync(PendingAttachment pendingAttachment, CancellationToken cancellationToken = default);
 }

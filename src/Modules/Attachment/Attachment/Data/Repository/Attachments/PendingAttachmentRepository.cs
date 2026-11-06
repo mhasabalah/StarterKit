@@ -54,4 +54,11 @@ public class PendingAttachmentRepository(AttachmentDbContext context) : IPending
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         context.SaveChangesAsync(cancellationToken);
+
+    public async Task<bool> ReloadAsync(PendingAttachment pendingAttachment, CancellationToken cancellationToken = default)
+    {
+        var entry = context.Entry(pendingAttachment);
+        await entry.ReloadAsync(cancellationToken);
+        return entry.State != EntityState.Detached;
+    }
 }

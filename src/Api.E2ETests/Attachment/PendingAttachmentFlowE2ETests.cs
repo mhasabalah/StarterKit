@@ -193,9 +193,8 @@ public class PendingAttachmentFlowE2ETests(E2ETestFixture fixture)
     {
         var visitor = Visitor($"browser-{Guid.NewGuid():N}");
         var sessionId = await NewSessionAsync(visitor);
-        // A document, not an image: an image starts the thumbnail job, whose row update can race the delete (a known
-        // 409 the client retries; see Template-Backlog). This test is about ownership, not that race.
-        var uploaded = await OkAsync<PendingUploaded>(await visitor.PostAsync($"{Base}/pending/upload", NotesForm(sessionId, 0)));
+        // An image: its thumbnail job may save the row mid-delete; the delete must still succeed (PendingDeleteRaceTests).
+        var uploaded = await OkAsync<PendingUploaded>(await visitor.PostAsync($"{Base}/pending/upload", PngForm(sessionId)));
 
         (await visitor.DeleteAsync($"{Base}/pending/{uploaded.Id}?sessionId={sessionId}")).StatusCode.Should().Be(HttpStatusCode.OK);
 

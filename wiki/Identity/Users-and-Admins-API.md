@@ -14,7 +14,7 @@ derived per request. The rate-limit policies (`auth`, `otp`, `search`) are confi
 | Method | Route | Auth | Rate limit | Notes |
 |---|---|---|---|---|
 | POST | `api/auth/register` | anonymous | auth | Email/password registration |
-| POST | `api/auth/login` | anonymous | auth | Returns access + refresh token, or a 2FA challenge |
+| POST | `api/auth/login` | anonymous | auth | Returns access + refresh token, or a 2FA challenge. Unknown account, wrong password and a locked-out account (5 failures, 15 min: `Identity:Lockout`) all get the same 401 `Invalid credentials`, so a lockout never confirms that an account exists |
 | POST | `api/auth/2fa/verify` | anonymous | auth | Completes a 2FA login challenge (TOTP or recovery code) |
 | POST | `api/auth/refresh` | anonymous | auth | Rotating refresh token; reuse of a revoked token is detected |
 | POST | `api/auth/logout` | signed in | - | Ends the caller's **session**: revokes its refresh-token family and blacklists its `sid`, so every access token of that session stops working at once (not only the presented one). Also blacklists the presented access token and revokes the presented refresh token. `logoutAllDevices: true` ends every session. |
