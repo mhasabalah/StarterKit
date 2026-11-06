@@ -60,7 +60,7 @@ public sealed class PlanEntitlementService(
         if (_snapshot is not null)
             return _snapshot;
 
-        var subscriberId = subscriberIdProvider.GetCurrentSubscriberId();
+        var subscriberId = subscriberIdProvider.GetPayingSubscriberId();
         if (subscriberId is null)
             return _snapshot = EntitlementSnapshot.None;
 

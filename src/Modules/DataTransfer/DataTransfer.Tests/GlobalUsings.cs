@@ -1,0 +1,9 @@
+global using DataTransfer.Contracts.Definitions;
+global using DataTransfer.Contracts.Enums;
+global using DataTransfer.Domains.TransferJobs.Exceptions;
+global using DataTransfer.Domains.TransferJobs.Models;
+global using DataTransfer.Engine;
+global using DataTransfer.Options;
+global using FluentAssertions;
+global using Shared.Contracts.Localization;
+global using Xunit;

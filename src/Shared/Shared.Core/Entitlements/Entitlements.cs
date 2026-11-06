@@ -30,6 +30,18 @@ public static class EntitlementKeys
 
     /// <summary>Plan feature: enterprise SSO (SAML/OIDC) and SCIM provisioning.</summary>
     public const string Sso = "sso";
+
+    /// <summary>Plan feature: bulk CSV/Excel import (DataTransfer).</summary>
+    public const string BulkImport = "bulk_import";
+
+    /// <summary>Plan feature: bulk CSV/Excel export (DataTransfer).</summary>
+    public const string BulkExport = "bulk_export";
+
+    /// <summary>
+    /// Metered plan feature (<c>"limit/Period"</c>, e.g. <c>"100000/Monthly"</c>): rows imported (commit) and exported.
+    /// Counted per batch by the DataTransfer jobs; a job stops with <c>quota_exceeded</c> when it runs out.
+    /// </summary>
+    public const string DataTransferRows = "data_transfer_rows";
 }
 
 /// <summary>Default when no billing module is installed: everything is allowed, nothing is limited.</summary>

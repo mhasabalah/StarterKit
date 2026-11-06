@@ -1,0 +1,11 @@
+global using DataTransfer;
+global using DataTransfer.Contracts.Definitions;
+global using DataTransfer.Contracts.Enums;
+global using DataTransfer.Contracts.Jobs;
+global using DataTransfer.Domains.TransferJobs.Models;
+global using FluentAssertions;
+global using Microsoft.EntityFrameworkCore;
+global using Shared.Contracts.Localization;
+global using Shared.Contracts.Mediation;
+global using Shared.Core.Exceptions;
+global using Xunit;

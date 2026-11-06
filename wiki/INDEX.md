@@ -57,6 +57,7 @@ wiki/
 - [0013](Decisions/0013-enterprise-sso-and-scim.md): per-tenant SSO (OIDC/SAML) and SCIM inside Identity
 - [0014](Decisions/0014-passkeys-on-built-in-identity.md): passkeys on .NET 10 Identity WebAuthn, server-side ceremonies
 - [0015](Decisions/0015-malware-scanning-clamd-fail-closed.md): upload malware scanning with ClamAV, failing closed
+- [0016](Decisions/0016-bulk-data-transfer-on-hangfire.md): bulk import/export as leased, checkpointed jobs on their own Hangfire queue
 
 ## Modules
 
@@ -67,6 +68,7 @@ wiki/
   - [Notification-Realtime-and-Push](Modules/Notification-Realtime-and-Push.md): in-app inbox, SignalR hub, FCM push devices
   - [Notification-Email-Design-System](Modules/Notification-Email-Design-System.md): tokens, components, dark mode, branding, plain text
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
+- [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
 
 ## Multi-tenancy
 

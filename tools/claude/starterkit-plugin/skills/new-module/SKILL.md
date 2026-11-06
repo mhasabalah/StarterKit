@@ -77,4 +77,4 @@ dotnet test src/Modules/{{Module}}/{{Module}}.IntegrationTests   # needs Docker
 ```
 
 Then start the API (Aspire or compose) and confirm the schema `{{schema}}` exists and `/swagger` shows the module's
-group once it has endpoints. Do not commit - leave the diff for the user.
+group once it has endpoints. Commit only when the user asks, on a feature branch (CLAUDE.md > Rules > Git); otherwise leave the diff for review.

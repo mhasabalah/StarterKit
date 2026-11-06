@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>1.3</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+
+  <!-- DataTransfer validation messages. FluentValidation placeholders ({MaxLength}, ...) are filled at runtime. -->
+  <data name="Validation.Id.Required" xml:space="preserve"><value>Id is required.</value></data>
+  <data name="Validation.DefinitionKey.Required" xml:space="preserve"><value>The import/export definition is required.</value></data>
+  <data name="Validation.DefinitionKey.MaxLength" xml:space="preserve"><value>The definition key must not exceed {MaxLength} characters.</value></data>
+  <data name="Validation.File.Required" xml:space="preserve"><value>A non-empty file is required.</value></data>
+  <data name="Validation.File.TooLarge" xml:space="preserve"><value>The file is too large.</value></data>
+  <data name="Validation.FileName.MaxLength" xml:space="preserve"><value>The file name must not exceed {MaxLength} characters.</value></data>
+  <data name="Validation.Mode.Invalid" xml:space="preserve"><value>The import mode is not valid.</value></data>
+  <data name="Validation.Policy.Invalid" xml:space="preserve"><value>The import policy is not valid.</value></data>
+  <data name="Validation.Format.Invalid" xml:space="preserve"><value>The file format is not valid (use Csv or Xlsx).</value></data>
+  <data name="Validation.FileKind.Invalid" xml:space="preserve"><value>The file kind is not valid.</value></data>
+  <data name="Validation.Filter.TooLarge" xml:space="preserve"><value>The export filter has too many entries.</value></data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve"><value>Page number must be greater than zero.</value></data>
+  <data name="Validation.PageSize.Range" xml:space="preserve"><value>Page size must be between 1 and 100.</value></data>
+
+  <!-- Engine messages (TransferText): file, row, export and job failures. {0} = value/limit. -->
+  <data name="Transfer.File.unsupported_format" xml:space="preserve"><value>Upload a .csv or .xlsx file.</value></data>
+  <data name="Transfer.File.missing_source" xml:space="preserve"><value>The job has no source file.</value></data>
+  <data name="Transfer.File.missing_columns" xml:space="preserve"><value>Required column(s) missing: {0}.</value></data>
+  <data name="Transfer.File.duplicate_column" xml:space="preserve"><value>The column '{0}' appears more than once.</value></data>
+  <data name="Transfer.File.no_known_columns" xml:space="preserve"><value>The header row contains no known column.</value></data>
+  <data name="Transfer.File.empty_file" xml:space="preserve"><value>The file has no header row.</value></data>
+  <data name="Transfer.File.too_many_columns" xml:space="preserve"><value>The file has more than {0} columns.</value></data>
+  <data name="Transfer.File.too_many_rows" xml:space="preserve"><value>The file has more than {0} rows.</value></data>
+  <data name="Transfer.File.invalid_csv" xml:space="preserve"><value>The CSV file cannot be read near row {0}: check the quotes and line endings.</value></data>
+  <data name="Transfer.File.invalid_xlsx" xml:space="preserve"><value>The file is not a readable .xlsx workbook.</value></data>
+  <data name="Transfer.File.file_too_large" xml:space="preserve"><value>The file is larger than {0} bytes.</value></data>
+  <data name="Transfer.File.uncompressed_too_large" xml:space="preserve"><value>The Excel file is too large once uncompressed.</value></data>
+  <data name="Transfer.Export.too_many_rows" xml:space="preserve"><value>The export has more than {0} rows; narrow the filter.</value></data>
+  <data name="Transfer.Export.too_large" xml:space="preserve"><value>The export file is larger than {0} bytes; narrow the filter or use Xlsx.</value></data>
+  <data name="Transfer.Row.invalid" xml:space="preserve"><value>The row is invalid.</value></data>
+  <data name="Transfer.Row.no_result" xml:space="preserve"><value>The row was not processed.</value></data>
+  <data name="Transfer.Row.cell_too_long" xml:space="preserve"><value>The value is longer than {0} characters.</value></data>
+  <data name="Transfer.Job.validation_failed" xml:space="preserve"><value>{0} row(s) are invalid; nothing was written. See the error report.</value></data>
+  <data name="Transfer.Job.internal_error" xml:space="preserve"><value>The job failed after {0} attempts.</value></data>
+  <data name="Transfer.Job.requester_no_longer_authorized" xml:space="preserve"><value>The requester no longer has access to this data; the job was stopped.</value></data>
+  <data name="Transfer.Job.rejected" xml:space="preserve"><value>The file was rejected: {0}</value></data>
+  <data name="Transfer.Job.quota_exceeded" xml:space="preserve"><value>The plan's row quota is used up ({0} of {1}); rows written before stay written.</value></data>
+  <!-- API errors, job states, file kinds, sheet name (TransferText). -->
+  <data name="Transfer.Error.job_not_found" xml:space="preserve"><value>Transfer job {0} was not found.</value></data>
+  <data name="Transfer.Error.definition_not_found" xml:space="preserve"><value>No import/export definition '{0}' exists.</value></data>
+  <data name="Transfer.Error.file_not_found" xml:space="preserve"><value>The job has no {0}.</value></data>
+  <data name="Transfer.Error.import_already_running" xml:space="preserve"><value>An import of '{0}' is already pending or running.</value></data>
+  <data name="Transfer.Error.authentication_required" xml:space="preserve"><value>Authentication is required.</value></data>
+  <data name="Transfer.Error.permission_required" xml:space="preserve"><value>The permission '{0}' is required for this data.</value></data>
+  <data name="Transfer.FileKind.Source" xml:space="preserve"><value>source file</value></data>
+  <data name="Transfer.FileKind.Result" xml:space="preserve"><value>result file</value></data>
+  <data name="Transfer.FileKind.ErrorReport" xml:space="preserve"><value>error report</value></data>
+  <data name="Transfer.State.commit_needs_dry_run" xml:space="preserve"><value>Only a dry-run import can be committed.</value></data>
+  <data name="Transfer.State.dry_run_not_completed" xml:space="preserve"><value>The dry run has not completed.</value></data>
+  <data name="Transfer.State.dry_run_without_source" xml:space="preserve"><value>The dry run has no source file.</value></data>
+  <data name="Transfer.State.filter_too_large" xml:space="preserve"><value>The export filter is too large.</value></data>
+  <data name="Transfer.State.definition_required" xml:space="preserve"><value>A valid definition key is required.</value></data>
+  <data name="Transfer.State.requester_required" xml:space="preserve"><value>The requesting user is required.</value></data>
+  <data name="Transfer.State.already_finished" xml:space="preserve"><value>The job has already finished.</value></data>
+  <data name="Transfer.Sheet.name" xml:space="preserve"><value>Data</value></data>
+</root>

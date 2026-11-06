@@ -7,6 +7,17 @@ namespace Subscriptions.Contracts.Subscribers;
 /// </summary>
 public interface ISubscriberIdProvider
 {
-    /// <summary>The current subscriber id, or <c>null</c> when there is none (anonymous / no tenant).</summary>
+    /// <summary>
+    /// The current subscriber id for MANAGING the subscription (checkout, invoices, refunds), or <c>null</c> when there
+    /// is none (anonymous / no tenant). May throw when the caller may not act for the subscriber (e.g. a tenant member
+    /// without the billing permission).
+    /// </summary>
     Guid? GetCurrentSubscriberId();
+
+    /// <summary>
+    /// The subscriber whose PLAN governs the current flow, for entitlement and metering reads (feature gates, quotas).
+    /// Never requires a billing permission: any member's request (or background work for them) is paid by the
+    /// tenant. Defaults to <see cref="GetCurrentSubscriberId"/>.
+    /// </summary>
+    Guid? GetPayingSubscriberId() => GetCurrentSubscriberId();
 }
