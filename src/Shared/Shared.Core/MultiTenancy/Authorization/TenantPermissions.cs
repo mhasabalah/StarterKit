@@ -41,10 +41,19 @@ public static class TenantPermissions
     /// <summary>Enterprise single sign-on (SAML/OIDC connections, verified email domains) and SCIM directories.</summary>
     public const string SsoManage = "tenant.sso.manage";
 
+    /// <summary>
+    /// Bulk CSV/Excel import (DataTransfer module). Each definition also requires its own permission (e.g.
+    /// <see cref="ProductsManage"/> for products).
+    /// </summary>
+    public const string DataImport = "datatransfer.import";
+
+    /// <summary>Bulk CSV/Excel export (DataTransfer module), plus the definition's own permission.</summary>
+    public const string DataExport = "datatransfer.export";
+
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
-        AuditRead, BillingManage, ProductsManage, WebhooksManage, SsoManage
+        AuditRead, BillingManage, ProductsManage, WebhooksManage, SsoManage, DataImport, DataExport
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

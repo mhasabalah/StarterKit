@@ -50,6 +50,7 @@ public sealed class NotificationHubTests : IAsyncLifetime
         builder.Services.AddSingleton<IUserIdProvider, NotificationHubUserIdProvider>();
         builder.Services.AddSingleton<NotificationMetrics>();
         builder.Services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
+        builder.Services.AddSingleton<IUserEventPublisher, SignalRUserEventPublisher>();
 
         var app = builder.Build();
         app.UseAuthentication();
@@ -164,6 +165,46 @@ public sealed class NotificationHubTests : IAsyncLifetime
 
         await notifier.Invoking(n => n.NotificationReceivedAsync(Guid.NewGuid(), Dto("x"))).Should().NotThrowAsync();
         await notifier.Invoking(n => n.UnreadCountChangedAsync(Guid.NewGuid(), null, 1)).Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task A_user_event_reaches_only_that_users_sessions_with_its_payload()
+    {
+        var userId = Guid.NewGuid();
+        await using var mine = Connect(_server, userId);
+        await using var other = Connect(_server, Guid.NewGuid());
+        var received = new TaskCompletionSource<UserEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var leaked = false;
+        mine.On<UserEvent>(NotificationHubContract.UserEvent, e => received.TrySetResult(e));
+        other.On<UserEvent>(NotificationHubContract.UserEvent, _ => leaked = true);
+        await mine.StartAsync();
+        await other.StartAsync();
+
+        var publisher = _app.Services.GetRequiredService<IUserEventPublisher>();
+        var jobId = Guid.NewGuid();
+        await publisher.PublishAsync(userId, new UserEvent("datatransfer.job-progress", null,
+            new Dictionary<string, object?> { ["jobId"] = jobId, ["processedRows"] = 1500 }));
+
+        var e = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        e.Type.Should().Be("datatransfer.job-progress");
+        e.Data["jobId"]!.ToString().Should().Be(jobId.ToString());
+        e.Data["processedRows"]!.ToString().Should().Be("1500");
+        leaked.Should().BeFalse("events are addressed by user id");
+    }
+
+    [Fact]
+    public async Task A_user_event_outside_the_contract_limits_is_dropped_and_a_failing_send_never_throws()
+    {
+        var hub = new Mock<IHubContext<NotificationHub, INotificationClient>>();
+        hub.SetupGet(h => h.Clients).Throws(new InvalidOperationException("redis down"));
+        var publisher = new SignalRUserEventPublisher(hub.Object, new NotificationMetrics(),
+            NullLogger<SignalRUserEventPublisher>.Instance);
+
+        var tooBig = Enumerable.Range(0, UserEvent.MaxDataEntries + 1).ToDictionary(i => $"k{i}", i => (object?)i);
+        await publisher.Invoking(p => p.PublishAsync(Guid.NewGuid(), new UserEvent("x.y", null, tooBig))).Should().NotThrowAsync();
+        await publisher.Invoking(p => p.PublishAsync(Guid.NewGuid(), new UserEvent("x.y", null, new Dictionary<string, object?>())))
+            .Should().NotThrowAsync();
+        hub.VerifyGet(h => h.Clients, Times.Once(), "the oversized event was dropped before any send");
     }
 
     [Fact]

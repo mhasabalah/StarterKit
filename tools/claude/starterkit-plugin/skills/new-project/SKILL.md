@@ -79,4 +79,4 @@ bash scripts/check-docs.sh
 ```
 
 Then start with Aspire (`cd src/Aspire/AppHost && dotnet run`), open `/swagger`, register a user, and log in.
-Never commit; the user makes the first commit of the new repository.
+Don't commit unless the user asks; the first commit of the new repository is normally theirs.

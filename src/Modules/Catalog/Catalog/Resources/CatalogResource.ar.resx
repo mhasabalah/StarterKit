@@ -71,4 +71,11 @@
   <data name="Validation.Unit.MaxLength" xml:space="preserve"><value>يجب ألا تتجاوز الوحدة {MaxLength} حرفاً.</value></data>
   <data name="Validation.DataType.Invalid" xml:space="preserve"><value>نوع البيانات غير صالح.</value></data>
   <data name="Validation.ApplicableTypes.Invalid" xml:space="preserve"><value>تحتوي الأنواع المطبقة على نوع منتج غير معروف.</value></data>
+  <!-- الاستيراد الجماعي (تعريف catalog.products). -->
+  <data name="Import.Value.Required" xml:space="preserve"><value>القيمة مطلوبة.</value></data>
+  <data name="Import.Number.Invalid" xml:space="preserve"><value>'{0}' ليس رقمًا (استخدم النقطة فاصلًا عشريًا).</value></data>
+  <data name="Import.Enum.Invalid" xml:space="preserve"><value>القيمة '{0}' غير مسموح بها؛ استخدم إحدى القيم: {1}.</value></data>
+  <data name="Import.Category.NotFound" xml:space="preserve"><value>لا يوجد تصنيف نشط بالمعرف النصي '{0}'.</value></data>
+  <data name="Import.Sku.Deleted" xml:space="preserve"><value>رمز المنتج '{0}' يخص منتجًا محذوفًا؛ استعده أو استخدم رمزًا آخر.</value></data>
+  <data name="Import.Product.NotEditable" xml:space="preserve"><value>المنتج '{0}' موجود ولا يمكنك تعديله (ليس ملكك أو لا يمكن تعديله في حالته الحالية).</value></data>
 </root>

@@ -39,7 +39,7 @@ the whole codebase. For a diff, first run the guardrail pass below. Optionally d
 4. After each section, call `AskUserQuestion` and don't proceed without explicit confirmation.
 5. Don't assume priorities on timeline or scale.
 6. Don't edit code during the review. If the user approves fixes, apply them afterwards, run
-   `dotnet build StarterKit.slnx` and the relevant tests, and never commit.
+   `dotnet build StarterKit.slnx` and the relevant tests. Commit only if the user asks (CLAUDE.md > Rules > Git).
 
 ## Guardrail pass
 

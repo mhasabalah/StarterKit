@@ -11,6 +11,7 @@ explanations live in `wiki/`.
 - optional multi-tenancy (tenants, branches, memberships, shared or dedicated DBs)
 - attachments (Local / Azure Blob / S3)
 - subscriptions and billing
+- bulk CSV/Excel import/export jobs (dry run, error report, resumable, worker replicas)
 - notifications: email + WhatsApp (fallback chain), an in-app inbox with real-time SignalR events, FCM push
 - Redis, Hangfire, MassTransit with a transactional outbox, OpenTelemetry, .NET Aspire
 - Docker/Nginx/GitHub Actions deployment
@@ -47,7 +48,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 |---|---|
 | `src/Api` | Host: `Program.cs`, appsettings, Dockerfile, host-level endpoints |
 | `src/Modules/<M>/<M>`, `<M>.Contracts` | Module implementation + its public contracts |
-| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, Identity, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
+| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, DataTransfer, Identity, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
 | `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
 | `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
@@ -67,6 +68,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Catalog**: the sample; products, categories, tags, wishlist.
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
+- **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
 
 Shared projects hold **no** business state. Anything with its own schema, jobs or endpoints is a module.
 
@@ -116,7 +118,7 @@ Notification is the exception: its context is in `Persistence/`.
 1. Service registration:
    1. `AddDockerSecrets` → `AddSharedInfrastructure` (auth policies, CORS, localization, paging, ...)
    2. `AddMultiTenancy` → Hangfire → rate limiting → Seq → `AddMassTransitWithAssemblies` → `AddEnumLookup`
-   3. Modules: Identity → Tenancy → Attachment → Catalog → Subscriptions → Webhooks → Notification
+   3. Modules: Identity → Tenancy → Attachment → Catalog → Subscriptions → Webhooks → DataTransfer → Notification
 2. Middleware:
    1. `UseTrustedForwardedHeaders` (first) → `UseConfigurableCors` → `UseErrorHandling` (outside auth, so 401/403
       get JSON)
@@ -124,7 +126,7 @@ Notification is the exception: its context is in `Persistence/`.
       authorization
    3. `UseRateLimiter` (after auth, so partitions are per user) → Hangfire dashboard
    4. `UseTenancyModule()` first (the Default tenant must exist), then Attachment → Catalog → Subscriptions →
-      Webhooks → Notification
+      Webhooks → DataTransfer → Notification
    5. `UseOutboxSweep()` → `UseSharedInfrastructure()`
 
 ## Naming (enforced by `NamingConventionTests`)
@@ -259,13 +261,28 @@ Notification is the exception: its context is in `Persistence/`.
     custom scanner must throw when it cannot scan, never return clean.
   - The `clamav` health check reports Degraded only.
   - Production should set `RequireVirusScanning=true`.
+- **Bulk import/export** (DataTransfer, [ADR-0016](wiki/Decisions/0016-bulk-data-transfer-on-hangfire.md)):
+  - Never parse CSV/Excel or loop over thousands of rows in a request. Implement `IImportDefinition` /
+    `IExportDefinition` (`DataTransfer.Contracts`) in the owning module and register it with `AddImportDefinition` /
+    `AddExportDefinition` (reference: `Catalog/Domains/Products/DataTransfer`).
+  - `ApplyBatchAsync` must upsert by a natural key (batches replay after a crash), return one result per row, report
+    bad rows as row errors (never throw for them), save nothing in a dry run, and act as `ImportContext.RequestedBy`.
+  - Jobs run on the Hangfire queue `data-transfer`; `Hangfire:Servers:<Name>:Enabled` splits workloads across
+    replicas of the same image (`docker-compose.worker.yml`). Don't add a separate worker host.
+  - Background work on behalf of a user must re-check that user, run in THEIR branch scope (Hangfire restores the
+    tenant only) and inside `ActingUser.Begin(userId)` (`Shared.Core.Web`: the "current user" when there is no
+    request). `TransferJobRunner` is the pattern.
+  - Live progress goes through `IUserEventPublisher` (`Notification.Contracts.Realtime`), throttled; the job row stays
+    the source of truth.
+- **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
+  the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
   Invalidate explicitly from domain event handlers (see `Catalog/Domains/Categories/Cache/CategoryTreeCache.cs`).
   Cache failures must never fail the request.
 - **Web.** `IHttpContextService` is in `Shared.Core.Web`; add the `using` explicitly. Avoid `[FromServices]`; Carter
   resolves parameters.
 - **Multi-tenancy** (`Shared.Core.MultiTenancy`, `wiki/MultiTenancy/*`):
-  - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment).
+  - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer).
     - Every entity there, children included, is `IMustHaveTenant`.
     - Unique indexes start with `TenantId`.
     - `ApplyTenantFilters(builder)` is the LAST line of `OnModelCreating`.
@@ -333,7 +350,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 |---|---|
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. **Register new modules in `Modules`.** |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
-| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
 | `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id`; parameterless `IgnoreQueryFilters()` appears |
@@ -377,7 +394,8 @@ change. **Use the matching skill instead of improvising.**
 | New product from the template | `/starterkit:new-project` |
 | Documentation | `/starterkit:update-docs` |
 
-The plugin's hooks block `git commit`/`git push` and warn on forbidden C# patterns after edits. Spec Kit
+The plugin's hooks keep git work off `master`/`develop` (no force-push, no `--no-verify`, no PR merge) and warn on
+forbidden C# patterns after edits. Spec Kit
 (`/speckit-*`) is available for spec → plan → tasks flows; its principles are in `.specify/memory/constitution.md`.
 
 ## Documentation
@@ -396,7 +414,17 @@ The plugin's hooks block `git commit`/`git push` and warn on forbidden C# patter
   relevant tests and `dotnet test src/Api.Tests`.
 - The build treats warnings as errors: fix them, or relax a rule in `.editorconfig` with a justification; never `#pragma`
   without one (`wiki/Architecture/CodingStandards.md` → Analyzers).
-- **Never commit or push.** Leave changes in the working tree for the user to review.
+- **Git: commit and open PRs only when the user asks, and only on a feature branch.**
+  - Branch first (`feature/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`). Never commit on, push to, or
+    merge into `master` / `develop`; they change only through a reviewed PR.
+  - Before committing, the build, the relevant tests and `dotnet test src/Api.Tests` must pass. Stage only the files
+    of the change (no secrets, build output or scratch files). Use a conventional commit message
+    (`feat(module): ...`, `fix: ...`).
+  - Open the PR with `gh pr create --base master` (or the base the user names). The body has a summary and the test
+    plan with real results.
+  - Never force-push, rewrite pushed history, skip hooks (`--no-verify`), merge a PR, or delete a remote branch: the
+    user reviews and merges.
+  - The plugin hook `guard-git.sh` enforces these limits.
 - Never put real credentials, hostnames or IPs in committed files. Use `CHANGE_ME`, `api.example.com`,
   `YOUR_SERVER_IP`. Secrets come from `./secrets/*.txt` (Docker secrets, git-ignored) or environment variables.
 - CI/CD:

@@ -120,6 +120,11 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" />
   </ItemGroup>
+  <ItemGroup Label="Tabular files (DataTransfer bulk import/export)">
+    <!-- Streaming CSV / XLSX readers (MIT). Kept inside the DataTransfer module by ThirdPartyIsolationTests. -->
+    <PackageVersion Include="Sylvan.Data.Csv" Version="1.4.4" />
+    <PackageVersion Include="Sylvan.Data.Excel" Version="0.5.8" />
+  </ItemGroup>
   <ItemGroup Label="Key management (Data Protection key encryption, KMS)">
     <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.1" />
     <PackageVersion Include="Azure.Identity" Version="1.17.1" />

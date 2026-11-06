@@ -14,6 +14,8 @@ using Notification;
 using Notification.Contracts;
 using Webhooks;
 using Webhooks.Contracts;
+using DataTransfer;
+using DataTransfer.Contracts;
 using Aspire.Seq;
 using Hangfire;
 using Hangfire.Dashboard;
@@ -60,7 +62,8 @@ builder.Services.AddMassTransitWithAssemblies(
     CatalogRoot.AssemblyName,
     TenancyRoot.AssemblyName,
     NotificationRoot.AssemblyName,
-    WebhooksRoot.AssemblyName);
+    WebhooksRoot.AssemblyName,
+    DataTransferRoot.AssemblyName);
 
 // Register Generic Enum Lookup Service (using Contracts assemblies where enums are defined)
 builder.Services.AddEnumLookup(
@@ -72,6 +75,7 @@ builder.Services.AddEnumLookup(
     NotificationContractsRoot.AssemblyName, // Notification.Contracts (NotificationChannel, NotificationDeliveryStatus, EmailTemplate, ...)
     NotificationRoot.AssemblyName, // Notification (EmailProvider, delivery-failure kinds)
     WebhooksContractsRoot.AssemblyName, // Webhooks.Contracts (WebhookDeliveryStatus)
+    DataTransferContractsRoot.AssemblyName, // DataTransfer.Contracts (TransferJobStatus, ImportMode, ...)
     typeof(Identity.Contracts.Sso.SsoProtocol).Assembly); // Identity.Contracts (SsoProtocol, SsoConnectionStatus)
 
 builder.Services.AddIdentityModule(configuration);
@@ -80,6 +84,7 @@ builder.Services.AddAttachmentModule(configuration);
 builder.Services.AddCatalogModule(configuration);
 builder.Services.AddSubscriptionsModule(configuration);
 builder.Services.AddWebhooksModule(configuration); // consumes Catalog/Subscriptions public events
+builder.Services.AddDataTransferModule(configuration); // bulk CSV/Excel jobs; definitions come from the owning modules
 builder.Services.AddNotificationModule(configuration);
 
 // Register Hangfire dashboard filter
@@ -118,6 +123,7 @@ app.UseAttachmentModule();
 app.UseCatalogModule();
 app.UseSubscriptionsModule();
 app.UseWebhooksModule();
+app.UseDataTransferModule();
 app.UseNotificationModule();
 
 if (migrateOnly)

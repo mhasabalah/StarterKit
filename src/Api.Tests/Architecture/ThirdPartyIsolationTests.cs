@@ -8,7 +8,8 @@ namespace Api.Tests.Architecture;
 /// <list type="bullet">
 /// <item>The in-process mediator is OURS (<c>Shared.Contracts.Mediation</c>); nothing references MediatR.</item>
 /// <item>Imaging stays behind <c>IImageProcessingService</c> in Attachment (SkiaSharp adapter); the revenue-gated
-/// ImageSharp is not referenced at all; QuestPDF (revenue-gated) stays in Subscriptions.</item>
+/// ImageSharp is not referenced at all; QuestPDF (revenue-gated) stays in Subscriptions; the Sylvan CSV/XLSX readers
+/// stay in DataTransfer.</item>
 /// <item>Contracts may carry the <c>[MessageUrn]</c> attribute (MassTransit.Abstractions) but never the bus itself.</item>
 /// <item>FCM (FirebaseAdmin / Google.Apis) stays behind <c>IPushProvider</c> in Notification, and so does the SignalR
 /// Redis backplane.</item>
@@ -72,6 +73,11 @@ public sealed class ThirdPartyIsolationTests
     public void QuestPdf_is_used_only_by_the_Subscriptions_module() =>
         Production.Where(a => References(a).Contains("QuestPDF"))
             .Should().Equal(["Subscriptions"], "QuestPDF is community-licensed below a revenue threshold; keep it in one place");
+
+    [Fact]
+    public void Tabular_file_readers_are_used_only_by_the_DataTransfer_module() =>
+        Production.Where(a => References(a).Any(r => r.StartsWith("Sylvan.", StringComparison.Ordinal)))
+            .Should().Equal(["DataTransfer"], "CSV/XLSX parsing stays in the bulk import engine; modules plug in definitions");
 
     [Fact]
     public void FirebaseAdmin_is_used_only_by_the_Notification_module() =>

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Carter" />
+        <PackageReference Include="FluentValidation" />
+        <PackageReference Include="MassTransit" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="Hangfire.Core" />
+        <!-- Streaming tabular readers (MIT); ThirdPartyIsolationTests keeps them in this module. -->
+        <PackageReference Include="Sylvan.Data.Csv" />
+        <PackageReference Include="Sylvan.Data.Excel" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
+        <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+        <!-- Other modules: ONLY their .Contracts. -->
+        <ProjectReference Include="..\..\Attachment\Attachment.Contracts\Attachment.Contracts.csproj" />
+        <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
+        <ProjectReference Include="..\DataTransfer.Contracts\DataTransfer.Contracts.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="DataTransfer.Tests" />
+        <InternalsVisibleTo Include="DataTransfer.IntegrationTests" />
+        <!-- Moq proxies for internal types -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    </ItemGroup>
+
+</Project>

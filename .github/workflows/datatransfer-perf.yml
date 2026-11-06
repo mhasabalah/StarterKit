@@ -1,0 +1,65 @@
+# ==============================================
+# DataTransfer performance baseline (opt-in suite, run here instead of in every CI build)
+# ==============================================
+# DataTransfer.IntegrationTests/PerformanceBaselineTests imports 100k CSV rows and exports 100k rows to XLSX through
+# the real jobs on Testcontainers Postgres, and fails when throughput drops below STARTERKIT_PERF_MIN_ROWS_PER_SEC or
+# the managed heap grows more than STARTERKIT_PERF_MAX_HEAP_MB (streaming must keep memory flat). Skipped by default
+# (STARTERKIT_PERF_TESTS) and runs:
+#   - nightly: catches a slow regression before a release does
+#   - on PRs that touch the DataTransfer engine
+#   - on demand (Run workflow)
+# The measured numbers are uploaded as the "datatransfer-perf" artifact (datatransfer-perf.json).
+# Docs: wiki/Modules/DataTransfer.md ("Performance baseline"), ADR 0016.
+# ==============================================
+
+name: DataTransfer performance
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily 03:00 UTC
+  pull_request:
+    paths:
+      - 'src/Modules/DataTransfer/**'
+      - '.github/workflows/datatransfer-perf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: datatransfer-perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: 100k-row import/export baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Run the performance baseline
+        env:
+          STARTERKIT_PERF_TESTS: '1'
+          # Hosted runners are slower than a developer machine (about 64k rows/s there): keep a wide margin.
+          STARTERKIT_PERF_MIN_ROWS_PER_SEC: '10000'
+          STARTERKIT_PERF_MAX_HEAP_MB: '100'
+        run: >
+          dotnet test src/Modules/DataTransfer/DataTransfer.IntegrationTests/DataTransfer.IntegrationTests.csproj
+          --configuration Release
+          --filter "FullyQualifiedName~PerformanceBaselineTests"
+          --logger "console;verbosity=detailed"
+
+      - name: Upload the measurements
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: datatransfer-perf
+          path: src/Modules/DataTransfer/DataTransfer.IntegrationTests/bin/Release/net10.0/TestResults/datatransfer-perf.json
+          if-no-files-found: warn

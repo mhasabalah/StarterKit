@@ -22,6 +22,16 @@ public interface IProductRepository
 
     Task AddAsync(Product product, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Bulk import: the products (soft-deleted ones included) using any of <paramref name="normalizedSkus"/>,
+    /// tracked, without children (import changes only the product details).
+    /// </summary>
+    Task<List<Product>> GetBySkusIncludingDeletedAsync(IReadOnlyCollection<string> normalizedSkus,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Bulk import: tracks a new product; it is inserted by the next <see cref="SaveChangesAsync"/>.</summary>
+    void Add(Product product);
+
     /// <summary>Saves tracked changes; a concurrent duplicate SKU becomes <see cref="ProductSkuAlreadyExistsException"/>.</summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 
@@ -50,6 +60,14 @@ public class ProductRepository(CatalogDbContext context) : IProductRepository
         await context.Products.AddAsync(product, cancellationToken);
         await SaveChangesAsync(cancellationToken);
     }
+
+    public Task<List<Product>> GetBySkusIncludingDeletedAsync(IReadOnlyCollection<string> normalizedSkus,
+        CancellationToken cancellationToken = default) =>
+        context.Products.IgnoreNonIsolationFilters()
+            .Where(p => normalizedSkus.Contains(p.Sku))
+            .ToListAsync(cancellationToken);
+
+    public void Add(Product product) => context.Products.Add(product);
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {

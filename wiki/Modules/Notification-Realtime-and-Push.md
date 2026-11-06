@@ -121,6 +121,12 @@ failure domains apart: an FCM outage never re-runs (re-sends) the email, and an 
 | `UnreadCountChanged` | `{ tenantId, count }` | new entry, read, read-all, delete |
 | `NotificationsRead` | `{ ids \| null, readAt, upTo }` | read on another tab/device (`ids: null` = all up to `upTo`) |
 | `NotificationDeleted` | `{ id }` | deleted on another tab/device |
+| `UserEvent` | `{ type, tenantId, data }` | a transient event from another module, e.g. `datatransfer.job-progress` (not stored) |
+
+Other modules push `UserEvent`s through `IUserEventPublisher` (`Notification.Contracts.Realtime`): best effort, at
+most `UserEvent.MaxDataEntries` (20) entries of ids, counts and statuses, never PII. Unlike inbox entries they are not
+stored: a client that reconnects re-reads the state over REST. In a split deployment (worker replicas), the Redis
+backplane carries a worker's send to the sockets on the API replicas.
 
 Events are hints, delivered best effort (a Redis hiccup is logged, never fails a request or job). **After every
 (re)connect, re-read `GET /inbox/unread-count`.**

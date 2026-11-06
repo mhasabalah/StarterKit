@@ -38,21 +38,75 @@ public static class HangfireConfiguration
             config.UseFilter(sp.GetRequiredService<TenantJobFilter>());
         });
 
-        services.AddHangfireServer(options =>
+        // Processing servers, one per workload so a heavy queue never starves another. Each can be switched off with
+        // Hangfire:Servers:<Name>:Enabled=false: the SAME image then runs as API-only or worker-only replicas (e.g.
+        // docker-compose.worker.yml runs only DataTransfer). Every instance can still enqueue and serve the dashboard.
+        var servers = HangfireServerRoles.From(configuration);
+
+        if (servers.Default.Enabled)
         {
-            options.Queues = ["default", "critical"];
-            options.WorkerCount = 5;
-            options.ServerName = "main-server";
-        });
+            services.AddHangfireServer(options =>
+            {
+                options.Queues = ["default", "critical"];
+                options.WorkerCount = servers.Default.WorkerCount;
+                options.ServerName = "main-server";
+            });
+        }
 
         // Every notification (all email included) goes through NotificationDispatchJob on this queue.
-        services.AddHangfireServer(options =>
+        if (servers.Notification.Enabled)
         {
-            options.Queues = ["notification"];
-            options.WorkerCount = 4;
-            options.ServerName = "notification-server";
-        });
+            services.AddHangfireServer(options =>
+            {
+                options.Queues = ["notification"];
+                options.WorkerCount = servers.Notification.WorkerCount;
+                options.ServerName = "notification-server";
+            });
+        }
+
+        // Bulk CSV/Excel import/export (DataTransfer module): long, CPU/IO heavy jobs, few workers.
+        if (servers.DataTransfer.Enabled)
+        {
+            services.AddHangfireServer(options =>
+            {
+                options.Queues = [DataTransfer.Options.DataTransferOptions.Queue];
+                options.WorkerCount = servers.DataTransfer.WorkerCount;
+                options.ServerName = "data-transfer-server";
+            });
+        }
 
         return services;
+    }
+}
+
+/// <summary>One Hangfire processing server (section <c>Hangfire:Servers:&lt;Name&gt;</c>).</summary>
+public sealed class HangfireServerRole
+{
+    public bool Enabled { get; set; } = true;
+
+    public int WorkerCount { get; set; }
+}
+
+/// <summary>
+/// Which Hangfire servers this instance runs (<c>Hangfire:Servers</c>). All are on by default (single box, dev,
+/// tests). Turn a server off on the API replicas and on in a worker replica of the same image to move that workload.
+/// </summary>
+public sealed class HangfireServerRoles
+{
+    public HangfireServerRole Default { get; set; } = new() { WorkerCount = 5 };
+    public HangfireServerRole Notification { get; set; } = new() { WorkerCount = 4 };
+    public HangfireServerRole DataTransfer { get; set; } = new() { WorkerCount = 2 };
+
+    public static HangfireServerRoles From(IConfiguration configuration)
+    {
+        var roles = new HangfireServerRoles();
+        configuration.GetSection("Hangfire:Servers").Bind(roles);
+        foreach (var role in new[] { roles.Default, roles.Notification, roles.DataTransfer })
+        {
+            if (role.WorkerCount < 1)
+                throw new InvalidOperationException("Hangfire:Servers:<Name>:WorkerCount must be at least 1.");
+        }
+
+        return roles;
     }
 }
