@@ -70,6 +70,51 @@ public class NotificationEndpointsTests(E2ETestFixture fixture)
         response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Category_groups_are_listed_with_security_marked_immutable()
+    {
+        var user = fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User);
+
+        var response = await user.GetAsync($"{Base}/preferences/category-groups");
+
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+        body.Should().Contain("\"billing\"").And.Contain("\"security\"").And.Contain("\"mutable\":false");
+    }
+
+    [Fact]
+    public async Task Mutes_and_quiet_hours_are_stored_and_returned_and_security_cannot_be_muted()
+    {
+        var user = fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User);
+
+        var rejected = await user.PutAsJsonAsync($"{Base}/preferences", new
+        {
+            channelOrder = new[] { "Email" },
+            categoryMutes = new Dictionary<string, object> { ["security"] = new { push = true } }
+        });
+        rejected.StatusCode.Should().Be(HttpStatusCode.BadRequest, await rejected.Content.ReadAsStringAsync());
+
+        var badZone = await user.PutAsJsonAsync($"{Base}/preferences", new
+        {
+            channelOrder = new[] { "Email" },
+            quietHours = new { enabled = true, start = "22:00", end = "07:00" },
+            timeZone = "Not/AZone"
+        });
+        badZone.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var ok = await user.PutAsJsonAsync($"{Base}/preferences", new
+        {
+            channelOrder = new[] { "Email" },
+            categoryMutes = new Dictionary<string, object> { ["billing"] = new { push = true } },
+            quietHours = new { enabled = true, start = "22:00", end = "07:00" },
+            timeZone = "Africa/Cairo"
+        });
+        ok.StatusCode.Should().Be(HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+
+        var body = await (await user.GetAsync($"{Base}/preferences")).Content.ReadAsStringAsync();
+        body.Should().Contain("billing").And.Contain("22:00").And.Contain("07:00").And.Contain("Africa/Cairo");
+    }
+
     [Theory]
     [InlineData("notification-channel")]
     [InlineData("notification-delivery-status")]

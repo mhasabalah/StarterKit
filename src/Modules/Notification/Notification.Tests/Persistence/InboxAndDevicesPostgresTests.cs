@@ -381,6 +381,32 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Mutes_quiet_hours_and_time_zone_round_trip_and_survive_an_unrelated_update()
+    {
+        await using var db = Db();
+        var preferences = new NotificationPreferenceRepository(db, MsOptions.Create(new NotificationOptions()));
+
+        (await preferences.GetDeliveryPreferenceAsync(_me)).Should().BeNull();
+        await preferences.UpdateAsync(_me, new PreferenceChange([NotificationChannel.Email], null,
+            new Dictionary<string, ChannelMuteSet> { ["billing"] = new(Push: true), ["catalog"] = new() },
+            new TimeOnly(22, 0), new TimeOnly(7, 30), "Africa/Cairo"));
+        await preferences.UpsertAsync(_me, [NotificationChannel.Email]);
+
+        await using var fresh = Db();
+        var stored = await new NotificationPreferenceRepository(fresh, MsOptions.Create(new NotificationOptions()))
+            .GetDeliveryPreferenceAsync(_me);
+        stored!.CategoryMutes.Should().ContainSingle().Which.Should().Be(new KeyValuePair<string, ChannelMuteSet>("billing", new(Push: true)));
+        (stored.QuietHoursStart, stored.QuietHoursEnd, stored.TimeZone).Should().Be((new TimeOnly(22, 0), new TimeOnly(7, 30), "Africa/Cairo"));
+
+        await preferences.UpdateAsync(_me, new PreferenceChange([NotificationChannel.Email], ClearQuietHours: true));
+        await using var cleared = Db();
+        var after = await new NotificationPreferenceRepository(cleared, MsOptions.Create(new NotificationOptions()))
+            .GetDeliveryPreferenceAsync(_me);
+        (after!.QuietHoursStart, after.TimeZone).Should().Be(((TimeOnly?)null, (string?)null));
+        after.CategoryMutes.Should().ContainKey("billing");
+    }
+
+    [Fact]
     public async Task Erasing_a_user_deletes_their_inbox_and_devices_only()
     {
         await DeliverAsync(_me);
