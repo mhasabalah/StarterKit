@@ -248,6 +248,7 @@ public static class NotificationModule
         {
             services.AddSingleton<IRealtimeNotifier, NoOpRealtimeNotifier>();
             services.AddSingleton<IUserEventPublisher, NullUserEventPublisher>();
+            services.AddSingleton<IHubRevocationBroadcaster, NoOpHubRevocationBroadcaster>();
             return;
         }
 
@@ -258,16 +259,34 @@ public static class NotificationModule
             // Server -> client only: clients send nothing but the handshake and pings.
             o.MaximumReceiveMessageSize = 4 * 1024;
             o.EnableDetailedErrors = false;
+            // Defense in depth: re-check session revocation on connect / invocation (ISessionRevocationChecker).
+            o.AddFilter<SessionRevocationHubFilter>();
         });
         services.AddSingleton<IUserIdProvider, NotificationHubUserIdProvider>();
         services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
         services.AddSingleton<IUserEventPublisher, SignalRUserEventPublisher>();
+        services.AddSingleton<HubConnectionRegistry>();
+        services.AddSingleton<HubSessionCloser>();
 
         // Scale-out: with Redis on, every replica relays hub sends through Redis pub/sub, so a send from the replica
         // that runs the Hangfire job reaches a socket held by another replica. A DEDICATED connection: the backplane
         // owns (and disposes) its multiplexer, and pub/sub traffic stays off the cache connection.
         var redis = configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
-        if (realtime.UseRedisBackplane && redis.Enabled)
+        var useRedis = realtime.UseRedisBackplane && redis.Enabled;
+        if (useRedis)
+        {
+            // Session revocation must close sockets on EVERY replica, but the integration event reaches only one:
+            // fan out over Redis pub/sub (like the tenant L1 cache invalidation) and close the local sockets on receipt.
+            services.AddSingleton<RedisHubRevocationBroadcaster>();
+            services.AddSingleton<IHubRevocationBroadcaster>(sp => sp.GetRequiredService<RedisHubRevocationBroadcaster>());
+            services.AddHostedService(sp => sp.GetRequiredService<RedisHubRevocationBroadcaster>());
+        }
+        else
+        {
+            services.AddSingleton<IHubRevocationBroadcaster, LocalHubRevocationBroadcaster>();
+        }
+
+        if (useRedis)
         {
             // Resolved lazily (first hub use), like every other options value; AddRedisCache already fails fast on a
             // missing production secret.

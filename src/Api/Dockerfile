@@ -44,6 +44,10 @@ COPY ["src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj", "src/Modul
 COPY ["src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj", "src/Modules/Subscriptions/Subscriptions.Contracts/"]
 COPY ["src/Modules/Notification/Notification/Notification.csproj", "src/Modules/Notification/Notification/"]
 COPY ["src/Modules/Notification/Notification.Contracts/Notification.Contracts.csproj", "src/Modules/Notification/Notification.Contracts/"]
+COPY ["src/Modules/Webhooks/Webhooks/Webhooks.csproj", "src/Modules/Webhooks/Webhooks/"]
+COPY ["src/Modules/Webhooks/Webhooks.Contracts/Webhooks.Contracts.csproj", "src/Modules/Webhooks/Webhooks.Contracts/"]
+COPY ["src/Modules/DataTransfer/DataTransfer/DataTransfer.csproj", "src/Modules/DataTransfer/DataTransfer/"]
+COPY ["src/Modules/DataTransfer/DataTransfer.Contracts/DataTransfer.Contracts.csproj", "src/Modules/DataTransfer/DataTransfer.Contracts/"]
 RUN dotnet restore "./src/Api/Api.csproj"
 COPY . .
 WORKDIR "/src/src/Api"

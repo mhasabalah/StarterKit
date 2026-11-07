@@ -1,3 +1,4 @@
+global using Shared.Core.MultiTenancy;
 global using System.Reflection;
 global using Carter;
 global using FluentValidation;

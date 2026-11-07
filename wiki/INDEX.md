@@ -15,7 +15,7 @@ wiki/
 ├── Identity/                     auth, users/admins API, permissions/2FA, IdP replacement, JWT
 ├── Attachment/                   uploads, storage providers, security, reliability, config
 ├── Subscriptions/                billing deep dive, payment-method frontend guide
-├── Testing/                      testing strategy
+├── Testing/                      testing strategy, k6 load testing
 ├── Infrastructure/               Aspire, Redis
 ├── Shared/                       IHttpContextService
 ├── Reference/                    migrations, backlog, troubleshooting
@@ -109,6 +109,7 @@ wiki/
 ## Testing
 
 - [Testing strategy](Testing/Testing-Strategy.md): levels, what every feature needs, running tests (`/starterkit:write-tests`)
+- [Load testing](Testing/Load-Testing.md): k6 HTTP load scenarios against a LoadTest-profile stack, thresholds, baseline numbers, nightly CI
 
 ## Infrastructure and shared
 

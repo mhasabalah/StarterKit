@@ -268,4 +268,44 @@ public sealed class ProductionConfigurationGuardTests
         act.Should().NotThrow();
         other.Should().NotThrow();
     }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Docker")]
+    [InlineData("Staging")]
+    [InlineData("Development")]
+    public void LoadTest_profile_outside_the_LoadTest_environment_blocks_startup(string environment)
+    {
+        var config = Config(("LoadTest:Enabled", "true"));
+
+        var act = () => ProductionConfigurationGuard.EnsureLoadTestProfileIsIsolated(config, environment);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*LoadTest:Enabled*");
+    }
+
+    [Theory]
+    [InlineData("LoadTest", "true")]
+    [InlineData("loadtest", "true")]
+    [InlineData("Production", "false")]
+    [InlineData("Production", null)]
+    public void LoadTest_profile_is_allowed_in_its_own_environment_or_when_not_enabled(string environment, string? enabled)
+    {
+        var config = Config(("LoadTest:Enabled", enabled));
+
+        var act = () => ProductionConfigurationGuard.EnsureLoadTestProfileIsIsolated(config, environment);
+
+        act.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData("LoadTest", "false")]
+    [InlineData("loadtest", null)]
+    public void LoadTest_environment_without_the_profile_blocks_startup(string environment, string? enabled)
+    {
+        var config = Config(("LoadTest:Enabled", enabled));
+
+        var act = () => ProductionConfigurationGuard.EnsureLoadTestProfileIsIsolated(config, environment);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*profile*missing*");
+    }
 }

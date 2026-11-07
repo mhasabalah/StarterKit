@@ -78,4 +78,10 @@
   <data name="Import.Category.NotFound" xml:space="preserve"><value>No active category has the slug '{0}'.</value></data>
   <data name="Import.Sku.Deleted" xml:space="preserve"><value>SKU '{0}' belongs to a deleted product; restore it or use another SKU.</value></data>
   <data name="Import.Product.NotEditable" xml:space="preserve"><value>Product '{0}' exists and you cannot edit it (not yours, or not editable in its current status).</value></data>
+  <data name="InApp.catalog.product-published.Title" xml:space="preserve">
+    <value>Product published</value>
+  </data>
+  <data name="InApp.catalog.product-published.Body" xml:space="preserve">
+    <value>Your product {0} is now live in the catalog.</value>
+  </data>
 </root>

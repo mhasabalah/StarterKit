@@ -286,6 +286,138 @@ public class ScimE2ETests(E2ETestFixture fixture) : IAsyncLifetime
         (await ScimClient(token).GetAsync($"{Scim}/Users")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    private const string Enterprise = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+
+    [Fact]
+    public async Task Enterprise_extension_is_stored_patched_and_returned()
+    {
+        var managerId = await CreateUserAsync($"boss@{_domain}");
+        var resource = User($"worker@{_domain}", "okta-ent-1");
+        ((JsonArray)resource["schemas"]!).Add(Enterprise);
+        resource[Enterprise] = new JsonObject
+        {
+            ["employeeNumber"] = "E-42",
+            ["department"] = "Platform",
+            ["manager"] = new JsonObject { ["value"] = managerId }
+        };
+
+        var created = await SendAsync(HttpMethod.Post, $"{Scim}/Users", resource);
+        created.StatusCode.Should().Be(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+        var body = await BodyAsync(created);
+        body["schemas"]!.AsArray().Select(x => x!.GetValue<string>()).Should().Contain(Enterprise);
+        body[Enterprise]!["employeeNumber"]!.GetValue<string>().Should().Be("E-42");
+        body[Enterprise]!["manager"]!["value"]!.GetValue<string>().Should().Be(managerId);
+        var id = body["id"]!.GetValue<string>();
+
+        // Entra style: full URN paths, plus manager.value; Okta style: path-less object keyed by the extension URN.
+        var patched = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(
+                new JsonObject { ["op"] = "Replace", ["path"] = $"{Enterprise}:department", ["value"] = "Security" },
+                new JsonObject { ["op"] = "Add", ["path"] = $"{Enterprise}:costCenter", ["value"] = "CC-7" },
+                new JsonObject { ["op"] = "Remove", ["path"] = $"{Enterprise}:manager" },
+                new JsonObject
+                {
+                    ["op"] = "replace",
+                    ["value"] = new JsonObject { [Enterprise] = new JsonObject { ["division"] = "EMEA" } }
+                })
+        });
+        patched.StatusCode.Should().Be(HttpStatusCode.OK, await patched.Content.ReadAsStringAsync());
+        var after = (await BodyAsync(patched))[Enterprise]!;
+        after["department"]!.GetValue<string>().Should().Be("Security");
+        after["costCenter"]!.GetValue<string>().Should().Be("CC-7");
+        after["division"]!.GetValue<string>().Should().Be("EMEA");
+        after["employeeNumber"]!.GetValue<string>().Should().Be("E-42", "untouched attributes stay");
+        after["manager"].Should().BeNull("the manager was removed");
+
+        var fetched = await GetJsonAsync($"{Scim}/Users/{id}");
+        fetched[Enterprise]!["department"]!.GetValue<string>().Should().Be("Security");
+    }
+
+    [Fact]
+    public async Task An_unknown_patch_path_is_a_400_invalidPath_but_known_unstored_attributes_are_accepted()
+    {
+        var id = await CreateUserAsync($"paths@{_domain}");
+
+        var unknown = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(new JsonObject { ["op"] = "replace", ["path"] = "favouriteColour", ["value"] = "blue" })
+        });
+        unknown.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await BodyAsync(unknown))["scimType"]!.GetValue<string>().Should().Be("invalidPath");
+
+        var unknownEnterprise = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(new JsonObject { ["op"] = "replace", ["path"] = $"{Enterprise}:shoeSize", ["value"] = "9" })
+        });
+        (await BodyAsync(unknownEnterprise))["scimType"]!.GetValue<string>().Should().Be("invalidPath");
+
+        // What Entra / Okta send when mapped, but this server does not store: accepted, not an error.
+        var known = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(
+                new JsonObject { ["op"] = "Replace", ["path"] = "phoneNumbers[type eq \"work\"].value", ["value"] = "+20100" },
+                new JsonObject { ["op"] = "Replace", ["path"] = "title", ["value"] = "Engineer" },
+                new JsonObject { ["op"] = "Replace", ["path"] = "displayName", ["value"] = "Ada L." })
+        });
+        known.StatusCode.Should().Be(HttpStatusCode.OK, await known.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task A_custom_extension_urn_is_accepted_and_ignored_on_patch_and_post()
+    {
+        const string custom = "urn:example:params:scim:schemas:extension:custom:2.0:User";
+        var resource = User($"custom@{_domain}", "okta-custom");
+        ((JsonArray)resource["schemas"]!).Add(custom);
+        resource[custom] = new JsonObject { ["badgeColour"] = "blue" };
+        resource[Enterprise] = new JsonObject { ["department"] = "Ops", ["shoeSize"] = "9" };
+
+        var created = await SendAsync(HttpMethod.Post, $"{Scim}/Users", resource);
+        created.StatusCode.Should().Be(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+        var body = await BodyAsync(created);
+        body[Enterprise]!["department"]!.GetValue<string>().Should().Be("Ops", "unknown enterprise attributes in a body are ignored");
+        var id = body["id"]!.GetValue<string>();
+
+        var patched = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(
+                new JsonObject { ["op"] = "Add", ["path"] = $"{custom}:badgeColour", ["value"] = "red" },
+                new JsonObject { ["op"] = "replace", ["value"] = new JsonObject { [custom] = new JsonObject { ["badgeColour"] = "green" } } })
+        });
+        patched.StatusCode.Should().Be(HttpStatusCode.OK, await patched.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task A_put_without_the_enterprise_object_clears_it_and_a_remove_without_a_path_is_noTarget()
+    {
+        var resource = User($"put@{_domain}", "okta-put");
+        resource[Enterprise] = new JsonObject { ["department"] = "Ops" };
+        var created = await SendAsync(HttpMethod.Post, $"{Scim}/Users", resource);
+        var id = (await BodyAsync(created))["id"]!.GetValue<string>();
+
+        var noTarget = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(new JsonObject { ["op"] = "remove" })
+        });
+        noTarget.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await BodyAsync(noTarget))["scimType"]!.GetValue<string>().Should().Be("noTarget");
+
+        var replaced = await SendAsync(HttpMethod.Put, $"{Scim}/Users/{id}", User($"put@{_domain}", "okta-put"));
+        replaced.StatusCode.Should().Be(HttpStatusCode.OK, await replaced.Content.ReadAsStringAsync());
+        (await BodyAsync(replaced))[Enterprise].Should().BeNull("PUT replaces the whole resource");
+    }
+
+    [Fact]
+    public async Task Discovery_lists_the_enterprise_extension()
+    {
+        var types = await GetJsonAsync($"{Scim}/ResourceTypes");
+        var user = types["Resources"]!.AsArray().Single(r => r!["name"]!.GetValue<string>() == "User")!;
+        user["schemaExtensions"]![0]!["schema"]!.GetValue<string>().Should().Be(Enterprise);
+
+        var schemas = await GetJsonAsync($"{Scim}/Schemas");
+        schemas["Resources"]!.AsArray().Select(r => r!["id"]!.GetValue<string>()).Should().Contain(Enterprise);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
 
     private static JsonObject User(string userName, string? externalId) => new()

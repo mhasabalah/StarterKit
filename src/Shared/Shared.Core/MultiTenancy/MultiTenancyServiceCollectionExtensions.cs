@@ -63,6 +63,7 @@ public static class MultiTenancyServiceCollectionExtensions
         services.AddOptions<MultiTenancyOptions>();
         services.TryAddSingleton<ITenantContext, TenantContext>();
         services.TryAddSingleton<ITenantStore, DefaultTenantStore>();
+        services.TryAddScoped<ITenantScopeFactory, TenantScopeFactory>();
         services.TryAddSingleton<ITenantMembershipResolver, NullTenantMembershipResolver>();
         services.TryAddSingleton<ITenantConnectionStringResolver, TenantConnectionStringResolver>();
         services.TryAddSingleton<TenantEntityInterceptor>();

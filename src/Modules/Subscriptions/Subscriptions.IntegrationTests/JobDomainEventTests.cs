@@ -42,6 +42,11 @@ public sealed class JobDomainEventTests(SubscriptionsPostgresFixture fx)
         (await _scenario.LoadAsync(subscriptionId)).Status.Should().Be(SubscriptionStatus.Expired);
         EmailsTo(subscriberId, EmailTemplate.SubscriptionExpired).Should().Be(1,
             "SubscriptionExpiredEventHandler must run exactly once from the job path");
+        var expired = fx.Notifications.Messages.Single(m => m.UserId == subscriberId && m.Email?.Template == EmailTemplate.SubscriptionExpired);
+        expired.InApp!.Category.Should().Be("billing.expired");
+        expired.InApp.Title.Ar.Should().NotBe(expired.InApp.Title.En);
+        expired.Push.Should().NotBeNull("an expired subscription needs the user's attention");
+        expired.Push!.Sensitive.Should().BeFalse();
     }
 
     [Fact]
@@ -56,6 +61,9 @@ public sealed class JobDomainEventTests(SubscriptionsPostgresFixture fx)
         outcome.Should().Be(RenewalBoundaryOutcome.Billed);
         EmailsTo(billedSubscriber, EmailTemplate.SubscriptionPastDue).Should().Be(1,
             "SubscriptionPastDueEventHandler must run from the orchestrator (job) path");
+        var pastDue = fx.Notifications.Messages.Single(m => m.UserId == billedSubscriber && m.Email?.Template == EmailTemplate.SubscriptionPastDue);
+        pastDue.InApp!.Category.Should().Be("billing.past-due");
+        pastDue.Push!.Sensitive.Should().BeTrue("payment problems keep their details off the lock screen");
 
         // Re-running the boundary is a no-op and publishes nothing again.
         var again = await Orchestrator.ProcessBoundaryAsync(billed, DateTimeOffset.UtcNow.AddYears(1));

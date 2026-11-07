@@ -144,6 +144,90 @@ public class InboxAndRealtimeE2ETests(E2ETestFixture fixture)
     }
 
     [Fact]
+    public async Task Logging_out_closes_the_live_hub_connection_of_that_session()
+    {
+        var (_, token, refresh) = await SignInAsync();
+        await using var hub = Hub(token);
+        var forced = new TaskCompletionSource<ForceDisconnectEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        hub.On<ForceDisconnectEvent>(NotificationHubContract.ForceDisconnect, e => forced.TrySetResult(e));
+        hub.Closed += _ =>
+        {
+            closed.TrySetResult();
+            return Task.CompletedTask;
+        };
+        await hub.StartAsync();
+        hub.State.Should().Be(HubConnectionState.Connected);
+
+        using var logout = await fixture.Factory.CreateClientWithToken(token)
+            .PostAsJsonAsync("/api/auth/logout", new { refreshToken = refresh, logoutAllDevices = false });
+        logout.StatusCode.Should().Be(HttpStatusCode.OK, await logout.Content.ReadAsStringAsync());
+
+        // Through the outbox -> bus -> consumer: seconds, not the access-token lifetime.
+        await closed.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        hub.State.Should().Be(HubConnectionState.Disconnected);
+        (await forced.Task.WaitAsync(TimeSpan.FromSeconds(5))).Reason.Should().Be(ForceDisconnectEvent.SessionRevoked);
+    }
+
+    private static async Task<(TaskCompletionSource Closed, TaskCompletionSource<ForceDisconnectEvent> Forced)> WatchAsync(HubConnection hub)
+    {
+        var forced = new TaskCompletionSource<ForceDisconnectEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        hub.On<ForceDisconnectEvent>(NotificationHubContract.ForceDisconnect, e => forced.TrySetResult(e));
+        hub.Closed += _ =>
+        {
+            closed.TrySetResult();
+            return Task.CompletedTask;
+        };
+        await hub.StartAsync();
+        return (closed, forced);
+    }
+
+    [Fact]
+    public async Task Logging_out_of_all_devices_closes_every_live_hub_connection_of_the_user()
+    {
+        var (_, token, refresh) = await SignInAsync();
+        await using var hub = Hub(token);
+        var (closed, _) = await WatchAsync(hub);
+
+        using var logout = await fixture.Factory.CreateClientWithToken(token)
+            .PostAsJsonAsync("/api/auth/logout", new { refreshToken = refresh, logoutAllDevices = true });
+        logout.StatusCode.Should().Be(HttpStatusCode.OK, await logout.Content.ReadAsStringAsync());
+
+        await closed.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        hub.State.Should().Be(HubConnectionState.Disconnected);
+    }
+
+    [Fact]
+    public async Task Locking_the_account_closes_the_users_live_hub_connection()
+    {
+        var (userId, token, _) = await SignInAsync();
+        await using var hub = Hub(token);
+        var (closed, forced) = await WatchAsync(hub);
+
+        // The role-hierarchy guard needs a real admin account behind the acting id.
+        var adminId = await fixture.WithScopeAsync(async sp =>
+        {
+            var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
+            var admin = new ApplicationUser
+            {
+                Id = Guid.NewGuid(), UserName = $"lockadmin{Guid.NewGuid():N}", Email = $"lockadmin-{Guid.NewGuid():N}@example.com",
+                EmailConfirmed = true, IsActive = true, IsProfileComplete = true
+            };
+            (await users.CreateAsync(admin, Password)).Succeeded.Should().BeTrue();
+            (await users.AddToRolesAsync(admin, [RoleConstants.SuperAdmin])).Succeeded.Should().BeTrue();
+            return admin.Id;
+        });
+
+        using var lockResponse = await fixture.CreateClientAs(adminId, RoleConstants.SuperAdmin)
+            .PostAsJsonAsync($"/api/identity/users/{userId}/lock", new { reason = "e2e lock test reason", duration = 4 }, Json);
+        lockResponse.StatusCode.Should().Be(HttpStatusCode.OK, await lockResponse.Content.ReadAsStringAsync());
+
+        await closed.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        (await forced.Task.WaitAsync(TimeSpan.FromSeconds(5))).Reason.Should().Be(ForceDisconnectEvent.SessionRevoked);
+    }
+
+    [Fact]
     public async Task A_query_string_token_is_ignored_outside_the_hub_routes()
     {
         var (_, token, _) = await SignInAsync();
