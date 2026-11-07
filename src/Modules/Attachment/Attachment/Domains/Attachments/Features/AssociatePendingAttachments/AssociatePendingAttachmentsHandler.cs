@@ -27,6 +27,10 @@ public class AssociatePendingAttachmentsCommandValidator : AbstractValidator<Ass
 /// Moves the files of an owned session to the entity folder and creates the attachment rows.
 /// Consistency: if the save fails, every moved file is moved back to its pending path (the pending rows
 /// are untouched), so the session can be associated again.
+/// Race with the thumbnail job: it may save a pending row (thumbnail path + version) between our read and our save.
+/// That conflict is not the user's doing, so the rows are re-read once and, when only a thumbnail appeared, that
+/// thumbnail is moved and attached too and the save is repeated. Any other change (deleted, already associated)
+/// still fails and moves the files back.
 /// </summary>
 public class AssociatePendingAttachmentsHandler(
     IPendingAttachmentRepository pendingRepository,
@@ -38,7 +42,15 @@ public class AssociatePendingAttachmentsHandler(
     ILogger<AssociatePendingAttachmentsHandler> logger)
     : ICommandHandler<AssociatePendingAttachmentsCommand, AssociatePendingAttachmentsResult>
 {
-    private sealed record Move(PendingAttachment Pending, StorageResult File, string? ThumbPath);
+    private sealed record Move(PendingAttachment Pending, StorageResult File, string? ThumbPath)
+    {
+        /// <summary>A thumbnail the thumbnail job committed after our first read, moved during the retry.</summary>
+        public string? LateThumbPath { get; set; }
+
+        public AttachmentFile? Attachment { get; set; }
+    }
+
+    private const int MaxSaveAttempts = 2;
 
     public async Task<AssociatePendingAttachmentsResult> Handle(
         AssociatePendingAttachmentsCommand command,
@@ -92,6 +104,7 @@ public class AssociatePendingAttachmentsHandler(
 
                 await attachmentRepository.AddAsync(attachment, cancellationToken);
                 m.Pending.MarkAsAssociated();
+                m.Attachment = attachment;
 
                 associatedIds.Add(attachment.Id);
                 metadata.Add(new AssociatedAttachmentMetadata(
@@ -99,7 +112,22 @@ public class AssociatePendingAttachmentsHandler(
             }
 
             // Single SaveChanges: both repositories share the same AttachmentDbContext.
-            await attachmentRepository.SaveChangesAsync(cancellationToken);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await attachmentRepository.SaveChangesAsync(cancellationToken);
+                    break;
+                }
+                catch (Exception ex) when (attempt < MaxSaveAttempts && ex.IsConcurrencyConflict())
+                {
+                    logger.LogInformation(
+                        "Pending attachments of session {SessionId} changed during associate (thumbnail); retrying",
+                        command.SessionId);
+                    if (!await ReconcileAfterConflictAsync(moved, command, cancellationToken))
+                        throw;
+                }
+            }
         }
         catch
         {
@@ -151,6 +179,43 @@ public class AssociatePendingAttachmentsHandler(
         }
     }
 
+    /// <summary>
+    /// Re-reads every moved pending row after a concurrency conflict. Returns false (give up, the caller rethrows) when
+    /// a row is gone, deleted or associated by someone else; otherwise moves any thumbnail that appeared meanwhile,
+    /// attaches it, and re-marks the rows associated (the reload discarded that change).
+    /// </summary>
+    private async Task<bool> ReconcileAfterConflictAsync(
+        List<Move> moved, AssociatePendingAttachmentsCommand command, CancellationToken ct)
+    {
+        foreach (var m in moved)
+        {
+            if (!await pendingRepository.ReloadAsync(m.Pending, ct) || m.Pending.IsDeleted || m.Pending.IsAssociated)
+                return false;
+
+            if (m.ThumbPath is null && m.LateThumbPath is null && !string.IsNullOrEmpty(m.Pending.ThumbnailPath)
+                && m.Pending is { Width: { } w, Height: { } h } && m.Attachment is { } attachment)
+            {
+                try
+                {
+                    m.LateThumbPath = (await storageService.MoveAsync(
+                        m.Pending.ThumbnailPath,
+                        StoragePaths.ForEntityThumbnail(m.Pending.TenantId, command.EntityType, command.EntityId, m.Pending.Id),
+                        ct)).StoragePath;
+                    attachment.SetThumbnail(m.LateThumbPath, urls.Thumbnail(attachment.Id), w, h);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Same rule as the first pass: a thumbnail that cannot be moved never fails the associate.
+                    logger.LogWarning(ex, "Late thumbnail of pending {PendingId} could not be moved", m.Pending.Id);
+                }
+            }
+
+            m.Pending.MarkAsAssociated();
+        }
+
+        return true;
+    }
+
     private async Task MoveBackAsync(IEnumerable<Move> moves)
     {
         foreach (var m in moves)
@@ -158,6 +223,8 @@ public class AssociatePendingAttachmentsHandler(
             await TryMoveBackAsync(m.File.StoragePath, m.Pending.StoragePath);
             if (m.ThumbPath is not null && m.Pending.ThumbnailPath is not null)
                 await TryMoveBackAsync(m.ThumbPath, m.Pending.ThumbnailPath);
+            if (m.LateThumbPath is not null && m.Pending.ThumbnailPath is not null)
+                await TryMoveBackAsync(m.LateThumbPath, m.Pending.ThumbnailPath);
         }
     }
 
