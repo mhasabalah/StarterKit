@@ -78,6 +78,10 @@
   <data name="Import.Category.NotFound" xml:space="preserve"><value>لا يوجد تصنيف نشط بالمعرف النصي '{0}'.</value></data>
   <data name="Import.Sku.Deleted" xml:space="preserve"><value>رمز المنتج '{0}' يخص منتجًا محذوفًا؛ استعده أو استخدم رمزًا آخر.</value></data>
   <data name="Import.Product.NotEditable" xml:space="preserve"><value>المنتج '{0}' موجود ولا يمكنك تعديله (ليس ملكك أو لا يمكن تعديله في حالته الحالية).</value></data>
+  <data name="Import.Category.ParentNotFound" xml:space="preserve"><value>لا يوجد تصنيف بالمعرف النصي للأب '{0}' (يجب أن يكون الأب موجودًا مسبقًا أو في صف سابق).</value></data>
+  <data name="Import.Category.Cycle" xml:space="preserve"><value>اختيار '{0}' أبًا سيضع التصنيف تحت نفسه.</value></data>
+  <data name="Import.Integer.Invalid" xml:space="preserve"><value>'{0}' ليس عددًا صحيحًا.</value></data>
+  <data name="Import.Boolean.Invalid" xml:space="preserve"><value>القيمة '{0}' غير مسموح بها؛ استخدم true أو false.</value></data>
   <data name="InApp.catalog.product-published.Title" xml:space="preserve">
     <value>تم نشر المنتج</value>
   </data>

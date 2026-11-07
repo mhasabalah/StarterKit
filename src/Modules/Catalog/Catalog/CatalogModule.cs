@@ -1,6 +1,7 @@
 using Attachment.Contracts.Authorization;
 using Catalog.Data.Seed;
 using Catalog.Domains.Categories.Cache;
+using Catalog.Domains.Categories.DataTransfer;
 using Catalog.Domains.Products.DataTransfer;
 using DataTransfer.Contracts.Definitions;
 using Catalog.Domains.Products.Jobs;
@@ -51,6 +52,8 @@ public static class CatalogModule
         // Cross-module: bulk CSV/Excel import/export of products through the DataTransfer module (catalog.products).
         services.AddImportDefinition<ProductImportDefinition>();
         services.AddExportDefinition<ProductExportDefinition>();
+        services.AddImportDefinition<CategoryImportDefinition>();
+        services.AddExportDefinition<CategoryExportDefinition>();
 
         services.AddMediator(CatalogRoot.AssemblyName);
         services.AddCustomMapster(CatalogRoot.AssemblyName);
