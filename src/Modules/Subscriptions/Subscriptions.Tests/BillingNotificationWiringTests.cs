@@ -30,14 +30,14 @@ public class BillingNotificationWiringTests
 {
     /// <summary>One sender under test. <see cref="Push"/>: null = no push, otherwise the expected <c>sensitive</c> flag.</summary>
     private sealed record Case(
-        string Key, EmailTemplate Template, bool? Push, bool CarriesData,
+        string Key, EmailTemplate Template, bool? Push,
         Func<BillingNotificationHarness, Task> Run);
 
     private static Case Handler<THandler, TEvent>(
-        string key, EmailTemplate template, Func<Guid, Guid, TEvent> evt, bool? push = null, bool carriesData = true)
+        string key, EmailTemplate template, Func<Guid, Guid, TEvent> evt, bool? push = null)
         where TEvent : INotification
         where THandler : class, INotificationHandler<TEvent> =>
-        new(key, template, push, carriesData,
+        new(key, template, push,
             h => h.Create<THandler>().Handle(evt(h.SubscriptionId, h.SubscriberId), CancellationToken.None));
 
     private static readonly DateTimeOffset Now = new(2026, 1, 31, 9, 0, 0, TimeSpan.Zero);
@@ -58,12 +58,12 @@ public class BillingNotificationWiringTests
         Handler<SubscriptionRejectedEventHandler, SubscriptionRejectedEvent>(
             "subscription-rejected", EmailTemplate.SubscriptionRejected, (s, u) => new(s, u, "no"), push: false),
         Handler<RefundApprovedEventHandler, RefundApprovedEvent>(
-            "refund-approved", EmailTemplate.RefundApproved, (s, u) => new(Guid.NewGuid(), s, u, 10m, "SAR"), carriesData: false),
+            "refund-approved", EmailTemplate.RefundApproved, (s, u) => new(Guid.NewGuid(), s, u, 10m, "SAR")),
         Handler<RefundProcessedEventHandler, RefundProcessedEvent>(
             "refund-processed", EmailTemplate.RefundProcessed, (s, u) => new(Guid.NewGuid(), s, u, 10m, "SAR", "TX-1"),
-            push: true, carriesData: false),
+            push: true),
         Handler<RefundRejectedEventHandler, RefundRejectedEvent>(
-            "refund-rejected", EmailTemplate.RefundRejected, (s, u) => new(Guid.NewGuid(), s, u, "policy"), carriesData: false),
+            "refund-rejected", EmailTemplate.RefundRejected, (s, u) => new(Guid.NewGuid(), s, u, "policy")),
         Handler<SubscriptionCancellationScheduledEventHandler, SubscriptionCancellationScheduledEvent>(
             "cancellation-scheduled", EmailTemplate.SubscriptionCancellationScheduled, (s, u) => new(s, u, u, Later, null)),
         Handler<SubscriptionCancelledEventHandler, SubscriptionCancelledEvent>(
@@ -79,8 +79,8 @@ public class BillingNotificationWiringTests
         Handler<SubscriptionUpgradeRevertedEventHandler, SubscriptionUpgradeRevertedEvent>(
             "upgrade-reverted", EmailTemplate.SubscriptionUpgradeReverted, (s, u) => new(s, u, Guid.NewGuid()), push: false),
 
-        new("invoice-ready", EmailTemplate.InvoiceIssued, null, true, RunInvoiceDeliveryJob),
-        new("trial-ending", EmailTemplate.TrialEnding, false, true, RunTrialReminderProcessor)
+        new("invoice-ready", EmailTemplate.InvoiceIssued, null, RunInvoiceDeliveryJob),
+        new("trial-ending", EmailTemplate.TrialEnding, false, RunTrialReminderProcessor)
     ];
 
     public static IEnumerable<object[]> Keys() => Cases.Select(c => new object[] { c.Key });
@@ -192,11 +192,7 @@ public class BillingNotificationWiringTests
         send.TenantDuringSend.Should().Be(harness.Tenant);
         TenantScope.Current?.Tenant.Should().NotBe(harness.Tenant, "the scope is left after the send");
 
-        var data = send.InApps.Single().Data;
-        if (Find(key).CarriesData)
-            data.Should().Contain("tenantId", harness.SubscriberId.ToString());
-        else
-            data.Should().BeNull("refund entries carry no client payload today");
+        send.InApps.Single().Data.Should().Contain("tenantId", harness.SubscriberId.ToString());
     }
 
     [Fact]

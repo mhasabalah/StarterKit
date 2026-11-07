@@ -36,7 +36,7 @@ public class RefundApprovedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.RefundApproved, model.ToDictionary())
-            .WithBillingInApp("refund-approved", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, args: [planName])
+            .WithBillingInApp("refund-approved", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName])
             .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }
