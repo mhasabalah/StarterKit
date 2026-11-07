@@ -7,7 +7,7 @@
 #                             second run on the same stack unless --reuse
 #   tests/load/run.sh down    stop the stack and delete its volumes
 #   tests/load/run.sh all     env + up + seed + run, always followed by down
-# Env: COMPOSE_PROJECT (starterkit-load), LOADTEST_ENV_FILE (.env.loadtest), LOAD_DURATION, LOAD_RATE_SCALE, SCENARIOS.
+# Env: COMPOSE_PROJECT (starterkit-load), LOADTEST_ENV_FILE (.env.loadtest), LOAD_DURATION, LOAD_RATE_SCALE, LOAD_P95_SCALE, SCENARIOS.
 set -euo pipefail
 export MSYS_NO_PATHCONV=1 # git-bash on Windows would rewrite /scripts/... into a host path
 
