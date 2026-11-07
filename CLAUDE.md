@@ -31,6 +31,7 @@ cd src/Aspire/AppHost && dotnet run                  # dev: API + Postgres + Red
 cd src/Aspire/AppHost && dotnet run -- Observability:FullStack=true   # + Grafana/Tempo/Loki/Jaeger/Prometheus
 cp .env.example .env && docker compose up -d         # dev via compose (override with dev tools merged automatically)
 make help                                            # docker/db/cache/nginx shortcuts
+make loadtest                                        # k6 HTTP load scenarios against a LoadTest-profile Docker stack (wiki/Testing/Load-Testing.md)
 
 dotnet run --project src/Api -- --migrate-only       # apply all migrations + seeds (shared + dedicated tenant DBs), then exit
 
