@@ -62,7 +62,7 @@ jobs:
         run: |
           bad=0
           while IFS= read -r f; do
-            last=$(grep -v '^[[:space:]]*$' "$f" | tail -n 1 | tr -d '')
+            last=$(grep -v '^[[:space:]]*$' "$f" | tail -n 1 | tr -d '\r')
             case "$last" in *'#endif'*|*'#else'*) echo "::error file=$f::ends on a template marker: $last"; bad=1;; esac
           done < <(git ls-files '*.cs' '*.csproj' '*.props' '*.slnx' '*.md' '*.json' '*.yml' '.env*')
           exit $bad
