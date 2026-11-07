@@ -32,4 +32,20 @@
   <data name="Import.Grant.Forbidden" xml:space="preserve"><value>لا يمكنك منح صلاحيات لا تملكها، لذا لا يمكنك تعيين هذه الأدوار.</value></data>
   <data name="Import.Membership.Invalid" xml:space="preserve"><value>الأدوار أو الفروع في هذا الصف غير صالحة.</value></data>
   <data name="Import.Row.Rejected" xml:space="preserve"><value>تم رفض الصف: {0}</value></data>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="InApp.membership.joined.Title" xml:space="preserve">
+    <value>انضممت إلى مساحة عمل</value>
+  </data>
+  <data name="InApp.membership.joined.Body" xml:space="preserve">
+    <value>أصبحت الآن عضوًا في {0}.</value>
+  </data>
+  <data name="InApp.membership.role-changed.Title" xml:space="preserve">
+    <value>تم تغيير صلاحياتك</value>
+  </data>
+  <data name="InApp.membership.role-changed.Body" xml:space="preserve">
+    <value>تم تحديث أدوارك في {0}. قد تظهر بعض الميزات أو تختفي.</value>
+  </data>
 </root>

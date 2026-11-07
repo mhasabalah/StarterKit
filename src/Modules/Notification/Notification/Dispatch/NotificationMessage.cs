@@ -25,6 +25,9 @@ public sealed record NotificationMessage
     /// <summary>In-app (inbox + real-time) payload. Delivered by <c>InAppDeliveryJob</c>, not the fallback chain.</summary>
     public InAppContent? InApp { get; init; }
 
+    /// <summary>Caller-pinned correlation id (idempotent re-sends); null = a new id is generated at enqueue.</summary>
+    public Guid? CorrelationId { get; init; }
+
     /// <summary>Push payload. Delivered by <c>PushDeliveryJob</c>, not the fallback chain.</summary>
     public PushContent? Push { get; init; }
 

@@ -32,4 +32,20 @@
   <data name="Import.Grant.Forbidden" xml:space="preserve"><value>You cannot grant permissions you do not hold, so you cannot assign these roles.</value></data>
   <data name="Import.Membership.Invalid" xml:space="preserve"><value>The roles or branches of this row are not valid.</value></data>
   <data name="Import.Row.Rejected" xml:space="preserve"><value>The row was rejected: {0}</value></data>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="InApp.membership.joined.Title" xml:space="preserve">
+    <value>You joined a workspace</value>
+  </data>
+  <data name="InApp.membership.joined.Body" xml:space="preserve">
+    <value>You are now a member of {0}.</value>
+  </data>
+  <data name="InApp.membership.role-changed.Title" xml:space="preserve">
+    <value>Your access changed</value>
+  </data>
+  <data name="InApp.membership.role-changed.Body" xml:space="preserve">
+    <value>Your roles in {0} were updated. Some features may now be available or hidden.</value>
+  </data>
 </root>

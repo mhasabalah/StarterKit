@@ -53,6 +53,7 @@ public sealed class SessionManagementTests
     private readonly Mock<UserManager<ApplicationUser>> _users = Mocks.UserManager();
     private readonly Mock<IRefreshTokenRepository> _repo = new();
     private readonly Mock<ITokenBlacklistService> _blacklist = new();
+    private readonly Mock<ISessionRevocationRecorder> _revocations = new();
     private readonly Mock<IHttpContextService> _http = new();
     private readonly Mock<IJwtTokenGenerator> _jwt = new();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
@@ -78,7 +79,7 @@ public sealed class SessionManagementTests
             It.IsAny<CancellationToken>())).ReturnsAsync(true);
     }
 
-    private SessionManager Manager() => new(_repo.Object, _blacklist.Object, _http.Object,
+    private SessionManager Manager() => new(_repo.Object, _blacklist.Object, _revocations.Object, _http.Object,
         Microsoft.Extensions.Options.Options.Create(Jwt), _time, NullLogger<SessionManager>.Instance);
 
     private AuthSessionService AuthSessions() => new(_users.Object, _jwt.Object, _repo.Object,
@@ -146,6 +147,8 @@ public sealed class SessionManagementTests
 
         revoked.Should().BeTrue();
         _blacklist.Verify(b => b.BlacklistSessionAsync(sid, TimeSpan.FromMinutes(16)), Times.Once);
+        _revocations.Verify(r => r.RecordSessionsAsync(_user.Id,
+            It.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == sid), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -155,6 +158,8 @@ public sealed class SessionManagementTests
             It.IsAny<string?>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
         (await Manager().RevokeAsync(_user.Id, Guid.NewGuid(), "x")).Should().BeFalse();
+        _revocations.Verify(r => r.RecordSessionsAsync(It.IsAny<Guid>(), It.IsAny<IReadOnlyCollection<Guid>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
         _blacklist.Verify(b => b.BlacklistSessionAsync(It.IsAny<Guid>(), It.IsAny<TimeSpan>()), Times.Never);
     }
 
@@ -185,6 +190,8 @@ public sealed class SessionManagementTests
         _blacklist.Verify(x => x.BlacklistSessionAsync(a, It.IsAny<TimeSpan>()), Times.Once);
         _blacklist.Verify(x => x.BlacklistSessionAsync(b, It.IsAny<TimeSpan>()), Times.Once);
         _blacklist.Verify(x => x.BlacklistSessionAsync(current, It.IsAny<TimeSpan>()), Times.Never);
+        _revocations.Verify(r => r.RecordSessionsAsync(_user.Id,
+            It.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { a, b })), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
