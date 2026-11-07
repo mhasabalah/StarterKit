@@ -92,6 +92,8 @@ public sealed class TrialReminderProcessor(
         await services.GetRequiredService<INotificationSender>()
             .For(subscription.SubscriberId)
             .WithEmail(EmailTemplate.TrialEnding, model.ToDictionary())
+            .WithBillingInApp("trial-ending", NotificationSeverity.Warning, BillingInApp.SubscriptionUrl, push: true,
+                data: BillingInApp.SubscriptionData(subscription.Id), args: [subscription.PlanName, model.TrialEndDate])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: ct);
 
         logger.LogInformation("Trial-ending reminder sent for subscription {SubscriptionId}.", subscription.Id);

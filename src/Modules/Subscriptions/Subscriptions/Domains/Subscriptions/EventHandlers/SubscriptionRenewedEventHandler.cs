@@ -1,4 +1,6 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionRenewedEventHandler(
@@ -31,6 +33,7 @@ public class SubscriptionRenewedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionRenewed, model.ToDictionary())
+            .WithBillingInApp("renewed", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName, model.NewRenewalDate])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
 
         logger.LogInformation(

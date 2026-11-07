@@ -26,6 +26,7 @@ public interface ISessionManager
 public sealed class SessionManager(
     IRefreshTokenRepository refreshTokens,
     ITokenBlacklistService tokenBlacklist,
+    ISessionRevocationRecorder revocations,
     IHttpContextService httpContextService,
     IOptions<JwtOptions> jwtOptions,
     TimeProvider timeProvider,
@@ -47,6 +48,7 @@ public sealed class SessionManager(
             return false;
 
         await BlacklistAsync(sessionId);
+        await revocations.RecordSessionsAsync(userId, [sessionId], ct);
         logger.LogInformation("Session {SessionId} of user {UserId} revoked. Reason: {Reason}", sessionId, userId, reason);
         return true;
     }
@@ -62,6 +64,7 @@ public sealed class SessionManager(
             await BlacklistAsync(sessionId);
         }
 
+        await revocations.RecordSessionsAsync(userId, ended, ct);
         logger.LogInformation("Revoked {Count} other sessions of user {UserId}. Reason: {Reason}", ended.Count, userId, reason);
         return ended.Count;
     }

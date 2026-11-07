@@ -121,6 +121,9 @@ public class InvoiceDeliveryJob(
             .For(invoice.SubscriberId)
             .WithEmail(EmailTemplate.InvoiceIssued, model.ToDictionary(),
                 [new EmailAttachment($"{invoice.InvoiceNumber}.pdf", pdf, "application/pdf")])
+            .WithBillingInApp("invoice-ready", NotificationSeverity.Info, "/invoices",
+                data: new Dictionary<string, string> { ["invoiceId"] = invoice.Id.ToString() },
+                args: [invoice.InvoiceNumber])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: ct);
     }
 }

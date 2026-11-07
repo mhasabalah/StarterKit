@@ -58,6 +58,7 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IHttpContextService>(Http);
         services.AddSingleton(Jobs.Object);
+        services.AddSingleton(new Moq.Mock<Notification.Contracts.INotificationSender> { DefaultValue = Moq.DefaultValue.Mock }.Object);
         services.AddMultiTenancy(configuration);
         services.AddTenancyModule(configuration);
         services.AddSingleton<IRequestHandler<Subscriptions.Contracts.Subscriptions.Queries.GetActivePlanLimitsQuery,

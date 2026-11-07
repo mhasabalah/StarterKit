@@ -1,6 +1,10 @@
 using Notification.Contracts;
 using Notification.Contracts.Email.Models;
 using Notification.Contracts.Enums;
+using Notification.Contracts.InApp;
+using System.Resources;
+using Shared.Core.Localization;
+using Webhooks.Resources;
 using Tenancy.Contracts.Tenants;
 using Webhooks.Domains.Endpoints.Events;
 
@@ -18,6 +22,20 @@ public sealed class WebhookEndpointAutoDisabledEventHandler(
     ILogger<WebhookEndpointAutoDisabledEventHandler> logger)
     : INotificationHandler<WebhookEndpointAutoDisabledEvent>
 {
+    public const string Category = "webhooks.endpoint-disabled";
+
+    private static readonly ResourceManager Resources = new(typeof(WebhooksResource));
+
+    /// <summary>The inbox entry (and push text): ids and the endpoint address only, in both languages.</summary>
+    public static InAppContent InApp(WebhookEndpointAutoDisabledEvent e) =>
+        new(
+            Title: BilingualResource.Get(Resources, "InApp.webhooks.endpoint-disabled.Title"),
+            Body: BilingualResource.Get(Resources, "InApp.webhooks.endpoint-disabled.Body", e.Url, e.ConsecutiveFailures),
+            Category: Category,
+            ActionUrl: "/settings/webhooks",
+            Severity: NotificationSeverity.Warning,
+            Data: new Dictionary<string, string> { ["endpointId"] = e.EndpointId.ToString() });
+
     public async Task Handle(WebhookEndpointAutoDisabledEvent notification, CancellationToken cancellationToken)
     {
         try
@@ -46,6 +64,8 @@ public sealed class WebhookEndpointAutoDisabledEventHandler(
             await notifications
                 .For(tenant.OwnerUserId)
                 .WithEmail(EmailTemplate.WebhookEndpointDisabled, model.ToDictionary())
+                .WithInApp(InApp(notification))
+                .WithPush()
                 .SendAsync(NotificationChannel.Email, cancellationToken);
 
             logger.LogWarning("Webhook endpoint {EndpointId} auto-disabled after {Failures} failures; owner {OwnerId} notified",

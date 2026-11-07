@@ -1,4 +1,6 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionPastDueEventHandler(
@@ -36,6 +38,7 @@ public class SubscriptionPastDueEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionPastDue, model.ToDictionary())
+            .WithBillingInApp("past-due", NotificationSeverity.Warning, BillingInApp.RenewUrl, push: true, sensitivePush: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName, model.GraceDeadline])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
 
         logger.LogInformation(

@@ -1,3 +1,5 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionRejectedEventHandler(
@@ -31,6 +33,7 @@ public class SubscriptionRejectedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionRejected, model.ToDictionary())
+            .WithBillingInApp("subscription-rejected", NotificationSeverity.Critical, BillingInApp.SubscriptionUrl, push: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
     }
 }

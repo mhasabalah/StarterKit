@@ -1,4 +1,6 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionDowngradeScheduledEventHandler(
@@ -37,6 +39,7 @@ public class SubscriptionDowngradeScheduledEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionDowngradeScheduled, model.ToDictionary())
+            .WithBillingInApp("downgrade-scheduled", NotificationSeverity.Info, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [model.CurrentPlanName, model.NewPlanName, model.EffectiveAt])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
     }
 }

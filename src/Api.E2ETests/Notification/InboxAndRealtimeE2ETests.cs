@@ -144,6 +144,32 @@ public class InboxAndRealtimeE2ETests(E2ETestFixture fixture)
     }
 
     [Fact]
+    public async Task Logging_out_closes_the_live_hub_connection_of_that_session()
+    {
+        var (_, token, refresh) = await SignInAsync();
+        await using var hub = Hub(token);
+        var forced = new TaskCompletionSource<ForceDisconnectEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        hub.On<ForceDisconnectEvent>(NotificationHubContract.ForceDisconnect, e => forced.TrySetResult(e));
+        hub.Closed += _ =>
+        {
+            closed.TrySetResult();
+            return Task.CompletedTask;
+        };
+        await hub.StartAsync();
+        hub.State.Should().Be(HubConnectionState.Connected);
+
+        using var logout = await fixture.Factory.CreateClientWithToken(token)
+            .PostAsJsonAsync("/api/auth/logout", new { refreshToken = refresh, logoutAllDevices = false });
+        logout.StatusCode.Should().Be(HttpStatusCode.OK, await logout.Content.ReadAsStringAsync());
+
+        // Through the outbox -> bus -> consumer: seconds, not the access-token lifetime.
+        await closed.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        hub.State.Should().Be(HubConnectionState.Disconnected);
+        (await forced.Task.WaitAsync(TimeSpan.FromSeconds(5))).Reason.Should().Be(ForceDisconnectEvent.SessionRevoked);
+    }
+
+    [Fact]
     public async Task A_query_string_token_is_ignored_outside_the_hub_routes()
     {
         var (_, token, _) = await SignInAsync();
