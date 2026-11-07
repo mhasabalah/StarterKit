@@ -104,6 +104,7 @@ public class InvoiceDeliveryJob(
     {
         var configuration = services.GetRequiredService<IConfiguration>();
         var notificationSender = services.GetRequiredService<INotificationSender>();
+        var tenants = services.GetRequiredService<ITenantScopeFactory>();
         var frontendBaseUrl = configuration["Application:FrontendBaseUrl"] ?? "http://localhost:3000";
 
         var model = new InvoiceIssuedModel
@@ -121,6 +122,10 @@ public class InvoiceDeliveryJob(
             .For(invoice.SubscriberId)
             .WithEmail(EmailTemplate.InvoiceIssued, model.ToDictionary(),
                 [new EmailAttachment($"{invoice.InvoiceNumber}.pdf", pdf, "application/pdf")])
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: ct);
+            .WithBillingInApp("invoice-ready", NotificationSeverity.Info, "/invoices",
+                data: BillingInApp.WithTenant(new Dictionary<string, string> { ["invoiceId"] = invoice.Id.ToString() },
+                    invoice.SubscriberId, tenants),
+                args: [invoice.InvoiceNumber])
+            .SendForSubscriberAsync(tenants, invoice.SubscriberId, NotificationChannel.Email, ct);
     }
 }

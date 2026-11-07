@@ -1,7 +1,10 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class PaymentRejectedEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     ISender sender,
     IConfiguration configuration,
@@ -34,6 +37,7 @@ public class PaymentRejectedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.PaymentRejected, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("payment-rejected", NotificationSeverity.Critical, BillingInApp.RenewUrl, push: true, sensitivePush: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }

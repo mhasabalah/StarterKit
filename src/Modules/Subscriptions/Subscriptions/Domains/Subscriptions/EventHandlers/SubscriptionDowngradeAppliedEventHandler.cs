@@ -1,8 +1,11 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionDowngradeAppliedEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     IConfiguration configuration,
     SubscriptionsDbContext dbContext)
@@ -30,6 +33,7 @@ public class SubscriptionDowngradeAppliedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionDowngradeApplied, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("downgrade-applied", NotificationSeverity.Info, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [model.NewPlanName, model.NewRenewalDate])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }

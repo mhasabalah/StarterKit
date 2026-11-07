@@ -46,7 +46,7 @@ public static class IdentityModule
 
         services.ConfigureOptions(configuration);
         services.AddCustomDbContext<ApplicationIdentityDbContext>(configuration, "starterkit");
-        services.AddOutbox<ApplicationIdentityDbContext>(); // delivers UserDeletedIntegrationEvent
+        services.AddOutbox<ApplicationIdentityDbContext>(); // delivers UserDeletedIntegrationEvent, UserSessionsRevokedIntegrationEvent
         services.ConfigureIdentity();
         // Data Protection key ring (encrypts authenticator keys, signs reset tokens): database-backed, shared
         // application name, optional at-rest encryption (Identity:DataProtection) + production guard.
@@ -62,6 +62,8 @@ public static class IdentityModule
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<ISessionRevoker, SessionRevoker>();
         services.AddScoped<ISessionManager, SessionManager>();
+        services.AddScoped<ISessionRevocationRecorder, SessionRevocationRecorder>();
+        services.AddSingleton<UserDirectory.Contracts.Sessions.ISessionRevocationChecker, SessionRevocationChecker>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IApiKeyAuthenticator, ApiKeyAuthenticator>();
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
