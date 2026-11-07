@@ -145,6 +145,11 @@ Why attachments are cleaned up on **purge**, not on soft delete: a restored prod
 | GET / POST / PUT / DELETE | `/categories` | `catalog.categories.manage` (tenant permission; Owner and Administrator hold it) |
 | GET / POST / PUT / DELETE | `/tags`, `/attribute-types` | GET public; everything else admin |
 
+> **Breaking change.** The category endpoints no longer use the platform `AdminOnly` policy. They need the tenant
+> permission `catalog.categories.manage` (held by the owner and the Administrator role; grant it to custom roles). In
+> multi-tenant mode a platform Admin without a membership is now refused (403). In single-tenant mode platform
+> Admin/SuperAdmin still pass: they hold every tenant permission as a platform claim. API keys need the scope.
+
 Bulk: `catalog.categories` import/export definitions (`Domains/Categories/DataTransfer`), see [DataTransfer](DataTransfer.md).
 
 ## Tests

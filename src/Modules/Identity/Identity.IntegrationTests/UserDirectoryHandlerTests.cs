@@ -86,4 +86,37 @@ public sealed class UserDirectoryHandlerTests(IdentityPostgresFixture fixture)
     {
         (await SendAsync(new GetUsersInRoleQuery("no-such-role"))).Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task User_ids_by_emails_matches_case_insensitively_and_omits_unknown_addresses()
+    {
+        var user = await fixture.CreateUserAsync();
+        var other = await fixture.CreateUserAsync();
+
+        var map = await SendAsync(new GetUserIdsByEmailsQuery(
+            [user.Email!.ToUpperInvariant(), "nobody-" + Guid.NewGuid().ToString("N") + "@example.com", " "]));
+
+        map.Should().ContainSingle();
+        map[user.Email.ToLowerInvariant()].Should().Be(user.Id);
+        map.ContainsKey(other.Email!).Should().BeFalse();
+        (await SendAsync(new GetUserIdsByEmailsQuery([]))).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task User_ids_by_emails_refuses_more_than_the_maximum()
+    {
+        var act = () => SendAsync(new GetUserIdsByEmailsQuery(
+            Enumerable.Range(0, GetUserIdsByEmailsQuery.MaxEmails + 1).Select(i => $"u{i}@example.com").ToList()));
+
+        await act.Should().ThrowAsync<Shared.Core.Exceptions.BadRequestException>();
+    }
+
+    [Fact]
+    public async Task User_roles_lists_the_role_names_and_is_empty_for_unknown_users()
+    {
+        var admin = await fixture.CreateUserAsync(null, RoleConstants.Admin);
+
+        (await SendAsync(new GetUserRolesQuery(admin.Id))).Should().Contain(RoleConstants.Admin);
+        (await SendAsync(new GetUserRolesQuery(Guid.NewGuid()))).Should().BeEmpty();
+    }
 }

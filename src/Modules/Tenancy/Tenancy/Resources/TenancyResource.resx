@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>1.3</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <data name="Import.Value.Required" xml:space="preserve"><value>A value is required.</value></data>
+  <data name="Import.Email.Invalid" xml:space="preserve"><value>'{0}' is not a valid e-mail address.</value></data>
+  <data name="Import.Role.NotFound" xml:space="preserve"><value>No tenant role is named '{0}'.</value></data>
+  <data name="Import.Branch.NotFound" xml:space="preserve"><value>No active branch has the code '{0}'.</value></data>
+  <data name="Import.Branch.NotAllowed" xml:space="preserve"><value>You cannot assign branch '{0}': it is outside your branch scope.</value></data>
+  <data name="Import.Seats.Exceeded" xml:space="preserve"><value>The plan's user limit is reached; upgrade the plan to invite more members.</value></data>
+  <data name="Import.Grant.Forbidden" xml:space="preserve"><value>You cannot grant permissions you do not hold, so you cannot assign these roles.</value></data>
+  <data name="Import.Membership.Invalid" xml:space="preserve"><value>The roles or branches of this row are not valid.</value></data>
+  <data name="Import.Row.Rejected" xml:space="preserve"><value>The row was rejected: {0}</value></data>
+</root>
