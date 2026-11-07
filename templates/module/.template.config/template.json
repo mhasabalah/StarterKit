@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Mohamed Magdy",
+  "classifications": [ "Web", "API", "Modular Monolith", "Module" ],
+  "identity": "StarterKit.Templates.Module",
+  "groupIdentity": "StarterKit.Templates.Module",
+  "name": "StarterKit module",
+  "description": "A drop-in business module for a StarterKit product: Contracts, implementation, unit and integration tests, a manifest the host discovers, an example aggregate with CRUD, concurrency and tenant isolation, and its first migration. Run it from the product root.",
+  "shortName": "starterkit-module",
+  "sourceName": "ModuleName",
+  "preferNameDirectory": false,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "dataPlane": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "tenant",
+      "description": "Where the module's data lives.",
+      "choices": [
+        { "choice": "tenant", "description": "Business data: ITenantDataContext, every entity IMustHaveTenant, forced row-level security." },
+        { "choice": "host", "description": "Platform / control-plane data: no tenant filters, no RLS." }
+      ]
+    },
+    "outbox": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Add the transactional outbox and an example integration event (for modules that publish to other modules)."
+    },
+    "example": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the example Item aggregate (CRUD, concurrency, tests). false gives an empty skeleton."
+    },
+    "TENANT_DATA": {
+      "type": "computed",
+      "value": "(dataPlane == \"tenant\")"
+    },
+    "OUTBOX": {
+      "type": "computed",
+      "value": "(outbox)"
+    },
+    "EXAMPLE": {
+      "type": "computed",
+      "value": "(example)"
+    }
+  },
+  "sources": [
+    {
+      "source": "./",
+      "target": "./",
+      "exclude": [
+        ".template.config/**",
+        "_migrations/**",
+        "**/bin/**",
+        "**/obj/**"
+      ],
+      "modifiers": [
+        {
+          "condition": "(!example)",
+          "exclude": [
+            "src/Modules/ModuleName/ModuleName/Domains/**",
+            "src/Modules/ModuleName/ModuleName/Data/Configurations/**",
+            "src/Modules/ModuleName/ModuleName/Data/Repository/**",
+            "src/Modules/ModuleName/ModuleName.Contracts/Items/**",
+            "src/Modules/ModuleName/ModuleName.Tests/Items/**",
+            "src/Modules/ModuleName/ModuleName.IntegrationTests/Items/**"
+          ]
+        },
+        {
+          "condition": "(!outbox)",
+          "exclude": [
+            "src/Modules/ModuleName/ModuleName.Contracts/Items/IntegrationEvents/**"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": "(dataPlane == \"tenant\" && example && !outbox)",
+      "source": "./_migrations/tenant-example/",
+      "target": "./src/Modules/ModuleName/ModuleName/Data/Migrations/"
+    },
+    {
+      "condition": "(dataPlane == \"tenant\" && example && outbox)",
+      "source": "./_migrations/tenant-example-outbox/",
+      "target": "./src/Modules/ModuleName/ModuleName/Data/Migrations/"
+    },
+    {
+      "condition": "(dataPlane == \"tenant\" && !example && outbox)",
+      "source": "./_migrations/tenant-outbox/",
+      "target": "./src/Modules/ModuleName/ModuleName/Data/Migrations/"
+    },
+    {
+      "condition": "(dataPlane == \"host\" && example && !outbox)",
+      "source": "./_migrations/host-example/",
+      "target": "./src/Modules/ModuleName/ModuleName/Data/Migrations/"
+    },
+    {
+      "condition": "(dataPlane == \"host\" && example && outbox)",
+      "source": "./_migrations/host-example-outbox/",
+      "target": "./src/Modules/ModuleName/ModuleName/Data/Migrations/"
+    },
+    {
+      "condition": "(dataPlane == \"host\" && !example && outbox)",
+      "source": "./_migrations/host-outbox/",
+      "target": "./src/Modules/ModuleName/ModuleName/Data/Migrations/"
+    }
+  ],
+  "primaryOutputs": [
+    { "path": "src/Modules/ModuleName/ModuleName.Contracts/ModuleName.Contracts.csproj" },
+    { "path": "src/Modules/ModuleName/ModuleName/ModuleName.csproj" },
+    { "path": "src/Modules/ModuleName/ModuleName.Tests/ModuleName.Tests.csproj" },
+    { "path": "src/Modules/ModuleName/ModuleName.IntegrationTests/ModuleName.IntegrationTests.csproj" }
+  ],
+  "postActions": [
+    {
+      "actionId": "D396686C-DE0E-4DE6-906D-291CD29FC5DE",
+      "description": "Add the module's projects to the solution.",
+      "manualInstructions": [
+        { "text": "Add the four projects under src/Modules/<Name>/ to your .slnx with `dotnet sln add`." }
+      ],
+      "continueOnError": true
+    },
+    {
+      "actionId": "AC1156F7-BB77-4DB8-B28F-24EEBCCA1E5C",
+      "description": "Next steps",
+      "manualInstructions": [
+        {
+          "text": "The host discovers the module (ADR-0019): no Program.cs, Api.csproj or architecture-test edits. Build, then run its tests (unit + integration, Docker). Grow it with the add-aggregate / add-feature skills; new schema changes: dotnet ef migrations add <Name> --context <Name>DbContext --project src/Modules/<Name>/<Name> --startup-project src/Api --output-dir Data/Migrations"
+        }
+      ],
+      "continueOnError": true
+    }
+  ]
+}

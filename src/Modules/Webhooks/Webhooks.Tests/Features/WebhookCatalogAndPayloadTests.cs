@@ -1,5 +1,7 @@
 using System.Text.Json;
+#if (SAMPLE)
 using Catalog.Contracts.Products.IntegrationEvents;
+#endif
 using Shared.Contracts.Messaging;
 using Subscriptions.Contracts.Subscriptions.IntegrationEvents;
 using Webhooks.Options;
@@ -22,7 +24,9 @@ public class WebhookCatalogAndPayloadTests
         var catalog = new WebhookEventCatalog();
 
         catalog.Events.Select(e => e.Type).Should().Equal(
+#if (SAMPLE)
             "catalog.product-published.v1",
+#endif
             "subscriptions.subscription-activated.v1",
             "subscriptions.subscription-expired.v1");
         catalog.Events.Should().OnlyContain(e => !string.IsNullOrWhiteSpace(e.Description));
@@ -31,18 +35,23 @@ public class WebhookCatalogAndPayloadTests
     [Fact]
     public void Only_marked_events_are_public()
     {
-        var marked = typeof(ProductPublishedIntegrationEvent).Assembly.GetTypes()
-            .Concat(typeof(SubscriptionActivatedIntegrationEvent).Assembly.GetTypes())
+        var marked = typeof(SubscriptionActivatedIntegrationEvent).Assembly.GetTypes()
+#if (SAMPLE)
+            .Concat(typeof(ProductPublishedIntegrationEvent).Assembly.GetTypes())
+#endif
             .Where(t => typeof(IIntegrationEvent).IsAssignableFrom(t) && !t.IsAbstract)
             .Where(t => t.GetCustomAttributes(typeof(PublicWebhookEventAttribute), false).Length > 0)
             .Select(t => t.Name);
 
-        marked.Should().BeEquivalentTo("ProductPublishedIntegrationEvent", "SubscriptionActivatedIntegrationEvent",
-            "SubscriptionExpiredIntegrationEvent");
+        marked.Should().BeEquivalentTo(
+#if (SAMPLE)
+            "ProductPublishedIntegrationEvent",
+#endif
+            "SubscriptionActivatedIntegrationEvent", "SubscriptionExpiredIntegrationEvent");
     }
 
     [Theory]
-    [InlineData("catalog.product-published.v1", true)]
+    [InlineData("subscriptions.subscription-expired.v1", true)]
     [InlineData("*", true)]
     [InlineData("identity.user-deleted.v1", false)]
     [InlineData("nonsense", false)]
@@ -52,26 +61,20 @@ public class WebhookCatalogAndPayloadTests
     [Fact]
     public void The_payload_envelope_carries_id_type_timestamp_tenant_and_the_event_data()
     {
-        var evt = new ProductPublishedIntegrationEvent
-        {
-            ProductId = Guid.NewGuid(),
-            OwnerId = Guid.NewGuid(),
-            Sku = "SKU-1",
-            PublishedAt = new DateTime(2026, 11, 4, 10, 0, 0, DateTimeKind.Utc)
-        };
+        var evt = new SubscriptionExpiredIntegrationEvent { SubscriptionId = Guid.NewGuid(), SubscriberId = Guid.NewGuid() };
         var tenantId = Guid.NewGuid();
 
-        var json = WebhookPayloadFactory.Create("catalog.product-published.v1", evt, tenantId);
+        var json = WebhookPayloadFactory.Create("subscriptions.subscription-expired.v1", evt, tenantId);
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
         root.GetProperty("id").GetString().Should().Be($"evt_{evt.EventId:N}");
-        root.GetProperty("type").GetString().Should().Be("catalog.product-published.v1");
+        root.GetProperty("type").GetString().Should().Be("subscriptions.subscription-expired.v1");
         root.GetProperty("tenantId").GetGuid().Should().Be(tenantId);
         root.GetProperty("timestamp").GetDateTime().Should().Be(evt.OccurredOn);
         var data = root.GetProperty("data");
-        data.GetProperty("sku").GetString().Should().Be("SKU-1");
-        data.GetProperty("productId").GetGuid().Should().Be(evt.ProductId);
+        data.GetProperty("subscriptionId").GetGuid().Should().Be(evt.SubscriptionId);
+        data.GetProperty("subscriberId").GetGuid().Should().Be(evt.SubscriberId);
         data.TryGetProperty("eventId", out _).Should().BeFalse("transport metadata is not part of the public data");
         data.TryGetProperty("occurredOn", out _).Should().BeFalse();
     }

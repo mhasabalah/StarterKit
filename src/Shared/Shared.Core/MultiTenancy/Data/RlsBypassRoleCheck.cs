@@ -61,7 +61,7 @@ public sealed class RlsBypassRoleCheck(
 
     private async Task VerifyRuntimeRoleAsync(CancellationToken cancellationToken)
     {
-        var runtime = configuration?.GetConnectionString("starterkit") ?? postgres?.ConnectionString;
+        var runtime = configuration?.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName) ?? postgres?.ConnectionString;
         if (string.IsNullOrWhiteSpace(runtime))
         {
             return;

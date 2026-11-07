@@ -331,4 +331,6 @@ public async Task POST_Login_Returns_Token()
 - [Users-and-Admins-API.md](Users-and-Admins-API.md): every Identity route with its authorization
 - [Permissions-2FA-and-Admin-Audit.md](Permissions-2FA-and-Admin-Audit.md): permissions, 2FA, audit, impersonation
 - [Replacing-the-Identity-Provider.md](Replacing-the-Identity-Provider.md): the `UserDirectory.Contracts` port
+<!--#if (sample)-->
 - [Catalog module](../Modules/Catalog.md): the reference module for new work
+<!--#endif-->

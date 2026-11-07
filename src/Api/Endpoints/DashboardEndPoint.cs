@@ -1,5 +1,7 @@
 using Carter;
+#if (SAMPLE)
 using Catalog.Contracts.Products.Queries;
+#endif
 using UserDirectory.Contracts.Queries;
 using Shared.Contracts.Mediation;
 using Microsoft.AspNetCore.Builder;
@@ -22,8 +24,10 @@ public class DashboardEndPoint : ICarterModule
                 {
                     var userStats = await sender.Send(new GetUserStatsQuery(), cancellationToken);
 
+#if (SAMPLE)
                     // Cross-module contract query: Catalog exposes stats via Catalog.Contracts only.
                     var productStats = await sender.Send(new GetProductStatsQuery(), cancellationToken);
+#endif
 
                     // Billing KPIs only for callers allowed to read billing (cached 5 min by the Subscriptions module;
                     // full figures: GET admin/billing/dashboard).
@@ -36,10 +40,12 @@ public class DashboardEndPoint : ICarterModule
                     var result = new DashboardStatsDto
                     {
                         TotalUsers = userStats.TotalUsers,
+#if (SAMPLE)
                         TotalProducts = productStats.TotalProducts,
                         PendingReviewProducts = productStats.PendingReviewProducts,
                         PublishedProducts = productStats.PublishedProducts,
                         FeaturedProducts = productStats.FeaturedProducts,
+#endif
                         RecurringRevenue = billing?.RecurringRevenue,
                         PendingPaymentProofs = billing?.PendingProofs,
                         PastDueSubscriptions = billing?.PastDueCount
@@ -63,10 +69,12 @@ public class DashboardEndPoint : ICarterModule
 public class DashboardStatsDto
 {
     public int TotalUsers { get; init; }
+#if (SAMPLE)
     public int TotalProducts { get; init; }
     public int PendingReviewProducts { get; init; }
     public int PublishedProducts { get; init; }
     public int FeaturedProducts { get; init; }
+#endif
 
     /// <summary>MRR/ARR per currency (null without billing.read).</summary>
     public IReadOnlyList<RecurringRevenueDto>? RecurringRevenue { get; init; }

@@ -20,3 +20,7 @@ link it here.
 | [0017](0017-money-precision-and-per-currency-rounding.md) | Money columns are numeric(19,4); rounding and scale are per ISO 4217 currency in the domain | Accepted |
 | [0018](0018-off-session-dunning-retries-on-saved-cards.md) | Idempotent off-session card retries before the dunning reminder; sandbox/live gateway mode | Accepted |
 | [0016](0016-bulk-data-transfer-on-hangfire.md) | Bulk import/export as leased, checkpointed Hangfire jobs on their own queue (same image, role switch) | Accepted |
+| [0019](0019-module-manifests-and-discovery.md) | Modules plug in through a manifest the host discovers from the build graph (no Program.cs edits) | Accepted |
+<!--#if (templateSource)-->
+| [0020](0020-dotnet-new-templates.md) | The repository is the product template; modules come from a generated, CI-verified module template | Accepted |
+<!--#endif-->

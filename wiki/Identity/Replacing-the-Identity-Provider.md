@@ -45,8 +45,9 @@ seams, never on Identity, so a replacement (Keycloak, Entra ID, Auth0, ...) is a
 ## Checklist
 
 1. New module `src/Modules/<Provider>Identity` implementing every `UserDirectory.Contracts` query handler.
-2. Host: replace `AddIdentityModule` / `UseIdentityModule`; keep `AddIdentityAuthorizationPolicies` (or move the
+2. Host: the new module ships its own `<M>ModuleManifest` (`Order = ModuleOrder.Identity`), delete the Identity
+   module folder, and replace `UseIdentityPipeline` in `Program.cs`; keep `AddIdentityAuthorizationPolicies` (or move the
    policy registration with it) and `AddRolePermissionClaims()`.
-3. Add the module to `ModuleBoundaryTests.Modules`; run `dotnet test` - the architecture tests prove no module
+3. Run `dotnet test` (the module list is discovered, ADR-0019) - the architecture tests prove no module
    depends on the old Identity.
 4. E2E: `TestAuthHandler` only emits role claims, so the suite is provider-independent.

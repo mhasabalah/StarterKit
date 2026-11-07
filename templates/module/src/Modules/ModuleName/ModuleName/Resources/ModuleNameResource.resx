@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.Id.Required" xml:space="preserve">
+    <value>The id is required.</value>
+  </data>
+  <data name="Validation.Code.Required" xml:space="preserve">
+    <value>The code is required.</value>
+  </data>
+  <data name="Validation.Code.MaxLength" xml:space="preserve">
+    <value>The code must not exceed {MaxLength} characters.</value>
+  </data>
+  <data name="Validation.Code.Format" xml:space="preserve">
+    <value>The code may contain only letters, digits, dashes and underscores.</value>
+  </data>
+  <data name="Validation.Name.Required" xml:space="preserve">
+    <value>The name is required.</value>
+  </data>
+  <data name="Validation.Name.MaxLength" xml:space="preserve">
+    <value>The name must not exceed {MaxLength} characters.</value>
+  </data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve">
+    <value>The description must not exceed {MaxLength} characters.</value>
+  </data>
+  <data name="Validation.Version.Min" xml:space="preserve">
+    <value>The version must not be negative.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>The page number must be at least 1.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>The page size must be between 1 and {MaxPageSize}.</value>
+  </data>
+  <data name="Validation.Search.MaxLength" xml:space="preserve">
+    <value>The search term must not exceed {MaxLength} characters.</value>
+  </data>
+  <data name="Item.AlreadyExists" xml:space="preserve">
+    <value>An item with the code '{0}' already exists.</value>
+  </data>
+</root>

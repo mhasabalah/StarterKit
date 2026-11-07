@@ -58,7 +58,7 @@ admins at any status.
 | Public / owner / admin DTOs by inheritance (`ProductDto` → `MyProductDto` → `ProductAdminDto`) | `Catalog.Contracts/Products/Dtos/*` |
 | Every read DTO exposes `long Version`; critical updates take `long? Version = null` | `ProductDto`, `UpdateProductCommand`, `ProductWorkflowCommands.cs` |
 | Enums with `[LocalizedDescription]` (+ string JSON) and `*Label` fields in DTOs | `Catalog.Contracts/Products/Enums/ProductEnums.cs` |
-| Contracts assembly marker for `AddEnumLookup` | `Catalog.Contracts/CatalogContractsRoot.cs` (registered in `src/Api/Program.cs`) |
+| Contracts assembly marker for the enum lookup | `Catalog.Contracts/CatalogContractsRoot.cs` (declared in `CatalogModuleManifest.EnumAssemblies`) |
 | Cross-module contract query with no endpoint | `GetProductStatsQuery` → consumed by `src/Api/Endpoints/DashboardEndPoint.cs` |
 | Integration event (`Shared.Contracts.Messaging.IntegrationEvent` + `[MessageUrn("catalog.product-published.v1")]`) | `Catalog.Contracts/Products/IntegrationEvents/ProductPublishedIntegrationEvent.cs` |
 
@@ -118,7 +118,7 @@ admins at any status.
 | Redis (`IDistributedCache`) cache of a culture-neutral snapshot; failures swallowed with a warning | `Catalog/Domains/Categories/Cache/CategoryTreeCache.cs` |
 | Cache invalidation via domain event (dispatched after commit) | `Catalog/Domains/Categories/EventHandlers/CategoryChangedEventHandler.cs` |
 | Integration event raised by the aggregate (`AddIntegrationEvent`) → transactional outbox (`builder.AddTenantOutbox()`, `services.AddOutbox<CatalogDbContext>()`, migration `AddOutbox` with RLS) | `Product.Publish()`, `Catalog/Data/CatalogDbContext.cs`, `CatalogModule.cs` - see `wiki/Architecture/Messaging.md` |
-| Sample MassTransit consumer (auto-registered via `AddMassTransitWithAssemblies(CatalogRoot...)`) | `Catalog/Domains/Products/Consumers/ProductPublishedConsumer.cs` |
+| Sample MassTransit consumer (auto-registered: the manifest's `ConsumerAssemblies`) | `Catalog/Domains/Products/Consumers/ProductPublishedConsumer.cs` |
 | Cleanup of another module's data on hard delete (`DeleteAttachmentsByEntityCommand`, non-fatal) | `Catalog/Domains/Products/EventHandlers/ProductPurgedEventHandler.cs` |
 | Hangfire recurring job with options bound from config (`Catalog` section) | `Catalog/Domains/Products/Jobs/PurgeSoftDeletedProductsJob.cs`, `Catalog/Options/CatalogOptions.cs`, `CatalogModule.UseCatalogModule` |
 | en/ar resx + validators using `IStringLocalizer<CatalogResource>` | `Catalog/Resources/CatalogResource*.resx`, any `*Validator` |
@@ -170,21 +170,22 @@ Bulk: `catalog.categories` import/export definitions (`Domains/Categories/DataTr
 4. DbContext like `CatalogDbContext` (call `FilterSoftDeletedProperties()` only if you soft delete) + design-time factory.
    Business data is tenant data: implement `ITenantDataContext`, make every entity `IMustHaveTenant`, end
    `OnModelCreating` with `ApplyTenantFilters(builder)` and enable RLS in the migration - checklist in
-   `wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md`. Add the module to `ModuleBoundaryTests.Modules`.
+   `wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md`.
 5. `<M>Module.cs` like `CatalogModule.cs` (repositories, services, `AddMediator`, `AddCustomMapster`, `AddCarterWithAssemblies`,
    `AddCustomDbContext(..., "starterkit")`, seeder, jobs; `Use<M>Module` migrates and schedules jobs).
-6. `src/Api/Program.cs`: `AddMassTransitWithAssemblies(configuration, <M>Root...)` (consumers), `AddEnumLookup(<M>ContractsRoot...)`,
-   `Add<M>Module(configuration)`, `Use<M>Module()`; `src/Api/Api.csproj` → `<M>`.
+6. `<M>ModuleManifest.cs` like `CatalogModuleManifest.cs` (`Order`, `EnumAssemblies`, delegating to `<M>Module`). That
+   is all the host wiring: `Api.csproj` references the module by glob and `AddModules()` discovers it
+   ([ADR-0019](../Decisions/0019-module-manifests-and-discovery.md)); `Program.cs` never changes.
 7. Generate the first migration (see `wiki/Reference/Migrations.md`). Publishing integration events? Add the outbox
    (`builder.AddOutbox()`/`AddTenantOutbox()`, `services.AddOutbox<TContext>()`) - checklist in `wiki/Architecture/Messaging.md`.
 8. Tests at every level as in the table above; `dotnet build StarterKit.slnx` and `dotnet test StarterKit.slnx`.
 
 ## Removing the Catalog sample
 
-1. Remove `AddCatalogModule` / `UseCatalogModule`, `CatalogRoot` (MassTransit) and `CatalogContractsRoot` (enum lookup) from `src/Api/Program.cs`.
+1. Nothing to remove from `src/Api/Program.cs` or `src/Api/Api.csproj`: the module is discovered from its folder (ADR-0019).
 2. Remove the product stats from `src/Api/Endpoints/DashboardEndPoint.cs` and the `Catalog` section from `src/Api/appsettings.json`.
-3. Remove the `Catalog` references from `src/Api/Api.csproj` and `src/Api.E2ETests/Api.E2ETests.csproj`; delete `src/Api.E2ETests/Catalog/`.
-4. In `src/Api.Tests/Architecture`: remove `"Catalog"` from `ModuleBoundaryTests.Modules`; remove
+3. Remove the `Catalog` references from `src/Api.E2ETests/Api.E2ETests.csproj`; delete `src/Api.E2ETests/Catalog/`.
+4. In `src/Api.Tests/Architecture`: remove
    `ProductPublishedIntegrationEvent` from the expected list and `CatalogDbContext` from the outbox expectation in
    `MessagingArchitectureTests`; adjust `TenantIsolationArchitectureTests.Catalog_and_Attachment_are_tenant_data_contexts`.
    Optionally remove `Permissions.CatalogModerate` / `TenantPermissions.ProductsManage` and their grants.

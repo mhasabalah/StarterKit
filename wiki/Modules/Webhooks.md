@@ -77,6 +77,5 @@ exhausted their attempts show as `Failed` and can be redelivered.
 
 ## Wiring checklist (done)
 
-`StarterKit.slnx`, `Api.csproj`, `Program.cs` (`AddWebhooksModule`, `UseWebhooksModule`, MassTransit assembly, enum lookup),
-`ModuleBoundaryTests.Modules`, `TenantIsolationArchitectureTests`, `appsettings.json`, `TenantPermissions.WebhooksManage`,
+`StarterKit.slnx`, `WebhooksModuleManifest` (discovered by the host, ADR-0019), `TenantIsolationArchitectureTests`, `appsettings.json`, `TenantPermissions.WebhooksManage`,
 `EmailTemplate.WebhookEndpointDisabled`.

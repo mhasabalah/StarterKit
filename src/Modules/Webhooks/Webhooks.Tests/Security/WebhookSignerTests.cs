@@ -5,7 +5,7 @@ namespace Webhooks.Tests.Security;
 public class WebhookSignerTests
 {
     private static readonly Guid Id = Guid.Parse("11111111-2222-3333-4444-555555555555");
-    private const string Body = "{\"id\":\"evt_1\",\"type\":\"catalog.product-published.v1\",\"data\":{\"sku\":\"A-1\"}}";
+    private const string Body = "{\"id\":\"evt_1\",\"type\":\"subscriptions.subscription-expired.v1\",\"data\":{\"sku\":\"A-1\"}}";
 
     [Fact]
     public void Matches_the_Standard_Webhooks_reference_vector()

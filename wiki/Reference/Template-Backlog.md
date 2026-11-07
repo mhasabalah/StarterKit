@@ -49,8 +49,35 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
 | G21 | Durable saga repository (= #27) | ⬜ |
 | G22 | Load/performance tests (k6) with a CI baseline (HTTP scenarios: `tests/load`, `load-test.yml`; DataTransfer engine baseline: `datatransfer-perf.yml`) | ✅ |
-| G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
+| G23 | `dotnet new` project + module templates (= #12, #13) ([Templates](../Getting-Started/Templates.md), ADRs [0019](../Decisions/0019-module-manifests-and-discovery.md) / [0020](../Decisions/0020-dotnet-new-templates.md)) | ✅ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
+
+Wave 12 (2026-11-08): **G23 `dotnet new` templates**
+([Templates](../Getting-Started/Templates.md), [ADR 0019](../Decisions/0019-module-manifests-and-discovery.md),
+[ADR 0020](../Decisions/0020-dotnet-new-templates.md)).
+- **Module manifests and discovery.**
+  - Every module has an `<M>ModuleManifest`. `Api.csproj` references modules by glob, and `AddModules()` /
+    `UseModules()` replace the hand-kept lists in `Program.cs`.
+  - The startup order is `ModuleOrder` data, guarded by `ModuleDiscoveryTests`.
+  - The Dockerfile restore layer copies every csproj automatically.
+  - A new module now needs no host edits.
+- **Product template** (`dotnet new starterkit`): the repository is the template.
+  - Switches: `--sample`, `--multitenancy`, `--transport`, `--storage`, `--ai-tooling`, `--ci`, `--deploy`,
+    `--github-owner`.
+  - The name is renamed in all three spellings, and the GUIDs are regenerated.
+- **Module template** (`dotnet new starterkit-module`):
+  - four projects plus a manifest
+  - an example aggregate with CRUD, optimistic concurrency, tenant isolation, unit and Testcontainers tests, and RLS
+  - `--data-plane`, `--outbox` and `--example`
+  - one `dotnet ef`-generated migration set per option combination
+- **Pack and CI.** `StarterKit.Templates` (`templates/`). `templates.yml` generates four products and seven modules,
+  each of which must build and pass the architecture, module and E2E tests. A `templates-v*` tag publishes to GitHub
+  Packages.
+- **Found on the way:**
+  - A module without endpoints made Carter scan every assembly and register all endpoints twice (startup crash).
+  - `"starterkit"` connection-string literals in every module are now `DatabaseDefaults.ConnectionStringName`.
+  - Webhooks and API-key tests no longer need the Catalog sample.
+  - The single-tenant E2E factory pins `MultiTenancy:Enabled=false`.
 
 Wave 11 (2026-11-07, PRs #17-#23): **follow-ups of the shipped work + G22.**
 
@@ -90,9 +117,9 @@ Six workstreams were each implemented and then reviewed by an architecture audit
   endpoint. Run one real charge against a Stripe test account before enabling `Dunning:AutoRetry`.
 - [ ] **Paymob saved cards.** Paymob implements only the port defaults, so its dunning falls back to the email link.
   Add the saved-card token flow (TOKEN callback + MOTO integration id) when a merchant account is available.
-- [ ] **Flaky E2E.** `PendingAttachmentFlowE2ETests.Anonymous_upload_then_sign_in_associate_and_download` failed once
-  in CI with 409 "modified by another request" (it passed on re-run). It is probably the thumbnail job saving the
-  attachment while `associate` runs; give it the same re-read-once handling the delete got in Wave 9.
+- [x] **Flaky E2E.** `PendingAttachmentFlowE2ETests.Anonymous_upload_then_sign_in_associate_and_download` failed once
+  in CI with 409 "modified by another request". Fixed in PR #25: associate re-reads once when only a thumbnail
+  appeared (`Integration/PendingAssociateRaceTests`).
 - [ ] **Unsigned SAML metadata.** It is still accepted, and entity-id pinning does not protect against a hijacked
   metadata host. Consider an optional pinned metadata-signing certificate, or a per-connection "require signed metadata"
   switch.
@@ -470,9 +497,8 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 
 ## P2 — Template ergonomics
 
-12. **`dotnet new` template packaging.** Add `.template.config/template.json` (sourceName `StarterKit`) so
-    `dotnet new starterkit -n MyApp` renames the slnx, docker names, DB names and brand automatically.
-13. **Module scaffolding.** Add a `dotnet new starterkit-module -n Orders` item template generated from Catalog.
+12. ~~**`dotnet new` template packaging.**~~ **Done** (G23): `dotnet new starterkit -n MyApp` with switches.
+13. ~~**Module scaffolding.**~~ **Done** (G23): `dotnet new starterkit-module -n Orders`, no host wiring (ADR-0019).
 14. ~~**Multi-tenancy decision.**~~ **Done** - optional multi-tenancy (Tenancy module: tenants, branches, members,
     invitations, tenant roles, audit; shared or dedicated databases; subscriber = tenant). See
     `wiki/MultiTenancy/Overview.md`. Follow-ups done: automated shared ⇄ dedicated move, data export, support

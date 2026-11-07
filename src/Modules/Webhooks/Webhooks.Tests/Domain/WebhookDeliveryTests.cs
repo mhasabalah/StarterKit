@@ -5,7 +5,7 @@ namespace Webhooks.Tests.Domain;
 public class WebhookDeliveryTests
 {
     private static WebhookDelivery New() =>
-        WebhookDelivery.Create(Guid.NewGuid(), Guid.NewGuid(), "catalog.product-published.v1", "{}", TestSupport.Now);
+        WebhookDelivery.Create(Guid.NewGuid(), Guid.NewGuid(), "subscriptions.subscription-expired.v1", "{}", TestSupport.Now);
 
     [Fact]
     public void Create_IsPendingAndDueImmediately()

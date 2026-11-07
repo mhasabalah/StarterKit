@@ -153,8 +153,11 @@ public class EndpointAndIsolationTests(WebhooksPostgresFixture fx)
     {
         var types = await fx.SendAsync(TenantA, new GetWebhookEventTypesQuery());
 
-        types.Select(t => t.Type).Should().BeEquivalentTo(Arrange.ProductPublished, "subscriptions.subscription-activated.v1",
-            Arrange.SubscriptionExpired);
+        types.Select(t => t.Type).Should().BeEquivalentTo(
+#if (SAMPLE)
+            Arrange.ProductPublished,
+#endif
+            "subscriptions.subscription-activated.v1", Arrange.SubscriptionExpired);
     }
 
     // ----- cross-tenant isolation -----------------------------------------------------------------------------------

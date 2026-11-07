@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The StarterKit.Templates pack (wiki/Getting-Started/Templates.md):
+         content/starterkit  the repository root = the product template (dotnet new starterkit)
+         content/module      templates/module    = the module template  (dotnet new starterkit-module)
+       Pack: dotnet pack templates/StarterKit.Templates.csproj -c Release -o artifacts -p:PackageVersion=1.2.3
+       Not part of StarterKit.slnx: CI (.github/workflows/templates.yml) packs, smoke-tests and publishes it. -->
+
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>StarterKit.Templates</PackageId>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">0.0.0-local</PackageVersion>
+    <Title>StarterKit templates</Title>
+    <Authors>Mohamed Magdy</Authors>
+    <Description>dotnet new templates for the StarterKit ASP.NET Core 10 modular monolith: the product (starterkit) and a drop-in business module (starterkit-module).</Description>
+    <PackageTags>dotnet-new;templates;modular-monolith;aspnetcore;saas;multi-tenancy</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <!-- Dot-files and dot-folders (.github, .gitignore, .template.config, .claude) are part of the templates. -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- NU5110/NU5111: scripts outside tools/ are template content, not install scripts. NU5128: no lib/ on purpose.
+         NU5123 (long paths): the template engine reads templates straight from the .nupkg and never extracts it. -->
+    <NoWarn>$(NoWarn);NU5110;NU5111;NU5123;NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\**\*"
+             Exclude="..\.git\**;..\.vs\**;..\**\bin\**;..\**\obj\**;..\**\node_modules\**;..\templates\**;..\postgres\**;..\redis\**;..\.artifacts*\**;..\artifacts\**;..\**\TestResults\**;..\**\*.user;..\**\*.build.log;..\.env;..\secrets\*.txt;..\.claude\settings.local.json;..\src\Api\uploads\**;..\tests\load\results\**;..\tests\e2e\test-results\**;..\tests\e2e\playwright-report\**"
+             PackagePath="content\starterkit\%(RecursiveDir)%(Filename)%(Extension)"
+             Pack="true" />
+    <Content Include="module\**\*"
+             Exclude="module\**\bin\**;module\**\obj\**"
+             PackagePath="content\module\%(RecursiveDir)%(Filename)%(Extension)"
+             Pack="true" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

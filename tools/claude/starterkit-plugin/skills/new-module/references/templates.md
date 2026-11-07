@@ -1,6 +1,7 @@
 # new-module templates
 
-These are trimmed from `src/Modules/Catalog`. If a template and Catalog disagree, Catalog is right; update this file.
+Prefer `dotnet new starterkit-module` (its source is `templates/module` in the template repository, built and tested
+in CI); these snippets are for adding one piece by hand. If a snippet and that template disagree, the template is right.
 
 ## {{Module}}.Contracts/{{Module}}.Contracts.csproj
 
@@ -32,7 +33,7 @@ using System.Reflection;
 
 namespace {{Module}}.Contracts;
 
-/// <summary>Assembly marker for {{Module}}.Contracts (enum lookup registration in src/Api/Program.cs).</summary>
+/// <summary>Assembly marker for {{Module}}.Contracts (enum lookup: declared in {{Module}}ModuleManifest.EnumAssemblies).</summary>
 public static class {{Module}}ContractsRoot
 {
     public static Assembly AssemblyName => Assembly.GetExecutingAssembly();
@@ -185,7 +186,7 @@ public class {{Module}}DbContext(DbContextOptions<{{Module}}DbContext> options) 
 
 ## {{Module}}/Data/{{Module}}DbContextFactory.cs
 
-The connection string here is design-time only (`dotnet ef`). It is the local-dev default, not a secret.
+The connection string here is design-time only (`dotnet ef`): `DatabaseDefaults.DesignTimeConnectionString`, the local-dev default, not a secret.
 
 ```csharp
 using Microsoft.EntityFrameworkCore.Design;
@@ -197,9 +198,8 @@ public class {{Module}}DbContextFactory : IDesignTimeDbContextFactory<{{Module}}
     public {{Module}}DbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<{{Module}}DbContext>();
-        const string connectionString =
-            "Server=localhost;Port=5432;Database=starterkit;User Id=postgres;Password=postgres;Include Error Detail=true";
-        optionsBuilder.UseNpgsql(connectionString, b => b.UseModuleMigrationsHistory<{{Module}}DbContext>());
+        optionsBuilder.UseNpgsql(DatabaseDefaults.DesignTimeConnectionString,
+            b => b.UseModuleMigrationsHistory<{{Module}}DbContext>());
         optionsBuilder.UseSnakeCaseNamingConvention();
         return new {{Module}}DbContext(optionsBuilder.Options);
     }
@@ -229,7 +229,7 @@ public static class {{Module}}Module
         services.AddMediator({{Module}}Root.AssemblyName);
         services.AddCustomMapster({{Module}}Root.AssemblyName);
         services.AddCarterWithAssemblies({{Module}}Root.AssemblyName);
-        services.AddCustomDbContext<{{Module}}DbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<{{Module}}DbContext>(configuration, DatabaseDefaults.ConnectionStringName);
         // services.AddOutbox<{{Module}}DbContext>();         // with builder.AddTenantOutbox()/AddOutbox()
         // services.AddScoped<IDataSeeder, {{Module}}DataSeeder>();
         // services.AddTransient<SomeJob>();                   // Hangfire jobs (see add-background-job)
@@ -242,6 +242,34 @@ public static class {{Module}}Module
         // Recurring jobs: see add-background-job
         return app;
     }
+}
+```
+
+## {{Module}}/{{Module}}ModuleManifest.cs
+
+The ONLY host wiring (ADR-0019): `Api.csproj` references the module by glob and `builder.AddModules()` discovers
+this manifest. Never edit `Program.cs`.
+
+```csharp
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Hosting;
+using Shared.Core.Modularity;
+
+[assembly: ModuleManifest(typeof({{Module}}.{{Module}}ModuleManifest))]
+
+namespace {{Module}};
+
+public sealed class {{Module}}ModuleManifest : ModuleBase
+{
+    public override int Order => ModuleOrder.Default;   // after the platform modules, before Notification
+
+    // Enums served by the enum lookup endpoint (omit when Contracts has none):
+    public override IEnumerable<Assembly> EnumAssemblies => [{{Module}}.Contracts.{{Module}}ContractsRoot.AssemblyName];
+
+    public override void AddServices(IHostApplicationBuilder builder) =>
+        builder.Services.Add{{Module}}Module(builder.Configuration);
+
+    public override void Initialize(WebApplication app) => app.Use{{Module}}Module();
 }
 ```
 
@@ -322,6 +350,6 @@ For the fixture, see the `write-tests` skill (`references/templates.md`, "Integr
 ## Removing a module
 
 This is the reverse of the steps above. For the full checklist, see `wiki/Modules/Catalog.md` → *Removing the Catalog
-sample*. It covers `Program.cs` (Add/Use, MassTransit, EnumLookup), `Api.csproj`, `Api.E2ETests.csproj` and its test
-folder, `ModuleBoundaryTests.Modules`, the `MessagingArchitectureTests` / `TenantIsolationArchitectureTests`
+sample*. Program.cs and Api.csproj need nothing (discovery, ADR-0019). It covers `Api.E2ETests.csproj` and its test
+folder, the `MessagingArchitectureTests` / `TenantIsolationArchitectureTests`
 expectations, appsettings, the slnx, `DROP SCHEMA <schema> CASCADE;`, and the module's Hangfire recurring jobs.

@@ -10,7 +10,7 @@ namespace Shared.Core.Data;
 /// </summary>
 public sealed class MigrationLock : IAsyncDisposable
 {
-    /// <summary>Arbitrary constant key ("STARTERKIT" in ASCII) shared by every migrator of a database.</summary>
+    /// <summary>Arbitrary constant advisory-lock key shared by every migrator of a database (never change it).</summary>
     public const long LockKey = 0x5354415254455249;
 
     private readonly NpgsqlConnection? _connection;

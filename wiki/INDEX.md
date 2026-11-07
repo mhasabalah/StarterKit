@@ -25,7 +25,11 @@ wiki/
 ## Getting started
 
 - [README](README.md): wiki landing page (where to start, module table)
-- [Getting-Started/New-Project.md](Getting-Started/New-Project.md): start a product from the template (`/starterkit:new-project`)
+- [Getting-Started/New-Project.md](Getting-Started/New-Project.md): start a product from the template (`dotnet new starterkit`, `/starterkit:new-project`)
+- [Getting-Started/Templates.md](Getting-Started/Templates.md): the `dotnet new` product and module templates and their switches
+<!--#if (templateSource)-->
+- [Getting-Started/Changing-The-Template.md](Getting-Started/Changing-The-Template.md): template-repository rules: conditional code, module migration sets, the CI matrix
+<!--#endif-->
 
 ## Architecture
 
@@ -60,10 +64,16 @@ wiki/
 - [0017](Decisions/0017-money-precision-and-per-currency-rounding.md): money as numeric(19,4), rounding per ISO 4217 currency
 - [0018](Decisions/0018-off-session-dunning-retries-on-saved-cards.md): idempotent off-session card retries in dunning, sandbox vs live gateways
 - [0016](Decisions/0016-bulk-data-transfer-on-hangfire.md): bulk import/export as leased, checkpointed jobs on their own Hangfire queue
+- [0019](Decisions/0019-module-manifests-and-discovery.md): modules plug in through a discovered manifest (no Program.cs edits)
+<!--#if (templateSource)-->
+- [0020](Decisions/0020-dotnet-new-templates.md): `dotnet new` product and module templates (the repo is the template)
+<!--#endif-->
 
 ## Modules
 
+<!--#if (sample)-->
 - [Catalog](Modules/Catalog.md): the **reference module**; wiring checklist; removing the sample
+<!--#endif-->
 - [Tenancy](Modules/Tenancy.md): control plane
 - [Subscriptions](Modules/Subscriptions.md): plans, subscriptions, billing
 - [Notification](Modules/Notification.md): email, WhatsApp, in-app and push delivery
@@ -118,7 +128,10 @@ wiki/
 ## Reference
 
 - [Feature catalog](Reference/Features.md): everything the template ships, by area
-- [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Template backlog](Reference/Template-Backlog.md) · [Third-party licenses](Reference/Third-Party-Licenses.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
+<!--#if (templateSource)-->
+- [Template backlog](Reference/Template-Backlog.md): known issues and roadmap of the template
+<!--#endif-->
+- [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Third-party licenses](Reference/Third-Party-Licenses.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
 
 ## Deployment and operations
 
@@ -132,7 +145,11 @@ wiki/
 
 | Task | Skill | Read |
 |---|---|---|
+<!--#if (sample)-->
 | New module | `/starterkit:new-module` | [Catalog](Modules/Catalog.md) |
+<!--#else-->
+| New module | `/starterkit:new-module` | [Templates](Getting-Started/Templates.md) |
+<!--#endif-->
 | New entity or aggregate | `/starterkit:add-aggregate` | [DatabaseConventions](Architecture/DatabaseConventions.md) |
 | New endpoint or slice | `/starterkit:add-feature` | [ApiGuidelines](Architecture/ApiGuidelines.md) |
 | Migration | `/starterkit:add-migration` | [Migrations](Reference/Migrations.md) |
