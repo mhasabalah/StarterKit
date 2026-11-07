@@ -387,7 +387,9 @@ public sealed class TestItemExportDefinition(TestItems items, ITenantContext ten
 
 public sealed class MutableTimeProvider : TimeProvider
 {
-    private DateTimeOffset _now = new(2026, 11, 6, 12, 0, 0, TimeSpan.Zero);
+    // Starts at the real time and only moves forward through Advance: several tests compare the job clock with
+    // Postgres now() / DateTime.UtcNow (expiry and purge), so a pinned date would turn them into a date bomb.
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
 
     public override DateTimeOffset GetUtcNow() => _now;
 
