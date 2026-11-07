@@ -94,7 +94,9 @@ Each run adds users, products and import rows, so `run.sh run` refuses a second 
 
 ## CI
 
-`.github/workflows/load-test.yml` runs nightly (03:30 UTC) and on demand (inputs `duration`, `rate_scale`): validate the
+`.github/workflows/load-test.yml` runs nightly (03:30 UTC), on pull requests that change the load-test kit
+(`tests/load/**`, the LoadTest profile, `docker-compose.loadtest.yml`, the workflow itself) with the defaults, and on
+demand (inputs `duration`, `rate_scale`): validate the
 inputs (duration `10s` to `15m`, rate scale 1 to 10; the cap keeps image build, boot, seed, run, the 60s graceful stop and
 teardown inside `timeout-minutes: 30`), generate secrets, boot the stack, seed, run k6, upload `summary.json` as the `load-test-summary` artifact, tear down. A crossed
 threshold fails the job.

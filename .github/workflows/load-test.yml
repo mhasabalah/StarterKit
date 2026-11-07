@@ -7,6 +7,8 @@
 # k6 exits non-zero when a threshold fails (p95 per scenario, http_req_failed < 1%), which fails this job.
 #   - nightly: catches a slow regression before a release does
 #   - on demand (Run workflow): pick duration and VU scale
+#   - pull requests that change the load-test kit itself (scripts, profile, compose, this workflow), so a broken
+#     script is caught before merge instead of at the next nightly
 # The k6 summary is uploaded as the "load-test-summary" artifact. Docs: wiki/Testing/Load-Testing.md.
 # ==============================================
 
@@ -15,6 +17,13 @@ name: Load test
 on:
   schedule:
     - cron: '30 3 * * *' # daily 03:30 UTC
+  pull_request:
+    branches: [master]
+    paths:
+      - 'tests/load/**'
+      - 'src/Api/appsettings.LoadTest.json'
+      - 'docker-compose.loadtest.yml'
+      - '.github/workflows/load-test.yml'
   workflow_dispatch:
     inputs:
       duration:
