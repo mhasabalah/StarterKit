@@ -1,0 +1,94 @@
+# ==============================================
+# HTTP load tests (k6 against the real API in Docker)
+# ==============================================
+# Boots docker-compose.loadtest.yml (API in the LoadTest profile + Postgres + Redis), seeds users / an admin / API keys /
+# products through the public API (tests/load/seed.js), then runs the k6 scenarios in tests/load/main.js: auth
+# (login + refresh), catalog browse/search, product CRUD with an API key, bulk-import submit + poll, notification inbox.
+# k6 exits non-zero when a threshold fails (p95 per scenario, http_req_failed < 1%), which fails this job.
+#   - nightly: catches a slow regression before a release does
+#   - on demand (Run workflow): pick duration and VU scale
+#   - pull requests that change the load-test kit itself (scripts, profile, compose, this workflow), so a broken
+#     script is caught before merge instead of at the next nightly
+# The k6 summary is uploaded as the "load-test-summary" artifact. Docs: wiki/Testing/Load-Testing.md.
+# ==============================================
+
+name: Load test
+
+on:
+  schedule:
+    - cron: '30 3 * * *' # daily 03:30 UTC
+  pull_request:
+    branches: [master]
+    paths:
+      - 'tests/load/**'
+      - 'src/Api/appsettings.LoadTest.json'
+      - 'docker-compose.loadtest.yml'
+      - '.github/workflows/load-test.yml'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Duration of the main run: whole seconds or minutes, at most 15m (e.g. 90s, 5m)'
+        default: '60s'
+        required: false
+      rate_scale:
+        description: 'Multiplier for every scenario''s arrival rate (1 to 10)'
+        default: '1'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: load-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  k6:
+    name: k6 scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOAD_DURATION: ${{ github.event.inputs.duration || '60s' }}
+      LOAD_RATE_SCALE: ${{ github.event.inputs.rate_scale || '1' }}
+      # Hosted 2-CPU runner: API, Postgres, Redis and k6 share the cores (~3x slower than the calibration machine).
+      LOAD_P95_SCALE: '3'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # The inputs reach the shell and k6 as environment variables: check them first. The 15m cap keeps the whole job
+      # (image build, boot, seed, run + 60s graceful stop, teardown) inside timeout-minutes (30).
+      - name: Validate the inputs
+        run: |
+          if ! [[ "$LOAD_DURATION" =~ ^[0-9]+[sm]$ ]]; then echo "duration must be N s or N m, got '$LOAD_DURATION'"; exit 1; fi
+          seconds=${LOAD_DURATION%[sm]}; [[ "$LOAD_DURATION" == *m ]] && seconds=$((seconds * 60))
+          if [ "$seconds" -lt 10 ] || [ "$seconds" -gt 900 ]; then echo "duration must be between 10s and 15m"; exit 1; fi
+          if ! [[ "$LOAD_RATE_SCALE" =~ ^([1-9]|10)$ ]]; then echo "rate_scale must be an integer from 1 to 10"; exit 1; fi
+
+      - name: Generate the stack secrets
+        run: bash tests/load/run.sh env
+
+      - name: Start the stack (API in the LoadTest profile)
+        run: bash tests/load/run.sh up
+
+      - name: Seed through the public API
+        run: bash tests/load/run.sh seed
+
+      - name: Run the k6 scenarios
+        run: bash tests/load/run.sh run
+
+      - name: API logs (on failure)
+        if: failure()
+        run: docker compose -p starterkit-load --env-file .env.loadtest -f docker-compose.loadtest.yml logs --tail 200 api
+
+      - name: Upload the k6 summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: load-test-summary
+          path: tests/load/results/summary.json
+          if-no-files-found: warn
+
+      - name: Tear down
+        if: always()
+        run: bash tests/load/run.sh down

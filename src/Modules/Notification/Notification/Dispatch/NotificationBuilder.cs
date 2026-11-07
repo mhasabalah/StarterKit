@@ -21,6 +21,7 @@ internal sealed class NotificationBuilder : INotificationBuilder
     private PushContent? _push;
     private bool? _pushFromInAppSensitive;
     private string? _category;
+    private Guid? _correlationId;
 
     internal NotificationBuilder(
         Guid userId,
@@ -83,6 +84,14 @@ internal sealed class NotificationBuilder : INotificationBuilder
         return this;
     }
 
+    public INotificationBuilder WithCorrelationId(Guid correlationId)
+    {
+        if (correlationId == Guid.Empty)
+            throw new ArgumentException("Correlation id must not be empty.", nameof(correlationId));
+        _correlationId = correlationId;
+        return this;
+    }
+
     public INotificationBuilder WithPush(bool sensitive = false)
     {
         // Resolved at SendAsync so WithInApp may come before or after this call.
@@ -128,7 +137,8 @@ internal sealed class NotificationBuilder : INotificationBuilder
             WhatsApp = _whatsApp,
             InApp = _inApp,
             Push = push,
-            Category = _category ?? _inApp?.Category ?? push?.Data?.GetValueOrDefault("category")
+            Category = _category ?? _inApp?.Category ?? push?.Data?.GetValueOrDefault("category"),
+            CorrelationId = _correlationId
         };
         return await _enqueuer.EnqueueAsync(message, forcedChannel, ct);
     }

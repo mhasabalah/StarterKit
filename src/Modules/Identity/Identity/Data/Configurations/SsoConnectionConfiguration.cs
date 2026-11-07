@@ -24,6 +24,7 @@ public class SsoConnectionConfiguration : IEntityTypeConfiguration<SsoConnection
         entity.Property(e => e.SamlIdpSsoUrl).HasMaxLength(SsoConnection.UrlMaxLength);
         entity.Property(e => e.SamlIdpMetadataUrl).HasMaxLength(SsoConnection.UrlMaxLength);
         entity.Property(e => e.SamlIdpCertificates).HasColumnType("text[]");
+        entity.Property(e => e.SamlMetadataLastError).HasMaxLength(64);
 
         entity.Property(e => e.EmailClaim).HasMaxLength(SsoConnection.ClaimMaxLength);
         entity.Property(e => e.GivenNameClaim).HasMaxLength(SsoConnection.ClaimMaxLength);

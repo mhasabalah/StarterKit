@@ -16,6 +16,27 @@ public sealed class NotificationSenderTests
             .ReturnsAsync(Guid.NewGuid());
 
     [Fact]
+    public async Task A_pinned_correlation_id_travels_on_the_message_and_defaults_to_none()
+    {
+        var pinned = Guid.NewGuid();
+        var user = Guid.NewGuid();
+
+        await new NotificationSender(_enqueuer.Object).For(user).WithCorrelationId(pinned).SendAsync();
+        _sent!.CorrelationId.Should().Be(pinned);
+
+        await new NotificationSender(_enqueuer.Object).For(user).SendAsync();
+        _sent!.CorrelationId.Should().BeNull();
+    }
+
+    [Fact]
+    public void An_empty_correlation_id_is_rejected()
+    {
+        var act = () => new NotificationSender(_enqueuer.Object).For(Guid.NewGuid()).WithCorrelationId(Guid.Empty);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public async Task ToEmail_addresses_the_given_email_and_links_the_optional_user()
     {
         var userId = Guid.NewGuid();

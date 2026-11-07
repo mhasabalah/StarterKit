@@ -38,4 +38,10 @@
   <data name="Validation.Version.Min" xml:space="preserve"><value>يجب أن يكون الإصدار صفرًا أو أكبر.</value></data>
   <data name="Validation.PageNumber.Min" xml:space="preserve"><value>يجب أن يكون رقم الصفحة أكبر من صفر.</value></data>
   <data name="Validation.PageSize.Range" xml:space="preserve"><value>يجب أن يكون حجم الصفحة بين 1 و100.</value></data>
+  <data name="InApp.webhooks.endpoint-disabled.Title" xml:space="preserve">
+    <value>تم تعطيل نقطة نهاية الويب هوك</value>
+  </data>
+  <data name="InApp.webhooks.endpoint-disabled.Body" xml:space="preserve">
+    <value>تم إيقاف {0} بعد {1} محاولات إرسال فاشلة متتالية. أصلح نقطة النهاية ثم أعد تفعيلها.</value>
+  </data>
 </root>

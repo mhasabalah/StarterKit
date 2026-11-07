@@ -38,4 +38,10 @@
   <data name="Validation.Version.Min" xml:space="preserve"><value>Version must be zero or greater.</value></data>
   <data name="Validation.PageNumber.Min" xml:space="preserve"><value>Page number must be greater than zero.</value></data>
   <data name="Validation.PageSize.Range" xml:space="preserve"><value>Page size must be between 1 and 100.</value></data>
+  <data name="InApp.webhooks.endpoint-disabled.Title" xml:space="preserve">
+    <value>Webhook endpoint disabled</value>
+  </data>
+  <data name="InApp.webhooks.endpoint-disabled.Body" xml:space="preserve">
+    <value>{0} was switched off after {1} consecutive failed deliveries. Fix the endpoint and re-enable it.</value>
+  </data>
 </root>

@@ -23,6 +23,12 @@ public interface INotificationClient
 
     /// <summary>A transient event from another module (e.g. job progress). Not stored: re-read over REST on reconnect.</summary>
     Task UserEvent(UserEvent userEvent);
+
+    /// <summary>
+    /// The session behind this connection was revoked (sign-out, lock, password change, ...). The server closes the
+    /// socket right after sending this; the client must NOT reconnect with the same token (sign in again instead).
+    /// </summary>
+    Task ForceDisconnect(ForceDisconnectEvent disconnect);
 }
 
 /// <summary>Hub route and client method names (for non-.NET clients).</summary>
@@ -35,6 +41,7 @@ public static class NotificationHubContract
     public const string NotificationsRead = nameof(INotificationClient.NotificationsRead);
     public const string NotificationDeleted = nameof(INotificationClient.NotificationDeleted);
     public const string UserEvent = nameof(INotificationClient.UserEvent);
+    public const string ForceDisconnect = nameof(INotificationClient.ForceDisconnect);
 }
 
 /// <param name="TenantId">Inbox scope the count belongs to (null = no tenant / single-tenant).</param>
@@ -46,3 +53,9 @@ public sealed record UnreadCountChangedEvent(Guid? TenantId, int Count);
 public sealed record NotificationsReadEvent(IReadOnlyCollection<Guid>? Ids, DateTime ReadAt, DateTime? UpTo);
 
 public sealed record NotificationDeletedEvent(Guid Id);
+
+/// <param name="Reason">Machine-readable reason (today always <c>session_revoked</c>).</param>
+public sealed record ForceDisconnectEvent(string Reason)
+{
+    public const string SessionRevoked = "session_revoked";
+}

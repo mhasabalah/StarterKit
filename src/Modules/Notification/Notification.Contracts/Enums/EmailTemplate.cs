@@ -103,5 +103,8 @@ public enum EmailTemplate
     SecurityAlert,
 
     [TemplateFile("OneTimeCode")]
-    OneTimeCode
+    OneTimeCode,
+
+    [TemplateFile("SsoCertificateExpiring")]
+    SsoCertificateExpiring
 }

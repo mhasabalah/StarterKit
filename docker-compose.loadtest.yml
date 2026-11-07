@@ -1,0 +1,112 @@
+# ==============================================
+# StarterKit Load-Test Stack (k6 against a real, containerised API)
+# ==============================================
+# SELF-CONTAINED: unlike the other overlays it is NOT merged onto docker-compose.yml. The base file needs Docker
+# secrets, pgBackRest, Seq and a one-shot migrator, none of which a load run wants; this stack runs just the API
+# (ASPNETCORE_ENVIRONMENT=LoadTest -> src/Api/appsettings.LoadTest.json), Postgres, Redis and k6, so the numbers
+# measure the application. Use its own compose project so it never touches a dev stack:
+#
+#   cp .env.loadtest.example .env.loadtest      # then fill every CHANGE_ME (or: make loadtest-env)
+#   docker compose -p starterkit-load --env-file .env.loadtest -f docker-compose.loadtest.yml up -d --build --wait postgres redis api
+#   docker compose -p starterkit-load --env-file .env.loadtest -f docker-compose.loadtest.yml run --rm k6 run /scripts/seed.js
+#   docker compose -p starterkit-load --env-file .env.loadtest -f docker-compose.loadtest.yml run --rm k6 run /scripts/main.js
+#   docker compose -p starterkit-load --env-file .env.loadtest -f docker-compose.loadtest.yml down -v
+#
+# (`make loadtest` does all of it.) The LoadTest profile (mounted read-only, never published in the image) raises the rate limits
+# and sets 2FA to Warn; ProductionConfigurationGuard refuses `LoadTest:Enabled=true` outside the LoadTest environment
+# and the LoadTest environment without it. Never point this
+# at a shared or production deployment. Docs: wiki/Testing/Load-Testing.md.
+# ==============================================
+
+name: starterkit-load
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: starterkit
+      POSTGRES_USER: starterkit_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=256MB", "-c", "fsync=off", "-c", "synchronous_commit=off"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U starterkit_user -d starterkit"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    image: starterkit-api:loadtest
+    user: root
+    environment:
+      ASPNETCORE_ENVIRONMENT: LoadTest
+      ASPNETCORE_URLS: "http://+:80"
+      TZ: UTC
+      ConnectionStrings__starterkit: "Host=postgres;Port=5432;Database=starterkit;Username=starterkit_user;Password=${POSTGRES_PASSWORD};Maximum Pool Size=100"
+      JwtSettings__SecretKey: ${JWT_SECRET:?run make loadtest-env or copy .env.loadtest.example}
+      Identity__OtpHmacKey: ${OTP_HMAC_KEY:?run make loadtest-env or copy .env.loadtest.example}
+      Identity__SeedAdmin__Password: ${LOAD_ADMIN_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
+      Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
+    volumes:
+      # Not part of the published image (Api.csproj: CopyToPublishDirectory=Never): the profile exists only here.
+      - ./src/Api/appsettings.LoadTest.json:/app/appsettings.LoadTest.json:ro
+    ports:
+      - "127.0.0.1:${LOADTEST_API_PORT:-5090}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/80 && printf 'GET /alive HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '${API_CPUS:-2.0}'
+          memory: ${API_MEMORY_LIMIT:-2g}
+
+  # Pinned k6; `profiles` keeps it out of `up`, it only runs through `run --rm k6 run /scripts/<script>.js`.
+  k6:
+    image: grafana/k6:1.0.0
+    profiles: ["k6"]
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://api:80
+      RESULTS_DIR: /results
+      LOAD_USER_PASSWORD: ${LOAD_USER_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
+      LOAD_ADMIN_PASSWORD: ${LOAD_ADMIN_PASSWORD:-}
+      LOAD_ADMIN_EMAIL: ${LOAD_ADMIN_EMAIL:-admin@starterkit.local}
+      LOAD_TENANT: ${LOAD_TENANT:-}
+      LOAD_IMPORT_ROWS: ${LOAD_IMPORT_ROWS:-200}
+      LOAD_RATE_SCALE: ${LOAD_RATE_SCALE:-1}
+      LOAD_P95_SCALE: ${LOAD_P95_SCALE:-1}
+      LOAD_DURATION: ${LOAD_DURATION:-30s}
+      LOAD_USERS: ${LOAD_USERS:-20}
+      LOAD_PRODUCTS: ${LOAD_PRODUCTS:-40}
+      SCENARIOS: ${SCENARIOS:-auth,catalog,products,import,inbox}
+    volumes:
+      - ./tests/load:/scripts:ro
+      - ${LOADTEST_RESULTS_DIR:-./tests/load/results}:/results
+    user: root
