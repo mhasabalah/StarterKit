@@ -14,6 +14,9 @@ The repository is the template, so every change is a normal code change. Three r
   project files as template conditions and drops the element (see `src/Api/Api.csproj`). Filter items instead, for
   example with `WithMetadataValue`.
 - **Whole files** that belong to one switch are listed under `sources.modifiers` in `.template.config/template.json`.
+- **Never end a file on an end marker.** With CRLF line endings (every `*.cs` file, `.gitattributes`), `dotnet new`
+  leaves an end marker that sits on the file's last line in the output. Keep a line of content after a conditional
+  block. The templates workflow checks it.
 
 The `templates.yml` workflow packs the templates and generates products with several switch combinations, plus
 modules inside them. Each one must build, pass its tests and the docs check, and contain no leftover template name.

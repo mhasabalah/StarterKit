@@ -133,13 +133,7 @@ public sealed class ModuleNamePostgresFixture : IAsyncLifetime
     }
 }
 
-[CollectionDefinition(Name)]
-public sealed class ModuleNamePostgresCollection : ICollectionFixture<ModuleNamePostgresFixture>
-{
-    public const string Name = "modulename-postgres";
-}
 #if (TENANT_DATA)
-
 public sealed class FixedTenantStore(params TenantInfo[] tenants) : ITenantStore
 {
     public Task<TenantInfo?> FindByIdAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
@@ -155,3 +149,9 @@ public sealed class FixedTenantStore(params TenantInfo[] tenants) : ITenantStore
         Task.FromResult<IReadOnlyList<TenantInfo>>(tenants);
 }
 #endif
+
+[CollectionDefinition(Name)]
+public sealed class ModuleNamePostgresCollection : ICollectionFixture<ModuleNamePostgresFixture>
+{
+    public const string Name = "modulename-postgres";
+}

@@ -667,3 +667,4 @@ jobs:
             send_telegram "$MSG" "false"
           fi
   #endif
+# End of the pipeline (keep a line after the deploy block: `dotnet new` needs one after an end marker).

@@ -56,6 +56,17 @@ jobs:
             echo "version=0.0.0-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: No file ends on a template end marker
+        # dotnet new leaves an end marker on a file's last line when the file has CRLF endings (*.cs here), so a
+        # conditional block must never close a file. Keep a line of content after it.
+        run: |
+          bad=0
+          while IFS= read -r f; do
+            last=$(grep -v '^[[:space:]]*$' "$f" | tail -n 1 | tr -d '')
+            case "$last" in *'#endif'*|*'#else'*) echo "::error file=$f::ends on a template marker: $last"; bad=1;; esac
+          done < <(git ls-files '*.cs' '*.csproj' '*.props' '*.slnx' '*.md' '*.json' '*.yml' '.env*')
+          exit $bad
+
       - name: Pack
         run: >
           dotnet pack templates/StarterKit.Templates.csproj -c Release -o artifacts
