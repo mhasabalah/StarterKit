@@ -36,7 +36,7 @@
   <data name="Validation.AppVersion.MaxLength" xml:space="preserve"><value>يجب ألا يتجاوز إصدار التطبيق 50 حرفًا.</value></data>
   <data name="Validation.Locale.MaxLength" xml:space="preserve"><value>يجب ألا تتجاوز اللغة 20 حرفًا.</value></data>
   <data name="Validation.Preference.UnknownGroup" xml:space="preserve"><value>مجموعة الإشعارات '{0}' غير معروفة.</value></data>
-  <data name="Validation.Preference.SecurityNotMutable" xml:space="preserve"><value>لا يمكن كتم إشعارات الأمان.</value></data>
+  <data name="Validation.Preference.ChannelNotMutable" xml:space="preserve"><value>لا يمكن كتم قناة {1} لإشعارات '{0}'.</value></data>
   <data name="Validation.Preference.QuietHours.Invalid" xml:space="preserve"><value>تتطلب ساعات الهدوء وقت بداية ووقت نهاية بصيغة HH:mm.</value></data>
   <data name="Validation.Preference.QuietHours.SameTime" xml:space="preserve"><value>يجب أن يختلف وقت بداية ساعات الهدوء عن وقت نهايتها.</value></data>
   <data name="Validation.Preference.TimeZone.Invalid" xml:space="preserve"><value>يجب أن تكون المنطقة الزمنية معرّف IANA صالحاً مثل Africa/Cairo.</value></data>

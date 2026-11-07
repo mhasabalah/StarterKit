@@ -251,7 +251,7 @@ in another tenant ignores them or refreshes.
 |---|---|
 | `Inbox` | `RetentionDays` (90) |
 | `Realtime` | `Enabled` (true; false = no hub, clients poll), `Transports` (comma-separated, `WebSockets,ServerSentEvents,LongPolling`; Docker: `WebSockets`), `KeepAliveInterval` (15s), `ClientTimeoutInterval` (30s), `UseRedisBackplane` (true) |
-| `Push` | `Apns` (`Enabled`, `KeyId`, `TeamId`, `BundleId`, `PrivateKeyFile`, `UseSandbox`; key in secret `apns_private_key`), `Provider` (`Auto` = FCM when credentials exist, else NoOp; `Fcm`; `NoOp`), `ProjectId`, `CredentialsFile` or the `fcm_service_account_json` secret, `DefaultTimeToLive` (1 day, max 28), `MaxAttempts` (4), `RetryDelaysSeconds` ([30,120,600]), `MaxDevicesPerUser` (10), `StaleDeviceDays` (60) |
+| `Push` | `Apns` (`Enabled`, `KeyId`, `TeamId`, `BundleId`, `PrivateKeyFile`, `UseSandbox`), `Provider` (`Auto` = FCM when credentials exist, else NoOp; `Fcm`; `NoOp`), `ProjectId`, `CredentialsFile` or the `fcm_service_account_json` secret, `DefaultTimeToLive` (1 day, max 28), `MaxAttempts` (4), `RetryDelaysSeconds` ([30,120,600]), `MaxDevicesPerUser` (10), `StaleDeviceDays` (60) |
 
 Everything is validated at startup (`ValidateOnStart`): `Push:Provider=Fcm` without credentials, an unknown transport
 or a bad interval refuses to boot. `Realtime:Transports` is a string, not an array: configuration merges arrays by
@@ -264,18 +264,27 @@ A category is `<group>.<event>` (`billing.invoice-issued`); the group is the par
 `system`). The list, with `en`/`ar` names, is `NotificationCategoryGroups` (Notification.Contracts) and the
 `category-groups` endpoint.
 
-- **Mutes** are per group and per channel: `categoryMutes: { "billing": { "push": true, "inApp": false, "email": false } }`.
-  A muted in-app or push delivery is logged `Skipped` and never stored or sent.
-- **Never muted:** the `security` group on any channel (the validator rejects it; delivery ignores a stale row), and
-  email forced with `SendAsync(NotificationChannel.Email)` (security mail).
-- **Email category.** Email-only sends have no in-app payload, so name the category with the optional
-  `.InCategory("billing.invoice-issued")` on the builder. Without it the in-app category is used; with neither, the
-  email is never muted. `InCategory` is a default interface method (returns the builder), so test doubles need no change.
-- **Quiet hours:** `quietHours: { enabled, start: "22:00", end: "07:00" }` plus `timeZone` (IANA, e.g. `Africa/Cairo`;
-  validated with `TimeZoneInfo`, so slim container images need `tzdata`). The window may cross midnight. During it a
-  push is DEFERRED: the job is rescheduled to the window end with the remaining time-to-live reduced by the wait, and
-  dropped (logged `Skipped`) when the TTL would expire first. In-app entries are still stored and counted as unread,
-  but the live SignalR event is not sent. The `security` group ignores quiet hours. `enabled: false` removes the window.
+- **Mutes** are per group and per channel: `categoryMutes: { "membership": { "push": true, "inApp": false, "email": false } }`.
+  A muted in-app or push delivery is logged `Skipped` and never stored or sent. "Email" covers the whole email/WhatsApp
+  chain of that send: muting it does NOT fall back to WhatsApp.
+- **Fixed channels** (cannot be muted): every channel of `security`, and `billing` email (invoices and payment failures
+  are transactional). The validator answers 400 (localized en/ar) and delivery ignores a stale stored mute (defense in
+  depth). `category-groups` returns `inAppMutable` / `pushMutable` / `emailMutable` per group. The table is
+  `NotificationCategoryGroups` in Notification.Contracts. Forced email (`SendAsync(NotificationChannel.Email)`) is no
+  longer special: whether it can be muted depends on its group like any other send.
+- **No category, no mute.** An email-only send names its category with the optional `.InCategory("membership.invitation-accepted")`
+  on the builder. Without it the in-app category is used; with neither, the email is never muted. Push and in-app with no
+  category are not muted or deferred either. `InCategory` is a default interface method (returns the builder), so test
+  doubles need no change. The resolved category travels on `NotificationMessage`, `InAppDelivery` and `PushDelivery`.
+- **Quiet hours:** `quietHours: { enabled, start: "22:00", end: "07:00" }` plus `timeZone`. The time zone is stored as its
+  canonical IANA id (e.g. `Africa/Cairo`); a Windows id such as `Egypt Standard Time` is converted and an id with no IANA
+  equivalent is rejected. It is validated with `TimeZoneInfo`, so slim container images need `tzdata`. The window may cross
+  midnight; an end time that does not exist (spring-forward) ends at the first valid local time, an ambiguous one
+  (fall-back) at its first occurrence. During the window a push is DEFERRED: the job is rescheduled to the window end with
+  the remaining time-to-live reduced by the wait, a `Queued` log row "Deferred until ..." is written, and a duplicate run of
+  the same notification schedules nothing more. A push whose TTL would expire first is dropped (`Skipped`). In-app entries
+  are still stored and counted as unread, but the live SignalR event is not sent. `security` ignores quiet hours.
+  `enabled: false` removes the window.
 
 ## FCM / APNs setup
 
@@ -283,13 +292,18 @@ A category is `<group>.<event>` (`billing.invoice-issued`); the group is the par
 2. iOS: upload the APNs authentication key (`.p8`) in Firebase → Project settings → Cloud Messaging. Pushes to iOS go
    through FCM unless you enable the direct adapter below.
 
-   **Direct APNs (optional).** Set `Push:Apns:Enabled=true` with `KeyId`, `TeamId`, `BundleId` (placeholders
-   `CHANGE_ME` count as missing) and the `.p8` key from the secret `apns_private_key` or `Push:Apns:PrivateKeyFile`;
-   `UseSandbox=true` for development-build tokens (a token only works in the environment that issued it, and a wrong
-   one comes back `BadDeviceToken`, which deletes the device). No NuGet package: HTTP/2 with an ES256 JWT cached about
-   50 minutes. `RoutingPushProvider` sends iOS devices holding a NATIVE APNs token (hexadecimal) to Apple and every
-   other device, including iOS devices with a Firebase token, through FCM. Errors: `BadDeviceToken`/`Unregistered`
-   delete the device, 429/5xx/`ExpiredProviderToken` retry, anything else is rejected.
+   **Direct APNs (optional).** Overlay `docker-compose.apns.yml`, or set `Push:Apns:Enabled=true` with `KeyId`,
+   `TeamId`, `BundleId` (`CHANGE_ME` counts as missing) and `Push:Apns:PrivateKeyFile`, the path of the `.p8` key
+   (`secrets/apns_auth_key.p8`; read by path, never loaded into configuration). The key is parsed at startup: a missing
+   or invalid key stops the boot. `UseSandbox=true` is for development-build tokens (a token only works in the environment
+   that issued it). No NuGet package: HTTP/2 with an ES256 JWT cached about 50 minutes, minted once when a burst of
+   `ExpiredProviderToken` answers arrives. The HTTP client has no logging handler because the URI carries the device token.
+   `RoutingPushProvider` sends iOS devices holding a NATIVE APNs token (hexadecimal) to Apple and every other device,
+   including iOS devices with a Firebase token, through FCM; one provider failing never discards the other's results.
+   The payload is kept within 4096 bytes (UTF-8, not escaped): the body is cut first, then the title, then data entries.
+   Errors: only `410 Unregistered` deletes the device. `400 BadDeviceToken` (often a sandbox/production mismatch) is
+   Rejected: the device is kept and a warning is logged. 429, 5xx and `ExpiredProviderToken` retry; anything else is
+   rejected.
 3. Generate a service-account key (Project settings → Service accounts) with only the "Firebase Cloud Messaging API
    Admin" role, save it as `secrets/fcm_service_account.json` and run with the overlay:
    `docker compose -f docker-compose.yml -f docker-compose.push.yml up -d`. The key is read by path

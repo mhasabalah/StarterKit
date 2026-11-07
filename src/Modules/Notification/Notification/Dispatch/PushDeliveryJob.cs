@@ -37,6 +37,7 @@ public sealed class PushDeliveryJob(
     public static readonly LocalizedText SensitiveBody = new("Open the app to view it.", "افتح التطبيق لعرضه.");
 
     private const int MaxErrorLength = 2000;
+    internal const string DeferredMarker = "Deferred until ";
 
     public async Task ExecuteAsync(PushDelivery delivery, Guid correlationId, CancellationToken ct = default)
     {
@@ -82,7 +83,24 @@ public sealed class PushDeliveryJob(
                 return;
             }
 
-            var deferred = delivery with { Content = delivery.Content with { TimeToLive = ttl - wait } };
+            // A duplicate run of the ORIGINAL job (Hangfire retry, double enqueue) must not schedule a second push:
+            // skip when this correlation already has a deferred or sent push row. The deferred job itself may run
+            // again in quiet hours (it fired early) and then simply reschedules.
+            if (!delivery.Deferred)
+            {
+                var history = await logs.GetByCorrelationAsync(correlationId, ct);
+                if (history.Any(h => h.Channel == NotificationChannel.Push &&
+                                     (h.Status == NotificationDeliveryStatus.Sent ||
+                                      (h.Status == NotificationDeliveryStatus.Queued && h.Error?.StartsWith(DeferredMarker, StringComparison.Ordinal) == true))))
+                {
+                    return;
+                }
+
+                await LogAsync(correlationId, delivery, NotificationDeliveryStatus.Queued,
+                    $"{DeferredMarker}{quietEnd:u} (quiet hours).", ct);
+            }
+
+            var deferred = delivery with { Content = delivery.Content with { TimeToLive = ttl - wait }, Deferred = true };
             jobs.Schedule<PushDeliveryJob>(job => job.ExecuteAsync(deferred, correlationId, CancellationToken.None), wait);
             logger.LogInformation("Push deferred by quiet hours until {Until}. UserId: {UserId} CorrelationId: {CorrelationId}",
                 quietEnd, delivery.UserId, correlationId);

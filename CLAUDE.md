@@ -244,8 +244,9 @@ Notification is the exception: its context is in `Persistence/`.
     `EmailDesignTokens`), never hex in a `.liquid` file (`EmailDesignSystemTests`). Preheader via `| set_preheader`;
     never a secret in it. Guide: `wiki/Modules/Notification-Email-Design-System.md`.
   - Categories are `<group>.<event>` (`NotificationCategoryGroups`: billing, security, membership, catalog,
-    data-transfer, webhooks, system). Users mute per group and channel and set quiet hours; `security` and forced
-    `NotificationChannel.Email` are never muted. Email-only sends name the category with `.InCategory(...)`.
+    data-transfer, webhooks, system). Users mute per group and channel and set quiet hours; fixed channels (all of
+    `security`, `billing` email) cannot be muted and `security` ignores quiet hours. No category means never muted. Email-only
+    sends name the category with `.InCategory(...)`.
   - Push goes only through `IPushProvider` (FCM adapter; FirebaseAdmin stays in Notification). Devices are bound to
     the registering session (`sid`). Guide: `wiki/Modules/Notification-Realtime-and-Push.md`.
 - **Localization.**

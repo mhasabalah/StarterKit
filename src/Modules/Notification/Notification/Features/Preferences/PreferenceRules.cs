@@ -44,10 +44,13 @@ public static class PreferenceRules
                 if (set is null || set.IsEmpty)
                     continue;
 
-                if (!NotificationCategoryGroups.IsMutable(group))
+                foreach (var channel in new[] { NotificationChannel.InApp, NotificationChannel.Push, NotificationChannel.Email })
                 {
-                    error = localizer["Validation.Preference.SecurityNotMutable"];
-                    return null;
+                    if (set.IsMuted(channel) && !NotificationCategoryGroups.IsChannelMutable(group, channel))
+                    {
+                        error = localizer["Validation.Preference.ChannelNotMutable", group, channel.ToString()];
+                        return null;
+                    }
                 }
 
                 mutes[group] = mutes.TryGetValue(group, out var prior)
@@ -57,10 +60,14 @@ public static class PreferenceRules
         }
 
         var timeZone = request.TimeZone?.Trim();
-        if (timeZone is { Length: > 0 } && (timeZone.Length > 64 || !TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out _)))
+        if (timeZone is { Length: > 0 })
         {
-            error = localizer["Validation.Preference.TimeZone.Invalid"];
-            return null;
+            timeZone = CanonicalIanaId(timeZone);
+            if (timeZone is null)
+            {
+                error = localizer["Validation.Preference.TimeZone.Invalid"];
+                return null;
+            }
         }
 
         TimeOnly? start = null, end = null;
@@ -117,6 +124,21 @@ public static class PreferenceRules
             userId, request.ChannelOrder, now, stored?.PushEnabled ?? true,
             stored?.CategoryMutes ?? new Dictionary<string, ChannelMuteSet>(),
             ToQuietHours(stored?.QuietHoursStart, stored?.QuietHoursEnd), stored?.TimeZone)));
+    }
+
+    /// <summary>
+    /// The IANA id to store for <paramref name="input"/>: an IANA id is kept as is, a Windows id (<c>Egypt Standard Time</c>)
+    /// is converted. Null when the id is unknown or has no IANA equivalent, so stored values are portable between hosts.
+    /// </summary>
+    public static string? CanonicalIanaId(string input)
+    {
+        if (input.Length > 64 || !TimeZoneInfo.TryFindSystemTimeZoneById(input, out var zone))
+            return null;
+
+        if (zone.HasIanaId)
+            return zone.Id;
+
+        return TimeZoneInfo.TryConvertWindowsIdToIanaId(zone.Id, out var iana) ? iana : null;
     }
 
     public static QuietHoursDto? ToQuietHours(TimeOnly? start, TimeOnly? end) =>

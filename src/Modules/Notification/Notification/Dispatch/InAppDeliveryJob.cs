@@ -47,11 +47,12 @@ public sealed class InAppDeliveryJob(
             return;
         }
 
+        var category = delivery.Category ?? delivery.Content.Category;
         var preference = await preferences.GetDeliveryPreferenceAsync(delivery.UserId, ct);
-        if (NotificationPolicy.IsMuted(preference, delivery.Content.Category, NotificationChannel.InApp))
+        if (NotificationPolicy.IsMuted(preference, category, NotificationChannel.InApp))
         {
             await logs.InsertAsync(Log(correlationId, delivery, NotificationDeliveryStatus.Skipped,
-                $"The user muted in-app notifications for the '{NotificationCategoryGroups.GroupOf(delivery.Content.Category)}' group.",
+                $"The user muted in-app notifications for the '{NotificationCategoryGroups.GroupOf(category)}' group.",
                 timeProvider.GetUtcNow().UtcDateTime), ct);
             return;
         }
@@ -71,7 +72,7 @@ public sealed class InAppDeliveryJob(
         }
 
         // Quiet hours: the entry is stored (it waits in the inbox, counted as unread) but nothing pops up live.
-        if (NotificationPolicy.QuietHoursEnd(preference, entry.Category, now) is null)
+        if (NotificationPolicy.QuietHoursEnd(preference, category, now) is null)
             await realtime.NotificationReceivedAsync(delivery.UserId, ToDto(entry), ct);
         var unread = await inbox.CountUnreadAsync(delivery.UserId, entry.TenantId, ct);
         await realtime.UnreadCountChangedAsync(delivery.UserId, entry.TenantId, unread, ct);

@@ -44,8 +44,11 @@ public interface INotificationPreferenceRepository
 
 public sealed class NotificationPreferenceRepository(
     NotificationDbContext db,
-    IOptions<NotificationOptions> options) : INotificationPreferenceRepository
+    IOptions<NotificationOptions> options,
+    TimeProvider? timeProvider = null) : INotificationPreferenceRepository
 {
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
     public async Task<NotificationChannel[]?> GetChannelOrderAsync(Guid userId, CancellationToken ct = default)
     {
         var preference = await db.UserNotificationPreferences
@@ -77,7 +80,7 @@ public sealed class NotificationPreferenceRepository(
     public async Task<DateTime> UpdateAsync(Guid userId, PreferenceChange change, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(change);
-        var now = DateTime.UtcNow;
+        var now = _time.GetUtcNow().UtcDateTime;
         var existing = await db.UserNotificationPreferences.FirstOrDefaultAsync(x => x.UserId == userId, ct);
 
         if (existing is null)

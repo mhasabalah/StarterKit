@@ -59,12 +59,12 @@ public sealed class PushOptions
 }
 
 /// <summary>
-/// Bound from <c>Push:Apns</c>: token-based APNs auth. The <c>.p8</c> key comes from the Docker secret
-/// <c>apns_private_key</c> (or <see cref="PrivateKeyFile"/>), never from appsettings.
+/// Bound from <c>Push:Apns</c>: token-based APNs auth. The <c>.p8</c> key is a secret FILE read by path
+/// (<see cref="PrivateKeyFile"/>, like the FCM service-account JSON): it never enters configuration or logs.
 /// </summary>
 public sealed class ApnsOptions
 {
-    /// <summary>False (default) = iOS goes through FCM. True needs <see cref="KeyId"/>, <see cref="TeamId"/>, <see cref="BundleId"/> and the key.</summary>
+    /// <summary>False (default) = iOS goes through FCM. True needs <see cref="KeyId"/>, <see cref="TeamId"/>, <see cref="BundleId"/> and the key file.</summary>
     public bool Enabled { get; set; }
 
     /// <summary>The 10-character key id of the APNs auth key (Apple Developer, Keys).</summary>
@@ -76,18 +76,34 @@ public sealed class ApnsOptions
     /// <summary>The app's bundle id, sent as <c>apns-topic</c>.</summary>
     public string BundleId { get; set; } = string.Empty;
 
-    /// <summary>PEM text of the <c>.p8</c> key (secret).</summary>
-    public string? PrivateKey { get; set; }
-
-    /// <summary>Path of the <c>.p8</c> file (alternative to <see cref="PrivateKey"/>).</summary>
+    /// <summary>Path of the <c>.p8</c> key file (PKCS#8 PEM), e.g. <c>/run/secrets/apns_auth_key.p8</c>.</summary>
     public string? PrivateKeyFile { get; set; }
 
     /// <summary>True = the sandbox host, for development-build tokens. A token only works in the environment that issued it.</summary>
     public bool UseSandbox { get; set; }
 
-    public bool HasKey => !string.IsNullOrWhiteSpace(PrivateKey) || !string.IsNullOrWhiteSpace(PrivateKeyFile);
+    public bool HasKey => !string.IsNullOrWhiteSpace(PrivateKeyFile);
 
-    /// <summary>Null when valid, otherwise what is missing. <c>CHANGE_ME</c> placeholders count as missing.</summary>
+    /// <summary>Reads and parses the key file. Throws when it is missing or is not an EC private key.</summary>
+    public System.Security.Cryptography.ECDsa LoadKey()
+    {
+        var key = System.Security.Cryptography.ECDsa.Create();
+        try
+        {
+            key.ImportFromPem(File.ReadAllText(PrivateKeyFile ?? throw new InvalidOperationException("Push:Apns:PrivateKeyFile is not set.")));
+            return key;
+        }
+        catch
+        {
+            key.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Null when valid, otherwise what is wrong: missing settings (<c>CHANGE_ME</c> placeholders count as missing) or a
+    /// key file that cannot be read or parsed. Checked at startup so a bad key fails the boot, not every push.
+    /// </summary>
     public string? Validate()
     {
         static bool Missing(string? v) => string.IsNullOrWhiteSpace(v) || v.Contains("CHANGE_ME", StringComparison.Ordinal);
@@ -95,7 +111,18 @@ public sealed class ApnsOptions
             return null;
         if (Missing(KeyId) || Missing(TeamId) || Missing(BundleId))
             return "Push:Apns:Enabled needs KeyId, TeamId and BundleId.";
-        return HasKey ? null : "Push:Apns:Enabled needs the .p8 key (secret apns_private_key or Push:Apns:PrivateKeyFile).";
+        if (!HasKey)
+            return "Push:Apns:Enabled needs the .p8 key file (Push:Apns:PrivateKeyFile).";
+
+        try
+        {
+            using var key = LoadKey();
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or ArgumentException)
+        {
+            return $"Push:Apns:PrivateKeyFile cannot be read as an EC private key ({ex.GetType().Name}).";
+        }
     }
 }
 

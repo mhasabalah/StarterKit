@@ -15,16 +15,23 @@ public sealed class ApnsPushProviderTests : IDisposable
     private readonly ManualTimeProvider _clock = new(new DateTimeOffset(2026, 11, 6, 12, 0, 0, TimeSpan.Zero));
     private readonly StubHandler _handler = new();
 
-    public void Dispose() => _key.Dispose();
+    private readonly string _keyFile = Path.GetTempFileName();
+
+    public void Dispose()
+    {
+        _key.Dispose();
+        File.Delete(_keyFile);
+    }
 
     private ApnsPushProvider Provider(bool sandbox = false)
     {
+        File.WriteAllText(_keyFile, _key.ExportPkcs8PrivateKeyPem());
         var options = new PushOptions
         {
             Apns = new ApnsOptions
             {
                 Enabled = true, KeyId = "ABC123DEFG", TeamId = "TEAM123456", BundleId = "com.example.app", UseSandbox = sandbox,
-                PrivateKey = _key.ExportPkcs8PrivateKeyPem()
+                PrivateKeyFile = _keyFile
             }
         };
         return new ApnsPushProvider(new HttpClient(_handler), MsOptions.Create(options), _clock, NullLogger<ApnsPushProvider>.Instance);
@@ -149,7 +156,7 @@ public sealed class ApnsPushProviderTests : IDisposable
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.BadRequest, "BadDeviceToken", PushSendOutcome.InvalidToken)]
+    [InlineData(HttpStatusCode.BadRequest, "BadDeviceToken", PushSendOutcome.Rejected)]
     [InlineData(HttpStatusCode.Gone, "Unregistered", PushSendOutcome.InvalidToken)]
     [InlineData(HttpStatusCode.TooManyRequests, "TooManyRequests", PushSendOutcome.Transient)]
     [InlineData(HttpStatusCode.InternalServerError, "InternalServerError", PushSendOutcome.Transient)]
@@ -219,12 +226,99 @@ public sealed class ApnsPushProviderTests : IDisposable
     // ----- options --------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void Apns_options_validate_the_required_settings_and_treat_CHANGE_ME_as_missing()
+    public void Apns_options_validate_the_required_settings_and_the_key_file()
     {
-        new ApnsOptions().Validate().Should().BeNull("disabled needs nothing");
-        new ApnsOptions { Enabled = true, KeyId = "CHANGE_ME", TeamId = "T", BundleId = "b", PrivateKey = "k" }.Validate().Should().NotBeNull();
-        new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b" }.Validate().Should().NotBeNull("no key");
-        new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b", PrivateKeyFile = "/run/secrets/apns.p8" }.Validate().Should().BeNull();
+        File.WriteAllText(_keyFile, _key.ExportPkcs8PrivateKeyPem());
+        var notAKey = Path.GetTempFileName();
+        File.WriteAllText(notAKey, "not a key");
+        try
+        {
+            new ApnsOptions().Validate().Should().BeNull("disabled needs nothing");
+            new ApnsOptions { Enabled = true, KeyId = "CHANGE_ME", TeamId = "T", BundleId = "b", PrivateKeyFile = _keyFile }.Validate().Should().NotBeNull();
+            new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b" }.Validate().Should().NotBeNull("no key file");
+            new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b", PrivateKeyFile = "/nope/missing.p8" }.Validate()
+                .Should().NotBeNull("a missing file fails at startup");
+            new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b", PrivateKeyFile = notAKey }.Validate()
+                .Should().NotBeNull("an unparsable key fails at startup");
+            new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b", PrivateKeyFile = _keyFile }.Validate().Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(notAKey);
+        }
+    }
+
+    [Fact]
+    public async Task A_key_that_cannot_be_loaded_rejects_each_device_instead_of_throwing()
+    {
+        var options = new PushOptions { Apns = new ApnsOptions { Enabled = true, KeyId = "K", TeamId = "T", BundleId = "b", PrivateKeyFile = "/nope/missing.p8" } };
+        var provider = new ApnsPushProvider(new HttpClient(_handler), MsOptions.Create(options), _clock, NullLogger<ApnsPushProvider>.Instance);
+
+        var results = await provider.SendAsync(Message(), [Ios(), Ios()], CancellationToken.None);
+
+        results.Should().OnlyContain(r => r.Outcome == PushSendOutcome.Rejected);
+        _handler.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_burst_of_ExpiredProviderToken_answers_re_mints_the_token_once()
+    {
+        var provider = Provider();
+        string? first = null;
+        _handler.Respond = r =>
+        {
+            var token = r.Headers.Authorization!.Parameter!;
+            first ??= token;
+            return token == first ? Reason(HttpStatusCode.Forbidden, "ExpiredProviderToken") : new HttpResponseMessage(HttpStatusCode.OK);
+        };
+        var targets = Enumerable.Range(0, 60).Select(_ => Ios()).ToList();
+
+        await provider.SendAsync(Message(), targets, CancellationToken.None);
+
+        provider.TokenMints.Should().BeLessThanOrEqualTo(2, "late answers for the old token must not discard the fresh one");
+        _handler.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK);
+        var mintsBefore = provider.TokenMints;
+        await provider.SendAsync(Message(), [Ios()], CancellationToken.None);
+        provider.TokenMints.Should().Be(mintsBefore, "the fresh token is still cached");
+    }
+
+    // ----- payload --------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Non_ascii_text_is_written_as_utf8_not_escaped()
+    {
+        var bytes = ApnsPushProvider.BuildPayload(new PushMessage("عنوان", "مرحبا", new Dictionary<string, string>(), "c", TimeSpan.FromHours(1)));
+
+        Encoding.UTF8.GetString(bytes).Should().Contain("عنوان").And.Contain("مرحبا");
+    }
+
+    [Fact]
+    public void A_1000_character_arabic_body_is_trimmed_to_fit_4096_bytes_and_stays_valid_json()
+    {
+        var body = string.Concat(Enumerable.Repeat("مرحبا بكم ", 100)); // 1000 chars, ~2 bytes each
+        var message = new PushMessage("Title", body + body + body + body, new Dictionary<string, string> { ["category"] = "billing.paid", ["invoiceId"] = "7" }, "c", TimeSpan.FromHours(1));
+
+        var bytes = ApnsPushProvider.BuildPayload(message);
+
+        bytes.Length.Should().BeLessThanOrEqualTo(ApnsPushProvider.MaxPayloadBytes);
+        using var doc = JsonDocument.Parse(bytes);
+        var sent = doc.RootElement.GetProperty("aps").GetProperty("alert").GetProperty("body").GetString()!;
+        sent.Should().EndWith("\u2026").And.StartWith("مرحبا");
+        doc.RootElement.GetProperty("invoiceId").GetString().Should().Be("7", "data is kept while the body can still shrink");
+    }
+
+    [Fact]
+    public void A_small_payload_is_left_untouched_and_huge_data_is_dropped_last_resort()
+    {
+        var small = ApnsPushProvider.BuildPayload(new PushMessage("T", "B", new Dictionary<string, string>(), "c", TimeSpan.FromHours(1)));
+        small.Length.Should().BeLessThan(200);
+
+        var data = new Dictionary<string, string> { ["huge"] = new string('x', 6000), ["id"] = "7" };
+        var bytes = ApnsPushProvider.BuildPayload(new PushMessage("T", "B", data, "c", TimeSpan.FromHours(1)));
+        bytes.Length.Should().BeLessThanOrEqualTo(ApnsPushProvider.MaxPayloadBytes);
+        using var doc = JsonDocument.Parse(bytes);
+        doc.RootElement.TryGetProperty("huge", out _).Should().BeFalse();
+        doc.RootElement.GetProperty("id").GetString().Should().Be("7");
     }
 
     // ----- router ---------------------------------------------------------------------------------------------------
@@ -267,6 +361,28 @@ public sealed class ApnsPushProviderTests : IDisposable
 
         apns.Calls.Should().BeEmpty();
         fcm.Calls.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task One_provider_failing_does_not_discard_the_other_providers_results()
+    {
+        var good = new FakePushProvider();
+        var router = new RoutingPushProvider(good, new ThrowingProvider());
+        var native = Ios();
+        var web = new PushTarget(Guid.NewGuid(), "web-token", PushPlatform.Web);
+
+        var results = await router.SendAsync(Message(), [native, web], CancellationToken.None);
+
+        results.Single(r => r.DeviceId == native.DeviceId).Outcome.Should().Be(PushSendOutcome.Transient);
+        results.Single(r => r.DeviceId == web.DeviceId).Outcome.Should().Be(PushSendOutcome.Delivered);
+    }
+
+    private sealed class ThrowingProvider : IPushProvider
+    {
+        public string Name => "Boom";
+
+        public Task<IReadOnlyList<PushSendResult>> SendAsync(PushMessage message, IReadOnlyList<PushTarget> targets, CancellationToken ct) =>
+            throw new InvalidOperationException("provider down");
     }
 
     private static string Pad(string base64Url)

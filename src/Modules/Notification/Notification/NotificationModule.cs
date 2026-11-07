@@ -219,9 +219,8 @@ public static class NotificationModule
             .PostConfigure(o =>
             {
                 o.CredentialsJson = configuration["fcm_service_account_json"] ?? o.CredentialsJson;
-                o.Apns.PrivateKey = configuration["apns_private_key"] ?? o.Apns.PrivateKey;
             })
-            .Validate(o => o.Apns.Validate() is null, "Push:Apns is enabled but incomplete (KeyId, TeamId, BundleId and the .p8 key are required).")
+            .Validate(o => o.Apns.Validate() is null, "Push:Apns is enabled but incomplete or its .p8 key file cannot be read (KeyId, TeamId, BundleId and PrivateKeyFile are required).")
             .Validate(o => o.Provider != PushProvider.Fcm || o.HasCredentials,
                 "Push:Provider is Fcm but no credentials are configured (secret fcm_service_account_json or Push:CredentialsFile).")
             .Validate(o => o.MaxAttempts is >= 1 and <= 10, "Push:MaxAttempts must be between 1 and 10.")
@@ -293,7 +292,11 @@ public static class NotificationModule
         services.AddSingleton<FcmPushProvider>();
         services.AddSingleton<NoOpPushProvider>();
         // Direct APNs (Push:Apns:Enabled): a typed HTTP/2 client; connections are recycled so DNS changes are honored.
+        // No logging handlers: the request URI carries the device token. The handler lives forever (no pooled-handler
+        // rotation of the singleton's client) and the SocketsHttpHandler recycles connections itself.
         services.AddHttpClient<ApnsPushProvider>()
+            .RemoveAllLoggers()
+            .SetHandlerLifetime(Timeout.InfiniteTimeSpan)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
         services.AddSingleton<IPushProvider>(sp =>
         {

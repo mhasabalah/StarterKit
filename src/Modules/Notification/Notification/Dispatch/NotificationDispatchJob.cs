@@ -66,13 +66,13 @@ public sealed class NotificationDispatchJob(
 
         var emailMuted = false;
 
-        // The user's per-group email mute. Forced email (security mail) and the security group are never muted.
-        if (relevantChannels.Contains(NotificationChannel.Email) && message.UserId != Guid.Empty && message.Category is not null
-            && NotificationCategoryGroups.IsMutable(NotificationCategoryGroups.GroupOf(message.Category)))
+        // The user's per-group "email" mute covers the whole email/WhatsApp chain (it must not silently switch to
+        // WhatsApp). Fixed channels (security, billing email) and uncategorized sends are never muted.
+        if (relevantChannels.Length > 0 && message.UserId != Guid.Empty && message.Category is not null
+            && NotificationCategoryGroups.IsChannelMutable(NotificationCategoryGroups.GroupOf(message.Category), NotificationChannel.Email))
         {
             var preference = await preferences.GetDeliveryPreferenceAsync(message.UserId, ct);
-            if (NotificationPolicy.IsMuted(preference, message.Category, NotificationChannel.Email,
-                    forced: forcedChannel == NotificationChannel.Email))
+            if (NotificationPolicy.IsMuted(preference, message.Category, NotificationChannel.Email))
             {
                 if (history.All(h => h.Channel != NotificationChannel.Email || h.Status != NotificationDeliveryStatus.Skipped))
                 {
@@ -82,7 +82,7 @@ public sealed class NotificationDispatchJob(
                 }
 
                 emailMuted = true;
-                relevantChannels = relevantChannels.Where(c => c != NotificationChannel.Email).ToArray();
+                relevantChannels = [];
             }
         }
 

@@ -15,8 +15,10 @@ public static class ApnsErrorClassifier
         if (status == HttpStatusCode.OK)
             return PushSendOutcome.Delivered;
 
-        // 410: the token is no longer active for the topic. 400 BadDeviceToken: malformed / wrong-environment token.
-        if (status == HttpStatusCode.Gone || reason is "Unregistered" or "BadDeviceToken")
+        // Only 410 Unregistered proves the token is dead. 400 BadDeviceToken is ambiguous (a token from the other APNs
+        // environment, e.g. a sandbox build against production, looks the same), so deleting on it could wipe every
+        // device after one misconfiguration: it is Rejected (device kept, warning logged), never retried.
+        if (status == HttpStatusCode.Gone || reason == "Unregistered")
             return PushSendOutcome.InvalidToken;
 
         // An expired provider token is renewed on the next send; throttling and APNs outages clear on their own.
@@ -56,6 +58,7 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
     private readonly ILogger<ApnsPushProvider> _logger;
     private readonly Lazy<ECDsa> _key;
     private readonly object _tokenLock = new();
+    private int _mints;
     private string? _jwt;
     private DateTimeOffset _jwtIssuedAt;
 
@@ -66,7 +69,8 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
         _time = time;
         _logger = logger;
         _options = options.Value.Apns;
-        _key = new Lazy<ECDsa>(() => LoadKey(_options), LazyThreadSafetyMode.ExecutionAndPublication);
+        // PublicationOnly: a failed load (file briefly unreadable) is retried by the next send, not cached forever.
+        _key = new Lazy<ECDsa>(_options.LoadKey, LazyThreadSafetyMode.PublicationOnly);
     }
 
     public string Name => "Apns";
@@ -106,7 +110,8 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
                 Content = new ByteArrayContent(payload)
             };
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            request.Headers.Authorization = new AuthenticationHeaderValue("bearer", GetProviderToken());
+            var jwt = GetProviderToken();
+            request.Headers.Authorization = new AuthenticationHeaderValue("bearer", jwt);
             request.Headers.TryAddWithoutValidation("apns-topic", _options.BundleId);
             request.Headers.TryAddWithoutValidation("apns-push-type", "alert");
             request.Headers.TryAddWithoutValidation("apns-priority", "10");
@@ -121,7 +126,9 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
             var reason = await ReadReasonAsync(response, ct);
             var outcome = ApnsErrorClassifier.Classify(response.StatusCode, reason);
             if (reason == "ExpiredProviderToken")
-                DropProviderToken();
+                DropProviderToken(jwt);
+            else if (reason == "BadDeviceToken")
+                _logger.LogWarning("APNs rejected the token of device {DeviceId} as BadDeviceToken: check Push:Apns:UseSandbox matches the app build", target.DeviceId);
 
             return new PushSendResult(target.DeviceId, outcome, $"APNs {(int)response.StatusCode} {reason}".TrimEnd());
         }
@@ -129,32 +136,95 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
         {
             throw;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             _logger.LogWarning(ex, "APNs request for device {DeviceId} failed", target.DeviceId);
             return new PushSendResult(target.DeviceId, PushSendOutcome.Transient, $"{ex.GetType().Name}: {ex.Message}");
         }
+        catch (Exception ex)
+        {
+            // Key unreadable / unparsable or any other local failure: never throw for one device (the job would drop
+            // the results of the others). A configuration problem a retry cannot fix.
+            _logger.LogError(ex, "APNs send for device {DeviceId} failed locally", target.DeviceId);
+            return new PushSendResult(target.DeviceId, PushSendOutcome.Rejected, $"{ex.GetType().Name}: {ex.Message}");
+        }
     }
 
+    /// <summary>The APNs payload limit for alert notifications.</summary>
+    internal const int MaxPayloadBytes = 4096;
+
+    private static readonly JsonSerializerOptions PayloadJson = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    /// <summary>
+    /// The JSON payload, never over <see cref="MaxPayloadBytes"/> BYTES (non-ASCII text is written as UTF-8, not
+    /// \uXXXX escapes). Too large: the body is cut first, then the title, then data entries (largest first).
+    /// </summary>
     internal static byte[] BuildPayload(PushMessage message)
     {
-        var root = new Dictionary<string, object>(StringComparer.Ordinal);
-        foreach (var (key, value) in message.Data)
+        var title = message.Title;
+        var body = message.Body;
+        var data = message.Data.Where(kv => !string.Equals(kv.Key, "aps", StringComparison.Ordinal))
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+
+        var bytes = Serialize(title, body, data, message.Data);
+        if (bytes.Length <= MaxPayloadBytes)
+            return bytes;
+
+        body = Fit(body, text => Serialize(title, text, data, message.Data).Length);
+        bytes = Serialize(title, body, data, message.Data);
+        if (bytes.Length > MaxPayloadBytes)
         {
-            if (!string.Equals(key, "aps", StringComparison.Ordinal))
-                root[key] = value;
+            title = Fit(title, text => Serialize(text, body, data, message.Data).Length);
+            bytes = Serialize(title, body, data, message.Data);
         }
 
+        while (bytes.Length > MaxPayloadBytes && data.Count > 0)
+        {
+            data.Remove(data.OrderByDescending(kv => kv.Value.Length).First().Key);
+            bytes = Serialize(title, body, data, message.Data);
+        }
+
+        return bytes;
+    }
+
+    private static byte[] Serialize(string title, string body, Dictionary<string, string> data, IReadOnlyDictionary<string, string> original)
+    {
+        var root = new Dictionary<string, object>(data.ToDictionary(kv => kv.Key, kv => (object)kv.Value), StringComparer.Ordinal);
         var aps = new Dictionary<string, object>(StringComparer.Ordinal)
         {
-            ["alert"] = new Dictionary<string, string> { ["title"] = message.Title, ["body"] = message.Body },
+            ["alert"] = new Dictionary<string, string> { ["title"] = title, ["body"] = body },
             ["sound"] = "default"
         };
-        if (message.Data.TryGetValue("category", out var category) && !string.IsNullOrWhiteSpace(category))
+        if (original.TryGetValue("category", out var category) && !string.IsNullOrWhiteSpace(category))
             aps["thread-id"] = category;
 
         root["aps"] = aps;
-        return JsonSerializer.SerializeToUtf8Bytes(root);
+        return JsonSerializer.SerializeToUtf8Bytes(root, PayloadJson);
+    }
+
+    /// <summary>The longest prefix of <paramref name="text"/> (plus an ellipsis) whose payload fits, never splitting a surrogate pair.</summary>
+    private static string Fit(string text, Func<string, int> sizeWith)
+    {
+        int lo = 0, hi = text.Length;
+        while (lo < hi)
+        {
+            var mid = (lo + hi + 1) / 2;
+            if (sizeWith(Cut(text, mid)) <= MaxPayloadBytes)
+                lo = mid;
+            else
+                hi = mid - 1;
+        }
+
+        return Cut(text, lo);
+
+        static string Cut(string value, int length)
+        {
+            if (length >= value.Length)
+                return value;
+            if (length > 0 && char.IsHighSurrogate(value[length - 1]))
+                length--;
+            return value[..length] + "\u2026";
+        }
     }
 
     private static async Task<string?> ReadReasonAsync(HttpResponseMessage response, CancellationToken ct)
@@ -171,6 +241,9 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
         }
     }
 
+    /// <summary>How many provider tokens were signed (tests assert a burst of expiries re-mints once).</summary>
+    internal int TokenMints => Volatile.Read(ref _mints);
+
     /// <summary>The cached provider token, minted again after about 50 minutes (thread-safe).</summary>
     internal string GetProviderToken()
     {
@@ -182,14 +255,22 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
 
             _jwt = CreateJwt(_key.Value, _options.KeyId, _options.TeamId, now);
             _jwtIssuedAt = now;
+            Interlocked.Increment(ref _mints);
             return _jwt;
         }
     }
 
-    private void DropProviderToken()
+    /// <summary>
+    /// Forgets the cached token, but only if it is still <paramref name="used"/>: a late ExpiredProviderToken answer to
+    /// an old request must not throw away the fresh token another request already minted.
+    /// </summary>
+    private void DropProviderToken(string used)
     {
         lock (_tokenLock)
-            _jwt = null;
+        {
+            if (string.Equals(_jwt, used, StringComparison.Ordinal))
+                _jwt = null;
+        }
     }
 
     internal static string CreateJwt(ECDsa key, string keyId, string teamId, DateTimeOffset issuedAt)
@@ -200,19 +281,6 @@ public sealed class ApnsPushProvider : IPushProvider, IDisposable
         var signature = key.SignData(Encoding.ASCII.GetBytes(signingInput), HashAlgorithmName.SHA256,
             DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         return $"{signingInput}.{Base64Url.EncodeToString(signature)}";
-    }
-
-    private static ECDsa LoadKey(ApnsOptions options)
-    {
-        var pem = !string.IsNullOrWhiteSpace(options.PrivateKey)
-            ? options.PrivateKey
-            : !string.IsNullOrWhiteSpace(options.PrivateKeyFile)
-                ? File.ReadAllText(options.PrivateKeyFile)
-                : throw new InvalidOperationException("Push:Apns is enabled but no .p8 key is configured.");
-
-        var key = ECDsa.Create();
-        key.ImportFromPem(pem);
-        return key;
     }
 
     public void Dispose()
@@ -240,12 +308,33 @@ public sealed class RoutingPushProvider(IPushProvider fallback, IPushProvider? a
         var toApns = targets.Where(UsesApns).ToList();
         var rest = targets.Where(t => !UsesApns(t)).ToList();
 
-        var apnsTask = toApns.Count > 0 ? apns.SendAsync(message, toApns, ct) : Task.FromResult<IReadOnlyList<PushSendResult>>([]);
-        var restTask = rest.Count > 0 ? fallback.SendAsync(message, rest, ct) : Task.FromResult<IReadOnlyList<PushSendResult>>([]);
+        // Each branch is isolated: one provider failing must not discard the other's results.
+        var apnsTask = toApns.Count > 0 ? SafeSendAsync(apns, message, toApns, ct) : Task.FromResult<IReadOnlyList<PushSendResult>>([]);
+        var restTask = rest.Count > 0 ? SafeSendAsync(fallback, message, rest, ct) : Task.FromResult<IReadOnlyList<PushSendResult>>([]);
         await Task.WhenAll(apnsTask, restTask);
 
         var byDevice = (await apnsTask).Concat(await restTask).ToDictionary(r => r.DeviceId);
-        return targets.Select(t => byDevice[t.DeviceId]).ToList();
+        return targets.Select(t => byDevice.TryGetValue(t.DeviceId, out var r)
+            ? r
+            : new PushSendResult(t.DeviceId, PushSendOutcome.Transient, "The push provider returned no result for this device.")).ToList();
+    }
+
+    private static async Task<IReadOnlyList<PushSendResult>> SafeSendAsync(
+        IPushProvider provider, PushMessage message, IReadOnlyList<PushTarget> targets, CancellationToken ct)
+    {
+        try
+        {
+            return await provider.SendAsync(message, targets, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return targets.Select(t => new PushSendResult(t.DeviceId, PushSendOutcome.Transient,
+                $"{provider.Name} failed: {ex.GetType().Name}: {ex.Message}")).ToList();
+        }
     }
 
     /// <summary>A native APNs token is 64+ hexadecimal characters; an FCM registration token never is.</summary>
