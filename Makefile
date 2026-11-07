@@ -3,7 +3,7 @@
 # ==============================================
 # Professional commands for Docker management
 
-.PHONY: help build up down restart logs ps clean prune dev prod tools backup restore nginx-dev nginx-prod nginx-logs nginx-test nginx-reload docs-check arch-test
+.PHONY: help build up down restart logs ps clean prune dev prod tools backup restore nginx-dev nginx-prod nginx-logs nginx-test nginx-reload docs-check arch-test loadtest loadtest-up loadtest-seed loadtest-run loadtest-down
 
 # Default target
 .DEFAULT_GOAL := help
@@ -378,3 +378,22 @@ docs-check: ## Validate documentation links, INDEX coverage and placeholders
 
 arch-test: ## Run the architecture guardrail tests (no Docker needed)
 	@dotnet test src/Api.Tests
+
+# ==============================================
+# Load tests (k6, wiki/Testing/Load-Testing.md)
+# ==============================================
+loadtest: ## Boot the LoadTest stack, seed it, run all k6 scenarios, tear down (needs Docker)
+	bash tests/load/run.sh all
+
+loadtest-up: ## Generate .env.loadtest and start the load-test stack (postgres, redis, api)
+	bash tests/load/run.sh env
+	bash tests/load/run.sh up
+
+loadtest-seed: ## Seed users, admin, API keys and products through the public API
+	bash tests/load/run.sh seed
+
+loadtest-run: ## Run the k6 scenarios against the running load-test stack
+	bash tests/load/run.sh run
+
+loadtest-down: ## Stop the load-test stack and delete its volumes
+	bash tests/load/run.sh down

@@ -1,0 +1,74 @@
+# ==============================================
+# HTTP load tests (k6 against the real API in Docker)
+# ==============================================
+# Boots docker-compose.loadtest.yml (API in the LoadTest profile + Postgres + Redis), seeds users / an admin / API keys /
+# products through the public API (tests/load/seed.js), then runs the k6 scenarios in tests/load/main.js: auth
+# (login + refresh), catalog browse/search, product CRUD with an API key, bulk-import submit + poll, notification inbox.
+# k6 exits non-zero when a threshold fails (p95 per scenario, http_req_failed < 1%), which fails this job.
+#   - nightly: catches a slow regression before a release does
+#   - on demand (Run workflow): pick duration and VU scale
+# The k6 summary is uploaded as the "load-test-summary" artifact. Docs: wiki/Testing/Load-Testing.md.
+# ==============================================
+
+name: Load test
+
+on:
+  schedule:
+    - cron: '30 3 * * *' # daily 03:30 UTC
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Duration of the main run (k6 duration, e.g. 30s, 5m)'
+        default: '60s'
+        required: false
+      vu_scale:
+        description: 'Multiplier for every scenario''s virtual users'
+        default: '1'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: load-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  k6:
+    name: k6 scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOAD_DURATION: ${{ github.event.inputs.duration || '60s' }}
+      LOAD_VU_SCALE: ${{ github.event.inputs.vu_scale || '1' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Generate the stack secrets
+        run: bash tests/load/run.sh env
+
+      - name: Start the stack (API in the LoadTest profile)
+        run: bash tests/load/run.sh up
+
+      - name: Seed through the public API
+        run: bash tests/load/run.sh seed
+
+      - name: Run the k6 scenarios
+        run: bash tests/load/run.sh run
+
+      - name: API logs (on failure)
+        if: failure()
+        run: docker compose -p starterkit-load --env-file .env.loadtest -f docker-compose.loadtest.yml logs --tail 200 api
+
+      - name: Upload the k6 summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: load-test-summary
+          path: tests/load/results/summary.json
+          if-no-files-found: warn
+
+      - name: Tear down
+        if: always()
+        run: bash tests/load/run.sh down

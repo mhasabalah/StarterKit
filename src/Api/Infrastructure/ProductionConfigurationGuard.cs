@@ -95,11 +95,34 @@ public static class ProductionConfigurationGuard
         }
     }
 
+    /// <summary>The environment that may run the load-test profile (<c>appsettings.LoadTest.json</c>).</summary>
+    public const string LoadTestEnvironment = "LoadTest";
+
+    /// <summary>
+    /// Throws when <c>LoadTest:Enabled=true</c> (the marker set by <c>appsettings.LoadTest.json</c>: rate limits
+    /// raised, 2FA for admin roles off) in any environment other than <c>LoadTest</c>. Unlike the other rules this
+    /// one also applies to Development and Testing: the profile must never leak into a real deployment through an
+    /// accidentally copied file or environment variable.
+    /// </summary>
+    public static void EnsureLoadTestProfileIsIsolated(IConfiguration configuration, string environmentName)
+    {
+        if (!configuration.GetValue<bool>("LoadTest:Enabled") ||
+            string.Equals(environmentName, LoadTestEnvironment, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Refusing to start in '{environmentName}': LoadTest:Enabled is true (load-test profile: relaxed rate " +
+            $"limits and 2FA). Only the '{LoadTestEnvironment}' environment may run it; remove the LoadTest section.");
+    }
+
     public static WebApplicationBuilder EnsureProductionReadyConfiguration(this WebApplicationBuilder builder)
     {
         EnsureNoPlaceholders(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureDurableMessaging(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureBotProtectionConfigured(builder.Configuration, builder.Environment.EnvironmentName);
+        EnsureLoadTestProfileIsIsolated(builder.Configuration, builder.Environment.EnvironmentName);
         return builder;
     }
 }
