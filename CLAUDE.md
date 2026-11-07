@@ -473,11 +473,11 @@ forbidden C# patterns after edits. Spec Kit
   - Pushes to `master` additionally build the GHCR image, wait for manual approval (the `production`
     environment), then deploy on the self-hosted runner.
   - `rollback.yml` restores the previous image or backup.
-- Starting a new product from this template: `dotnet new starterkit` (`wiki/Getting-Started/New-Project.md`) or
-  `/starterkit:new-project`.
 <!--#if (templateSource)-->
 - **This repo is the template** (ADR-0020, `wiki/Getting-Started/Changing-The-Template.md`). Optional code is
   conditional, never deleted (the page lists the marker syntax per file type; docs that ship in products never quote
   it). Never put an MSBuild `Condition` attribute on an element that must survive generation (`dotnet new` drops it).
   Tests use vehicles every product has (not Catalog) unless they test Catalog. `templates.yml` must stay green.
 <!--#endif-->
+- Starting a new product from this template: `dotnet new starterkit` (`wiki/Getting-Started/New-Project.md`) or
+  `/starterkit:new-project`.
