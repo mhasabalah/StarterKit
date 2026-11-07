@@ -16,7 +16,7 @@ make loadtest-down       # stop and delete the volumes
 ```
 
 `tests/load/run.sh` is the single driver (also used by CI). Knobs (environment): `LOAD_DURATION` (30s),
-`LOAD_RATE_SCALE` (1; multiplies every arrival rate), `SCENARIOS` (comma list, e.g. `auth,catalog`), `LOAD_USERS`, `LOAD_PRODUCTS`,
+`LOAD_RATE_SCALE` (1; multiplies every arrival rate), `LOAD_P95_SCALE` (1; multiplies every p95 budget, CI uses 3), `SCENARIOS` (comma list, e.g. `auth,catalog`), `LOAD_USERS`, `LOAD_PRODUCTS`,
 `LOAD_IMPORT_ROWS`, `LOADTEST_API_PORT` (5090), `API_CPUS` / `API_MEMORY_LIMIT`. Results land in
 `tests/load/results/` (`seed.json`, `summary.json`; git-ignored).
 
@@ -84,7 +84,7 @@ stays one closed-loop VU. Tag: `load_scenario`.
 | `inbox` | 12 it/s (6 to 30) | `GET /notifications/inbox`, `/unread-count` | 400 ms |
 | `import` | 1 VU | multipart `POST /data-transfer/imports` (`catalog.products`, 200 generated rows, Commit), poll `GET /jobs/{id}` until done, API key | 1000 ms (submit and poll requests) |
 
-`LOAD_RATE_SCALE` multiplies the rates. Global: `http_req_failed < 1%`, `checks > 99%`; per scenario
+`LOAD_RATE_SCALE` multiplies the rates and `LOAD_P95_SCALE` the p95 budgets (CI sets 3, see below). Global: `http_req_failed < 1%`, `checks > 99%`; per scenario
 `http_req_failed < 1%`, `dropped_iterations < 1`, and at least one request. The import scenario is exactly one VU because
 the API allows one active import per definition and tenant (409 `import_already_running`). The budgets are regression
 tripwires with a wide margin, not SLAs.
@@ -119,7 +119,21 @@ table above), all scenarios at once. Windows 11 laptop (16 logical CPUs, Docker 
 The latencies are far below the budgets because the offered load is modest (about 137 req/s, below saturation of 2 CPUs)
 and constant: an earlier closed-model run with 27 VUs looping without pauses pushed about 200 req/s and showed p95 of
 160 to 400 ms. Raise `LOAD_RATE_SCALE` to find the knee; the first dropped iterations mark the sustained-rate limit.
-Update this table when the first nightly numbers exist (hosted runners are usually 2 to 3 times slower).
+First run on a GitHub-hosted runner (`ubuntu-latest`, 2 CPUs shared by the API, Postgres, Redis and k6; 60 s, rate
+scale 1):
+
+| Scenario | Requests | req/s | avg ms | p95 ms | Failed | Dropped |
+|---|---|---|---|---|---|---|
+| auth | 582 | 9.7 | 202.1 | 787.6 | 0.00% | 0 |
+| catalog | 3372 | 56.0 | 92.4 | 449.9 | 0.00% | 0 |
+| products | 2255 | 37.4 | 95.9 | 393.5 | 0.00% | 0 |
+| inbox | 1398 | 23.2 | 124.4 | 710.0 | 0.00% | 0 |
+| import | 188 | 3.1 | 66.7 | 78.1 | 0.00% | 0 |
+| **total** | **7795** | **129.5** | | | **0.00%** (checks 100%) | **0** |
+
+The hosted runner is 3 to 15 times slower at p95 than the developer machine (the inbox budget of 400 ms was crossed at
+710 ms), so the workflow sets `LOAD_P95_SCALE=3`: the same budgets, relative to the box. Update both tables when the
+nightly numbers drift.
 
 ## Troubleshooting
 

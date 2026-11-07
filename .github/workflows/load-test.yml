@@ -50,6 +50,8 @@ jobs:
     env:
       LOAD_DURATION: ${{ github.event.inputs.duration || '60s' }}
       LOAD_RATE_SCALE: ${{ github.event.inputs.rate_scale || '1' }}
+      # Hosted 2-CPU runner: API, Postgres, Redis and k6 share the cores (~3x slower than the calibration machine).
+      LOAD_P95_SCALE: '3'
     steps:
       - name: Checkout
         uses: actions/checkout@v7

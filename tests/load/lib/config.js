@@ -14,6 +14,10 @@ export const TENANT = __ENV.LOAD_TENANT || '';
 
 const DURATION = __ENV.LOAD_DURATION || '30s';
 const RATE_SCALE = Number(__ENV.LOAD_RATE_SCALE || '1');
+// Multiplies every p95 budget below. The budgets are calibrated on a developer machine (API container on 2 of 16
+// CPUs); a 2-CPU hosted CI runner shares its cores between the API, Postgres, Redis and k6 and measures ~3x slower,
+// so the workflow sets LOAD_P95_SCALE=3. The tripwire still catches a regression, relative to the box it runs on.
+const P95_SCALE = Number(__ENV.LOAD_P95_SCALE || '1');
 
 // Open model: each scenario starts `rate` ITERATIONS per second whatever the latency (a slow server cannot throttle the
 // load, which a closed VU loop would do). `vus` pre-allocates the VU pool, `maxVus` caps it; an iteration that finds no
@@ -54,7 +58,7 @@ export function buildOptions() {
       );
       thresholds[`dropped_iterations{load_scenario:${name}}`] = ['count<1'];
     }
-    thresholds[`http_req_duration{load_scenario:${name}}`] = [`p(95)<${s.p95}`];
+    thresholds[`http_req_duration{load_scenario:${name}}`] = [`p(95)<${Math.round(s.p95 * P95_SCALE)}`];
     thresholds[`http_req_failed{load_scenario:${name}}`] = ['rate<0.01'];
     thresholds[`http_reqs{load_scenario:${name}}`] = ['count>0']; // a scenario that sent nothing must fail the run
   }
