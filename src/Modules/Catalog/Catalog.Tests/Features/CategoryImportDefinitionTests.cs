@@ -211,4 +211,53 @@ public sealed class CategoryImportDefinitionTests
         CategoryTransferColumns.All.Single(c => c.Name == "display_order").Kind.Should().Be(TransferColumnKind.Number);
         Sut().RequiredPermission.Should().Be(Shared.Core.MultiTenancy.Authorization.TenantPermissions.CategoriesManage);
     }
+
+    [Fact]
+    public async Task A_name_over_the_limit_fails_on_its_column_and_the_limit_itself_is_accepted()
+    {
+        var results = await Sut().ApplyBatchAsync(
+            [Row(2, "too-long", nameEn: new string('x', Category.NameMaxLength + 1)),
+             Row(3, "just-fits", nameAr: new string('y', Category.NameMaxLength))], Context(), default);
+
+        results[0].Errors.Should().Contain(e => e.Column == "name_en");
+        results[1].Outcome.Should().Be(ImportRowOutcome.Created);
+    }
+
+    [Fact]
+    public async Task Messages_follow_the_ui_culture_of_the_requester()
+    {
+        var previous = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("ar");
+        try
+        {
+            var results = await Sut().ApplyBatchAsync(
+                [Row(2, "kid", parent: "ghost"), Row(3, "bad-order", order: "x"), Row(4, "bad-flag", active: "maybe"),
+                 Row(5, "no-name", nameEn: null)], Context(), default);
+
+            results[0].Errors.Single().Message.Should().Contain("لا يوجد تصنيف");
+            results[1].Errors.Single().Message.Should().Contain("عددًا صحيحًا");
+            results[2].Errors.Single().Message.Should().Contain("true أو false");
+            results[3].Errors.Single().Message.Should().Contain("مطلوبة");
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Fact]
+    public async Task A_slug_taken_by_a_concurrent_writer_fails_the_batch_and_the_replay_then_sees_it_as_existing()
+    {
+        var sut = Sut();
+        _repository.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Catalog.Domains.Categories.Exceptions.CategorySlugAlreadyExistsException("raced"));
+
+        var first = () => sut.ApplyBatchAsync([Row(2, "raced", nameEn: "Raced", nameAr: "raced-ar")], Context(), default);
+        await first.Should().ThrowAsync<Catalog.Domains.Categories.Exceptions.CategorySlugAlreadyExistsException>();
+
+        Stored("raced"); // the other writer's row is now committed
+        var replay = await Sut().ApplyBatchAsync([Row(2, "raced", nameEn: "raced", nameAr: "raced-ar")], Context(), default);
+
+        replay.Single().Outcome.Should().Be(ImportRowOutcome.Unchanged);
+    }
 }

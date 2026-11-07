@@ -32,7 +32,8 @@ public class CreateTenantRoleCommandValidator : AbstractValidator<CreateTenantRo
 {
     public CreateTenantRoleCommandValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(TenantRole.NameMaxLength);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(TenantRole.NameMaxLength)
+            .Must(TenantRole.IsListSafeName).WithMessage("Role names must not contain ';' (it separates roles in member import/export files).");
         RuleFor(x => x.Description).MaximumLength(TenantRole.DescriptionMaxLength);
         RuleFor(x => x.Permissions).NotNull();
         RuleForEach(x => x.Permissions).Must(p => TenantPermissions.All.Contains(p)).WithMessage("Unknown permission '{PropertyValue}'.");
@@ -58,7 +59,8 @@ public class UpdateTenantRoleCommandValidator : AbstractValidator<UpdateTenantRo
     public UpdateTenantRoleCommandValidator()
     {
         RuleFor(x => x.Id).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(TenantRole.NameMaxLength);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(TenantRole.NameMaxLength)
+            .Must(TenantRole.IsListSafeName).WithMessage("Role names must not contain ';' (it separates roles in member import/export files).");
         RuleFor(x => x.Description).MaximumLength(TenantRole.DescriptionMaxLength);
         RuleFor(x => x.Permissions).NotNull();
     }

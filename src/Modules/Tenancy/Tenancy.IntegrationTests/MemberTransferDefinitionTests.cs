@@ -3,10 +3,13 @@ using DataTransfer.Contracts.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using Shared.Core.MultiTenancy.Authorization;
 using Shared.Core.MultiTenancy;
 using Shared.Core.Web;
 using Tenancy.Contracts.Branches;
 using Tenancy.Contracts.Members;
+using Tenancy.Contracts.Roles;
 using Tenancy.Contracts.Tenants;
 using Tenancy.Domains.Invitations.Models;
 using Tenancy.Domains.Members.DataTransfer;
@@ -176,6 +179,201 @@ public sealed class MemberTransferDefinitionTests(TenancyPostgresFixture fx) : I
             .Select((cells, i) => new ImportRecord(i + 2, names.Select((n, j) => (n, cells[j])).ToDictionary(x => x.n, x => x.Item2)))
             .ToArray());
         again.Select(r => r.Outcome).Should().OnlyContain(o => o == ImportRowOutcome.Unchanged);
+    }
+
+    [Fact]
+    public async Task A_branch_restricted_requester_cannot_assign_other_branches_and_only_that_row_fails()
+    {
+        var mine = await CreateBranchAsync("MINE");
+        await CreateBranchAsync("OTHER");
+        var manager = await ProvisionManagerAsync(new BranchAssignment(mine, false));
+
+        var results = await ApplyAsync(manager, false,
+            Row(2, Email(), branches: "MINE"),
+            Row(3, Email(), branches: "OTHER"),
+            Row(4, Email()));
+
+        results[0].Outcome.Should().Be(ImportRowOutcome.Created);
+        results[1].Errors.Single().Should().Match<ImportRowError>(e =>
+            e.Column == "branches" && (e.Code == "branch_not_allowed" || e.Code == "branch_not_found"));
+        results[2].Outcome.Should().Be(ImportRowOutcome.Created);
+        (await fx.WithDb(db => db.Invitations.CountAsync(i => i.TenantId == _tenantId))).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task A_branch_outside_the_requesters_scope_is_reported_as_branch_not_allowed_in_a_dry_run_too()
+    {
+        var mine = await CreateBranchAsync("MINE2");
+        await CreateBranchAsync("OTHER2");
+        var manager = await ProvisionManagerAsync(new BranchAssignment(mine, false));
+
+        var dry = await ApplyAsync(manager, true, Row(2, Email(), branches: "OTHER2"));
+        var real = await ApplyAsync(manager, false, Row(2, Email(), branches: "OTHER2"));
+
+        dry.Single().Errors.Single().Column.Should().Be("branches");
+        real.Single().Errors.Single().Code.Should().Be(dry.Single().Errors.Single().Code);
+        (await fx.WithDb(db => db.Invitations.CountAsync(i => i.TenantId == _tenantId))).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task An_escalating_role_writes_no_invitation_in_either_mode()
+    {
+        var manager = await ProvisionManagerAsync();
+
+        var real = await ApplyAsync(manager, false, Row(2, Email(), roles: "Administrator"));
+        var dry = await ApplyAsync(manager, true, Row(2, Email(), roles: "Administrator"));
+
+        real.Single().Errors.Single().Code.Should().Be("forbidden");
+        dry.Single().Errors.Single().Code.Should().Be("forbidden");
+        (await fx.WithDb(db => db.Invitations.CountAsync(i => i.TenantId == _tenantId))).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_dry_run_queues_no_notification_and_a_real_run_goes_through_the_sender()
+    {
+        fx.Notifications.Invocations.Clear();
+
+        await ApplyAsync(_ownerId, true, Row(2, Email()));
+
+        fx.Notifications.Verify(n => n.ToEmail(It.IsAny<string>(), It.IsAny<Notification.Contracts.Enums.NotificationCulture>(),
+            It.IsAny<Guid?>()), Times.Never);
+
+        await ApplyAsync(_ownerId, false, Row(2, Email()));
+
+        fx.Notifications.Verify(n => n.ToEmail(It.IsAny<string>(), It.IsAny<Notification.Contracts.Enums.NotificationCulture>(),
+            It.IsAny<Guid?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task A_pending_invitation_of_another_tenant_does_not_make_the_row_unchanged()
+    {
+        var email = Email();
+        var otherOwner = Guid.NewGuid();
+        var other = await fx.SendAs(otherOwner, new CreateTenantCommand("Other Co", $"o-{Guid.NewGuid():N}"[..20]));
+        await fx.SendInTenant(other.TenantId, otherOwner, new InviteMemberCommand(email, [], []));
+
+        var results = await ApplyAsync(_ownerId, false, Row(2, email));
+
+        results.Single().Outcome.Should().Be(ImportRowOutcome.Created);
+        (await fx.WithDb(db => db.Invitations.CountAsync(i => i.Email == email))).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task A_member_of_another_tenant_is_still_invited_here()
+    {
+        var userId = Guid.NewGuid();
+        var email = Email();
+        fx.Users.Add(userId, email, "Elsewhere Person");
+        var otherOwner = Guid.NewGuid();
+        var other = await fx.SendAs(otherOwner, new CreateTenantCommand("Other Co", $"o-{Guid.NewGuid():N}"[..20]));
+        await fx.SendInTenant(other.TenantId, otherOwner, new ProvisionMemberCommand(userId, MemberProvisioningSource.Scim));
+
+        var results = await ApplyAsync(_ownerId, false, Row(2, email));
+
+        results.Single().Outcome.Should().Be(ImportRowOutcome.Created);
+    }
+
+    [Fact]
+    public async Task A_suspended_member_is_unchanged_not_invited()
+    {
+        var userId = Guid.NewGuid();
+        var email = Email();
+        fx.Users.Add(userId, email, "Suspended Person");
+        await fx.SendInTenant(_tenantId, _ownerId, new ProvisionMemberCommand(userId, MemberProvisioningSource.Scim));
+        await fx.SendInTenant(_tenantId, _ownerId, new ProvisionMemberCommand(userId, MemberProvisioningSource.Scim, Active: false));
+
+        var results = await ApplyAsync(_ownerId, false, Row(2, email));
+
+        results.Single().Outcome.Should().Be(ImportRowOutcome.Unchanged);
+    }
+
+    [Fact]
+    public async Task A_custom_role_is_assignable_by_name_and_an_over_long_email_is_a_row_error()
+    {
+        var role = TenantRole.CreateCustom(_tenantId, "Auditor", null, [TenantPermissions.AuditRead]);
+        await fx.WithDb(async db =>
+        {
+            db.Roles.Add(role);
+            return await db.SaveChangesAsync();
+        });
+        var email = Email();
+
+        var results = await ApplyAsync(_ownerId, false,
+            Row(2, email, roles: "auditor"),
+            Row(3, new string('a', 250) + "@example.com"));
+
+        results[0].Outcome.Should().Be(ImportRowOutcome.Created);
+        (await fx.WithDb(db => db.Invitations.SingleAsync(i => i.Email == email))).RoleIds.Should().Equal(role.Id);
+        results[1].Errors.Single().Column.Should().Be("email");
+    }
+
+    [Fact]
+    public async Task Row_messages_come_out_in_arabic_for_an_arabic_requester()
+    {
+        var previous = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("ar");
+        try
+        {
+            var results = await ApplyAsync(_ownerId, false, Row(2, Email(), roles: "Ghost"), Row(3, "bad-email"), Row(4, null));
+
+            results[0].Errors.Single().Message.Should().Contain("لا يوجد دور");
+            results[1].Errors.Single().Message.Should().Contain("ليس بريدًا");
+            results[2].Errors.Single().Message.Should().Contain("مطلوبة");
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Fact]
+    public async Task Export_leaves_out_inactive_branches_so_the_file_always_reimports()
+    {
+        var active = await CreateBranchAsync("LIVE");
+        var closed = await CreateBranchAsync("CLOSED");
+        var userId = Guid.NewGuid();
+        var email = Email();
+        fx.Users.Add(userId, email, "Two Branch Person");
+        await fx.SendInTenant(_tenantId, _ownerId, new ProvisionMemberCommand(userId, MemberProvisioningSource.Scim));
+        await fx.WithDb(async db =>
+        {
+            var membership = await db.Memberships.SingleAsync(m => m.TenantId == _tenantId && m.UserId == userId);
+            membership.SetBranches([new BranchAssignment(active, true), new BranchAssignment(closed, true)]);
+            (await db.Branches.SingleAsync(b => b.Id == closed)).Deactivate();
+            return await db.SaveChangesAsync();
+        });
+
+        var exported = await ExportAsync();
+
+        exported.Single(r => r[0] == email)[2].Should().Be("LIVE");
+    }
+
+    [Fact]
+    public async Task Role_names_with_a_semicolon_are_refused_because_they_would_break_the_roles_cell()
+    {
+        var act = () => TenantRole.CreateCustom(_tenantId, "Ops;Admin", null, []);
+        act.Should().Throw<Tenancy.Domains.Tenants.Exceptions.InvalidMembershipException>();
+        new Tenancy.Domains.Roles.Features.CreateTenantRoleCommandValidator()
+            .Validate(new CreateTenantRoleCommand("Ops;Admin", null, [])).IsValid.Should().BeFalse();
+        await Task.CompletedTask;
+    }
+
+    private async Task<Guid> ProvisionManagerAsync(params BranchAssignment[] branches)
+    {
+        var manager = Guid.NewGuid();
+        await fx.SendInTenant(_tenantId, _ownerId, new ProvisionMemberCommand(manager, MemberProvisioningSource.Scim,
+            [SystemTenantRoles.IdOf(_tenantId, SystemTenantRoles.BranchManager)]));
+        if (branches.Length > 0)
+        {
+            await fx.WithDb(async db =>
+            {
+                var membership = await db.Memberships.SingleAsync(m => m.TenantId == _tenantId && m.UserId == manager);
+                membership.SetBranches(branches);
+                return await db.SaveChangesAsync();
+            });
+        }
+
+        return manager;
     }
 
     private async Task<Guid> CreateBranchAsync(string code) =>

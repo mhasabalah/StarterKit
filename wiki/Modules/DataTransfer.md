@@ -214,7 +214,30 @@ owns it and its status lets the owner edit it, and it validates with the same `P
 |---|---|---|---|
 | `catalog.products` | Catalog | `catalog.products.manage` | Upsert by SKU; Draft products owned by the requester |
 | `catalog.categories` | Catalog | `catalog.categories.manage` | Upsert by slug; columns `slug, name_en, name_ar, parent, display_order, active`. `parent` is a slug that must already exist or appear in an EARLIER row (empty = top level); loops are row errors (`parent_cycle`); empty `display_order`/`active` keep the current value. Export lists parents first, so it re-imports as is. Events invalidate the cached tree |
-| `tenancy.members` | Tenancy | `tenant.members.manage` | Import INVITES by email (`email, roles, branches`): role names and branch codes (`;` separated, `CODE:self` = only that branch) are resolved once per batch, then `InviteMemberCommand` runs as the requester (seat limit, anti-escalation, audit, email). An existing member or pending invitation is `Unchanged`; seat limit is a row error `tenant_limit_exceeded`; a role beyond the requester's own permissions is `forbidden`. A dry run validates (including grant rules) and invites nobody; the plan seat limit is only enforced by a real run. Export adds name, status, joined at (filter `status`). In single-tenant mode the requester has no membership, so role grants by non-owners are refused |
+| `tenancy.members` | Tenancy | `tenant.members.manage` | See "Member import" below |
+
+
+### Member import (`tenancy.members`)
+
+Columns: `email, roles, branches` (import) plus read-only `display_name, status, joined_at` (export).
+- **Roles and branches.** Cells hold role names (case-insensitive, `;` separated; empty = the default Member role) and
+  branch codes (`;` separated; `CODE:self` = only that branch, otherwise the branch and its sub-branches). Names are
+  resolved once per batch. Role names cannot contain `;` (the role validator rejects it). The export lists only
+  ACTIVE branches, because the import resolves active codes only, so an export always re-imports.
+- **Actor.** Each row runs `InviteMemberCommand` as the requester: seat limit, anti-escalation, branch scope, audit and
+  the invitation e-mail all apply. In a job the requester's platform roles come from the user directory
+  (`GetUserRolesQuery`), so single-tenant Admin/SuperAdmin requesters may grant roles; a plain requester cannot.
+- **Idempotent.** The batch asks the directory which addresses are users (`GetUserIdsByEmailsQuery`, one query), then
+  which of them are members of THIS tenant (any status) plus the pending invitations of this tenant, one query each.
+  Those rows are `Unchanged`; a member or invitation of another tenant does not count.
+- **Row errors.** `role_not_found`, `branch_not_found`, `branch_not_allowed` (outside the requester's branches),
+  `forbidden` (role beyond the requester's permissions), `tenant_limit_exceeded`, `invalid`, plus `required` /
+  email format. Any other 4xx except 409 becomes a row error too.
+- **Dry run.** Validates everything including the grant rules, invites nobody and sends nothing. The plan seat limit is
+  only enforced by a real run.
+- **Crash recovery.** Each invitation commits with its own save and the e-mail is queued right after, fail-soft. If the
+  process dies between the two, the invitation exists but its e-mail was never sent: a replay reports that row
+  `Unchanged`, so resend it from the invitations list (`POST /tenant-invitations/{id}/resend`).
 
 ## Running the workers
 

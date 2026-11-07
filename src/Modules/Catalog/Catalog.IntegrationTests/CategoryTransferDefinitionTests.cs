@@ -86,6 +86,36 @@ public sealed class CategoryTransferDefinitionTests(CatalogPostgresFixture fx)
         (await db(d => d.Categories.AsNoTracking().SingleAsync(c => c.Slug == $"{p}-a"))).ParentId.Should().BeNull();
     }
 
+    [Fact]
+    public async Task Export_orders_siblings_by_display_order_then_slug_under_their_parent()
+    {
+        var p = $"so{Guid.NewGuid():N}"[..10];
+        await ApplyAsync(false,
+            Row(2, $"{p}-root", "Root", "root", order: "0"),
+            Row(3, $"{p}-b", "B", "b", parent: $"{p}-root", order: "2"),
+            Row(4, $"{p}-z", "Z", "z", parent: $"{p}-root", order: "1"),
+            Row(5, $"{p}-a", "A", "a", parent: $"{p}-root", order: "2"));
+
+        var order = (await ExportAsync()).Select(r => r[0]!).Where(slug => slug.StartsWith(p)).ToList();
+
+        order.Should().Equal($"{p}-root", $"{p}-z", $"{p}-a", $"{p}-b");
+    }
+
+    [Fact]
+    public async Task The_same_slug_in_another_tenant_is_a_separate_category()
+    {
+        var slug = $"mt{Guid.NewGuid():N}"[..10];
+        var other = new Shared.Core.MultiTenancy.TenantInfo(Guid.NewGuid(), "other-tenant", "Other");
+        await ApplyAsync(false, Row(2, slug, "Mine", "لي"));
+
+        IReadOnlyList<ImportRowResult> inOther;
+        using (Shared.Core.MultiTenancy.TenantScope.Begin(other))
+            inOther = await ApplyAsync(false, Row(2, slug, "Theirs", "لهم"));
+
+        inOther.Single().Outcome.Should().Be(ImportRowOutcome.Created, "slugs are unique per tenant, not globally");
+        (await db(d => d.Categories.IgnoreQueryFilters().CountAsync(c => c.Slug == slug))).Should().Be(2);
+    }
+
     private Task<T> db<T>(Func<Catalog.Data.CatalogDbContext, Task<T>> work) => fx.WithDb(work);
 
     private async Task<IReadOnlyList<ImportRowResult>> ApplyAsync(bool dryRun, params ImportRecord[] records)

@@ -45,6 +45,9 @@ public class TenantRole : Aggregate<Guid>, IMustHaveTenant
         Permissions = [.. definition.Permissions]
     };
 
+    /// <summary>Role names are joined with ';' in member import/export cells, so they cannot contain it.</summary>
+    public static bool IsListSafeName(string? name) => name is null || !name.Contains(';', StringComparison.Ordinal);
+
     public void Update(string name, string? description, IEnumerable<string> permissions)
     {
         if (IsSystem)
@@ -53,6 +56,8 @@ public class TenantRole : Aggregate<Guid>, IMustHaveTenant
         var trimmed = (name ?? string.Empty).Trim();
         if (trimmed.Length is 0 or > NameMaxLength)
             throw new InvalidMembershipException($"Role name is required (max {NameMaxLength} characters).");
+        if (!IsListSafeName(trimmed))
+            throw new InvalidMembershipException("Role names must not contain ';'.");
 
         var granted = permissions.Distinct(StringComparer.Ordinal).ToList();
         var unknown = granted.Except(TenantPermissions.All, StringComparer.Ordinal).ToList();

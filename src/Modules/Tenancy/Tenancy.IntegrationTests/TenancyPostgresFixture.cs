@@ -39,6 +39,9 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
     /// <summary>The Identity side of <c>GetUserSummariesQuery</c> (member names / e-mails).</summary>
     public FakeUserDirectory Users { get; } = new();
 
+    /// <summary>The notification sender the invitation e-mail would go through (verify "nothing was queued").</summary>
+    public Mock<Notification.Contracts.INotificationSender> Notifications { get; } = new();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -62,10 +65,14 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
         services.AddSingleton<IHttpContextService>(Http);
         services.AddSingleton(Jobs.Object);
         // The invitation e-mail is queued through these; fail-soft in the mailer, so loose mocks are enough.
-        services.AddSingleton(Mock.Of<Notification.Contracts.INotificationSender>());
+        services.AddSingleton(Notifications.Object);
         services.AddSingleton(Mock.Of<Notification.Contracts.INotificationLinkResolver>());
         services.AddSingleton<IRequestHandler<UserDirectory.Contracts.Queries.GetUserSummariesQuery,
             IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>>(Users);
+        services.AddSingleton<IRequestHandler<UserDirectory.Contracts.Queries.GetUserIdsByEmailsQuery,
+            IReadOnlyDictionary<string, Guid>>>(Users);
+        services.AddSingleton<IRequestHandler<UserDirectory.Contracts.Queries.GetUserRolesQuery,
+            IReadOnlyList<string>>>(Users);
         services.AddMultiTenancy(configuration);
         services.AddTenancyModule(configuration);
         services.AddSingleton<IRequestHandler<Subscriptions.Contracts.Subscriptions.Queries.GetActivePlanLimitsQuery,
@@ -176,17 +183,32 @@ public sealed class FakePlanLimits : IRequestHandler<Subscriptions.Contracts.Sub
             : Task.FromResult(new Subscriptions.Contracts.Subscriptions.DTOs.ActivePlanLimitsDto(null, null, MaxUsers, "Active", null));
 }
 
-/// <summary>Answers <c>GetUserSummariesQuery</c> from a settable map (users unknown to it are omitted).</summary>
-public sealed class FakeUserDirectory : IRequestHandler<UserDirectory.Contracts.Queries.GetUserSummariesQuery,
-    IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>
+/// <summary>Answers the user-directory queries from settable maps (users unknown to it are omitted).</summary>
+public sealed class FakeUserDirectory :
+    IRequestHandler<UserDirectory.Contracts.Queries.GetUserSummariesQuery, IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>,
+    IRequestHandler<UserDirectory.Contracts.Queries.GetUserIdsByEmailsQuery, IReadOnlyDictionary<string, Guid>>,
+    IRequestHandler<UserDirectory.Contracts.Queries.GetUserRolesQuery, IReadOnlyList<string>>
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, UserDirectory.Contracts.Queries.UserSummaryDto> _users = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, string[]> _roles = new();
 
     public void Add(Guid userId, string email, string displayName) =>
         _users[userId] = new UserDirectory.Contracts.Queries.UserSummaryDto(userId, displayName, email, null, true);
+
+    public void SetRoles(Guid userId, params string[] roles) => _roles[userId] = roles;
 
     public Task<IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>> Handle(
         UserDirectory.Contracts.Queries.GetUserSummariesQuery request, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<UserDirectory.Contracts.Queries.UserSummaryDto>>(
             request.UserIds.Where(_users.ContainsKey).Select(id => _users[id]).ToList());
+
+    public Task<IReadOnlyDictionary<string, Guid>> Handle(
+        UserDirectory.Contracts.Queries.GetUserIdsByEmailsQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<string, Guid>>(_users.Values
+            .Where(u => u.Email is not null && request.Emails.Contains(u.Email, StringComparer.OrdinalIgnoreCase))
+            .ToDictionary(u => u.Email!, u => u.UserId, StringComparer.OrdinalIgnoreCase));
+
+    public Task<IReadOnlyList<string>> Handle(
+        UserDirectory.Contracts.Queries.GetUserRolesQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(_roles.GetValueOrDefault(request.UserId) ?? []);
 }

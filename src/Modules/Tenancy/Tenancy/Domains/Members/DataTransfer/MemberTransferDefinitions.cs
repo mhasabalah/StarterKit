@@ -1,4 +1,8 @@
+using Microsoft.Extensions.Localization;
 using Shared.Contracts.Localization;
+using Tenancy.Resources;
+using Tenancy.Services;
+using UserDirectory.Contracts.Queries;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using DataTransfer.Contracts.Definitions;
@@ -77,6 +81,8 @@ public sealed class MemberImportDefinition(
     TenancyDbContext dbContext,
     ISender sender,
     MembershipGrantValidator grants,
+    TenancyRequest request,
+    IStringLocalizer<TenancyResource> localizer,
     TimeProvider timeProvider) : IImportDefinition
 {
     public string Key => MemberTransferColumns.Key;
@@ -87,7 +93,10 @@ public sealed class MemberImportDefinition(
     public async Task<IReadOnlyList<ImportRowResult>> ApplyBatchAsync(IReadOnlyList<ImportRecord> records,
         ImportContext context, CancellationToken cancellationToken)
     {
-        var rows = records.Select(r => (Record: r, Row: MemberRow.Parse(r, context.Culture))).ToList();
+        // No HTTP request here: the requester's platform roles (single-tenant mode grants through them) come from the directory.
+        await request.LoadActingRolesAsync(sender, cancellationToken);
+
+        var rows = records.Select(r => (Record: r, Row: MemberRow.Parse(r, localizer))).ToList();
         var valid = rows.Where(r => r.Row.Errors.Count == 0).Select(r => r.Row).ToList();
 
         var results = new List<ImportRowResult>(records.Count);
@@ -109,7 +118,6 @@ public sealed class MemberImportDefinition(
         if (row.Errors.Count > 0)
             return ImportRowResult.Failed(record.RowNumber, row.Errors);
 
-        var culture = context.Culture;
         if (lookups.KnownEmails.Contains(row.Email))
             return ImportRowResult.Unchanged(record.RowNumber);
 
@@ -118,8 +126,7 @@ public sealed class MemberImportDefinition(
         {
             if (!lookups.RolesByName.TryGetValue(name, out var roleId))
             {
-                return Fail(record, MemberTransferColumns.Roles, "role_not_found",
-                    Text(culture, $"No tenant role is named '{name}'.", $"لا يوجد دور في المستأجر باسم '{name}'."));
+                return Fail(record, MemberTransferColumns.Roles, "role_not_found", localizer["Import.Role.NotFound", name]);
             }
 
             roleIds.Add(roleId);
@@ -130,8 +137,7 @@ public sealed class MemberImportDefinition(
         {
             if (!lookups.BranchesByCode.TryGetValue(code, out var branchId))
             {
-                return Fail(record, MemberTransferColumns.Branches, "branch_not_found",
-                    Text(culture, $"No active branch has the code '{code}'.", $"لا يوجد فرع نشط بالكود '{code}'."));
+                return Fail(record, MemberTransferColumns.Branches, "branch_not_found", localizer["Import.Branch.NotFound", code]);
             }
 
             branches.Add(new BranchAssignment(branchId, includeDescendants));
@@ -144,7 +150,10 @@ public sealed class MemberImportDefinition(
             return ImportRowResult.Failed(record.RowNumber, validation.Errors
                 .Select(e => new ImportRowError(
                     e.PropertyName == nameof(InviteMemberCommand.Email) ? MemberTransferColumns.Email : null,
-                    "invalid", e.ErrorMessage))
+                    "invalid",
+                    e.PropertyName == nameof(InviteMemberCommand.Email)
+                        ? localizer["Import.Email.Invalid", row.Email]
+                        : e.ErrorMessage))
                 .ToList());
         }
 
@@ -161,13 +170,24 @@ public sealed class MemberImportDefinition(
             lookups.KnownEmails.Add(row.Email);
             return ImportRowResult.Unchanged(record.RowNumber);
         }
-        catch (TenantLimitExceededException ex)
+        catch (TenantLimitExceededException)
         {
-            return Fail(record, null, "tenant_limit_exceeded", ex.Message);
+            return Fail(record, null, "tenant_limit_exceeded", localizer["Import.Seats.Exceeded"]);
         }
-        catch (Exception ex) when (ex is InvalidMembershipException or ForbiddenException)
+        catch (TenantAccessDeniedException ex) when (ex.Error == TenantErrors.BranchNotAllowed)
         {
-            return Fail(record, null, ex is InvalidMembershipException ? "invalid" : "forbidden", ex.Message);
+            return Fail(record, MemberTransferColumns.Branches, "branch_not_allowed",
+                localizer["Import.Branch.NotAllowed", string.Join(", ", row.Branches.Select(b => b.Code))]);
+        }
+        catch (CustomException ex) when ((int)ex.StatusCode is >= 400 and < 500 && ex is not ConflictException)
+        {
+            // Any other 4xx the invite rules raise is a problem with THIS row, never with the batch.
+            return ex switch
+            {
+                InvalidMembershipException => Fail(record, null, "invalid", localizer["Import.Membership.Invalid"]),
+                ForbiddenException => Fail(record, MemberTransferColumns.Roles, "forbidden", localizer["Import.Grant.Forbidden"]),
+                _ => Fail(record, null, "rejected", localizer["Import.Row.Rejected", ex.Message])
+            };
         }
 
         lookups.KnownEmails.Add(row.Email); // the same address again in this file is a no-op
@@ -186,16 +206,21 @@ public sealed class MemberImportDefinition(
             : await dbContext.Branches.AsNoTracking().Where(b => b.IsActive && codes.Contains(b.Code))
                 .ToDictionaryAsync(b => b.Code, b => b.Id, StringComparer.Ordinal, cancellationToken);
 
+        // Already a member (any status) or already invited: one query per source for the whole batch.
         var emails = valid.Select(r => r.Email).Distinct(StringComparer.Ordinal).ToList();
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var known = new HashSet<string>(StringComparer.Ordinal);
         known.UnionWith(await dbContext.Invitations.AsNoTracking()
             .Where(i => emails.Contains(i.Email) && i.Status == TenantInvitationStatus.Pending && i.ExpiresAt > now)
             .Select(i => i.Email).ToListAsync(cancellationToken));
-        await foreach (var member in MemberPaging.AllAsync(sender, null, cancellationToken))
+
+        var userIds = await sender.Send(new GetUserIdsByEmailsQuery(emails), cancellationToken);
+        if (userIds.Count > 0)
         {
-            if (member.Email is { } email)
-                known.Add(TenantInvitation.NormalizeEmail(email));
+            var ids = userIds.Values.Distinct().ToList();
+            var memberIds = (await dbContext.Memberships.AsNoTracking().Where(m => ids.Contains(m.UserId))
+                .Select(m => m.UserId).ToListAsync(cancellationToken)).ToHashSet();
+            known.UnionWith(userIds.Where(u => memberIds.Contains(u.Value)).Select(u => u.Key.Trim().ToLowerInvariant()));
         }
 
         return new Lookups(rolesByName, branchesByCode, known);
@@ -203,8 +228,6 @@ public sealed class MemberImportDefinition(
 
     private static ImportRowResult Fail(ImportRecord record, string? column, string code, string message) =>
         ImportRowResult.Failed(record.RowNumber, column, code, message);
-
-    private static string Text(string culture, string en, string ar) => TransferCulture.IsArabic(culture) ? ar : en;
 
     private sealed record Lookups(
         Dictionary<string, Guid> RolesByName,
@@ -233,13 +256,14 @@ public sealed class MemberExportDefinition(TenancyDbContext dbContext, ISender s
             status = parsed;
         }
 
-        var codes = await dbContext.Branches.AsNoTracking().ToDictionaryAsync(b => b.Id, b => b.Code, cancellationToken);
+        // Inactive branches are not importable (the import resolves active codes only), so the export leaves them out.
+        var codes = await dbContext.Branches.AsNoTracking().Where(b => b.IsActive)
+            .ToDictionaryAsync(b => b.Id, b => b.Code, cancellationToken);
 
         await foreach (var member in MemberPaging.AllAsync(sender, status, cancellationToken))
         {
-            var branches = member.Branches.Select(b =>
-                (codes.GetValueOrDefault(b.BranchId) ?? b.BranchId.ToString()) +
-                (b.IncludeDescendants ? string.Empty : MemberTransferColumns.SelfOnlySuffix));
+            var branches = member.Branches.Where(b => codes.ContainsKey(b.BranchId)).Select(b =>
+                codes[b.BranchId] + (b.IncludeDescendants ? string.Empty : MemberTransferColumns.SelfOnlySuffix));
             yield return
             [
                 member.Email,
@@ -283,14 +307,13 @@ internal sealed class MemberRow
     public List<(string Code, bool IncludeDescendants)> Branches { get; private init; } = [];
     public List<ImportRowError> Errors { get; } = [];
 
-    public static MemberRow Parse(ImportRecord record, string culture)
+    public static MemberRow Parse(ImportRecord record, IStringLocalizer<TenancyResource> localizer)
     {
         var errors = new List<ImportRowError>();
         var email = record.Get(MemberTransferColumns.Email);
         if (email is null)
         {
-            errors.Add(new ImportRowError(MemberTransferColumns.Email, "required",
-                TransferCulture.IsArabic(culture) ? "القيمة مطلوبة." : "A value is required."));
+            errors.Add(new ImportRowError(MemberTransferColumns.Email, "required", localizer["Import.Value.Required"]));
         }
 
         var branches = MemberTransferColumns.SplitList(record.Get(MemberTransferColumns.Branches))

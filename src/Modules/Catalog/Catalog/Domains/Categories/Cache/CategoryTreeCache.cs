@@ -30,6 +30,10 @@ public sealed class CategoryTreeCache(
 
     private string Key => tenantKeys.For(CacheKey);
 
+    // A bulk import raises one CategoryChangedEvent per row; this scoped instance removes the key once until the tree is
+    // written again (Set), so a batch costs one round trip instead of one per category.
+    private bool _invalidated;
+
     private static readonly DistributedCacheEntryOptions EntryOptions = new()
     {
         AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6)
@@ -54,6 +58,7 @@ public sealed class CategoryTreeCache(
         try
         {
             await cache.SetStringAsync(Key, JsonSerializer.Serialize(nodes), EntryOptions, cancellationToken);
+            _invalidated = false;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -63,9 +68,13 @@ public sealed class CategoryTreeCache(
 
     public async Task InvalidateAsync(CancellationToken cancellationToken = default)
     {
+        if (_invalidated)
+            return;
+
         try
         {
             await cache.RemoveAsync(Key, cancellationToken);
+            _invalidated = true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

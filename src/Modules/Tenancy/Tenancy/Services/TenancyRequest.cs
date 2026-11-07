@@ -11,6 +11,21 @@ public sealed class TenancyRequest(
     IHttpContextService httpContextService,
     IOptions<MultiTenancyOptions> options)
 {
+    private IReadOnlyCollection<string>? _actingRoles;
+
+    /// <summary>
+    /// Background work (no HTTP request, so no token claims): loads the platform roles of the <see cref="ActingUser"/>
+    /// through the user directory, so <see cref="IsPlatformAdmin"/> and, in single-tenant mode, <see cref="Permissions"/>
+    /// answer for them like they would for their own request. No-op inside an HTTP request or without an acting user.
+    /// </summary>
+    public async Task LoadActingRolesAsync(ISender sender, CancellationToken cancellationToken)
+    {
+        if (_actingRoles is not null || ActingUser.Current is not { } userId || httpContextService.GetRoles().Any())
+            return;
+
+        _actingRoles = await sender.Send(new UserDirectory.Contracts.Queries.GetUserRolesQuery(userId), cancellationToken);
+    }
+
     public bool MultiTenancyEnabled => options.Value.Enabled;
 
     public Guid TenantId => tenantContext.TenantId ?? throw new TenantNotResolvedException();
@@ -28,7 +43,7 @@ public sealed class TenancyRequest(
     {
         get
         {
-            var roles = httpContextService.GetRoles().ToHashSet(StringComparer.Ordinal);
+            var roles = (_actingRoles ?? httpContextService.GetRoles()).ToHashSet(StringComparer.Ordinal);
             return roles.Contains(RoleConstants.Admin) || roles.Contains(RoleConstants.SuperAdmin);
         }
     }
@@ -53,7 +68,9 @@ public sealed class TenancyRequest(
                 return m.Permissions;
             return MultiTenancyEnabled
                 ? new HashSet<string>()
-                : httpContextService.GetClaimValues(Shared.Core.Authorization.Permissions.ClaimType)
+                : (_actingRoles is not null
+                    ? RolePermissionMap.For(_actingRoles)
+                    : httpContextService.GetClaimValues(Shared.Core.Authorization.Permissions.ClaimType))
                     .ToHashSet(StringComparer.Ordinal);
         }
     }
