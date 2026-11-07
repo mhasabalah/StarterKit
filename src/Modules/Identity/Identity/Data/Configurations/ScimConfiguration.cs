@@ -25,6 +25,12 @@ public class ScimUserConfiguration : IEntityTypeConfiguration<ScimUser>
         entity.HasKey(e => new { e.DirectoryId, e.UserId });
         entity.Property(e => e.UserName).HasMaxLength(256).IsRequired();
         entity.Property(e => e.ExternalId).HasMaxLength(256);
+        entity.Property(e => e.EmployeeNumber).HasMaxLength(ScimEnterprise.MaxLength);
+        entity.Property(e => e.CostCenter).HasMaxLength(ScimEnterprise.MaxLength);
+        entity.Property(e => e.Organization).HasMaxLength(ScimEnterprise.MaxLength);
+        entity.Property(e => e.Division).HasMaxLength(ScimEnterprise.MaxLength);
+        entity.Property(e => e.Department).HasMaxLength(ScimEnterprise.MaxLength);
+        entity.Ignore(e => e.Enterprise);
 
         // Optimistic concurrency: parallel PATCHes from the IdP must not overwrite each other.
         entity.Property(e => e.Revision).IsConcurrencyToken();

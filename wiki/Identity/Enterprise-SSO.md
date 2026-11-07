@@ -65,6 +65,7 @@ Gate on every route: `.RequireTenantPermission(TenantPermissions.SsoManage)` (`t
 | GET/POST | `/connections` | list / create (draft) |
 | GET/PUT/DELETE | `/connections/{id}` | read (incl. the SP values for the IdP admin) / update (`version`) / delete |
 | POST | `/connections/{id}/activate`, `/disable` | status |
+| POST | `/connections/{id}/refresh-metadata` | SAML only: "refresh now" from the metadata URL; result `{outcome: Updated|Unchanged|Failed, error?, refreshedAt?}` |
 | POST | `/connections/{id}/domains` | add a domain → TXT record to publish |
 | POST | `/connections/{id}/domains/{domain}/verify` | DNS check (409 `sso_domain_unverified` / `sso_domain_taken`) |
 | DELETE | `/connections/{id}/domains/{domain}` | remove |
@@ -119,6 +120,48 @@ Then add the email domain, publish the TXT record, verify, run **Test**, check t
 | `AllowInsecureIdentityProviders` | `false` | http / private IdPs - development only |
 | `ClockSkewSeconds` | 120 | |
 | `AllowBreakGlassPasswordLogin` | `true` | staff + tenant owner bypass enforcement |
+| `MetadataRefreshEnabled` / `MetadataRefreshCron` | `true` / `0 */6 * * *` | recurring SAML metadata refresh |
+| `CertificateExpiryCheckCron` | `0 7 * * *` | daily certificate expiry check |
+| `CertificateExpiryAlertsEnabled` | `true` | switch for the daily expiry check |
+| `CertificateExpiryAlertDays` | unset = `[30,14,7,1]` | alert thresholds. The code default is empty and replaced after binding, because the configuration binder appends to a non-empty default array |
+
+## SAML metadata refresh and certificate expiry alerts
+
+A SAML connection with a **metadata URL** keeps its IdP signing certificates and SSO URL current, so an IdP key
+rollover never locks a company out.
+
+- **Job.** `RefreshSamlMetadataJob` (Hangfire recurring `refresh-saml-metadata`, queue `default`, cron
+  `Identity:Sso:MetadataRefreshCron`, default every 6 hours; `MetadataRefreshEnabled=false` turns it off). It
+  iterates the active SAML connections that have a metadata URL (control-plane rows, queried by explicit
+  `TenantId`), one `IUnitOfWorkRunner` call per connection, so one broken IdP never blocks the others.
+- **Fetch.** Through the `identity-sso` HTTP client (`GuardedConnector`: no private/loopback/metadata addresses, no
+  redirects, short timeout), HTTPS only (`AllowInsecureIdentityProviders` relaxes it in development), response capped
+  at 1 MB, XML parsed with DTD processing prohibited.
+- **Entity id and signature.** Metadata whose `entityID` differs from the configured one is rejected and
+  recorded (`samlMetadataLastError = metadata_entity_id_mismatch`); keys and URL stay. If the metadata is
+  **signed** (enveloped XML signature over the whole document, no XSLT/XPath transforms), the signature must verify
+  against the certificates ALREADY pinned on the connection, otherwise `metadata_signature_invalid`; a rollover works
+  because the old key signs the metadata that announces the new one. **Unsigned metadata is accepted** (many IdPs publish
+  none), and then the entity-id check does NOT protect against a hijacked or compromised metadata host: it can serve the
+  right entity id with attacker keys. Prefer an IdP that signs its metadata, or leave the metadata URL empty and rotate
+  certificates by hand. Other codes: `metadata_fetch_failed`, `metadata_url_not_allowed`, `metadata_too_large`,
+  `metadata_invalid`, `metadata_no_certificates`, `metadata_invalid_certificates`. They are codes, not text, so
+  clients localize them. The same certificates in another order are not a change.
+- **Outcomes.** *Updated*: certificates and/or SSO URL replaced (version bump, change event). *Unchanged*: only
+  `samlMetadataRefreshedAt` moves, through a set-based update that does not bump the version, so it never conflicts
+  with an admin edit. *Failed*: only the error code is recorded.
+- **Expiry alerts.** `CheckSamlCertificateExpiryJob` (daily, `CertificateExpiryCheckCron`, switch
+  `CertificateExpiryAlertsEnabled`) compares the LATEST certificate `NotAfter` of each active SAML connection
+  (`samlCertificatesNotAfter`; a rollover certificate next to the old one is not an outage) with
+  `CertificateExpiryAlertDays` (default 30, 14, 7, 1). The alert is **claimed** with one conditional set-based update
+  (`alerted_not_after IS DISTINCT FROM notAfter OR alerted_days > band`, exactly one row wins), so replicas and re-runs
+  never send it twice and no version bump can 409 an admin edit; then `SsoCertificateExpiringEvent` is published. The
+  handler notifies the ACTIVE tenant members who hold `tenant.sso.manage` (the owner plus the members of each role
+  carrying it, one paged members query per role, through the Tenancy contracts in the tenant's scope) by email
+  (`SsoCertificateExpiring`, in the tenant's culture) and in the in-app inbox (category
+  `security.sso-certificate-expiring`). Delivery failures propagate: the job **releases** its claim and the next run
+  retries (recipients notified before the failure may get it twice: at-least-once). A new certificate resets the
+  schedule.
 
 ## Code map
 
@@ -129,10 +172,12 @@ Then add the email domain, publish the TXT record, verify, run **Test**, check t
 - Tests: `Identity.Tests/Sso/*` (aggregate, return URLs, SAML with real signed responses, enforcement vs plan,
   cache broadcast, role guard), `Api.E2ETests/Identity/EnterpriseSsoE2ETests.cs` (in-process OIDC provider with PKCE
   and RS256; stale versions, foreign roles, cross-tenant ids, 401/403), `Api.E2ETests/Identity/SamlSsoE2ETests.cs`
-  (full SAML round trip over HTTP: forged signature, replay, another browser).
+  (full SAML round trip over HTTP: forged signature, replay, another browser), `Api.E2ETests/Identity/SamlTestIdp.cs`
+  (shared fake IdP), `Api.E2ETests/MultiTenancy/SsoTenantTests.cs` (two tenants: sign-in isolation, discovery, JIT,
+  admin and SCIM isolation, metadata refresh against a local metadata server), `Identity.Tests/Sso/SamlMetadataRefreshTests.cs`.
 
 ## Known limits
 
 - No SAML Single Logout and no signed AuthnRequests (IdPs do not require them by default).
-- SAML metadata URL is stored but not refreshed automatically yet; rotate certificates by updating the connection.
+- Without a metadata URL the certificates are managed by hand (update the connection); the expiry alert still applies.
 - One active connection per verified domain (by design: home-realm discovery must be unambiguous).

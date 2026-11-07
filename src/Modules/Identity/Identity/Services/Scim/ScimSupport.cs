@@ -17,12 +17,15 @@ public sealed class ScimException(int status, string detail, string? scimType = 
     public static ScimException InvalidValue(string detail) => new(400, detail, "invalidValue");
     public static ScimException InvalidFilter(string detail) => new(400, detail, "invalidFilter");
     public static ScimException InvalidSyntax(string detail) => new(400, detail, "invalidSyntax");
+    public static ScimException InvalidPath(string detail) => new(400, detail, "invalidPath");
+    public static ScimException NoTarget(string detail) => new(400, detail, "noTarget");
 }
 
 public static class ScimSchemas
 {
     public const string User = "urn:ietf:params:scim:schemas:core:2.0:User";
     public const string Group = "urn:ietf:params:scim:schemas:core:2.0:Group";
+    public const string EnterpriseUser = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
     public const string ListResponse = "urn:ietf:params:scim:api:messages:2.0:ListResponse";
     public const string PatchOp = "urn:ietf:params:scim:api:messages:2.0:PatchOp";
     public const string Error = "urn:ietf:params:scim:api:messages:2.0:Error";
@@ -47,7 +50,49 @@ public static class ScimJson
         return error;
     }
 
-    public static JsonObject User(ScimUser scim, ApplicationUser user, string baseUrl) => new()
+    /// <param name="managers">
+    /// Display names of the managers that still exist in the directory. When given, a manager that is not in it is
+    /// omitted (the referenced user was deleted); null = do not verify.
+    /// </param>
+    public static JsonObject User(ScimUser scim, ApplicationUser user, string baseUrl,
+        IReadOnlyDictionary<Guid, string?>? managers = null)
+    {
+        var resource = UserCore(scim, user, baseUrl);
+        var enterprise = EnterpriseJson(scim.Enterprise, baseUrl, managers);
+        if (enterprise.Count > 0)
+        {
+            ((JsonArray)resource["schemas"]!).Add(ScimSchemas.EnterpriseUser);
+            resource[ScimSchemas.EnterpriseUser] = enterprise;
+        }
+
+        return resource;
+    }
+
+    private static JsonObject EnterpriseJson(ScimEnterprise e, string baseUrl, IReadOnlyDictionary<Guid, string?>? managers)
+    {
+        var json = new JsonObject();
+        if (e.EmployeeNumber is not null)
+            json["employeeNumber"] = e.EmployeeNumber;
+        if (e.CostCenter is not null)
+            json["costCenter"] = e.CostCenter;
+        if (e.Organization is not null)
+            json["organization"] = e.Organization;
+        if (e.Division is not null)
+            json["division"] = e.Division;
+        if (e.Department is not null)
+            json["department"] = e.Department;
+        if (e.ManagerId is { } manager && (managers is null || managers.ContainsKey(manager)))
+        {
+            var reference = new JsonObject { ["value"] = manager.ToString(), ["$ref"] = $"{baseUrl}/Users/{manager}" };
+            if (managers?[manager] is { } displayName)
+                reference["displayName"] = displayName;
+            json["manager"] = reference;
+        }
+
+        return json;
+    }
+
+    private static JsonObject UserCore(ScimUser scim, ApplicationUser user, string baseUrl) => new()
     {
         ["schemas"] = new JsonArray(ScimSchemas.User),
         ["id"] = scim.UserId.ToString(),
@@ -132,6 +177,121 @@ public static class ScimJson
     /// <summary>Case-insensitive lookup (SCIM attribute names are case-insensitive, IdPs vary).</summary>
     public static JsonNode? Get(JsonObject obj, string name) =>
         obj.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
+}
+
+/// <summary>
+/// Which attribute names a User PATCH may address (RFC 7644 §3.5.2: an unknown path is a 400 <c>invalidPath</c>, not
+/// silently ignored). Attributes of RFC 7643 that this server does not store (phone numbers, addresses, ...) are
+/// KNOWN and accepted-and-ignored, because Entra ID and Okta send them whenever an admin maps them.
+/// </summary>
+public static class ScimUserPaths
+{
+    private static readonly HashSet<string> CoreAttributes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "schemas", "id", "externalId", "meta", "userName", "name", "displayName", "nickName", "profileUrl", "title",
+        "userType", "preferredLanguage", "locale", "timezone", "active", "password", "emails", "phoneNumbers", "ims",
+        "photos", "addresses", "groups", "entitlements", "roles", "x509Certificates"
+    };
+
+    private static readonly HashSet<string> EnterpriseAttributes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "employeeNumber", "costCenter", "organization", "division", "department", "manager"
+    };
+
+    /// <summary>Removes a leading core-schema URN (<c>urn:...:core:2.0:User:userName</c> is a valid path).</summary>
+    public static string StripCoreSchema(string path) =>
+        path.StartsWith(ScimSchemas.User + ":", StringComparison.OrdinalIgnoreCase) ? path[(ScimSchemas.User.Length + 1)..] : path;
+
+    /// <summary>
+    /// For a path inside the enterprise extension: "" = the extension itself (value is an object), otherwise the
+    /// attribute path after the URN (<c>department</c>, <c>manager.value</c>). Null = not an enterprise path.
+    /// </summary>
+    public static string? EnterpriseRemainder(string path)
+    {
+        if (!path.StartsWith(ScimSchemas.EnterpriseUser, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var rest = path[ScimSchemas.EnterpriseUser.Length..];
+        return rest.Length == 0 ? string.Empty : rest[0] == ':' ? rest[1..] : null;
+    }
+
+    /// <summary>
+    /// First segment of an attribute path: <c>emails[type eq "work"].value</c> → <c>emails</c>. A URN path is returned
+    /// whole (its "2.0" is not a sub-attribute separator).
+    /// </summary>
+    public static string Head(string path)
+    {
+        if (path.StartsWith("urn:", StringComparison.OrdinalIgnoreCase))
+            return path;
+
+        var end = path.IndexOfAny(['.', '[']);
+        return end < 0 ? path : path[..end];
+    }
+
+    /// <summary>
+    /// True for an attribute of the User schema AND for a path inside any OTHER schema URN (a custom extension an IdP
+    /// maps): those are accepted and ignored, because rejecting them would break the whole sync for the directory.
+    /// Only a bare name that is not an attribute of the User schema is unknown.
+    /// </summary>
+    public static bool IsKnownCore(string path)
+    {
+        var stripped = StripCoreSchema(path);
+        return stripped.StartsWith("urn:", StringComparison.OrdinalIgnoreCase) || CoreAttributes.Contains(Head(stripped));
+    }
+
+    public static bool IsKnownEnterprise(string attributePath) => EnterpriseAttributes.Contains(Head(attributePath));
+}
+
+/// <summary>Reads and patches the enterprise user extension (RFC 7643 §4.3).</summary>
+public static class ScimEnterpriseJson
+{
+    /// <summary>The extension object of a resource (POST/PUT), or null when the resource does not carry it.</summary>
+    public static ScimEnterprise? FromResource(JsonObject resource)
+    {
+        if (ScimJson.Get(resource, ScimSchemas.EnterpriseUser) is not JsonObject extension)
+            return null;
+
+        var result = ScimEnterprise.Empty;
+        foreach (var (name, value) in extension)
+        {
+            // A body is not a path: attributes this server does not know are ignored, as in the core schema.
+            if (ScimUserPaths.IsKnownEnterprise(name))
+                result = Apply(result, name, value);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Sets (or, with a null/empty value, clears) one extension attribute. <paramref name="attribute"/> is relative to
+    /// the extension: <c>department</c>, <c>manager</c>, <c>manager.value</c>. Unknown names are an <c>invalidPath</c>.
+    /// </summary>
+    public static ScimEnterprise Apply(ScimEnterprise current, string attribute, JsonNode? value)
+    {
+        if (!ScimUserPaths.IsKnownEnterprise(attribute))
+            throw ScimException.InvalidPath($"'{attribute}' is not an attribute of the enterprise user extension.");
+
+        var name = attribute.ToLowerInvariant();
+        switch (ScimUserPaths.Head(name))
+        {
+            case "employeenumber":
+                return current with { EmployeeNumber = ScimJson.Text(value) };
+            case "costcenter":
+                return current with { CostCenter = ScimJson.Text(value) };
+            case "organization":
+                return current with { Organization = ScimJson.Text(value) };
+            case "division":
+                return current with { Division = ScimJson.Text(value) };
+            case "department":
+                return current with { Department = ScimJson.Text(value) };
+        }
+
+        // manager: {"value": "<id>"} | manager.value = "<id>" | manager.displayName / $ref (read-only, ignored)
+        if (name is "manager.displayname" or "manager.$ref")
+            return current;
+
+        var text = value is JsonObject obj ? ScimJson.Text(ScimJson.Get(obj, "value")) : ScimJson.Text(value);
+        return current with { ManagerId = Guid.TryParse(text, out var id) ? id : null };
+    }
 }
 
 /// <summary>
