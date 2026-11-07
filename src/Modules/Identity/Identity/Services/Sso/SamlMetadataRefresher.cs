@@ -95,7 +95,9 @@ public sealed class SamlMetadataFetcher(
 /// Refreshes the IdP signing certificates and SSO URL of ONE SAML connection from its metadata URL. Shared by the
 /// recurring <c>RefreshSamlMetadataJob</c> and the "refresh now" admin command.
 /// <list type="bullet">
-/// <item>Entity-id mismatch, unparseable metadata or no certificates: nothing changes; the error code is recorded.</item>
+/// <item>Entity-id mismatch, unparseable metadata, a signature that does not verify against the pinned certificates or no
+/// certificates: nothing changes; the error code is recorded. The entity id is a consistency check, NOT protection
+/// against a hijacked metadata host unless the metadata is signed (<see cref="SamlMetadataSignature"/>).</item>
 /// <item>Unchanged metadata: only <c>SamlMetadataRefreshedAt</c> is touched (a set-based update, no version bump, so
 /// it never conflicts with an admin editing the connection).</item>
 /// <item>Changed: the aggregate is updated and saved (version bump + change event).</item>
@@ -114,6 +116,11 @@ public sealed class SamlMetadataRefresher(
         var (xml, error) = await fetcher.FetchAsync(connection.SamlIdpMetadataUrl, ct);
         if (xml is null)
             return await FailAsync(connection, error!, ct);
+
+        // Signed metadata must verify against the keys we already trust (rollover: the old key signs the new metadata).
+        // Unsigned metadata is accepted - see SamlMetadataSignature for what that does NOT protect against.
+        if (SamlMetadataSignature.Verify(xml, connection.SamlIdpCertificates) == MetadataSignature.Invalid)
+            return await FailAsync(connection, SamlMetadataErrors.SignatureInvalid, ct);
 
         string entityId;
         string? ssoUrl;

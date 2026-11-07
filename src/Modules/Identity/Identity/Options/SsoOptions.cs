@@ -51,9 +51,16 @@ public sealed class SsoOptions
     /// <summary>Cron of the SAML certificate expiry check. Default: daily at 07:00 UTC.</summary>
     public string CertificateExpiryCheckCron { get; set; } = "0 7 * * *";
 
+    /// <summary>Turns the SAML certificate expiry alerts off (the daily check does not run).</summary>
+    public bool CertificateExpiryAlertsEnabled { get; set; } = true;
+
     /// <summary>
     /// SSO administrators are alerted once for each of these "days before the IdP certificates expire" thresholds
-    /// (and once more for every smaller one that is crossed). Empty = no alerts.
+    /// (and once more for every smaller one that is crossed). The code default is EMPTY on purpose: the configuration
+    /// binder APPENDS to a non-empty default array, so a configured <c>[14, 3]</c> would become <c>[30, 14, 7, 1, 14, 3]</c>.
+    /// An empty value is replaced by <see cref="DefaultCertificateExpiryAlertDays"/> in a post-configure step.
     /// </summary>
-    public int[] CertificateExpiryAlertDays { get; set; } = [30, 14, 7, 1];
+    public int[] CertificateExpiryAlertDays { get; set; } = [];
+
+    public static readonly int[] DefaultCertificateExpiryAlertDays = [30, 14, 7, 1];
 }

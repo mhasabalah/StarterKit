@@ -43,10 +43,13 @@ public sealed class SsoTenantTests(MultiTenantE2EFixture fixture)
     private sealed record MembersPage(List<MemberRow>? Result);
 
     /// <summary>A tenant with its owner, its own SAML IdP and an active SAML connection on its own domain.</summary>
-    private sealed class TenantSetup(Guid tenantId, HttpClient owner, SamlTestIdp idp, SsoConnectionDto connection, string domain)
+    private sealed class TenantSetup(
+        Guid tenantId, Guid ownerId, HttpClient owner, SamlTestIdp idp, SsoConnectionDto connection, string domain)
         : IDisposable
     {
         public Guid TenantId { get; } = tenantId;
+
+        public Guid OwnerId { get; } = ownerId;
 
         public HttpClient Owner { get; } = owner;
 
@@ -156,6 +159,63 @@ public sealed class SsoTenantTests(MultiTenantE2EFixture fixture)
     }
 
     [Fact]
+    public async Task Refresh_metadata_needs_a_session_the_sso_permission_and_no_impersonation()
+    {
+        using var a = await SetupTenantAsync("acme");
+        var url = $"{Admin}/connections/{a.Connection.Id}/refresh-metadata";
+
+        (await fixture.Factory.CreateClient().PostAsync(url, null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var plainMember = await AddPlainMemberAsync(a.Owner, a.TenantId);
+        (await plainMember.PostAsync(url, null)).StatusCode.Should().Be(HttpStatusCode.Forbidden,
+            "a member without tenant.sso.manage");
+
+        var impersonated = fixture.Client(a.OwnerId, a.TenantId);
+        impersonated.DefaultRequestHeaders.Add(Api.E2ETests.Infrastructure.TestAuthHandler.ActorHeader, Guid.NewGuid().ToString());
+        var response = await impersonated.PostAsync(url, null);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "an impersonated session may not change SSO");
+        (await response.Content.ReadAsStringAsync()).Should().Contain("impersonation_restricted");
+    }
+
+    [Fact]
+    public async Task A_scim_manager_from_another_directory_or_tenant_is_dropped()
+    {
+        using var a = await SetupTenantAsync("acme");
+        using var b = await SetupTenantAsync("globex");
+        var tokenA = await CreateDirectoryTokenAsync(a.Owner);
+        var tokenB = await CreateDirectoryTokenAsync(b.Owner);
+
+        var bossInB = await CreateScimUserAsync(ScimClient(tokenB), $"boss@{b.Domain}");
+        var bossInA = await CreateScimUserAsync(ScimClient(tokenA), $"boss@{a.Domain}");
+
+        var resource = new JsonObject
+        {
+            ["schemas"] = new JsonArray("urn:ietf:params:scim:schemas:core:2.0:User"),
+            ["userName"] = $"worker@{a.Domain}",
+            ["emails"] = new JsonArray(new JsonObject { ["value"] = $"worker@{a.Domain}", ["primary"] = true }),
+            [EnterpriseUrn] = new JsonObject
+            {
+                ["department"] = "Platform",
+                ["manager"] = new JsonObject { ["value"] = bossInB }
+            }
+        };
+        var created = await ScimClient(tokenA).SendAsync(ScimRequest(HttpMethod.Post, $"{Scim}/Users", resource));
+        created.StatusCode.Should().Be(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+        var body = JsonNode.Parse(await created.Content.ReadAsStringAsync())!;
+        body[EnterpriseUrn]!["department"]!.GetValue<string>().Should().Be("Platform");
+        body[EnterpriseUrn]!["manager"].Should().BeNull("the manager belongs to another tenant's directory");
+
+        // A manager of the SAME directory is kept and returned with a display name.
+        resource["userName"] = $"worker2@{a.Domain}";
+        resource["emails"] = new JsonArray(new JsonObject { ["value"] = $"worker2@{a.Domain}", ["primary"] = true });
+        ((JsonObject)resource[EnterpriseUrn]!)["manager"] = new JsonObject { ["value"] = bossInA };
+        var kept = await ScimClient(tokenA).SendAsync(ScimRequest(HttpMethod.Post, $"{Scim}/Users", resource));
+        var keptBody = JsonNode.Parse(await kept.Content.ReadAsStringAsync())!;
+        keptBody[EnterpriseUrn]!["manager"]!["value"]!.GetValue<string>().Should().Be(bossInA);
+        keptBody[EnterpriseUrn]!["manager"]!["displayName"].Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Metadata_refresh_rolls_the_certificate_over_and_pins_the_entity_id()
     {
         await using var metadata = await MetadataServer.StartAsync();
@@ -203,7 +263,44 @@ public sealed class SsoTenantTests(MultiTenantE2EFixture fixture)
         var idp = new SamlTestIdp($"https://idp.{prefix}-{token}.example/saml", $"https://idp.{prefix}-{token}.example/sso");
         var domain = $"{prefix}-{token}.example";
         var connection = await CreateConnectionAsync(owner, idp, domain, metadataUrl: null);
-        return new TenantSetup(tenantId, owner, idp, connection, domain);
+        return new TenantSetup(tenantId, ownerId, owner, idp, connection, domain);
+    }
+
+    private const string EnterpriseUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+
+    /// <summary>A member with no role, so without tenant.sso.manage.</summary>
+    private async Task<HttpClient> AddPlainMemberAsync(HttpClient owner, Guid tenantId)
+    {
+        var tree = JsonNode.Parse(await (await owner.GetAsync("/api/v1/branches")).Content.ReadAsStringAsync())!;
+        var headOffice = tree["data"]!.AsArray().Single(b => b!["isHeadOffice"]!.GetValue<bool>())!["id"]!.GetValue<Guid>();
+        var email = $"plain{Guid.NewGuid():N}@example.com";
+        var invited = await owner.PostAsJsonAsync("/api/v1/tenant-invitations", new
+        {
+            email,
+            roleIds = Array.Empty<Guid>(),
+            branches = new[] { new { branchId = headOffice, includeDescendants = true } }
+        });
+        invited.StatusCode.Should().Be(HttpStatusCode.OK, await invited.Content.ReadAsStringAsync());
+        var token = JsonNode.Parse(await invited.Content.ReadAsStringAsync())!["data"]!["token"]!.GetValue<string>();
+
+        var memberId = Guid.NewGuid();
+        var accepted = await fixture.Client(memberId, email: email)
+            .PostAsJsonAsync("/api/v1/tenant-invitations/accept", new { token });
+        accepted.StatusCode.Should().Be(HttpStatusCode.OK, await accepted.Content.ReadAsStringAsync());
+        return fixture.Client(memberId, tenantId);
+    }
+
+    private static async Task<string> CreateScimUserAsync(HttpClient scim, string email)
+    {
+        var response = await scim.SendAsync(ScimRequest(HttpMethod.Post, $"{Scim}/Users", new JsonObject
+        {
+            ["schemas"] = new JsonArray("urn:ietf:params:scim:schemas:core:2.0:User"),
+            ["userName"] = email,
+            ["name"] = new JsonObject { ["givenName"] = "Boss", ["familyName"] = "Person" },
+            ["emails"] = new JsonArray(new JsonObject { ["value"] = email, ["primary"] = true })
+        }));
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        return JsonNode.Parse(await response.Content.ReadAsStringAsync())!["id"]!.GetValue<string>();
     }
 
     private async Task<(Guid TenantId, Guid OwnerId)> CreateTenantAsync(string prefix)

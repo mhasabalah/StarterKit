@@ -364,6 +364,50 @@ public class ScimE2ETests(E2ETestFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_custom_extension_urn_is_accepted_and_ignored_on_patch_and_post()
+    {
+        const string custom = "urn:example:params:scim:schemas:extension:custom:2.0:User";
+        var resource = User($"custom@{_domain}", "okta-custom");
+        ((JsonArray)resource["schemas"]!).Add(custom);
+        resource[custom] = new JsonObject { ["badgeColour"] = "blue" };
+        resource[Enterprise] = new JsonObject { ["department"] = "Ops", ["shoeSize"] = "9" };
+
+        var created = await SendAsync(HttpMethod.Post, $"{Scim}/Users", resource);
+        created.StatusCode.Should().Be(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+        var body = await BodyAsync(created);
+        body[Enterprise]!["department"]!.GetValue<string>().Should().Be("Ops", "unknown enterprise attributes in a body are ignored");
+        var id = body["id"]!.GetValue<string>();
+
+        var patched = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(
+                new JsonObject { ["op"] = "Add", ["path"] = $"{custom}:badgeColour", ["value"] = "red" },
+                new JsonObject { ["op"] = "replace", ["value"] = new JsonObject { [custom] = new JsonObject { ["badgeColour"] = "green" } } })
+        });
+        patched.StatusCode.Should().Be(HttpStatusCode.OK, await patched.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task A_put_without_the_enterprise_object_clears_it_and_a_remove_without_a_path_is_noTarget()
+    {
+        var resource = User($"put@{_domain}", "okta-put");
+        resource[Enterprise] = new JsonObject { ["department"] = "Ops" };
+        var created = await SendAsync(HttpMethod.Post, $"{Scim}/Users", resource);
+        var id = (await BodyAsync(created))["id"]!.GetValue<string>();
+
+        var noTarget = await SendAsync(HttpMethod.Patch, $"{Scim}/Users/{id}", new JsonObject
+        {
+            ["Operations"] = new JsonArray(new JsonObject { ["op"] = "remove" })
+        });
+        noTarget.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await BodyAsync(noTarget))["scimType"]!.GetValue<string>().Should().Be("noTarget");
+
+        var replaced = await SendAsync(HttpMethod.Put, $"{Scim}/Users/{id}", User($"put@{_domain}", "okta-put"));
+        replaced.StatusCode.Should().Be(HttpStatusCode.OK, await replaced.Content.ReadAsStringAsync());
+        (await BodyAsync(replaced))[Enterprise].Should().BeNull("PUT replaces the whole resource");
+    }
+
+    [Fact]
     public async Task Discovery_lists_the_enterprise_extension()
     {
         var types = await GetJsonAsync($"{Scim}/ResourceTypes");

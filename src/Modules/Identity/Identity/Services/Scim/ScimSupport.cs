@@ -18,6 +18,7 @@ public sealed class ScimException(int status, string detail, string? scimType = 
     public static ScimException InvalidFilter(string detail) => new(400, detail, "invalidFilter");
     public static ScimException InvalidSyntax(string detail) => new(400, detail, "invalidSyntax");
     public static ScimException InvalidPath(string detail) => new(400, detail, "invalidPath");
+    public static ScimException NoTarget(string detail) => new(400, detail, "noTarget");
 }
 
 public static class ScimSchemas
@@ -49,20 +50,25 @@ public static class ScimJson
         return error;
     }
 
-    public static JsonObject User(ScimUser scim, ApplicationUser user, string baseUrl)
+    /// <param name="managers">
+    /// Display names of the managers that still exist in the directory. When given, a manager that is not in it is
+    /// omitted (the referenced user was deleted); null = do not verify.
+    /// </param>
+    public static JsonObject User(ScimUser scim, ApplicationUser user, string baseUrl,
+        IReadOnlyDictionary<Guid, string?>? managers = null)
     {
         var resource = UserCore(scim, user, baseUrl);
-        var enterprise = scim.Enterprise;
-        if (!enterprise.IsEmpty)
+        var enterprise = EnterpriseJson(scim.Enterprise, baseUrl, managers);
+        if (enterprise.Count > 0)
         {
             ((JsonArray)resource["schemas"]!).Add(ScimSchemas.EnterpriseUser);
-            resource[ScimSchemas.EnterpriseUser] = EnterpriseJson(enterprise, baseUrl);
+            resource[ScimSchemas.EnterpriseUser] = enterprise;
         }
 
         return resource;
     }
 
-    private static JsonObject EnterpriseJson(ScimEnterprise e, string baseUrl)
+    private static JsonObject EnterpriseJson(ScimEnterprise e, string baseUrl, IReadOnlyDictionary<Guid, string?>? managers)
     {
         var json = new JsonObject();
         if (e.EmployeeNumber is not null)
@@ -75,8 +81,14 @@ public static class ScimJson
             json["division"] = e.Division;
         if (e.Department is not null)
             json["department"] = e.Department;
-        if (e.ManagerId is { } manager)
-            json["manager"] = new JsonObject { ["value"] = manager.ToString(), ["$ref"] = $"{baseUrl}/Users/{manager}" };
+        if (e.ManagerId is { } manager && (managers is null || managers.ContainsKey(manager)))
+        {
+            var reference = new JsonObject { ["value"] = manager.ToString(), ["$ref"] = $"{baseUrl}/Users/{manager}" };
+            if (managers?[manager] is { } displayName)
+                reference["displayName"] = displayName;
+            json["manager"] = reference;
+        }
+
         return json;
     }
 
@@ -202,14 +214,29 @@ public static class ScimUserPaths
         return rest.Length == 0 ? string.Empty : rest[0] == ':' ? rest[1..] : null;
     }
 
-    /// <summary>First segment of an attribute path: <c>emails[type eq "work"].value</c> → <c>emails</c>.</summary>
+    /// <summary>
+    /// First segment of an attribute path: <c>emails[type eq "work"].value</c> → <c>emails</c>. A URN path is returned
+    /// whole (its "2.0" is not a sub-attribute separator).
+    /// </summary>
     public static string Head(string path)
     {
+        if (path.StartsWith("urn:", StringComparison.OrdinalIgnoreCase))
+            return path;
+
         var end = path.IndexOfAny(['.', '[']);
         return end < 0 ? path : path[..end];
     }
 
-    public static bool IsKnownCore(string path) => CoreAttributes.Contains(Head(StripCoreSchema(path)));
+    /// <summary>
+    /// True for an attribute of the User schema AND for a path inside any OTHER schema URN (a custom extension an IdP
+    /// maps): those are accepted and ignored, because rejecting them would break the whole sync for the directory.
+    /// Only a bare name that is not an attribute of the User schema is unknown.
+    /// </summary>
+    public static bool IsKnownCore(string path)
+    {
+        var stripped = StripCoreSchema(path);
+        return stripped.StartsWith("urn:", StringComparison.OrdinalIgnoreCase) || CoreAttributes.Contains(Head(stripped));
+    }
 
     public static bool IsKnownEnterprise(string attributePath) => EnterpriseAttributes.Contains(Head(attributePath));
 }
@@ -225,7 +252,12 @@ public static class ScimEnterpriseJson
 
         var result = ScimEnterprise.Empty;
         foreach (var (name, value) in extension)
-            result = Apply(result, name, value);
+        {
+            // A body is not a path: attributes this server does not know are ignored, as in the core schema.
+            if (ScimUserPaths.IsKnownEnterprise(name))
+                result = Apply(result, name, value);
+        }
+
         return result;
     }
 

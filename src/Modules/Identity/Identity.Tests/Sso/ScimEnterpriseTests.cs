@@ -78,8 +78,9 @@ public class ScimEnterpriseTests
     [InlineData("phoneNumbers[type eq \"work\"].value", true)]
     [InlineData("urn:ietf:params:scim:schemas:core:2.0:User:userName", true)]
     [InlineData("favouriteColour", false)]
-    [InlineData("urn:example:custom:2.0:User:foo", false)]
-    public void Only_attributes_of_the_user_schema_are_known_paths(string path, bool known) =>
+    [InlineData("urn:example:custom:2.0:User:foo", true)]
+    [InlineData("urn:example:custom:2.0:User:foo.bar", true)]
+    public void Only_bare_names_outside_the_user_schema_are_unknown_paths(string path, bool known) =>
         ScimUserPaths.IsKnownCore(path).Should().Be(known);
 
     [Theory]
@@ -90,6 +91,54 @@ public class ScimEnterpriseTests
     [InlineData("department", null)]
     public void Enterprise_paths_are_recognised_case_insensitively(string path, string? remainder) =>
         ScimUserPaths.EnterpriseRemainder(path).Should().Be(remainder);
+
+    [Theory]
+    [InlineData("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager.value")]
+    [InlineData("urn:example:custom:2.0:User:foo")]
+    public void A_urn_path_is_never_cut_at_the_dot_of_its_version(string path) =>
+        ScimUserPaths.Head(path).Should().Be(path);
+
+    [Fact]
+    public void Unknown_attributes_inside_the_enterprise_object_of_a_body_are_ignored()
+    {
+        var resource = new JsonObject
+        {
+            [ScimSchemas.EnterpriseUser] = new JsonObject { ["department"] = "Platform", ["shoeSize"] = "9" }
+        };
+
+        var enterprise = ScimEnterpriseJson.FromResource(resource)!;
+
+        enterprise.Department.Should().Be("Platform");
+    }
+
+    [Fact]
+    public void A_manager_that_no_longer_exists_is_omitted_and_an_existing_one_gets_a_display_name()
+    {
+        var user = new ApplicationUser { Id = Guid.NewGuid(), Email = "a@acme.example", FirstName = "A", LastName = "B" };
+        var present = Guid.NewGuid();
+        var gone = Guid.NewGuid();
+        var withPresent = ScimUser.Create(Guid.NewGuid(), user.Id, "a@acme.example", null, true,
+            new ScimEnterprise(Department: "X", ManagerId: present), Now);
+        var withGone = ScimUser.Create(Guid.NewGuid(), user.Id, "a@acme.example", null, true,
+            new ScimEnterprise(ManagerId: gone), Now);
+        var known = new Dictionary<Guid, string?> { [present] = "Grace Hopper" };
+
+        var shown = ScimJson.User(withPresent, user, "https://x/scim/v2", known);
+        var omitted = ScimJson.User(withGone, user, "https://x/scim/v2", known);
+
+        shown[ScimSchemas.EnterpriseUser]!["manager"]!["displayName"]!.GetValue<string>().Should().Be("Grace Hopper");
+        omitted[ScimSchemas.EnterpriseUser].Should().BeNull("the only extension value was the vanished manager");
+        omitted["schemas"]!.AsArray().Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void NoTarget_is_a_400_with_its_own_scim_type()
+    {
+        var error = ScimException.NoTarget("x");
+
+        error.Status.Should().Be(400);
+        error.ScimType.Should().Be("noTarget");
+    }
 
     [Fact]
     public void The_user_resource_returns_the_extension_and_its_schema_only_when_set()

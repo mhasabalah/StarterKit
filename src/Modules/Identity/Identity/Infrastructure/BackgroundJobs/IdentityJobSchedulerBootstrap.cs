@@ -54,7 +54,7 @@ public class IdentityJobSchedulerBootstrap : IHostedService
             RecurringJob.RemoveIfExists(RefreshSamlMetadataJobId);
         }
 
-        if (options.Enabled && options.CertificateExpiryAlertDays.Length > 0)
+        if (options.Enabled && options.CertificateExpiryAlertsEnabled)
         {
             RecurringJob.AddOrUpdate<CheckSamlCertificateExpiryJob>(
                 CheckSamlCertificateExpiryJobId, job => job.ExecuteAsync(CancellationToken.None), options.CertificateExpiryCheckCron);

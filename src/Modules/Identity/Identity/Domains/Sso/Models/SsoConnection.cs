@@ -50,6 +50,7 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
     public bool SamlAllowIdpInitiated { get; private set; }
 
     /// <summary>Last time the IdP metadata URL was fetched successfully (changed or not).</summary>
+    [AuditIgnore]
     public DateTime? SamlMetadataRefreshedAt { get; private set; }
 
     /// <summary>
@@ -62,6 +63,7 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
     /// When the connection can no longer verify IdP signatures: the LATEST <c>NotAfter</c> of its certificates (an IdP
     /// rolling over publishes the new certificate next to the old one, so the earliest expiry alone is not an outage).
     /// </summary>
+    [AuditIgnore]
     public DateTime? SamlCertificatesNotAfter { get; private set; }
 
     /// <summary>The <see cref="SamlCertificatesNotAfter"/> the expiry alert was last sent for.</summary>
@@ -220,7 +222,8 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
             return SamlMetadataApplyResult.Rejected(SamlMetadataErrors.NoCertificates);
 
         var newSsoUrl = string.IsNullOrWhiteSpace(ssoUrl) ? SamlIdpSsoUrl : ssoUrl.Trim();
-        var certificatesChanged = !normalized.SequenceEqual(SamlIdpCertificates, StringComparer.Ordinal);
+        // The same certificates in another order are not a change (IdPs list them in no stable order).
+        var certificatesChanged = !normalized.ToHashSet(StringComparer.Ordinal).SetEquals(SamlIdpCertificates);
         var urlChanged = !string.Equals(newSsoUrl, SamlIdpSsoUrl, StringComparison.Ordinal);
 
         // Unchanged: leave the tracked state alone (the caller records the refresh with a set-based update, so the
@@ -244,41 +247,29 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
     }
 
     /// <summary>
-    /// The alert threshold (days) that is due: the certificates expire within one of <paramref name="thresholdDays"/>
-    /// and that threshold (or a smaller one) has not been alerted yet for this expiry date. Null = nothing to send.
-    /// Also back-fills <see cref="SamlCertificatesNotAfter"/> for rows created before it existed.
+    /// The expiry alert that is due, or null: the certificates expire within one of <paramref name="thresholdDays"/> and
+    /// that threshold (or a smaller one) has not been alerted yet for this expiry date. This is only the cheap local
+    /// check on a loaded row; the job claims the alert with a conditional set-based update, which is what makes it
+    /// exactly-once across replicas.
     /// </summary>
-    public int? ExpiryAlertDue(DateTime now, IReadOnlyCollection<int> thresholdDays)
+    public SamlExpiryAlert? ExpiryAlertDue(DateTime now, IReadOnlyCollection<int> thresholdDays)
     {
-        if (Protocol != SsoProtocol.Saml || SamlIdpCertificates.Count == 0)
+        if (Protocol != SsoProtocol.Saml || LatestNotAfter() is not { } notAfter)
             return null;
 
-        SamlCertificatesNotAfter ??= LatestNotAfter();
-        var notAfter = SamlCertificatesNotAfter;
-        if (notAfter is null)
-            return null;
-
-        var daysLeft = (notAfter.Value - now).TotalDays;
+        var daysLeft = (notAfter - now).TotalDays;
         var band = thresholdDays.Where(d => d > 0 && daysLeft <= d).DefaultIfEmpty(0).Min();
         if (band == 0)
             return null;
 
         var alreadySent = SamlExpiryAlertedNotAfter == notAfter && SamlExpiryAlertedDays <= band;
-        return alreadySent ? null : band;
-    }
-
-    /// <summary>Records that the alert of <paramref name="thresholdDays"/> is going out and raises the event for it.</summary>
-    public void MarkExpiryAlerted(int thresholdDays, DateTime now)
-    {
-        SamlExpiryAlertedNotAfter = SamlCertificatesNotAfter;
-        SamlExpiryAlertedDays = thresholdDays;
-        var daysLeft = Math.Max(0, (int)Math.Floor((SamlCertificatesNotAfter!.Value - now).TotalDays));
-        AddDomainEvent(new SsoCertificateExpiringEvent(Id, TenantId, Name, SamlCertificatesNotAfter.Value, daysLeft));
+        return alreadySent ? null : new SamlExpiryAlert(band, notAfter, Math.Max(0, (int)Math.Floor(daysLeft)));
     }
 
     private void TrackCertificateExpiry() => SamlCertificatesNotAfter = LatestNotAfter();
 
-    private DateTime? LatestNotAfter() =>
+    /// <summary>The latest <c>NotAfter</c> of the certificates (when signature validation really stops).</summary>
+    public DateTime? LatestNotAfter() =>
         SamlIdpCertificates.Count == 0
             ? null
             : SamlIdpCertificates.Max(c => SsoCertificates.Describe(c).NotAfter);
@@ -390,7 +381,11 @@ public static class SamlMetadataErrors
     public const string EntityIdMismatch = "metadata_entity_id_mismatch";
     public const string NoCertificates = "metadata_no_certificates";
     public const string InvalidCertificates = "metadata_invalid_certificates";
+    public const string SignatureInvalid = "metadata_signature_invalid";
 }
+
+/// <summary>An SAML certificate expiry alert that is due (see <see cref="SsoConnection.ExpiryAlertDue"/>).</summary>
+public readonly record struct SamlExpiryAlert(int ThresholdDays, DateTime NotAfter, int DaysLeft);
 
 public enum SamlMetadataOutcome
 {

@@ -122,7 +122,8 @@ Then add the email domain, publish the TXT record, verify, run **Test**, check t
 | `AllowBreakGlassPasswordLogin` | `true` | staff + tenant owner bypass enforcement |
 | `MetadataRefreshEnabled` / `MetadataRefreshCron` | `true` / `0 */6 * * *` | recurring SAML metadata refresh |
 | `CertificateExpiryCheckCron` | `0 7 * * *` | daily certificate expiry check |
-| `CertificateExpiryAlertDays` | `[30,14,7,1]` | alert thresholds (empty = no alerts) |
+| `CertificateExpiryAlertsEnabled` | `true` | switch for the daily expiry check |
+| `CertificateExpiryAlertDays` | unset = `[30,14,7,1]` | alert thresholds. The code default is empty and replaced after binding, because the configuration binder appends to a non-empty default array |
 
 ## SAML metadata refresh and certificate expiry alerts
 
@@ -136,21 +137,31 @@ rollover never locks a company out.
 - **Fetch.** Through the `identity-sso` HTTP client (`GuardedConnector`: no private/loopback/metadata addresses, no
   redirects, short timeout), HTTPS only (`AllowInsecureIdentityProviders` relaxes it in development), response capped
   at 1 MB, XML parsed with DTD processing prohibited.
-- **Entity id is the trust anchor.** Metadata whose `entityID` differs from the configured one is rejected and
-  recorded (`samlMetadataLastError = metadata_entity_id_mismatch`); keys and URL stay. Other codes:
-  `metadata_fetch_failed`, `metadata_url_not_allowed`, `metadata_too_large`, `metadata_invalid`,
-  `metadata_no_certificates`, `metadata_invalid_certificates`. They are codes, not text, so clients localize them.
+- **Entity id and signature.** Metadata whose `entityID` differs from the configured one is rejected and
+  recorded (`samlMetadataLastError = metadata_entity_id_mismatch`); keys and URL stay. If the metadata is
+  **signed** (enveloped XML signature over the whole document, no XSLT/XPath transforms), the signature must verify
+  against the certificates ALREADY pinned on the connection, otherwise `metadata_signature_invalid`; a rollover works
+  because the old key signs the metadata that announces the new one. **Unsigned metadata is accepted** (many IdPs publish
+  none), and then the entity-id check does NOT protect against a hijacked or compromised metadata host: it can serve the
+  right entity id with attacker keys. Prefer an IdP that signs its metadata, or leave the metadata URL empty and rotate
+  certificates by hand. Other codes: `metadata_fetch_failed`, `metadata_url_not_allowed`, `metadata_too_large`,
+  `metadata_invalid`, `metadata_no_certificates`, `metadata_invalid_certificates`. They are codes, not text, so
+  clients localize them. The same certificates in another order are not a change.
 - **Outcomes.** *Updated*: certificates and/or SSO URL replaced (version bump, change event). *Unchanged*: only
   `samlMetadataRefreshedAt` moves, through a set-based update that does not bump the version, so it never conflicts
   with an admin edit. *Failed*: only the error code is recorded.
-- **Expiry alerts.** `CheckSamlCertificateExpiryJob` (daily, `CertificateExpiryCheckCron`) compares the LATEST
-  certificate `NotAfter` of each active SAML connection (`samlCertificatesNotAfter`; a rollover certificate next to the
-  old one is not an outage) with `CertificateExpiryAlertDays` (default 30, 14, 7, 1). It raises
-  `SsoCertificateExpiringEvent` once per expiry date and threshold (remembered on the connection), so it is not
-  repeated on every run; a new certificate resets the schedule. The handler notifies the ACTIVE tenant members who
-  hold `tenant.sso.manage` (the owner and every member of a role carrying it, resolved through the Tenancy contracts
-  in the tenant's scope) by email (`SsoCertificateExpiring`, in the tenant's culture) and in the in-app inbox
-  (category `security.sso-certificate-expiring`).
+- **Expiry alerts.** `CheckSamlCertificateExpiryJob` (daily, `CertificateExpiryCheckCron`, switch
+  `CertificateExpiryAlertsEnabled`) compares the LATEST certificate `NotAfter` of each active SAML connection
+  (`samlCertificatesNotAfter`; a rollover certificate next to the old one is not an outage) with
+  `CertificateExpiryAlertDays` (default 30, 14, 7, 1). The alert is **claimed** with one conditional set-based update
+  (`alerted_not_after IS DISTINCT FROM notAfter OR alerted_days > band`, exactly one row wins), so replicas and re-runs
+  never send it twice and no version bump can 409 an admin edit; then `SsoCertificateExpiringEvent` is published. The
+  handler notifies the ACTIVE tenant members who hold `tenant.sso.manage` (the owner plus the members of each role
+  carrying it, one paged members query per role, through the Tenancy contracts in the tenant's scope) by email
+  (`SsoCertificateExpiring`, in the tenant's culture) and in the in-app inbox (category
+  `security.sso-certificate-expiring`). Delivery failures propagate: the job **releases** its claim and the next run
+  retries (recipients notified before the failure may get it twice: at-least-once). A new certificate resets the
+  schedule.
 
 ## Code map
 

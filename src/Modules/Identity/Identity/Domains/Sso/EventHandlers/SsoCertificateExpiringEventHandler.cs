@@ -15,8 +15,8 @@ namespace Identity.Domains.Sso.EventHandlers;
 /// An IdP signing certificate is about to expire: tell the people who can fix it, i.e. the ACTIVE tenant members who
 /// hold <c>tenant.sso.manage</c> (the owner and every member of a role that carries it), by email and in the in-app
 /// inbox (category <see cref="Category"/>). Recipients are resolved through the Tenancy contracts, in the tenant's
-/// scope. Best effort: a notification problem never fails the job (the alert is retried by an operator re-running the
-/// check; the connection page shows the expiry date anyway).
+/// scope: one members query per admin role (paged) plus the owner. Delivery failures PROPAGATE: the job that published
+/// the event releases its claim on the alert, so the next run retries.
 /// </summary>
 public sealed class SsoCertificateExpiringEventHandler(
     ISender sender,
@@ -26,88 +26,91 @@ public sealed class SsoCertificateExpiringEventHandler(
 {
     public const string Category = "security.sso-certificate-expiring";
     private const int PageSize = 100;
-    private const int MaxPages = 20;
+    private const int MaxPages = 50;
 
     public async Task Handle(SsoCertificateExpiringEvent notification, CancellationToken cancellationToken)
     {
-        try
+        var tenant = await tenantStore.FindByIdAsync(notification.TenantId, cancellationToken);
+        if (tenant is null)
         {
-            var tenant = await tenantStore.FindByIdAsync(notification.TenantId, cancellationToken);
-            if (tenant is null)
-            {
-                logger.LogWarning("SSO certificate of connection {ConnectionId} expires but tenant {TenantId} was not found",
-                    notification.ConnectionId, notification.TenantId);
-                return;
-            }
-
-            IReadOnlyList<Guid> recipients;
-            using (TenantScope.Begin(tenant))
-            {
-                recipients = await ResolveAdminsAsync(cancellationToken);
-            }
-
-            if (recipients.Count == 0)
-            {
-                logger.LogWarning("SSO certificate of connection {ConnectionId} expires but tenant {TenantId} has no SSO admin to notify",
-                    notification.ConnectionId, notification.TenantId);
-                return;
-            }
-
-            var model = new SsoCertificateExpiringModel
-            {
-                ConnectionName = notification.ConnectionName,
-                ExpiresOn = notification.NotAfter.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                DaysLeft = notification.DaysLeft
-            };
-            var inApp = Content(notification);
-
-            // The tenant's culture picks the email language (the inbox entry is bilingual and follows the user).
-            var culture = tenant.Culture?.StartsWith("ar", StringComparison.OrdinalIgnoreCase) == true
-                ? NotificationCulture.Ar
-                : NotificationCulture.En;
-            foreach (var userId in recipients)
-            {
-                await notifications
-                    .For(userId, culture)
-                    .WithEmail(EmailTemplate.SsoCertificateExpiring, model.ToDictionary())
-                    .WithInApp(inApp)
-                    .SendAsync(ct: cancellationToken);
-            }
+            logger.LogWarning("SSO certificate of connection {ConnectionId} expires but tenant {TenantId} was not found",
+                notification.ConnectionId, notification.TenantId);
+            return;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+
+        IReadOnlyList<Guid> recipients;
+        using (TenantScope.Begin(tenant))
         {
-            logger.LogError(ex, "Could not send the SSO certificate expiry alert for connection {ConnectionId}",
-                notification.ConnectionId);
+            recipients = await ResolveAdminsAsync(cancellationToken);
+        }
+
+        if (recipients.Count == 0)
+        {
+            logger.LogWarning("SSO certificate of connection {ConnectionId} expires but tenant {TenantId} has no SSO admin to notify",
+                notification.ConnectionId, notification.TenantId);
+            return;
+        }
+
+        var model = new SsoCertificateExpiringModel
+        {
+            ConnectionName = notification.ConnectionName,
+            ExpiresOn = notification.NotAfter.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            DaysLeft = notification.DaysLeft
+        };
+        var inApp = Content(notification);
+
+        // The tenant's culture picks the email language (the inbox entry is bilingual and follows the user).
+        var culture = tenant.Culture?.StartsWith("ar", StringComparison.OrdinalIgnoreCase) == true
+            ? NotificationCulture.Ar
+            : NotificationCulture.En;
+        foreach (var userId in recipients)
+        {
+            await notifications
+                .For(userId, culture)
+                .WithEmail(EmailTemplate.SsoCertificateExpiring, model.ToDictionary())
+                .WithInApp(inApp)
+                .SendAsync(ct: cancellationToken);
         }
     }
 
     private async Task<IReadOnlyList<Guid>> ResolveAdminsAsync(CancellationToken ct)
     {
         var roles = await sender.Send(new GetTenantRolesQuery(), ct);
-        var adminRoleIds = roles
-            .Where(r => r.Permissions.Contains(TenantPermissions.SsoManage, StringComparer.Ordinal))
-            .Select(r => r.Id)
-            .ToHashSet();
+        var recipients = new HashSet<Guid>();
 
-        var recipients = new List<Guid>();
-        for (var page = 1; page <= MaxPages; page++)
+        // The owner always can; it sorts first in an unfiltered members list.
+        var first = await sender.Send(new GetMembersQuery
         {
-            var members = await sender.Send(new GetMembersQuery
-            {
-                Status = TenantMembershipStatus.Active,
-                PageNumber = page,
-                PageSize = PageSize
-            }, ct);
+            Status = TenantMembershipStatus.Active,
+            PageNumber = 1,
+            PageSize = PageSize
+        }, ct);
+        foreach (var owner in (first.Result ?? []).Where(m => m.IsOwner))
+            recipients.Add(owner.UserId);
 
-            var rows = members.Result ?? [];
-            recipients.AddRange(rows
-                .Where(m => m.IsOwner || m.RoleIds.Any(adminRoleIds.Contains))
-                .Select(m => m.UserId));
-            if (rows.Count < PageSize)
-                break;
+        foreach (var role in roles.Where(r => r.Permissions.Contains(TenantPermissions.SsoManage, StringComparer.Ordinal)))
+        {
+            for (var page = 1; page <= MaxPages; page++)
+            {
+                var members = await sender.Send(new GetMembersQuery
+                {
+                    Status = TenantMembershipStatus.Active,
+                    RoleId = role.Id,
+                    PageNumber = page,
+                    PageSize = PageSize
+                }, ct);
+
+                foreach (var member in members.Result ?? [])
+                    recipients.Add(member.UserId);
+
+                var info = members.PageInfoResult;
+                var pageSize = Math.Max(1, info.PageSize); // the server may clamp the requested size
+                if (page * pageSize >= info.TotalItems)
+                    break;
+            }
         }
 
-        return recipients.Distinct().ToList();
+        return recipients.ToList();
     }
 
     public static InAppContent Content(SsoCertificateExpiringEvent e) => new(
