@@ -215,4 +215,57 @@ public sealed class ProductionConfigurationGuardTests
 
         act.Should().NotThrow();
     }
+
+    [Theory]
+    [InlineData("Live", "egy_sk_test_abc", null)]
+    [InlineData("Live", null, "egy_pk_test_abc")]
+    [InlineData("Sandbox", "ksa_sk_live_abc", null)]
+    [InlineData("Sandbox", null, "uae_pk_live_abc")]
+    [InlineData("Live", "rk_test_abc", null)]
+    public void Paymob_and_restricted_stripe_keys_are_recognized_by_their_shape(string mode, string? apiKey, string? publicKey)
+    {
+        var config = Config(
+            ("Subscriptions:PaymentGateways:Paymob:Enabled", "true"),
+            ("Subscriptions:PaymentGateways:Paymob:Mode", mode),
+            ("Subscriptions:PaymentGateways:Paymob:ApiKey", apiKey),
+            ("Subscriptions:PaymentGateways:Paymob:PublicKey", publicKey));
+
+        var act = () => ProductionConfigurationGuard.EnsurePaymentGatewayModes(config, "Development");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Paymob*");
+    }
+
+    [Fact]
+    public void A_test_secret_with_a_live_public_key_is_refused_as_mixed()
+    {
+        var config = Config(
+            ("Subscriptions:PaymentGateways:Paymob:Enabled", "true"),
+            ("Subscriptions:PaymentGateways:Paymob:Mode", "Live"),
+            ("Subscriptions:PaymentGateways:Paymob:ApiKey", "egy_sk_test_abc"),
+            ("Subscriptions:PaymentGateways:Paymob:PublicKey", "egy_pk_live_abc"));
+
+        var act = () => ProductionConfigurationGuard.EnsurePaymentGatewayModes(config, "Production");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*mixes*");
+    }
+
+    [Fact]
+    public void Matching_paymob_live_keys_pass_and_a_lookalike_word_is_not_taken_for_a_key()
+    {
+        var live = Config(
+            ("Subscriptions:PaymentGateways:Paymob:Enabled", "true"),
+            ("Subscriptions:PaymentGateways:Paymob:Mode", "Live"),
+            ("Subscriptions:PaymentGateways:Paymob:ApiKey", "egy_sk_live_abc"),
+            ("Subscriptions:PaymentGateways:Paymob:PublicKey", "egy_pk_live_abc"));
+        var lookalike = Config(
+            ("Subscriptions:PaymentGateways:Stripe:Enabled", "true"),
+            ("Subscriptions:PaymentGateways:Stripe:Mode", "Live"),
+            ("Subscriptions:PaymentGateways:Stripe:ApiKey", "desk_test_notakey"));
+
+        var act = () => ProductionConfigurationGuard.EnsurePaymentGatewayModes(live, "Production");
+        var other = () => ProductionConfigurationGuard.EnsurePaymentGatewayModes(lookalike, "Production");
+
+        act.Should().NotThrow();
+        other.Should().NotThrow();
+    }
 }

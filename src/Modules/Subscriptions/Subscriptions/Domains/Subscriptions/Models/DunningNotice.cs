@@ -23,6 +23,19 @@ public class DunningNotice
 
     public DateTimeOffset RecordedAt { get; private set; }
 
+    /// <summary>
+    /// What the automatic card retry of this step did, when one was tried: <c>Succeeded</c>, <c>RequiresAction</c>,
+    /// <c>Declined</c> or <c>Transient</c>. Null = no retry was attempted (disabled, no usable saved method).
+    /// </summary>
+    public string? AutoRetryOutcome { get; private set; }
+
+    /// <summary>Records the retry result; a collected payment means no reminder went out, so the notice is not "sent".</summary>
+    public void RecordAutoRetry(string outcome, bool reminderSent)
+    {
+        AutoRetryOutcome = outcome;
+        Sent = reminderSent;
+    }
+
     private DunningNotice()
     {
     }

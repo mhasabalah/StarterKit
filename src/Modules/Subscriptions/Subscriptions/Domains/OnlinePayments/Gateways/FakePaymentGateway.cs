@@ -17,8 +17,9 @@ namespace Subscriptions.Domains.OnlinePayments.Gateways;
 /// <c>card_exp_year</c>).)
 /// <para>
 /// Off-session charges are deterministic by the saved method's reference, so tests need no static state: a reference
-/// containing <c>declined</c> is declined, <c>action</c> needs 3-D Secure, <c>transient</c> is a provider outage;
-/// anything else succeeds.
+/// containing <c>declined</c> is declined, <c>action</c> needs 3-D Secure, <c>transient</c> is a provider outage with
+/// no charge reference, <c>processing</c> is a charge the provider accepted but has not finished (it returns a
+/// reference whose status stays Transient); anything else succeeds.
 /// </para>
 /// Never enable it in production (the options validator refuses an enabled gateway without a secret).
 /// </summary>
@@ -33,6 +34,13 @@ internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) 
 
     public bool SupportsOffSessionCharges => true;
 
+    public Task<OffSessionChargeResult> GetChargeStatusAsync(string providerReference, CancellationToken ct) =>
+        Task.FromResult(providerReference.Contains("processing", StringComparison.OrdinalIgnoreCase)
+            ? new OffSessionChargeResult(OffSessionChargeStatus.Transient, providerReference, "processing")
+            : providerReference.Contains("declined", StringComparison.OrdinalIgnoreCase)
+                ? new OffSessionChargeResult(OffSessionChargeStatus.Declined, providerReference, "card_declined")
+                : new OffSessionChargeResult(OffSessionChargeStatus.Succeeded, providerReference));
+
     public Task<OffSessionChargeResult> ChargeSavedMethodAsync(OffSessionChargeRequest request, CancellationToken ct)
     {
         var method = request.MethodReference;
@@ -42,7 +50,9 @@ internal sealed class FakePaymentGateway(IOptions<SubscriptionOptions> options) 
                 ? new OffSessionChargeResult(OffSessionChargeStatus.RequiresAction, null, "authentication_required")
                 : method.Contains("transient", StringComparison.OrdinalIgnoreCase)
                     ? new OffSessionChargeResult(OffSessionChargeStatus.Transient, null, "provider_unavailable")
-                    : new OffSessionChargeResult(
+                    : method.Contains("processing", StringComparison.OrdinalIgnoreCase)
+                        ? new OffSessionChargeResult(OffSessionChargeStatus.Transient, $"fake_pi_processing_{request.IdempotencyKey}", "processing")
+                        : new OffSessionChargeResult(
                         OffSessionChargeStatus.Succeeded, $"fake_pi_{request.IdempotencyKey}");
         return Task.FromResult(result);
     }

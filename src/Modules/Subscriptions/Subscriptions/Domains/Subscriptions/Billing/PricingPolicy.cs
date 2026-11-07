@@ -29,7 +29,7 @@ public static class PricingPolicy
         DateTimeOffset? pendingEffectiveAt,
         decimal? discountPercent,
         DateTimeOffset at,
-        string? currency = null)
+        string currency)
     {
         var basePrice = pendingPrice is { } pending && pendingEffectiveAt is { } effectiveAt && effectiveAt <= at
             ? pending
@@ -70,8 +70,8 @@ public static class PricingPolicy
         decimal periodPrice,
         decimal deferredProration,
         TaxPolicy tax,
-        CouponTerms? coupon = null,
-        string? currency = null)
+        string currency,
+        CouponTerms? coupon = null)
     {
         var deferred = Math.Max(0m, deferredProration);
         var discount = CouponPricing.Discount(periodPrice, coupon, currency);
@@ -89,8 +89,8 @@ public static class PricingPolicy
     public static (decimal AmountDue, decimal CouponDiscount) ActivationCharge(
         decimal planPrice,
         TaxPolicy tax,
-        CouponTerms? coupon = null,
-        string? currency = null)
+        string currency,
+        CouponTerms? coupon = null)
     {
         var discount = CouponPricing.Discount(planPrice, coupon, currency);
         return (TaxCalculator.AmountDue(planPrice - discount, tax, currency), discount);
@@ -106,7 +106,7 @@ public static class PricingPolicy
         DateTimeOffset periodStart,
         DateTimeOffset periodEnd,
         DateTimeOffset at,
-        string? currency = null)
+        string currency)
     {
         var difference = newPrice - currentPrice;
         if (difference <= 0m)

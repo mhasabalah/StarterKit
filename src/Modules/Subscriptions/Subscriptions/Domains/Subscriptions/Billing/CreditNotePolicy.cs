@@ -15,8 +15,8 @@ public static class CreditNotePolicy
     /// <param name="original">The original invoice's issue-time breakdown (positive).</param>
     /// <param name="credited">Sum of earlier credit notes as POSITIVE values (net, tax, gross).</param>
     /// <param name="requestedGross">Gross to credit (positive); null = everything still creditable.</param>
-    /// <param name="currency">Decides the allowed decimals; null = 2.</param>
-    public static TaxBreakdown Compute(TaxBreakdown original, TaxBreakdown credited, decimal? requestedGross, string? currency = null)
+    /// <param name="currency">Decides the allowed decimals.</param>
+    public static TaxBreakdown Compute(TaxBreakdown original, TaxBreakdown credited, decimal? requestedGross, string currency)
     {
         if (original.Gross <= 0m)
         {

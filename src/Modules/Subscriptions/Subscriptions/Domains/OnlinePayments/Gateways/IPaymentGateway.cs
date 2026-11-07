@@ -13,8 +13,7 @@ public sealed record CheckoutRequest(
     Uri SuccessUrl,
     Uri CancelUrl,
     bool SavePaymentMethod = false,
-    string? CustomerReference = null,
-    string? SessionReference = null);
+    string? CustomerReference = null);
 
 /// <summary>The hosted checkout created at the provider.</summary>
 /// <param name="SessionId">The provider's session / charge id; webhooks refer to it.</param>
@@ -83,8 +82,10 @@ public enum OffSessionChargeStatus
 }
 
 /// <summary>An off-session charge of a saved method: no cardholder present, so the provider may refuse with RequiresAction.</summary>
-/// <param name="IdempotencyKey">Stable per payment + dunning step, so a repeated call can never charge twice.</param>
-/// <param name="SessionReference">Our reference for the charge; echoed by the provider's webhook so it can find the session.</param>
+/// <param name="IdempotencyKey">
+/// Stable per payment + dunning step, so a repeated call can never charge twice. It is also our session reference: the
+/// provider echoes it in its webhook (Stripe: PaymentIntent metadata) so the session can be found.
+/// </param>
 public sealed record OffSessionChargeRequest(
     Guid PaymentId,
     Guid SubscriptionId,
@@ -93,7 +94,6 @@ public sealed record OffSessionChargeRequest(
     string CustomerReference,
     string MethodReference,
     string IdempotencyKey,
-    string SessionReference,
     string Description);
 
 /// <param name="ProviderReference">The provider's charge / payment-intent id, when it created one.</param>
@@ -201,6 +201,20 @@ internal interface IPaymentGateway
     /// </summary>
     Task<OffSessionChargeResult> ChargeSavedMethodAsync(OffSessionChargeRequest request, CancellationToken ct) =>
         throw new NotSupportedException($"Gateway '{Name}' does not support off-session charges.");
+
+    /// <summary>
+    /// Looks an earlier off-session charge up at the provider by the reference it returned, so a step that ended
+    /// <see cref="OffSessionChargeStatus.Transient"/> can be reconciled before another charge is tried. Returns
+    /// <see cref="OffSessionChargeStatus.Transient"/> when the charge is still processing or the answer is unknown.
+    /// </summary>
+    Task<OffSessionChargeResult> GetChargeStatusAsync(string providerReference, CancellationToken ct) =>
+        Task.FromResult(new OffSessionChargeResult(OffSessionChargeStatus.Transient, providerReference, "status_unknown"));
+
+    /// <summary>
+    /// False when the provider cannot charge exactly this amount in this currency (Stripe: three-decimal currencies need
+    /// a minor-unit amount that is a multiple of 10). Checkout and dunning skip such a gateway.
+    /// </summary>
+    bool SupportsAmount(decimal amount, string currency) => true;
 
     /// <summary>Removes a saved method at the provider (best effort: the local row is revoked either way).</summary>
     Task DetachAsync(string customerReference, string methodReference, CancellationToken ct) => Task.CompletedTask;

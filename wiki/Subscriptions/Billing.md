@@ -22,7 +22,8 @@ PendingApproval ──approve──► Active ──renewal boundary──► Pa
 
 ## Currency and decimals
 
-Money is stored as `numeric(19,4)` and rounded in the domain per ISO 4217 currency: 0 decimals (JPY, KRW), 2 (USD,
+Billing money is stored as `numeric(19,4)` (Catalog product prices stay `(18,2)`; see ADR 0017 for the migration lock and
+the lossy `Down`) and rounded in the domain per ISO 4217 currency: 0 decimals (JPY, KRW), 2 (USD,
 SAR, EGP), 3 (KWD, BHD, OMR, JOD, TND), 4 (CLF). `Currency` is the one helper (`Round`, `HasValidScale`,
 `ToMinorUnits`, `Format`); plans and coupons require a real ISO code and an amount that fits it; provider amounts
 (Stripe, Paymob) use the same minor-unit rules. See ADR
@@ -31,8 +32,12 @@ SAR, EGP), 3 (KWD, BHD, OMR, JOD, TND), 4 (CLF). `Currency` is the one helper (`
 ## Sandbox and live gateways
 
 Each `Subscriptions:PaymentGateways:<Name>` entry has `Mode` = `Sandbox` (default) or `Live`. The host refuses to boot
-when the key contradicts the mode (`sk_test_` with Live, `sk_live_` with Sandbox) and, in Production, when a sandbox
-gateway (the Fake adapter too) is enabled without `AllowSandboxInProduction=true`.
+when a key contradicts the mode (`sk_test_` / `rk_test_` / `egy_sk_test_` with Live, the `live` forms with Sandbox, also
+the Paymob public key) and, in Production, when a sandbox gateway (the Fake adapter too) is enabled without
+`AllowSandboxInProduction=true`.
+
+**Upgrade note.** A Production deployment that runs a live key and sets no `Mode` now refuses to boot, because the default
+is Sandbox. Set `Subscriptions:PaymentGateways:<Name>:Mode=Live` (and keep test keys for staging with `Mode=Sandbox`).
 
 Getting sandbox keys per project:
 
@@ -398,16 +403,21 @@ With `Dunning:AutoRetry:Enabled` each step first tries one automatic card charge
 Off by default (`Subscriptions:Dunning:AutoRetry:Enabled`). Design and reasons: ADR
 [0018](../Decisions/0018-off-session-dunning-retries-on-saved-cards.md).
 
-- **Saving.** With auto-retry on and a gateway that supports it (Stripe, Fake), the hosted checkout asks to keep the
-  card (`setup_future_usage=off_session`) and reuses the subscriber's existing provider customer. After the payment
-  settles, the first card becomes the default `saved_payment_methods` row (provider references, brand, last4, expiry).
+- **Saving (opt-in).** Only when the operator enabled auto-retry AND the subscriber sent `saveCard: true` on the
+  online-payment request AND the gateway supports it (Stripe, Fake), the hosted checkout asks to keep the card
+  (`setup_future_usage=off_session`) and reuses the subscriber's existing provider customer. After the payment settles,
+  the first card becomes the default `saved_payment_methods` row (provider references, brand, last4, expiry,
+  `consented_at`). Dunning's own links never save a card.
 - **Managing.** `GET /api/v1/subscriptions/saved-payment-methods`, `POST .../{id}/default`, `DELETE .../{id}`. The
   subscriber (tenant billing permission in multi-tenant mode) only; no impersonation, no API keys. Removing revokes
   locally, then detaches at the provider.
 - **Retrying.** Before a step's email: one off-session charge of the default card. `payment_attempts` is unique per
   payment + step; the provider idempotency key is `dunning:{paymentId}:{step}`. Success settles through the webhook
   path (invoice, ledger) and sends no reminder. 3-D Secure needed, declined, expired card or provider outage: the usual
-  email with a fresh checkout link, the reason in the email, and an in-app notice (`billing.payment-failed`).
+  email with a fresh checkout link, the reason in the email (en/ar), and, only when a retry was really attempted, an
+  in-app notice (`billing.payment-failed`). An earlier step whose charge may still be completing is reconciled first and
+  blocks a new charge; the reminder then has no checkout link. A charge that succeeded but could not be settled raises an
+  `OffSessionChargeUnsettled` admin audit entry (ADR 0018). The dunning notice records the retry outcome.
 - **Fake gateway outcomes** (dev/tests): a saved method reference containing `declined`, `action` or `transient`
   fails that way; anything else succeeds.
 

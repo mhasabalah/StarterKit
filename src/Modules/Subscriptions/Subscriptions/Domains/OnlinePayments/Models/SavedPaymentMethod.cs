@@ -25,6 +25,9 @@ public class SavedPaymentMethod
     public int? ExpMonth { get; private set; }
     public int? ExpYear { get; private set; }
     public bool IsDefault { get; private set; }
+
+    /// <summary>When the subscriber agreed (at checkout) to keep this method for automatic renewal retries.</summary>
+    public DateTimeOffset ConsentedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
     /// <summary>Set when the subscriber removed the method (or the provider reported it detached). Never reused for charges.</summary>
@@ -66,6 +69,7 @@ public class SavedPaymentMethod
             ExpMonth = expMonth is >= 1 and <= 12 ? expMonth : null,
             ExpYear = expYear,
             IsDefault = isDefault,
+            ConsentedAt = now,
             CreatedAt = now
         };
     }
@@ -76,9 +80,10 @@ public class SavedPaymentMethod
         new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1) <= now.UtcDateTime;
 
     /// <summary>The subscriber saved the same provider method again: it is usable again (details refreshed).</summary>
-    public void Reactivate(string? brand, string? last4, int? expMonth, int? expYear)
+    public void Reactivate(string? brand, string? last4, int? expMonth, int? expYear, DateTimeOffset now)
     {
         RevokedAt = null;
+        ConsentedAt = now; // saving it again is a fresh opt-in
         Brand = Trim(brand, 30) ?? Brand;
         Last4 = Trim(last4, 4) ?? Last4;
         ExpMonth = expMonth is >= 1 and <= 12 ? expMonth : ExpMonth;

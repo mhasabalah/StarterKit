@@ -102,9 +102,15 @@ public class Plan : Aggregate<Guid>
         int trialDays = 0)
     {
         EnsureValidTrialDays(trialDays);
-        EnsureValidMoney(Price, currency);
-        if (PendingPrice is { } pending)
-            EnsureValidMoney(pending, currency);
+        // Only a currency CHANGE re-checks the stored prices: an unrelated edit of a legacy row (a price saved before
+        // per-currency scales) must not start failing. See ADR 0017 for the data-fix query.
+        if (!string.Equals(Currency, currency, StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureValidMoney(Price, currency);
+            if (PendingPrice is { } pending)
+                EnsureValidMoney(pending, currency);
+        }
+
         TrialDays = trialDays;
         Name = name;
         Description = description;

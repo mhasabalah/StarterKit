@@ -15,19 +15,19 @@ public class CouponPricingTests
     [InlineData(99.99, 33.33, 33.33)]
     [InlineData(100, 100, 99.99)] // never brings a charge to zero
     public void Percent_discount_is_rounded_and_leaves_at_least_the_minimum_charge(double price, double percent, double expected) =>
-        CouponPricing.Discount((decimal)price, CouponDiscountType.Percent, (decimal)percent).Should().Be((decimal)expected);
+        CouponPricing.Discount((decimal)price, CouponDiscountType.Percent, (decimal)percent, "SAR").Should().Be((decimal)expected);
 
     [Theory]
     [InlineData(100, 30, 30)]
     [InlineData(100, 250, 99.99)] // larger than the price: capped
     public void Fixed_discount_is_capped_below_the_price(double price, double amount, double expected) =>
-        CouponPricing.Discount((decimal)price, CouponDiscountType.FixedAmount, (decimal)amount).Should().Be((decimal)expected);
+        CouponPricing.Discount((decimal)price, CouponDiscountType.FixedAmount, (decimal)amount, "SAR").Should().Be((decimal)expected);
 
     [Fact]
     public void No_coupon_or_a_free_price_means_no_discount()
     {
-        CouponPricing.Discount(100m, null).Should().Be(0m);
-        CouponPricing.Discount(0m, CouponDiscountType.Percent, 50m).Should().Be(0m);
+        CouponPricing.Discount(100m, null, "SAR").Should().Be(0m);
+        CouponPricing.Discount(0m, CouponDiscountType.Percent, 50m, "SAR").Should().Be(0m);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class CouponPricingTests
     {
         var tax = new TaxPolicy(0.15m, PricesIncludeTax: false);
 
-        var (amountDue, discount) = PricingPolicy.ActivationCharge(100m, tax, Terms(CouponDiscountType.Percent, 20m));
+        var (amountDue, discount) = PricingPolicy.ActivationCharge(100m, tax, "SAR", Terms(CouponDiscountType.Percent, 20m));
 
         discount.Should().Be(20m);
         amountDue.Should().Be(92m, "80 net + 15% tax");
@@ -46,7 +46,7 @@ public class CouponPricingTests
     {
         var tax = new TaxPolicy(0.15m, PricesIncludeTax: false);
 
-        var charge = PricingPolicy.RenewalCharge(100m, 10m, tax, Terms(CouponDiscountType.FixedAmount, 25m));
+        var charge = PricingPolicy.RenewalCharge(100m, 10m, tax, "SAR", Terms(CouponDiscountType.FixedAmount, 25m));
 
         charge.PeriodPrice.Should().Be(100m, "the snapshot price stays the list price");
         charge.CouponDiscount.Should().Be(25m);
@@ -57,7 +57,7 @@ public class CouponPricingTests
     [Fact]
     public void Renewal_charge_without_a_coupon_is_unchanged()
     {
-        var charge = PricingPolicy.RenewalCharge(100m, 0m, new TaxPolicy(0.15m, PricesIncludeTax: true));
+        var charge = PricingPolicy.RenewalCharge(100m, 0m, new TaxPolicy(0.15m, PricesIncludeTax: true), "SAR");
 
         charge.AmountDue.Should().Be(100m);
         charge.CouponDiscount.Should().Be(0m);

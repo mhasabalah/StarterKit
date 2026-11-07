@@ -19,6 +19,7 @@ using Notification.Contracts.Enums;
 using Notification.Dispatch;
 using Subscriptions.Contracts.Subscribers;
 using Subscriptions.Data;
+using Subscriptions.Domains.OnlinePayments.Gateways;
 using Subscriptions.Domains.Plans.Models;
 using Subscriptions.Domains.PaymentSettings.Models;
 using Subscriptions.Domains.Subscriptions.Jobs;
@@ -86,6 +87,7 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
         services.AddSingleton<ISubscriberInfoProvider>(Subscribers); // before the module's TryAdd default
         services.AddTransient<IRequestHandler<UploadAttachmentCommand, UploadAttachmentResult>, FakeUploadAttachmentHandler>();
         services.AddTransient<IRequestHandler<GetAttachmentByIdQuery, GetAttachmentByIdResult>, FakeGetAttachmentByIdHandler>();
+        services.AddScoped<IPaymentGateway, CountingFakeGateway>(); // before the module: the registry takes the first "Fake"
         services.AddSubscriptionsModule(configuration);
 
         _provider = services.BuildServiceProvider();

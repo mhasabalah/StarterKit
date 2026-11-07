@@ -39,7 +39,7 @@ internal sealed class SavedMethodRecorder(
                     return;
                 }
 
-                existing.Reactivate(complete.Brand, complete.Last4, complete.ExpMonth, complete.ExpYear);
+                existing.Reactivate(complete.Brand, complete.Last4, complete.ExpMonth, complete.ExpYear, timeProvider.GetUtcNow());
             }
             else
             {

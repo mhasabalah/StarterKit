@@ -5,8 +5,8 @@ namespace Subscriptions.Domains.Subscriptions.Billing;
 /// <summary>
 /// ISO 4217 currency knowledge, the ONE place that decides how many decimals an amount of a currency has: 0 (JPY, KRW),
 /// 2 (USD, SAR, EGP, the default), 3 (KWD, BHD, OMR, JOD, TND, IQD, LYD) or 4 (CLF). Rounding, scale validation,
-/// provider minor units and display all go through here. A null / unknown code falls back to 2 decimals, so legacy
-/// callers that cannot name a currency behave as before.
+/// provider minor units and display all go through here. Callers must name the currency; an unknown code falls back
+/// to 2 decimals (validators reject unknown codes before they reach an amount).
 /// </summary>
 internal static class Currency
 {
@@ -24,7 +24,8 @@ internal static class Currency
 
     private static readonly HashSet<string> FourDecimal = new(StringComparer.OrdinalIgnoreCase) { "CLF", "UYW" };
 
-    // Active ISO 4217 codes (plus none of the fund / precious-metal / test codes: not billable currencies).
+    // Active ISO 4217 codes. CLF and UYW are ISO fund codes; they are kept on purpose (they have 4 decimals, which
+    // the numeric(19,4) columns support). Precious-metal, testing and other fund codes are not billable and left out.
     private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase)
     {
         "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN", "BAM", "BBD", "BDT", "BGN", "BHD", "BIF",
@@ -36,7 +37,7 @@ internal static class Currency
         "NAD", "NGN", "NIO", "NOK", "NPR", "NZD", "OMR", "PAB", "PEN", "PGK", "PHP", "PKR", "PLN", "PYG", "QAR", "RON",
         "RSD", "RUB", "RWF", "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP", "SLE", "SOS", "SRD", "SSP", "STN", "SVC",
         "SYP", "SZL", "THB", "TJS", "TMT", "TND", "TOP", "TRY", "TTD", "TWD", "TZS", "UAH", "UGX", "USD", "UYU", "UYW",
-        "UZS", "VES", "VND", "VUV", "WST", "XAF", "XCD", "XOF", "XPF", "YER", "ZAR", "ZMW", "ZWG"
+        "UZS", "VED", "VES", "VND", "VUV", "WST", "XAF", "XCD", "XCG", "XOF", "XPF", "YER", "ZAR", "ZMW", "ZWG"
     };
 
     /// <summary>True for a 3-letter ISO 4217 code of a billable currency (case-insensitive).</summary>

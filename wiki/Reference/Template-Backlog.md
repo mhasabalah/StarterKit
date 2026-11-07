@@ -11,7 +11,7 @@ BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
 
 Senior gap review of features a production SaaS needs. ✅ = shipped (wave 6, PR #11), 🚧 = in progress, ⬜ = open.
 
-Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-rounding.md)): money columns are numeric(19,4) and rounded per ISO 4217 currency.
+Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-rounding.md)): billing money columns are numeric(19,4) and rounded per ISO 4217 currency.
 
 **P0 — before the first real customer**
 

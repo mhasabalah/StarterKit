@@ -24,5 +24,8 @@ public class SavedPaymentMethodRepository(SubscriptionsDbContext context) : ISav
 
     public void Add(SavedPaymentMethod method) => context.SavedPaymentMethods.Add(method);
 
+    public Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default)
+        => context.Database.BeginTransactionAsync(ct);
+
     public Task SaveChangesAsync(CancellationToken ct = default) => context.SaveChangesAsync(ct);
 }

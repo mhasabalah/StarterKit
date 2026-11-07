@@ -25,17 +25,15 @@ public sealed record CouponTerms(
 
 /// <summary>
 /// Pure coupon math, applied to a period price (tax basis) BEFORE tax, after the plan's own <c>DiscountPercent</c>.
-/// A coupon never brings a charge to zero (the smallest charge is <see cref="MinimumCharge"/>): zero-amount payments
+/// A coupon never brings a charge to zero (the smallest charge is one minor unit, <see cref="MinimumChargeFor"/>): zero-amount payments
 /// are reserved for complimentary activations, and the checkout/settlement path expects a positive amount.
 /// </summary>
 public static class CouponPricing
 {
-    public const decimal MinimumCharge = 0.01m;
-
     /// <summary>The smallest charge a coupon leaves: one minor unit of the currency (0.01 USD, 1 JPY, 0.001 KWD).</summary>
-    public static decimal MinimumChargeFor(string? currency) => Currency.SmallestUnit(currency);
+    public static decimal MinimumChargeFor(string currency) => Currency.SmallestUnit(currency);
 
-    public static decimal Discount(decimal price, CouponDiscountType type, decimal value, string? currency = null)
+    public static decimal Discount(decimal price, CouponDiscountType type, decimal value, string currency)
     {
         var minimum = MinimumChargeFor(currency);
         if (price <= minimum || value <= 0m)
@@ -48,6 +46,6 @@ public static class CouponPricing
         return Math.Min(Currency.Round(raw, currency), price - minimum);
     }
 
-    public static decimal Discount(decimal price, CouponTerms? coupon, string? currency = null) =>
+    public static decimal Discount(decimal price, CouponTerms? coupon, string currency) =>
         coupon is null ? 0m : Discount(price, coupon.Type, coupon.Value, currency);
 }

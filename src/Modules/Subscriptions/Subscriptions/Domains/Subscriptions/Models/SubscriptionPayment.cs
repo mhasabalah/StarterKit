@@ -202,7 +202,7 @@ public class SubscriptionPayment : Aggregate<Guid>
         if (!IsAwaitingPayment)
             throw new ConflictException($"Payment is {Status}; no amount is outstanding.");
 
-        if (amount <= 0m || !CurrencyRules.HasValidScale(amount, Currency))
+        if (amount <= 0m || (!CurrencyRules.HasValidScale(amount, Currency) && amount != OutstandingAmount))
             throw new BadRequestException(
                 $"Amount must be positive with at most {CurrencyRules.Exponent(Currency)} decimals for {Currency}.");
 

@@ -710,6 +710,10 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("brand");
 
+                    b.Property<DateTimeOffset>("ConsentedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consented_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -760,17 +764,17 @@ namespace Subscriptions.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_saved_payment_methods");
 
-                    b.HasIndex("SubscriberId")
-                        .HasDatabaseName("ix_saved_payment_methods_subscriber_id");
-
                     b.HasIndex("Gateway", "ProviderMethodRef")
                         .IsUnique()
                         .HasDatabaseName("ux_saved_payment_methods_gateway_method");
 
-                    b.HasIndex(new[] { "SubscriberId" }, "ux_saved_payment_methods_default_per_subscriber")
+                    b.HasIndex(new[] { "SubscriberId" }, "one_default_per_subscriber")
                         .IsUnique()
-                        .HasDatabaseName("ix_saved_payment_methods_subscriber_id1")
+                        .HasDatabaseName("ux_saved_payment_methods_default_per_subscriber")
                         .HasFilter("is_default AND revoked_at IS NULL");
+
+                    b.HasIndex(new[] { "SubscriberId" }, "subscriber")
+                        .HasDatabaseName("ix_saved_payment_methods_subscriber_id");
 
                     b.ToTable("saved_payment_methods", "subscriptions");
                 });
@@ -1172,6 +1176,11 @@ namespace Subscriptions.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("AutoRetryOutcome")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("auto_retry_outcome");
 
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uuid")

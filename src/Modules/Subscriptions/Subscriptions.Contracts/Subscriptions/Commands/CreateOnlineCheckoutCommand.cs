@@ -7,13 +7,16 @@ namespace Subscriptions.Contracts.Subscriptions.Commands;
 /// </summary>
 /// <param name="Provider">Configured gateway name (<c>Subscriptions:PaymentGateways:&lt;Name&gt;</c>).</param>
 /// <param name="PaymentId">The owed payment; optional when exactly one payment is owed.</param>
+/// <param name="SaveCard">The subscriber agreed to keep the card for automatic renewal retries (opt-in; honored only when
+/// <c>Dunning:AutoRetry:Enabled</c> and the gateway supports it).</param>
 public record CreateOnlineCheckoutCommand(
     Guid SubscriptionId,
     Guid SubscriberId,
     string Provider,
     string SuccessUrl,
     string CancelUrl,
-    Guid? PaymentId = null) : ICommand<CreateOnlineCheckoutResult>;
+    Guid? PaymentId = null,
+    bool SaveCard = false) : ICommand<CreateOnlineCheckoutResult>;
 
 /// <param name="RedirectUrl">Send the subscriber here to pay.</param>
 public record CreateOnlineCheckoutResult(

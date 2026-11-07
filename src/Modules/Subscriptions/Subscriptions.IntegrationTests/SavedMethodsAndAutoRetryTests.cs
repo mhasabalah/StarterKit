@@ -6,8 +6,11 @@ using Shared.Contracts.Localization;
 using Shared.Core.Exceptions;
 using Subscriptions.Contracts.Subscriptions.Enums;
 using Subscriptions.Contracts.Subscriptions.Commands;
+using Subscriptions.Contracts.Subscriptions.Commands.Plans;
 using Subscriptions.Data;
 using Subscriptions.Domains.OnlinePayments.Features.ReceivePaymentWebhook;
+using Subscriptions.Domains.OnlinePayments.Features.RemoveSavedPaymentMethod;
+using Subscriptions.Domains.OnlinePayments.Services;
 using Subscriptions.Domains.OnlinePayments.Gateways;
 using Subscriptions.Domains.OnlinePayments.Models;
 using Subscriptions.Domains.Plans.Models;
@@ -116,7 +119,7 @@ public sealed class SavedMethodsAndAutoRetryTests(SubscriptionsPostgresFixture f
         fx.WithDb(async db =>
         {
             db.SavedPaymentMethods.Add(SavedPaymentMethod.Create(
-                subscriberId, "Fake", "cus_test", methodRef, "visa", "4242", 12, 2099, isDefault, DateTimeOffset.UtcNow));
+                subscriberId, "Fake", "cus_test", methodRef + "_" + Guid.NewGuid().ToString("N"), "visa", "4242", 12, 2099, isDefault, DateTimeOffset.UtcNow));
             await db.SaveChangesAsync();
             return true;
         });
@@ -142,8 +145,12 @@ public sealed class SavedMethodsAndAutoRetryTests(SubscriptionsPostgresFixture f
         attempts.Should().ContainSingle().Which.Outcome.Should().Be(PaymentAttemptOutcome.Succeeded);
 
         await processor.ProcessAsync(at.AddMinutes(5));
-        (await fx.WithDb(db => db.PaymentAttempts.CountAsync(x => x.PaymentId == payment.Id)))
-            .Should().Be(1, "a step is attempted once; a re-run never charges again");
+        (await fx.WithDb(db => db.PaymentAttempts.CountAsync(x => x.PaymentId == payment.Id))).Should().Be(1);
+        CountingFakeGateway.ChargesFor(PaymentAttempt.KeyFor(payment.Id, "day-1"))
+            .Should().Be(1, "a step is attempted once; a re-run never calls the provider again");
+        var notice = await fx.WithDb(db => db.DunningNotices.AsNoTracking().SingleAsync(x => x.PaymentId == payment.Id && x.Step == "day-1"));
+        notice.AutoRetryOutcome.Should().Be("Succeeded");
+        notice.Sent.Should().BeFalse("a collected payment sent no reminder");
     }
 
     [Theory]
@@ -160,6 +167,8 @@ public sealed class SavedMethodsAndAutoRetryTests(SubscriptionsPostgresFixture f
         (await _scenario.PaymentsAsync(subscriptionId)).Single(x => x.Id == payment.Id).Status.Should().NotBe(PaymentStatus.Paid);
         var reminder = Reminders(subscriberId).Should().ContainSingle().Subject;
         reminder.Email!.Model["AutoRetryReason"].Should().Be(reason);
+        reminder.Email!.Model["AutoRetryReasonEn"].Should().NotBe(string.Empty);
+        reminder.Email!.Model["AutoRetryReasonAr"].Should().NotBe(string.Empty);
         reminder.InApp.Should().NotBeNull();
         reminder.InApp!.Category.Should().Be("billing.payment-failed");
     }
@@ -171,7 +180,9 @@ public sealed class SavedMethodsAndAutoRetryTests(SubscriptionsPostgresFixture f
 
         await fx.Services.GetRequiredService<IDunningProcessor>().ProcessAsync(payment.CreatedAt.AddDays(1).AddMinutes(1));
 
-        Reminders(subscriberId).Should().ContainSingle().Which.Email!.Model["AutoRetryReason"].Should().Be(string.Empty);
+        var reminder = Reminders(subscriberId).Should().ContainSingle().Subject;
+        reminder.Email!.Model["AutoRetryReason"].Should().Be(string.Empty);
+        reminder.InApp.Should().BeNull("no automatic payment failed, so there is nothing to announce in-app");
         (await fx.WithDb(db => db.PaymentAttempts.CountAsync(x => x.PaymentId == payment.Id))).Should().Be(0);
     }
 
@@ -194,5 +205,255 @@ public sealed class SavedMethodsAndAutoRetryTests(SubscriptionsPostgresFixture f
         });
 
         await act.Should().ThrowAsync<ConflictException>();
+    }
+
+    // ----- #1 cross-step safety -----
+
+    private IDunningProcessor Dunning => fx.Services.GetRequiredService<IDunningProcessor>();
+
+    [Fact]
+    public async Task A_transient_step_without_a_reference_blocks_a_new_charge_in_the_next_step()
+    {
+        var (subscriberId, _, payment) = await OverdueAsync();
+        await SaveMethodAsync(subscriberId, "pm_transient");
+
+        await Dunning.ProcessAsync(payment.CreatedAt.AddDays(1).AddMinutes(1));
+        await Dunning.ProcessAsync(payment.CreatedAt.AddDays(3).AddMinutes(1));
+
+        var day1 = PaymentAttempt.KeyFor(payment.Id, "day-1");
+        var day3 = PaymentAttempt.KeyFor(payment.Id, "day-3");
+        CountingFakeGateway.ChargesFor(day1).Should().Be(1);
+        CountingFakeGateway.ChargesFor(day3).Should().Be(0, "the unknown day-1 outcome (past the replay window) must not be charged around");
+        (await fx.WithDb(db => db.PaymentAttempts.AnyAsync(x => x.PaymentId == payment.Id && x.Step == "day-3"))).Should().BeFalse();
+        Reminders(subscriberId).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task A_charge_still_processing_at_the_provider_blocks_the_next_step_and_hides_the_checkout_link()
+    {
+        var (subscriberId, _, payment) = await OverdueAsync();
+        await SaveMethodAsync(subscriberId, "pm_processing");
+
+        await Dunning.ProcessAsync(payment.CreatedAt.AddDays(1).AddMinutes(1));
+        await Dunning.ProcessAsync(payment.CreatedAt.AddDays(3).AddMinutes(1));
+
+        CountingFakeGateway.ChargesFor(PaymentAttempt.KeyFor(payment.Id, "day-1")).Should().Be(1);
+        CountingFakeGateway.ChargesFor(PaymentAttempt.KeyFor(payment.Id, "day-3")).Should().Be(0);
+        var attempt = await fx.WithDb(db => db.PaymentAttempts.AsNoTracking().SingleAsync(x => x.PaymentId == payment.Id));
+        attempt.Outcome.Should().Be(PaymentAttemptOutcome.Transient);
+        attempt.ProviderReference.Should().NotBeNull();
+        CountingFakeGateway.StatusCalls.GetValueOrDefault(attempt.ProviderReference!).Should().BeGreaterThan(0, "the earlier charge was looked up first");
+
+        var reminders = Reminders(subscriberId).ToList();
+        reminders.Should().HaveCount(2);
+        reminders.Should().OnlyContain(m => (string)m.Email!.Model["AutoRetryReason"] == "processing");
+        reminders.Should().OnlyContain(m => ((string)m.Email!.Model["PaymentUrl"]).EndsWith("/subscription/renew"),
+            "no fresh checkout link while a charge may still complete");
+    }
+
+    [Fact]
+    public async Task A_processing_charge_is_settled_by_the_providers_webhook()
+    {
+        var (subscriberId, subscriptionId, payment) = await OverdueAsync();
+        await SaveMethodAsync(subscriberId, "pm_processing");
+        await Dunning.ProcessAsync(payment.CreatedAt.AddDays(1).AddMinutes(1));
+        var key = PaymentAttempt.KeyFor(payment.Id, "day-1");
+        var body = JsonSerializer.Serialize(new
+        {
+            id = $"evt_{Guid.NewGuid():N}",
+            type = "payment.succeeded",
+            reference = key,
+            amount = payment.OutstandingAmount,
+            currency = payment.Currency
+        });
+
+        await fx.SendAs(null, new ReceivePaymentWebhookCommand("Fake", body, new Dictionary<string, string>
+        {
+            [FakePaymentGateway.SignatureHeader] = FakePaymentGateway.Sign(SubscriptionsPostgresFixture.FakeGatewaySecret, body)
+        }));
+
+        (await _scenario.PaymentsAsync(subscriptionId)).Single(x => x.Id == payment.Id).Status.Should().Be(PaymentStatus.Paid);
+        (await _scenario.LoadAsync(subscriptionId)).Status.Should().Be(SubscriptionStatus.Active);
+    }
+
+    [Fact]
+    public async Task A_provider_event_after_the_synthetic_settlement_changes_nothing()
+    {
+        var (subscriberId, subscriptionId, payment) = await OverdueAsync();
+        await SaveMethodAsync(subscriberId, "pm_ok");
+        await Dunning.ProcessAsync(payment.CreatedAt.AddDays(1).AddMinutes(1));
+        var ledgerBefore = await fx.WithDb(db => db.LedgerEntries.CountAsync(x => x.SubscriptionId == subscriptionId));
+        var invoicesBefore = (await _scenario.InvoicesAsync(subscriptionId)).Count;
+        var key = PaymentAttempt.KeyFor(payment.Id, "day-1");
+        var body = JsonSerializer.Serialize(new
+        {
+            id = $"evt_{Guid.NewGuid():N}",
+            type = "payment.succeeded",
+            reference = key,
+            amount = payment.OutstandingAmount,
+            currency = payment.Currency
+        });
+
+        await fx.SendAs(null, new ReceivePaymentWebhookCommand("Fake", body, new Dictionary<string, string>
+        {
+            [FakePaymentGateway.SignatureHeader] = FakePaymentGateway.Sign(SubscriptionsPostgresFixture.FakeGatewaySecret, body)
+        }));
+
+        (await fx.WithDb(db => db.LedgerEntries.CountAsync(x => x.SubscriptionId == subscriptionId))).Should().Be(ledgerBefore);
+        (await _scenario.InvoicesAsync(subscriptionId)).Should().HaveCount(invoicesBefore);
+    }
+
+    // ----- #2 charged but not settled -----
+
+    [Fact]
+    public async Task A_charge_whose_settlement_is_rejected_raises_an_admin_audit_entry()
+    {
+        var (subscriberId, subscriptionId, payment) = await OverdueAsync();
+        await SaveMethodAsync(subscriberId, "pm_ok");
+        var subscription = await _scenario.LoadAsync(subscriptionId);
+        // The subscription expires between the dunning query and the charge: settlement of a renewal is refused.
+        await fx.WithDb(db => db.Subscriptions.Where(x => x.Id == subscriptionId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.Status, SubscriptionStatus.Expired)));
+
+        var result = await fx.WithScopeResult(sp => sp.GetRequiredService<IOffSessionRetryService>()
+            .TryChargeAsync(subscription, payment, "day-1", DateTimeOffset.UtcNow, CancellationToken.None));
+
+        result.Outcome.Should().Be(AutoRetryOutcome.Succeeded, "the provider did collect the money");
+        (await _scenario.PaymentsAsync(subscriptionId)).Single(x => x.Id == payment.Id).Status.Should().NotBe(PaymentStatus.Paid);
+        var alert = await fx.WithDb(db => db.AdminAuditLogs.AsNoTracking()
+            .SingleAsync(x => x.TargetId == payment.Id && x.Action == "OffSessionChargeUnsettled"));
+        alert.Reason.Should().Contain("manually").And.Contain("Fake");
+    }
+
+    // ----- #4 amount support -----
+
+    [Fact]
+    public async Task Checkout_refuses_a_gateway_that_cannot_charge_the_amount()
+    {
+        var plan = await fx.CreatePlanAsync($"Amount-{Guid.NewGuid():N}", 100m);
+        var subscriberId = Guid.NewGuid();
+        var created = await _scenario.CreateAsync(subscriberId, plan);
+        CountingFakeGateway.RejectAmounts = true;
+        try
+        {
+            var act = () => fx.SendAs(subscriberId, new CreateOnlineCheckoutCommand(
+                created.SubscriptionId, subscriberId, "Fake", ReturnUrl, ReturnUrl));
+
+            (await act.Should().ThrowAsync<ConflictException>()).Which.ErrorCode.Should().Be("amount_not_supported");
+        }
+        finally
+        {
+            CountingFakeGateway.RejectAmounts = false;
+        }
+    }
+
+    [Fact]
+    public async Task Dunning_does_not_charge_through_a_gateway_that_cannot_take_the_amount()
+    {
+        var (subscriberId, _, payment) = await OverdueAsync();
+        await SaveMethodAsync(subscriberId, "pm_ok");
+        CountingFakeGateway.RejectAmounts = true;
+        try
+        {
+            await Dunning.ProcessAsync(payment.CreatedAt.AddDays(1).AddMinutes(1));
+        }
+        finally
+        {
+            CountingFakeGateway.RejectAmounts = false;
+        }
+
+        CountingFakeGateway.ChargesFor(PaymentAttempt.KeyFor(payment.Id, "day-1")).Should().Be(0);
+        Reminders(subscriberId).Should().ContainSingle();
+    }
+
+    // ----- #6 opt-in -----
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task The_card_is_only_kept_when_the_subscriber_opted_in(bool saveCard, bool expectedFlag)
+    {
+        var plan = await fx.CreatePlanAsync($"Consent-{Guid.NewGuid():N}", 100m);
+        var subscriberId = Guid.NewGuid();
+        var created = await _scenario.CreateAsync(subscriberId, plan);
+
+        var checkout = await fx.SendAs(subscriberId, new CreateOnlineCheckoutCommand(
+            created.SubscriptionId, subscriberId, "Fake", ReturnUrl, ReturnUrl, SaveCard: saveCard));
+
+        CountingFakeGateway.Checkouts.Single(x => x.PaymentId == created.PaymentId).SavePaymentMethod.Should().Be(expectedFlag);
+        checkout.SessionId.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task A_saved_method_records_when_the_subscriber_consented()
+    {
+        var subscriberId = Guid.NewGuid();
+        await SaveMethodAsync(subscriberId, "pm_consent");
+
+        var saved = await fx.WithDb(db => db.SavedPaymentMethods.AsNoTracking().SingleAsync(x => x.SubscriberId == subscriberId));
+
+        saved.ConsentedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(2));
+    }
+
+    // ----- recorder / removal -----
+
+    [Fact]
+    public async Task The_recorder_ignores_a_method_that_belongs_to_another_subscriber()
+    {
+        var owner = Guid.NewGuid();
+        var intruder = Guid.NewGuid();
+        var methodRef = $"pm_shared_{Guid.NewGuid():N}";
+        await fx.WithDb(async db =>
+        {
+            db.SavedPaymentMethods.Add(SavedPaymentMethod.Create(owner, "Fake", "cus_1", methodRef, "visa", "4242", 12, 2099, true, DateTimeOffset.UtcNow));
+            await db.SaveChangesAsync();
+            return true;
+        });
+
+        await fx.WithScopeResult(async sp =>
+        {
+            await sp.GetRequiredService<ISavedMethodRecorder>().RecordAsync(
+                "Fake", intruder, new SavedMethodCapture("cus_2", methodRef), null, CancellationToken.None);
+            return true;
+        });
+
+        (await fx.WithDb(db => db.SavedPaymentMethods.CountAsync(x => x.SubscriberId == intruder))).Should().Be(0);
+        (await fx.WithDb(db => db.SavedPaymentMethods.SingleAsync(x => x.ProviderMethodRef == methodRef))).SubscriberId.Should().Be(owner);
+    }
+
+    [Fact]
+    public async Task Removing_a_method_revokes_it_detaches_it_at_the_provider_and_promotes_the_next_default()
+    {
+        var subscriberId = Guid.NewGuid();
+        await SaveMethodAsync(subscriberId, "pm_first");
+        await SaveMethodAsync(subscriberId, "pm_second", isDefault: false);
+        var first = await fx.WithDb(db => db.SavedPaymentMethods.AsNoTracking().SingleAsync(x => x.SubscriberId == subscriberId && x.IsDefault));
+
+        await fx.SendAs(subscriberId, new RemoveSavedPaymentMethodCommand(subscriberId, first.Id));
+
+        CountingFakeGateway.Detached.Should().Contain(first.ProviderMethodRef);
+        var rows = await fx.WithDb(db => db.SavedPaymentMethods.AsNoTracking().Where(x => x.SubscriberId == subscriberId).ToListAsync());
+        rows.Single(x => x.Id == first.Id).RevokedAt.Should().NotBeNull();
+        rows.Single(x => x.Id != first.Id).IsDefault.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Legacy_scale_amounts_do_not_block_an_unrelated_plan_update_or_a_receipt_of_the_outstanding_amount()
+    {
+        // A legacy row saved before per-currency scales: JPY with decimals (written around the invariant).
+        var planId = await fx.WithDb(async db =>
+        {
+            var plan = Plan.Create(LocalizedText.Create("Legacy", "Legacy"), null, 100m, "JPY", 1, 10, 5, 3, true);
+            db.Plans.Add(plan);
+            await db.SaveChangesAsync();
+            await db.Plans.Where(x => x.Id == plan.Id).ExecuteUpdateAsync(u => u.SetProperty(x => x.Price, 99.5m));
+            return plan.Id;
+        });
+
+        await fx.SendAsAdmin(new UpdatePlanCommand(
+            planId, LocalizedText.Create("Renamed", "Renamed"), null, "JPY", 1, 10, 5, 3, true, true,
+            (await fx.WithDb(db => db.Plans.AsNoTracking().SingleAsync(x => x.Id == planId))).Version));
+
+        (await fx.WithDb(db => db.Plans.AsNoTracking().SingleAsync(x => x.Id == planId))).Name.En.Should().Be("Renamed");
     }
 }
