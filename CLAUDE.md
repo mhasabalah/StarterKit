@@ -16,8 +16,12 @@ explanations live in `wiki/`.
 - Redis, Hangfire, MassTransit with a transactional outbox, OpenTelemetry, .NET Aspire
 - Docker/Nginx/GitHub Actions deployment
 
-The **Catalog** module is the reference vertical slice for all new work. The public host is per deployment
-(`api.example.com` in templates).
+<!--#if (sample)-->
+The **Catalog** module is the reference vertical slice for all new work.
+<!--#else-->
+New modules start from `dotnet new starterkit-module` (its example aggregate is the reference slice).
+<!--#endif-->
+The public host is per deployment (`api.example.com` in templates).
 
 ## Commands
 
@@ -25,7 +29,7 @@ The **Catalog** module is the reference vertical slice for all new work. The pub
 dotnet build StarterKit.slnx                         # always pass the .slnx (the root may hold more than one solution)
 dotnet test StarterKit.slnx                          # all tests - integration/E2E need Docker running
 dotnet test src/Api.Tests                            # architecture guardrails only (fast, no Docker)
-dotnet test src/Modules/Catalog/Catalog.Tests --filter "FullyQualifiedName~CreateProductHandlerTests"   # one class/test
+dotnet test src/Modules/Identity/Identity.Tests --filter "FullyQualifiedName~ApiKeyTests"   # one class/test
 
 cd src/Aspire/AppHost && dotnet run                  # dev: API + Postgres + Redis + Seq (Aspire dashboard)
 cd src/Aspire/AppHost && dotnet run -- Observability:FullStack=true   # + Grafana/Tempo/Loki/Jaeger/Prometheus
@@ -37,7 +41,21 @@ dotnet run --project src/Api -- --migrate-only       # apply all migrations + se
 
 # Migrations: from the repo root; --project MUST be the module owning the context
 dotnet ef migrations add <Name> --context <Ctx> --project src/Modules/<M>/<M> --startup-project src/Api --output-dir Data/Migrations
+
+dotnet new starterkit-module -n Orders               # a drop-in module (four projects, manifest, example, migration)
 ```
+<!--#if (templateSource)-->
+
+This repository is also the `dotnet new` template ([ADR-0020](wiki/Decisions/0020-dotnet-new-templates.md),
+`wiki/Getting-Started/Changing-The-Template.md`):
+
+```bash
+dotnet new install . && dotnet new install templates/module   # install both templates from this clone
+dotnet new starterkit -n Probe -o ../probe --sample false      # generate a product to check a template change
+dotnet pack templates/StarterKit.Templates.csproj -o artifacts # the StarterKit.Templates pack (CI: templates.yml)
+bash scripts/regenerate-module-migrations.sh                   # after changing the module template's model
+```
+<!--#endif-->
 
 The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Directory.Packages.props` (never put
 `Version=` on a PackageReference); global settings are in `Directory.Build.props`. The API serves `/swagger` and
@@ -60,13 +78,18 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 | `tests/e2e` | Playwright browser smoke tests (TypeScript) |
 | `deployment/`, `infra/`, `.github/workflows/` | Deploy scripts, Nginx, observability configs, CI/CD |
 | `tools/claude/starterkit-plugin` | This repo's Claude Code plugin (skills, reviewer agent, hooks) |
+<!--#if (templateSource)-->
+| `.template.config/`, `templates/` | The `dotnet new` product template (this repo) and the module template + the `StarterKit.Templates` pack |
+<!--#endif-->
 
 **Modules:**
 - **Identity**: auth, users, roles, OTP, 2FA.
 - **Tenancy**: the control plane: tenants, branches, memberships, tenant roles, invitations, audit.
 - **Attachment**: files.
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
+<!--#if (sample)-->
 - **Catalog**: the sample; products, categories, tags, wishlist.
+<!--#endif-->
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
@@ -84,7 +107,11 @@ Shared projects hold **no** business state. Anything with its own schema, jobs o
   exception.
 - There is no gRPC or HTTP between modules.
 
-**Slice layout** (copy `src/Modules/Catalog`):
+<!--#if (sample)-->
+**Slice layout** (copy `src/Modules/Catalog`, or generate with `dotnet new starterkit-module`):
+<!--#else-->
+**Slice layout** (generate with `dotnet new starterkit-module`):
+<!--#endif-->
 
 ```
 Domains/<Aggregate>/
@@ -94,8 +121,7 @@ Domains/<Aggregate>/
 ├── Events/  EventHandlers/  Exceptions/  Consumers/  Jobs/  Services/  Mappings/
 ```
 
-Small lookups may group handlers in one `<X>Handlers.cs` and their routes in a Carter `<X>sModule` (see
-`Catalog/Domains/Tags`). EF configurations live in `Data/Configurations/`, migrations in `Data/Migrations/`.
+Small lookups may group handlers in one `<X>Handlers.cs` and their routes in a Carter `<X>sModule`. EF configurations live in `Data/Configurations/`, migrations in `Data/Migrations/`.
 Notification is the exception: its context is in `Persistence/`.
 
 **Handlers:**
@@ -110,24 +136,28 @@ Notification is the exception: its context is in `Persistence/`.
 - Enums are stored as strings.
 - Call `FilterSoftDeletedProperties()` only when an aggregate really soft-deletes.
 
-**Registration:**
-- `Add<M>Module` / `Use<M>Module` in `<M>Module.cs`.
-- Add the module's assembly to `AddMassTransitWithAssemblies(...)`, its Contracts to `AddEnumLookup(...)` (if it has
-  enums), and its name to `ModuleBoundaryTests.Modules`.
+**Registration** ([ADR-0019](wiki/Decisions/0019-module-manifests-and-discovery.md)):
+- `Add<M>Module` / `Use<M>Module` in `<M>Module.cs`, plus a `<M>ModuleManifest : ModuleBase` next to it with
+  `[assembly: ModuleManifest(typeof(<M>ModuleManifest))]`. The manifest declares its `Order` (`ModuleOrder`), its
+  `EnumAssemblies` (normally its Contracts, if it has enums) and delegates `AddServices` / `Initialize` to those
+  extensions. `Initialize` never adds middleware.
+- Nothing else to wire. `Api.csproj` references every `src/Modules/<M>/<M>/<M>.csproj` by glob, and
+  `builder.AddModules()` discovers the manifests and registers MassTransit consumers, the enum lookup and the modules.
+  The architecture tests take the module list from the host. Never re-add module calls to `Program.cs`.
 
 **Startup order** (`src/Api/Program.cs`):
 1. Service registration:
    1. `AddDockerSecrets` → `AddSharedInfrastructure` (auth policies, CORS, localization, paging, ...)
-   2. `AddMultiTenancy` → Hangfire → rate limiting → Seq → `AddMassTransitWithAssemblies` → `AddEnumLookup`
-   3. Modules: Identity → Tenancy → Attachment → Catalog → Subscriptions → Webhooks → DataTransfer → Notification
+   2. `AddMultiTenancy` → Hangfire → rate limiting → Seq → `AddModules()` (MassTransit → enum lookup → modules)
+   3. Modules in `ModuleOrder`: Identity 0 → Tenancy 100 → Attachment 200 → Catalog 300 → Subscriptions 400 →
+      Webhooks 500 → DataTransfer 600 → **new modules 700** → Notification 900 (guarded by `ModuleDiscoveryTests`)
 2. Middleware:
    1. `UseTrustedForwardedHeaders` (first) → `UseConfigurableCors` → `UseErrorHandling` (outside auth, so 401/403
       get JSON)
-   2. `UseIdentityModule(afterAuthentication: a => a.UseMultiTenancy())` = authentication → tenant resolution →
+   2. `UseIdentityPipeline(afterAuthentication: a => a.UseMultiTenancy())` = authentication → tenant resolution →
       authorization
    3. `UseRateLimiter` (after auth, so partitions are per user) → Hangfire dashboard
-   4. `UseTenancyModule()` first (the Default tenant must exist), then Attachment → Catalog → Subscriptions →
-      Webhooks → DataTransfer → Notification
+   4. `UseModules()`: each module's `Initialize` in the same order (Tenancy before tenant-data seeding)
    5. `UseOutboxSweep()` → `UseSharedInfrastructure()`
 
 ## Naming (enforced by `NamingConventionTests`)
@@ -269,7 +299,7 @@ Notification is the exception: its context is in `Persistence/`.
 - **Bulk import/export** (DataTransfer, [ADR-0016](wiki/Decisions/0016-bulk-data-transfer-on-hangfire.md)):
   - Never parse CSV/Excel or loop over thousands of rows in a request. Implement `IImportDefinition` /
     `IExportDefinition` (`DataTransfer.Contracts`) in the owning module and register it with `AddImportDefinition` /
-    `AddExportDefinition` (reference: `Catalog/Domains/Products/DataTransfer`).
+    `AddExportDefinition` (reference: `Tenancy/Domains/Members/DataTransfer`).
   - `ApplyBatchAsync` must upsert by a natural key (batches replay after a crash), return one result per row, report
     bad rows as row errors (never throw for them), save nothing in a dry run, and act as `ImportContext.RequestedBy`.
   - Jobs run on the Hangfire queue `data-transfer`; `Hangfire:Servers:<Name>:Enabled` splits workloads across
@@ -282,7 +312,7 @@ Notification is the exception: its context is in `Persistence/`.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
-  Invalidate explicitly from domain event handlers (see `Catalog/Domains/Categories/Cache/CategoryTreeCache.cs`).
+  Invalidate explicitly from domain event handlers.
   Cache failures must never fail the request.
 - **Web.** `IHttpContextService` is in `Shared.Core.Web`; add the `using` explicitly. Avoid `[FromServices]`; Carter
   resolves parameters.
@@ -319,7 +349,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 
 | Flow | Kind |
 |---|---|
+<!--#if (sample)-->
 | Catalog `ProductPublishedIntegrationEvent` → any | Integration |
+<!--#endif-->
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
 | Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
@@ -354,7 +386,8 @@ The full guide is `wiki/Architecture/Messaging.md`.
 
 | Test | Fails when |
 |---|---|
-| `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. **Register new modules in `Modules`.** |
+| `ModuleDiscoveryTests` | A `src/Modules` folder is not discovered by the host, a module lacks exactly one `<M>ModuleManifest`, or `ModuleOrder` breaks a startup constraint |
+| `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. The module list is discovered from the host. |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
 | `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
@@ -380,6 +413,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 - In unit tests, use `TenantContext.SingleTenant` / `TenantScope.Begin(...)`. Tests may use `IgnoreQueryFilters()`
   to inspect data.
 
+<!--#if (aiTooling)-->
 ## Skills: how to do things
 
 The StarterKit plugin (`tools/claude/starterkit-plugin`, enabled by `.claude/settings.json`) packages every recurring
@@ -403,6 +437,7 @@ change. **Use the matching skill instead of improvising.**
 The plugin's hooks keep git work off `master`/`develop` (no force-push, no `--no-verify`, no PR merge) and warn on
 forbidden C# patterns after edits. Spec Kit
 (`/speckit-*`) is available for spec → plan → tasks flows; its principles are in `.specify/memory/constitution.md`.
+<!--#endif-->
 
 ## Documentation
 
@@ -438,4 +473,11 @@ forbidden C# patterns after edits. Spec Kit
   - Pushes to `master` additionally build the GHCR image, wait for manual approval (the `production`
     environment), then deploy on the self-hosted runner.
   - `rollback.yml` restores the previous image or backup.
-- Starting a new product from this template: `wiki/Getting-Started/New-Project.md` or `/starterkit:new-project`.
+- Starting a new product from this template: `dotnet new starterkit` (`wiki/Getting-Started/New-Project.md`) or
+  `/starterkit:new-project`.
+<!--#if (templateSource)-->
+- **This repo is the template** (ADR-0020, `wiki/Getting-Started/Changing-The-Template.md`). Optional code is
+  conditional, never deleted (the page lists the marker syntax per file type; docs that ship in products never quote
+  it). Never put an MSBuild `Condition` attribute on an element that must survive generation (`dotnet new` drops it).
+  Tests use vehicles every product has (not Catalog) unless they test Catalog. `templates.yml` must stay green.
+<!--#endif-->

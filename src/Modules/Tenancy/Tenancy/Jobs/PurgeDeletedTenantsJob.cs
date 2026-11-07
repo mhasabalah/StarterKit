@@ -70,7 +70,7 @@ public sealed class PurgeDeletedTenantsJob(
         // 2. Tenant-data rows.
         if (tenant.IsDedicated && string.IsNullOrEmpty(tenant.ConnectionSecretRef))
         {
-            var shared = configuration.GetConnectionString("starterkit")
+            var shared = configuration.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName)
                          ?? throw new InvalidOperationException("ConnectionStrings:starterkit is not configured.");
             await TenantDataPurger.DropDatabaseAsync(connectionResolver.Resolve(tenant, shared), ct);
         }

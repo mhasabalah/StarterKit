@@ -1,0 +1,336 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Mohamed Magdy",
+  "classifications": [
+    "Web",
+    "API",
+    "Modular Monolith",
+    "SaaS"
+  ],
+  "identity": "StarterKit.Templates.Solution",
+  "groupIdentity": "StarterKit.Templates.Solution",
+  "name": "StarterKit modular monolith (ASP.NET Core 10)",
+  "description": "Production-ready modular monolith: identity, optional multi-tenancy, attachments, billing, notifications, webhooks, bulk import/export, outbox messaging, Aspire, Docker and CI/CD.",
+  "shortName": "starterkit",
+  "sourceName": "StarterKit",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "guids": [
+    "dec35037-53d5-4807-8d1f-8c6c298b62b4",
+    "2bb005a7-7c66-4118-8caf-2b4f2b21e80f",
+    "81dded9d-158b-e303-5f62-77a2896d2a5a"
+  ],
+  "forms": {
+    "lowerCase": {
+      "identifier": "lowerCase"
+    },
+    "upperCase": {
+      "identifier": "upperCase"
+    }
+  },
+  "symbols": {
+    "sample": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the Catalog reference module (products, categories, tags, wishlist) and everything that uses it."
+    },
+    "multitenancy": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "off",
+      "description": "Multi-tenancy preset (MultiTenancy:Enabled / DefaultIsolation). It can be switched later without a migration.",
+      "choices": [
+        {
+          "choice": "off",
+          "description": "Single tenant: everything belongs to the Default tenant."
+        },
+        {
+          "choice": "shared",
+          "description": "Tenants share the database (tenant_id + EF filters + RLS)."
+        },
+        {
+          "choice": "dedicated",
+          "description": "New tenants get their own database."
+        }
+      ]
+    },
+    "transport": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "PostgreSql",
+      "description": "Production message transport (MESSAGING_TRANSPORT in .env.example).",
+      "choices": [
+        {
+          "choice": "PostgreSql",
+          "description": "No extra infrastructure."
+        },
+        {
+          "choice": "RabbitMq",
+          "description": "A RabbitMQ broker (docker-compose.rabbitmq.yml)."
+        }
+      ]
+    },
+    "storage": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "Local",
+      "description": "Attachment storage provider (Attachment:Storage:Provider).",
+      "choices": [
+        {
+          "choice": "Local",
+          "description": "Local disk / Docker volume."
+        },
+        {
+          "choice": "AzureBlob",
+          "description": "Azure Blob Storage."
+        },
+        {
+          "choice": "S3",
+          "description": "Amazon S3 or an S3-compatible store."
+        }
+      ]
+    },
+    "aiTooling": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the Claude Code plugin (skills, reviewer agent, hooks), Spec Kit and the other agent configs."
+    },
+    "ci": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the GitHub Actions workflows."
+    },
+    "deploy": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the VPS deployment kit: deployment/, Nginx, image build and deploy jobs, backup/rollback/health workflows."
+    },
+    "githubOwner": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "CHANGE_ME",
+      "replaces": "mhasabalah",
+      "description": "GitHub user or organization that owns the new repository (CODEOWNERS, issue links)."
+    },
+    "SAMPLE": {
+      "type": "computed",
+      "value": "(sample)"
+    },
+    "templateSource": {
+      "type": "computed",
+      "value": "false"
+    },
+    "deployWorkflows": {
+      "type": "computed",
+      "value": "(ci && deploy)"
+    },
+    "nameLower": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "lowerCase",
+      "fileRename": "starterkit",
+      "description": "Lower-case name for file and folder names (tools/claude/starterkit-plugin)."
+    },
+    "nameUpper": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "upperCase",
+      "replaces": "STARTERKIT",
+      "description": "Upper-case name for environment variable prefixes (STARTERKIT_*)."
+    }
+  },
+  "SpecialCustomOperations": {
+    "**/*.slnx": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "<!--#if"
+            ],
+            "actionableElse": [
+              "<!--#else"
+            ],
+            "actionableElseif": [
+              "<!--#elseif"
+            ],
+            "endif": [
+              "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/appsettings*.json": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "//#if"
+            ],
+            "actionableElse": [
+              "//#else"
+            ],
+            "actionableElseif": [
+              "//#elseif"
+            ],
+            "endif": [
+              "//#endif"
+            ],
+            "actions": [
+              "uncomment"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        },
+        {
+          "type": "replacement",
+          "configuration": {
+            "original": "//",
+            "replacement": "",
+            "id": "uncomment"
+          }
+        }
+      ]
+    },
+    "**/.env*": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "#if"
+            ],
+            "actionableElse": [
+              "#else"
+            ],
+            "actionableElseif": [
+              "#elseif"
+            ],
+            "endif": [
+              "#endif"
+            ],
+            "actions": [
+              "uncomment"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        },
+        {
+          "type": "replacement",
+          "configuration": {
+            "original": "#",
+            "replacement": "",
+            "id": "uncomment"
+          }
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "exclude": [
+        ".git/**",
+        ".vs/**",
+        "**/bin/**",
+        "**/obj/**",
+        "**/*.user",
+        "**/*.build.log",
+        ".artifacts/**",
+        ".artifacts-final/**",
+        ".env",
+        "skills-lock.json",
+        "secrets/*.txt",
+        "postgres/**",
+        "redis/**",
+        "src/Api/uploads/**",
+        "tests/e2e/node_modules/**",
+        "tests/e2e/test-results/**",
+        "tests/e2e/playwright-report/**",
+        "tests/load/results/**",
+        "templates/**",
+        ".template.config/**",
+        "wiki/Reference/Template-Backlog.md",
+        ".claude/settings.local.json",
+        ".github/workflows/templates.yml",
+        "artifacts/**",
+        "**/TestResults/**",
+        "scripts/regenerate-module-migrations.sh",
+        "wiki/Decisions/0020-dotnet-new-templates.md",
+        "wiki/Getting-Started/Changing-The-Template.md"
+      ],
+      "modifiers": [
+        {
+          "condition": "(!sample)",
+          "exclude": [
+            "src/Modules/Catalog/**",
+            "src/Api.E2ETests/Catalog/**",
+            "src/Api.E2ETests/MultiTenancy/CategoryAuthorizationTests.cs",
+            "src/Api.E2ETests/MultiTenancy/TenantIsolationFlowTests.cs",
+            "src/Api.E2ETests/MultiTenancy/DataTransferTenantTests.cs",
+            "src/Api.E2ETests/DataTransfer/DataTransferFlowTests.cs",
+            "src/Api.E2ETests/Infrastructure/TestData.cs",
+            "wiki/Modules/Catalog.md"
+          ]
+        },
+        {
+          "condition": "(!aiTooling)",
+          "exclude": [
+            ".claude/**",
+            ".claude-plugin/**",
+            "tools/claude/**",
+            ".specify/**",
+            ".agents/**",
+            ".opencode/**",
+            ".github/agents/**",
+            ".github/prompts/**",
+            ".github/copilot-instructions.md",
+            ".github/workflows/claude.yml",
+            ".github/workflows/claude-code-review.yml",
+            "AGENTS.md"
+          ]
+        },
+        {
+          "condition": "(!ci)",
+          "exclude": [
+            ".github/workflows/**"
+          ]
+        },
+        {
+          "condition": "(!deploy)",
+          "exclude": [
+            "deployment/**",
+            "infra/nginx/**",
+            ".github/workflows/rollback.yml",
+            ".github/workflows/database-backup.yml",
+            ".github/workflows/health-monitoring.yml"
+          ]
+        }
+      ]
+    }
+  ],
+  "postActions": [
+    {
+      "actionId": "AC1156F7-BB77-4DB8-B28F-24EEBCCA1E5C",
+      "description": "Next steps",
+      "manualInstructions": [
+        {
+          "text": "Next: cd into the new folder, `cp .env.example .env` and replace every CHANGE_ME, create secrets/*.txt (deployment/secrets-setup.sh or secrets/README.md), then `dotnet build` the new .slnx. Add modules with `dotnet new starterkit-module -n <Name>`. Guide: wiki/Getting-Started/New-Project.md"
+        }
+      ],
+      "continueOnError": true
+    }
+  ]
+}

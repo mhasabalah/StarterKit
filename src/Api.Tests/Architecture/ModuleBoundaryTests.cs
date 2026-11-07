@@ -1,4 +1,5 @@
 using System.Reflection;
+using Shared.Core.Modularity;
 
 namespace Api.Tests.Architecture;
 
@@ -12,12 +13,16 @@ namespace Api.Tests.Architecture;
 /// <c>Identity.Contracts</c> (auth/admin workflows) is private to Identity and the host, so the identity provider
 /// can be replaced (e.g. by a Keycloak adapter) without touching other modules.</item>
 /// </list>
-/// Adding a new module? Add its name to <see cref="Modules"/>; the rules then apply automatically.
+/// The module list is the host's real one (<see cref="ModuleCatalog"/>, ADR-0019): a new module is covered as soon as
+/// its folder exists.
 /// </summary>
 public sealed class ModuleBoundaryTests
 {
-    /// <summary>Business modules under src/Modules. Each has &lt;Name&gt; and &lt;Name&gt;.Contracts assemblies.</summary>
-    public static readonly string[] Modules = ["Identity", "Attachment", "Subscriptions", "Catalog", "Tenancy", "Notification", "Webhooks", "DataTransfer"];
+    /// <summary>
+    /// Business modules the host discovers (src/Modules), in startup order. Each has &lt;Name&gt; and
+    /// &lt;Name&gt;.Contracts assemblies.
+    /// </summary>
+    public static readonly string[] Modules = [.. ModuleCatalog.FromHost(typeof(Program).Assembly).Names];
 
     /// <summary>Shared kernel that must stay module-agnostic.</summary>
     private static readonly string[] CoreShared = ["Shared.Contracts", "Shared.Core", "Shared.Messaging"];

@@ -36,6 +36,7 @@ public sealed class AuditTrailArchitectureTests
             auditType.Should().Be<TenantAuditEntry>("tenant-data contexts need the tenant-owned audit row");
     }
 
+#if (SAMPLE)
     [Fact]
     public void Catalog_audits_Product_and_Category()
     {
@@ -43,6 +44,7 @@ public sealed class AuditTrailArchitectureTests
         model.GetEntityTypes().Where(e => e.ClrType.IsAssignableTo(typeof(IAuditable))).Select(e => e.ClrType.Name)
             .Should().Contain(["Product", "Category"]);
     }
+#endif
 
     private static IModel BuildModel(Type contextType)
     {

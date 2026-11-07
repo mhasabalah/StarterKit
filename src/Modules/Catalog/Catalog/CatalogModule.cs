@@ -18,8 +18,7 @@ namespace Catalog;
 
 /// <summary>
 /// Catalog module — the reference module for new modules (see wiki/Modules/Catalog.md for the pattern map).
-/// Program.cs must also pass <c>CatalogRoot.AssemblyName</c> to AddMassTransitWithAssemblies (consumers) and
-/// <c>CatalogContractsRoot.AssemblyName</c> to AddEnumLookup (enums).
+/// The host discovers it through <see cref="CatalogModuleManifest"/> (consumers, enums, order; ADR-0019).
 /// </summary>
 public static class CatalogModule
 {
@@ -59,7 +58,7 @@ public static class CatalogModule
         services.AddCustomMapster(CatalogRoot.AssemblyName);
         services.AddCarterWithAssemblies(CatalogRoot.AssemblyName);
 
-        services.AddCustomDbContext<CatalogDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<CatalogDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
         services.AddOutbox<CatalogDbContext>(); // delivers the integration events raised by Catalog aggregates
         services.AddScoped<IDataSeeder, CatalogDataSeeder>();
 

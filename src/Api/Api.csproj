@@ -26,16 +26,28 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Aspire\ServiceDefaults\ServiceDefaults.csproj" />
-      <ProjectReference Include="..\Modules\Identity\Identity\Identity.csproj" />
-      <ProjectReference Include="..\Modules\Attachment\Attachment\Attachment.csproj" />
-      <ProjectReference Include="..\Modules\Subscriptions\Subscriptions\Subscriptions.csproj" />
-      <ProjectReference Include="..\Modules\Catalog\Catalog\Catalog.csproj" />
-      <ProjectReference Include="..\Modules\Webhooks\Webhooks\Webhooks.csproj" />
-      <ProjectReference Include="..\Modules\DataTransfer\DataTransfer\DataTransfer.csproj" />
-      <ProjectReference Include="..\Modules\Tenancy\Tenancy\Tenancy.csproj" />
-      <ProjectReference Include="..\Modules\Notification\Notification\Notification.csproj" />
       <ProjectReference Include="..\Shared\Shared.Core\Shared.Core.csproj" />
     </ItemGroup>
+
+    <!-- Modules (ADR-0019): every src/Modules/<M>/<M>/<M>.csproj is referenced by this glob, and each one becomes an
+         [assembly: ModuleAssembly("<M>")] attribute that ModuleCatalog reads at startup. Adding a module = dropping
+         its folder in; Program.cs never changes. Contracts and test projects are not modules. -->
+    <ItemGroup>
+      <ProjectReference Include="..\Modules\*\*\*.csproj"
+                        Exclude="..\Modules\**\*.Contracts.csproj;..\Modules\**\*.Tests.csproj;..\Modules\**\*.IntegrationTests.csproj"
+                        IsModule="true" />
+    </ItemGroup>
+
+    <!-- No Condition attribute here on purpose: `dotnet new` evaluates MSBuild conditions in project files as template
+         conditions and would drop the element. WithMetadataValue filters the module references instead. -->
+    <Target Name="AddModuleAssemblyAttributes" BeforeTargets="GetAssemblyAttributes">
+      <ItemGroup>
+        <_ModuleReference Include="@(ProjectReference->WithMetadataValue('IsModule', 'true'))" />
+        <AssemblyAttribute Include="Shared.Core.Modularity.ModuleAssemblyAttribute">
+          <_Parameter1>%(_ModuleReference.Filename)</_Parameter1>
+        </AssemblyAttribute>
+      </ItemGroup>
+    </Target>
 
     <ItemGroup>
       <Folder Include="uploads\" />

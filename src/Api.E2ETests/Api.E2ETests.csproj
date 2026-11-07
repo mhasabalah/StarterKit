@@ -22,8 +22,10 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Api\Api.csproj" />
+        <!--#if (sample)-->
         <ProjectReference Include="..\Modules\Catalog\Catalog\Catalog.csproj" />
         <ProjectReference Include="..\Modules\Catalog\Catalog.Contracts\Catalog.Contracts.csproj" />
+        <!--#endif-->
         <ProjectReference Include="..\Shared\Shared.Core\Shared.Core.csproj" />
     </ItemGroup>
 </Project>

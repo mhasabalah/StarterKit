@@ -51,7 +51,9 @@ public sealed class Wave6TenantAuthorizationTests(MultiTenantE2EFixture fixture)
         client.DefaultRequestHeaders.Add("X-Tenant", tenant.ToString());
 
         (await client.GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+#if (SAMPLE)
         (await client.GetAsync($"{Api}/products/{Guid.NewGuid()}/history")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+#endif
     }
 
     [Theory]
@@ -96,9 +98,11 @@ public sealed class Wave6TenantAuthorizationTests(MultiTenantE2EFixture fixture)
         var member = fixture.Client(memberId, tenant);
         (await member.GetAsync($"{Api}/webhooks/endpoints")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await member.PostAsJsonAsync($"{Api}/webhooks/endpoints", new { })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+#if (SAMPLE)
         (await member.GetAsync($"{Api}/products/{Guid.NewGuid()}/history")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         // Owner: through the gate (the product does not exist: 404, never 401/403).
         (await owner.GetAsync($"{Api}/products/{Guid.NewGuid()}/history")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+#endif
     }
 }

@@ -1,4 +1,6 @@
+#if (SAMPLE)
 using Catalog.Contracts.Products.IntegrationEvents;
+#endif
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -14,7 +16,9 @@ namespace Webhooks.IntegrationTests;
 
 public static class Arrange
 {
+#if (SAMPLE)
     public const string ProductPublished = "catalog.product-published.v1";
+#endif
     public const string SubscriptionExpired = "subscriptions.subscription-expired.v1";
 
     /// <summary>Creates an endpoint through the real command; returns its id and the raw secret (shown once).</summary>
@@ -22,10 +26,11 @@ public static class Arrange
         string? url = null, params string[] eventTypes)
     {
         var result = await fx.SendAsync(tenant, new CreateWebhookEndpointCommand(
-            url ?? $"http://127.0.0.1:1/{Guid.NewGuid():N}", "it", eventTypes.Length == 0 ? [ProductPublished] : eventTypes));
+            url ?? $"http://127.0.0.1:1/{Guid.NewGuid():N}", "it", eventTypes.Length == 0 ? [SubscriptionExpired] : eventTypes));
         return (result.Id, result.Secret);
     }
 
+#if (SAMPLE)
     public static ProductPublishedIntegrationEvent NewProductEvent() => new()
     {
         ProductId = Guid.NewGuid(),
@@ -33,6 +38,11 @@ public static class Arrange
         Sku = "SKU-" + Guid.NewGuid().ToString("N")[..8],
         PublishedAt = DateTime.UtcNow
     };
+#endif
+
+    /// <summary>A public event of a module every project has: forwarded to the subscriber's tenant.</summary>
+    public static SubscriptionExpiredIntegrationEvent NewSubscriptionEvent(TenantInfo tenant) =>
+        new() { SubscriberId = tenant.Id, SubscriptionId = Guid.NewGuid() };
 
     private static ConsumeContext<T> ContextOf<T>(T message) where T : class
     {
@@ -56,9 +66,11 @@ public static class Arrange
 
             switch (message)
             {
+#if (SAMPLE)
                 case ProductPublishedIntegrationEvent e:
                     await new ProductPublishedWebhookConsumer(uow, jobs, tenantContext, store).Consume(ContextOf(e));
                     break;
+#endif
                 case SubscriptionActivatedIntegrationEvent e:
                     await new SubscriptionActivatedWebhookConsumer(uow, jobs, tenantContext, store).Consume(ContextOf(e));
                     break;
@@ -87,10 +99,10 @@ public static class Arrange
         TenantInfo tenant, Guid id) =>
         fx.InTenantDbAsync(tenant, db => db.Endpoints.AsNoTracking().FirstAsync(e => e.Id == id));
 
-    /// <summary>Makes a delivery for the endpoint by publishing a product event; returns the new delivery.</summary>
+    /// <summary>Makes a delivery for the endpoint by publishing a subscription event; returns the new delivery.</summary>
     public static async Task<WebhookDelivery> OneDelivery(WebhooksPostgresFixture fx, TenantInfo tenant, Guid endpointId)
     {
-        await Consume(fx, tenant, NewProductEvent());
+        await Consume(fx, tenant, NewSubscriptionEvent(tenant));
         return (await Deliveries(fx, tenant, endpointId)).Last();
     }
 }

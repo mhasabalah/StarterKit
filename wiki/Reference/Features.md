@@ -1,7 +1,10 @@
 # Feature catalog
 
 Everything StarterKit ships today, by area, with the page that owns it. Use it to answer "do we already have X?"
-before building it, and to brief a product owner. Backlog and status: [Template backlog](Template-Backlog.md).
+before building it, and to brief a product owner.
+<!--#if (templateSource)-->
+Backlog and status: [Template backlog](Template-Backlog.md).
+<!--#endif-->
 
 ## Identity and access
 

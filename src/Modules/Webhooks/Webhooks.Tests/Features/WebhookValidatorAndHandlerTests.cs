@@ -23,7 +23,7 @@ public class WebhookValidatorAndHandlerTests
         new(TestSupport.Localizer(), TestSupport.UrlPolicy(configure), TestSupport.Catalog());
 
     private static CreateWebhookEndpointCommand Valid() =>
-        new("https://hooks.example.com/in", "d", ["catalog.product-published.v1"]);
+        new("https://hooks.example.com/in", "d", ["subscriptions.subscription-expired.v1"]);
 
     [Fact]
     public void A_valid_create_command_passes() => Validator().TestValidate(Valid()).ShouldNotHaveAnyValidationErrors();
@@ -40,7 +40,7 @@ public class WebhookValidatorAndHandlerTests
 
     [Fact]
     public void Create_RejectsUnknownEventTypes() =>
-        Validator().TestValidate(Valid() with { EventTypes = ["catalog.product-published.v1", "made.up.v1"] })
+        Validator().TestValidate(Valid() with { EventTypes = ["subscriptions.subscription-expired.v1", "made.up.v1"] })
             .ShouldHaveValidationErrorFor(x => x.EventTypes);
 
     [Fact]

@@ -20,4 +20,13 @@
 		<!-- Default (non-.ar) resx files are English; also satisfies CA1824. -->
 		<NeutralLanguage>en</NeutralLanguage>
 	</PropertyGroup>
+	<!--#if (templateSource)-->
+
+	<!-- Template repository only (wiki/Getting-Started/Templates.md): compile every optional part, so the template itself
+	     builds and tests exactly what `dotnet new starterkit` generates with all switches on. Code behind
+	     `#if (SAMPLE)` is kept or removed by the template engine; this block is never copied into a generated project. -->
+	<PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory).template.config/template.json')">
+		<DefineConstants>$(DefineConstants);SAMPLE</DefineConstants>
+	</PropertyGroup>
+	<!--#endif-->
 </Project>

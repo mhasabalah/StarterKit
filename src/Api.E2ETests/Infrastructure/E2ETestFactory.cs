@@ -63,6 +63,11 @@ public class E2ETestFactory : WebApplicationFactory<Program>
                 [$"ConnectionStrings:{ConnectionStringName}"] = _connectionString,
                 ["Redis:Enabled"] = "false",
 
+                // The single-tenant suite stays single-tenant whatever a generated product presets in appsettings.json
+                // (dotnet new --multitenancy); MultiTenantE2ETestFactory switches it on for the tenant suites.
+                ["MultiTenancy:Enabled"] = "false",
+                ["MultiTenancy:DefaultIsolation"] = "Shared",
+
                 // Online payments: the Fake gateway signs webhooks with this secret (see Subscriptions/OnlinePaymentWebhookTests).
                 ["Subscriptions:PaymentGateways:Fake:Enabled"] = "true",
                 ["Subscriptions:PaymentGateways:Fake:Secret"] = FakeGatewaySecret,
