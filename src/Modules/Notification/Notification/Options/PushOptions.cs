@@ -43,6 +43,9 @@ public sealed class PushOptions
     /// <summary>Devices not re-registered for this many days are purged (FCM treats ~2 months inactive tokens as stale).</summary>
     public int StaleDeviceDays { get; set; } = 60;
 
+    /// <summary>Direct APNs adapter for iOS devices that register a native APNs token (<c>Push:Apns</c>).</summary>
+    public ApnsOptions Apns { get; set; } = new();
+
     public bool HasCredentials => !string.IsNullOrWhiteSpace(CredentialsJson) || !string.IsNullOrWhiteSpace(CredentialsFile);
 
     /// <summary>Delay before retry number <paramref name="attempt"/> (2-based: the delay before the second attempt is index 0).</summary>
@@ -52,6 +55,74 @@ public sealed class PushOptions
             return TimeSpan.FromSeconds(60);
         var index = Math.Clamp(attempt - 2, 0, RetryDelaysSeconds.Length - 1);
         return TimeSpan.FromSeconds(Math.Max(1, RetryDelaysSeconds[index]));
+    }
+}
+
+/// <summary>
+/// Bound from <c>Push:Apns</c>: token-based APNs auth. The <c>.p8</c> key is a secret FILE read by path
+/// (<see cref="PrivateKeyFile"/>, like the FCM service-account JSON): it never enters configuration or logs.
+/// </summary>
+public sealed class ApnsOptions
+{
+    /// <summary>False (default) = iOS goes through FCM. True needs <see cref="KeyId"/>, <see cref="TeamId"/>, <see cref="BundleId"/> and the key file.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>The 10-character key id of the APNs auth key (Apple Developer, Keys).</summary>
+    public string KeyId { get; set; } = string.Empty;
+
+    /// <summary>Your 10-character Apple team id.</summary>
+    public string TeamId { get; set; } = string.Empty;
+
+    /// <summary>The app's bundle id, sent as <c>apns-topic</c>.</summary>
+    public string BundleId { get; set; } = string.Empty;
+
+    /// <summary>Path of the <c>.p8</c> key file (PKCS#8 PEM), e.g. <c>/run/secrets/apns_auth_key.p8</c>.</summary>
+    public string? PrivateKeyFile { get; set; }
+
+    /// <summary>True = the sandbox host, for development-build tokens. A token only works in the environment that issued it.</summary>
+    public bool UseSandbox { get; set; }
+
+    public bool HasKey => !string.IsNullOrWhiteSpace(PrivateKeyFile);
+
+    /// <summary>Reads and parses the key file. Throws when it is missing or is not an EC private key.</summary>
+    public System.Security.Cryptography.ECDsa LoadKey()
+    {
+        var key = System.Security.Cryptography.ECDsa.Create();
+        try
+        {
+            key.ImportFromPem(File.ReadAllText(PrivateKeyFile ?? throw new InvalidOperationException("Push:Apns:PrivateKeyFile is not set.")));
+            return key;
+        }
+        catch
+        {
+            key.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Null when valid, otherwise what is wrong: missing settings (<c>CHANGE_ME</c> placeholders count as missing) or a
+    /// key file that cannot be read or parsed. Checked at startup so a bad key fails the boot, not every push.
+    /// </summary>
+    public string? Validate()
+    {
+        static bool Missing(string? v) => string.IsNullOrWhiteSpace(v) || v.Contains("CHANGE_ME", StringComparison.Ordinal);
+        if (!Enabled)
+            return null;
+        if (Missing(KeyId) || Missing(TeamId) || Missing(BundleId))
+            return "Push:Apns:Enabled needs KeyId, TeamId and BundleId.";
+        if (!HasKey)
+            return "Push:Apns:Enabled needs the .p8 key file (Push:Apns:PrivateKeyFile).";
+
+        try
+        {
+            using var key = LoadKey();
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or ArgumentException)
+        {
+            return $"Push:Apns:PrivateKeyFile cannot be read as an EC private key ({ex.GetType().Name}).";
+        }
     }
 }
 

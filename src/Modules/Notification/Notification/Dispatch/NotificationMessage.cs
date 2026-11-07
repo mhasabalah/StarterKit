@@ -16,6 +16,12 @@ public sealed record NotificationMessage
     public string? EmailOverride { get; init; }
     public string? PhoneOverride { get; init; }
 
+    /// <summary>
+    /// Category (<c>&lt;group&gt;.&lt;event&gt;</c>) the user's mutes and quiet hours apply to: the explicit
+    /// <c>InCategory</c>, else the in-app category, else the push <c>category</c> data entry. Null = never muted.
+    /// </summary>
+    public string? Category { get; init; }
+
     /// <summary>Email payload — present only when an email should be sent.</summary>
     public EmailPayload? Email { get; init; }
 

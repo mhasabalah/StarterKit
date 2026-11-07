@@ -37,13 +37,13 @@ public sealed class NotificationJobEnqueuer(
 
         if (runInApp)
         {
-            var inApp = new InAppDelivery(message.UserId, message.Culture, message.InApp!);
+            var inApp = new InAppDelivery(message.UserId, message.Culture, message.InApp!, message.Category);
             jobs.Add(jobClient.Enqueue<InAppDeliveryJob>(job => job.ExecuteAsync(inApp, correlationId, CancellationToken.None)));
         }
 
         if (runPush)
         {
-            var push = new PushDelivery(message.UserId, message.Culture, message.Push!);
+            var push = new PushDelivery(message.UserId, message.Culture, message.Push!, Category: message.Category);
             jobs.Add(jobClient.Enqueue<PushDeliveryJob>(job => job.ExecuteAsync(push, correlationId, CancellationToken.None)));
         }
 

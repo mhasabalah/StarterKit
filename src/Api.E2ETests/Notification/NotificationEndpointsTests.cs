@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Net;
 using System.Net.Http.Json;
 using Api.E2ETests.Infrastructure;
@@ -68,6 +69,74 @@ public class NotificationEndpointsTests(E2ETestFixture fixture)
         var response = await user.GetAsync($"{Base}/preferences");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Category_groups_are_listed_with_the_mutable_channels_of_each_group()
+    {
+        var user = fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User);
+
+        var response = await user.GetAsync($"{Base}/preferences/category-groups");
+
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+        var groups = JsonDocument.Parse(body).RootElement.GetProperty("data").EnumerateArray()
+            .ToDictionary(g => g.GetProperty("key").GetString()!);
+        groups.Keys.Should().BeEquivalentTo("billing", "security", "membership", "catalog", "data-transfer", "webhooks", "system");
+        groups["security"].GetProperty("inAppMutable").GetBoolean().Should().BeFalse();
+        groups["security"].GetProperty("pushMutable").GetBoolean().Should().BeFalse();
+        groups["security"].GetProperty("emailMutable").GetBoolean().Should().BeFalse();
+        groups["billing"].GetProperty("emailMutable").GetBoolean().Should().BeFalse();
+        groups["billing"].GetProperty("pushMutable").GetBoolean().Should().BeTrue();
+        groups["catalog"].GetProperty("name").GetProperty("ar").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Category_groups_require_authentication()
+    {
+        (await fixture.CreateAnonymousClient().GetAsync($"{Base}/preferences/category-groups")).StatusCode
+            .Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Mutes_and_quiet_hours_are_stored_and_returned_and_fixed_channels_cannot_be_muted()
+    {
+        var user = fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User);
+
+        foreach (var (group, mute) in new[] { ("security", "push"), ("billing", "email") })
+        {
+            var rejected = await user.PutAsJsonAsync($"{Base}/preferences", new
+            {
+                channelOrder = new[] { "Email" },
+                categoryMutes = new Dictionary<string, object> { [group] = new Dictionary<string, bool> { [mute] = true } }
+            });
+            rejected.StatusCode.Should().Be(HttpStatusCode.BadRequest, $"{group} {mute} is fixed");
+        }
+
+        var badZone = await user.PutAsJsonAsync($"{Base}/preferences", new
+        {
+            channelOrder = new[] { "Email" },
+            quietHours = new { enabled = true, start = "22:00", end = "07:00" },
+            timeZone = "Not/AZone"
+        });
+        badZone.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var ok = await user.PutAsJsonAsync($"{Base}/preferences", new
+        {
+            channelOrder = new[] { "Email" },
+            categoryMutes = new Dictionary<string, object> { ["billing"] = new { push = true } },
+            quietHours = new { enabled = true, start = "22:00", end = "07:00" },
+            timeZone = "Egypt Standard Time"
+        });
+        ok.StatusCode.Should().Be(HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+
+        var data = JsonDocument.Parse(await (await user.GetAsync($"{Base}/preferences")).Content.ReadAsStringAsync())
+            .RootElement.GetProperty("data");
+        data.GetProperty("categoryMutes").GetProperty("billing").GetProperty("push").GetBoolean().Should().BeTrue();
+        data.GetProperty("categoryMutes").GetProperty("billing").GetProperty("email").GetBoolean().Should().BeFalse();
+        data.GetProperty("quietHours").GetProperty("start").GetString().Should().Be("22:00");
+        data.GetProperty("quietHours").GetProperty("end").GetString().Should().Be("07:00");
+        data.GetProperty("timeZone").GetString().Should().Be("Africa/Cairo", "a Windows id is stored as its IANA id");
     }
 
     [Theory]

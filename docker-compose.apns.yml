@@ -1,0 +1,32 @@
+# ==============================================
+# StarterKit Direct APNs Overlay (iOS push without Firebase)
+# ==============================================
+# Sends push notifications to iOS devices that registered a NATIVE APNs device token straight to Apple (HTTP/2,
+# token-based auth). iOS devices holding a Firebase token, and every other platform, keep using FCM
+# (docker-compose.push.yml). Without this overlay Push:Apns:Enabled stays false.
+# Requires:
+#   secrets/apns_auth_key.p8 - the APNs authentication key (Apple Developer -> Keys -> APNs). Never commit it.
+#   .env: APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (the 10-character key id, team id, and the app's bundle id)
+#   prod: docker compose -f docker-compose.yml -f docker-compose.apns.yml up -d
+#
+# The key is read by path (Push:Apns:PrivateKeyFile); it never enters configuration or logs. A wrong id or an unreadable
+# key stops the API at boot. Set Push__Apns__UseSandbox=true only for development-build tokens.
+# Guide: wiki/Modules/Notification-Realtime-and-Push.md.
+# ==============================================
+
+secrets:
+  apns_auth_key:
+    file: ./secrets/apns_auth_key.p8
+
+services:
+
+  api:
+    secrets:
+      - source: apns_auth_key
+        target: apns_auth_key.p8
+    environment:
+      Push__Apns__Enabled: "true"
+      Push__Apns__KeyId: ${APNS_KEY_ID:?set APNS_KEY_ID}
+      Push__Apns__TeamId: ${APNS_TEAM_ID:?set APNS_TEAM_ID}
+      Push__Apns__BundleId: ${APNS_BUNDLE_ID:?set APNS_BUNDLE_ID}
+      Push__Apns__PrivateKeyFile: /run/secrets/apns_auth_key.p8

@@ -14,6 +14,7 @@ Everything in this folder except this README is git-ignored. **Never commit real
 | `dataprotection_cert.pfx` | api | Encrypts the Data Protection key ring at rest. Used by the `docker-compose.dataprotection.yml` overlay. `secrets-setup.sh` creates it only when missing; never replace it casually (see the wiki) |
 | `dataprotection_cert_password.txt` | api | Password of the PFX (`Identity:DataProtection:Certificate:Password`) |
 | `fcm_service_account.json` | api | Optional: Firebase service-account key for push notifications. Used by the `docker-compose.push.yml` overlay (read by path, `Push:CredentialsFile`; never loaded into configuration) |
+| `apns_auth_key.p8` | api | Optional: APNs authentication key for direct iOS push. Used by the `docker-compose.apns.yml` overlay (read by path, `Push:Apns:PrivateKeyFile`; never loaded into configuration) |
 
 Create them with `deployment/secrets-setup.sh`, or manually:
 

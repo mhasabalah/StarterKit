@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Notification.Contracts.InApp;
 using Shared.Contracts.Localization;
 using MsOptions = Microsoft.Extensions.Options.Options;
@@ -12,10 +13,11 @@ public sealed class InAppDeliveryJobTests
     private readonly RecordingRealtimeNotifier _realtime = new();
     private readonly ManualTimeProvider _clock = new(new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero));
     private readonly EmailOptions _links = new() { AppBaseUrl = "https://app.example.com", AllowedLinkHosts = ["docs.example.com"] };
+    private readonly Mock<INotificationPreferenceRepository> _preferences = new();
     private readonly Guid _user = Guid.NewGuid();
 
     private InAppDeliveryJob Job(IRealtimeNotifier? realtime = null) => new(
-        _inbox, _logs, realtime ?? _realtime, MsOptions.Create(_links), MsOptions.Create(new InboxOptions { RetentionDays = 30 }),
+        _inbox, _logs, _preferences.Object, realtime ?? _realtime, MsOptions.Create(_links), MsOptions.Create(new InboxOptions { RetentionDays = 30 }),
         new NotificationMetrics(), _clock, NullLogger<InAppDeliveryJob>.Instance);
 
     private InAppDelivery Delivery(string? actionUrl = "/billing/invoices/42", NotificationCulture culture = NotificationCulture.En,
