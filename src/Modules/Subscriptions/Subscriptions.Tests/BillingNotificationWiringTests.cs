@@ -94,7 +94,7 @@ public class BillingNotificationWiringTests
                 Guid.NewGuid(), "Pro", 1, Now, Later,
                 new InvoiceParty("Buyer", null, null, null),
                 new InvoiceParty("Seller", null, null, null),
-                TaxCalculator.FromGross(115m, SubscriptionFactory.Tax), "SAR"),
+                TaxCalculator.FromGross(115m, SubscriptionFactory.Tax, "SAR"), "SAR"),
             "INV-2026-000001", Now);
         h.DbContext.Invoices.Add(invoice);
         await h.DbContext.SaveChangesAsync();

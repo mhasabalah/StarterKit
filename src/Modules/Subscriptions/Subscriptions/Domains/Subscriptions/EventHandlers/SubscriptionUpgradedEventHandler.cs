@@ -33,7 +33,7 @@ public class SubscriptionUpgradedEventHandler(
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             OldPlanName = oldPlan,
             NewPlanName = planInfo?.PlanName ?? "New Plan",
-            ProratedAmount = notification.ProratedAmount.ToString("F2", CultureInfo.InvariantCulture),
+            ProratedAmount = CurrencyRules.Format(notification.ProratedAmount, planInfo?.Currency),
             Currency = planInfo?.Currency ?? "USD",
             IsDeferred = notification.IsDeferred ? "Yes — payment deferred" : "No — payment required now",
             PortalUrl = $"{frontendBaseUrl}/subscription"

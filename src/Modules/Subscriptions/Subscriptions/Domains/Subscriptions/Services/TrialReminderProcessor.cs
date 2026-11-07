@@ -72,7 +72,8 @@ public sealed class TrialReminderProcessor(
         var plan = await dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == subscription.PlanId, ct);
         var period = PricingPolicy.RenewalPeriodPrice(subscription, plan, endsAt);
         var gross = TaxCalculator.AmountDue(
-            period - CouponPricing.Discount(period, subscription.ActiveCoupon), settings.Tax.ToPolicy());
+            period - CouponPricing.Discount(period, subscription.ActiveCoupon, subscription.Currency),
+            settings.Tax.ToPolicy(), subscription.Currency);
 
         subscription.MarkTrialReminderSent(now);
         await dbContext.SaveChangesAsync(ct);
@@ -85,7 +86,7 @@ public sealed class TrialReminderProcessor(
             PlanName = subscription.PlanName,
             TrialEndDate = endsAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             DaysLeft = Math.Max(1, (int)Math.Ceiling((endsAt - now).TotalDays)),
-            PriceAfterTrial = $"{gross.ToString("F2", CultureInfo.InvariantCulture)} {subscription.Currency}",
+            PriceAfterTrial = $"{CurrencyRules.FormatWithCode(gross, subscription.Currency)}",
             SubscriptionUrl = $"{frontendBaseUrl}/subscription"
         };
 

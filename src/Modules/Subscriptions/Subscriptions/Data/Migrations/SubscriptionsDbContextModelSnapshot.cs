@@ -185,8 +185,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<decimal>("Value")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("value");
 
                     b.Property<long>("Version")
@@ -250,8 +250,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("actor_id");
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<string>("Currency")
@@ -386,8 +386,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<decimal?>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<int>("Attempts")
@@ -448,6 +448,10 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("received_at");
 
+                    b.Property<string>("SavedMethod")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("saved_method");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -480,8 +484,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<bool>("BookedByWebhook")
@@ -548,8 +552,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
@@ -611,6 +615,168 @@ namespace Subscriptions.Data.Migrations
                         .HasDatabaseName("ix_online_payment_sessions_provider_provider_reference");
 
                     b.ToTable("online_payment_sessions", "subscriptions");
+                });
+
+            modelBuilder.Entity("Subscriptions.Domains.OnlinePayments.Models.PaymentAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("outcome");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
+
+                    b.Property<string>("ProviderReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_reference");
+
+                    b.Property<Guid?>("SavedPaymentMethodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("saved_payment_method_id");
+
+                    b.Property<string>("Step")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("step");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_payment_attempts");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_payment_attempts_idempotency_key");
+
+                    b.HasIndex("SubscriptionId")
+                        .HasDatabaseName("ix_payment_attempts_subscription_id");
+
+                    b.HasIndex("PaymentId", "Step")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payment_attempts_payment_step");
+
+                    b.ToTable("payment_attempts", "subscriptions");
+                });
+
+            modelBuilder.Entity("Subscriptions.Domains.OnlinePayments.Models.SavedPaymentMethod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("brand");
+
+                    b.Property<DateTimeOffset>("ConsentedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consented_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("ExpMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("exp_month");
+
+                    b.Property<int?>("ExpYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("exp_year");
+
+                    b.Property<string>("Gateway")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("gateway");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_default");
+
+                    b.Property<string>("Last4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("last4");
+
+                    b.Property<string>("ProviderCustomerRef")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_customer_ref");
+
+                    b.Property<string>("ProviderMethodRef")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_method_ref");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid>("SubscriberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscriber_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_saved_payment_methods");
+
+                    b.HasIndex("Gateway", "ProviderMethodRef")
+                        .IsUnique()
+                        .HasDatabaseName("ux_saved_payment_methods_gateway_method");
+
+                    b.HasIndex(new[] { "SubscriberId" }, "one_default_per_subscriber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_saved_payment_methods_default_per_subscriber")
+                        .HasFilter("is_default AND revoked_at IS NULL");
+
+                    b.HasIndex(new[] { "SubscriberId" }, "subscriber")
+                        .HasDatabaseName("ix_saved_payment_methods_subscriber_id");
+
+                    b.ToTable("saved_payment_methods", "subscriptions");
                 });
 
             modelBuilder.Entity("Subscriptions.Domains.PaymentSettings.Models.PaymentInstructions", b =>
@@ -808,13 +974,13 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("max_users");
 
                     b.Property<decimal?>("PendingPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("pending_price");
 
                     b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("price");
 
                     b.Property<DateTimeOffset?>("PriceChangeAnnouncedAt")
@@ -951,8 +1117,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("after_json");
 
                     b.Property<decimal?>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<string>("BeforeJson")
@@ -1010,6 +1176,11 @@ namespace Subscriptions.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("AutoRetryOutcome")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("auto_retry_outcome");
 
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uuid")
@@ -1136,8 +1307,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("new_plan_name");
 
                     b.Property<decimal>("NewPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("new_price");
 
                     b.Property<DateTimeOffset>("ScheduledAt")
@@ -1229,8 +1400,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("coupon_periods_remaining");
 
                     b.Property<decimal?>("CouponValue")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("coupon_value");
 
                     b.Property<DateTime?>("CreatedAt")
@@ -1252,8 +1423,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("current_period_start");
 
                     b.Property<decimal>("DeferredProrationAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("deferred_proration_amount");
 
                     b.Property<DateTimeOffset?>("EndDate")
@@ -1304,8 +1475,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("plan_name");
 
                     b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("price");
 
                     b.Property<DateTimeOffset?>("RenewalDate")
@@ -1428,8 +1599,8 @@ namespace Subscriptions.Data.Migrations
 
                     b.Property<decimal>("CouponDiscountAmount")
                         .ValueGeneratedOnAdd()
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasDefaultValue(0m)
                         .HasColumnName("coupon_discount_amount");
 
@@ -1447,8 +1618,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("credit_reason");
 
                     b.Property<decimal>("CreditedAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("credited_amount");
 
                     b.Property<string>("Currency")
@@ -1491,8 +1662,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("last_modified_by");
 
                     b.Property<decimal>("NetAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("net_amount");
 
                     b.Property<Guid?>("OriginalInvoiceId")
@@ -1567,8 +1738,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("subscription_id");
 
                     b.Property<decimal>("TaxAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("tax_amount");
 
                     b.Property<decimal>("TaxRate")
@@ -1577,8 +1748,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("tax_rate");
 
                     b.Property<decimal>("TotalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("total_amount");
 
                     b.Property<int>("Type")
@@ -1624,14 +1795,14 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<decimal>("AmountReceived")
                         .ValueGeneratedOnAdd()
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasDefaultValue(0m)
                         .HasColumnName("amount_received");
 
@@ -1642,8 +1813,8 @@ namespace Subscriptions.Data.Migrations
 
                     b.Property<decimal>("CouponDiscountAmount")
                         .ValueGeneratedOnAdd()
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasDefaultValue(0m)
                         .HasColumnName("coupon_discount_amount");
 
@@ -1672,8 +1843,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("duplicate_proof");
 
                     b.Property<decimal>("IncludedProrationAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("included_proration_amount");
 
                     b.Property<bool>("IsDeleted")
@@ -1796,8 +1967,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("id");
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<string>("Currency")
@@ -1927,8 +2098,8 @@ namespace Subscriptions.Data.Migrations
                         .HasColumnName("renewal_date");
 
                     b.Property<decimal>("RequestedAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
                         .HasColumnName("requested_amount");
 
                     b.Property<DateTimeOffset>("RequestedAt")

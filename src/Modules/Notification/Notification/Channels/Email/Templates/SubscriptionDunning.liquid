@@ -1,4 +1,4 @@
-{% comment %}Variables: SubscriberName, PlanName, AmountDue, GraceDeadline, PaymentUrl, IsFinal{% endcomment %}
+{% comment %}Variables: SubscriberName, PlanName, AmountDue, GraceDeadline, PaymentUrl, IsFinal, AutoRetryReason, AutoRetryReasonEn, AutoRetryReasonAr{% endcomment %}
 
 <h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.warningStrong }};line-height:1.35;">
   {% if IsFinal %}
@@ -32,6 +32,13 @@
 {% endcapture %}
 {% if culture == 'ar' %}{% assign card_title = 'تفاصيل الدفع' %}{% else %}{% assign card_title = 'Payment Details' %}{% endif %}
 {% include 'Components/Card' %}
+
+{% if AutoRetryReason != blank %}
+  {% assign alert_type = 'info' %}
+  {% assign alert_text_en = AutoRetryReasonEn %}
+  {% assign alert_text_ar = AutoRetryReasonAr %}
+  {% include 'Components/Alert' %}
+{% endif %}
 
 {% if IsFinal %}
   {% assign alert_type = 'warning' %}

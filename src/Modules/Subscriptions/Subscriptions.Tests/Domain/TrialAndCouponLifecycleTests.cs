@@ -43,7 +43,7 @@ public class TrialAndCouponLifecycleTests
         var trial = Trial(14);
         var end = trial.TrialEndsAt!.Value;
 
-        var payment = trial.EndTrial(PricingPolicy.RenewalCharge(100m, 0m, Tax), 3, end);
+        var payment = trial.EndTrial(PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR"), 3, end);
 
         trial.Status.Should().Be(SubscriptionStatus.PastDue);
         trial.GracePeriodEndsAt.Should().Be(end.AddDays(3));
@@ -71,7 +71,7 @@ public class TrialAndCouponLifecycleTests
 
     [Fact]
     public void EndTrial_on_an_active_subscription_is_rejected() =>
-        FluentActions.Invoking(() => SubscriptionFactory.Active().EndTrial(PricingPolicy.RenewalCharge(100m, 0m, Tax), 3, Now))
+        FluentActions.Invoking(() => SubscriptionFactory.Active().EndTrial(PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR"), 3, Now))
             .Should().Throw<InvalidSubscriptionTransitionException>();
 
     [Fact]
@@ -90,14 +90,14 @@ public class TrialAndCouponLifecycleTests
         var sub = SubscriptionFactory.Active();
         sub.RedeemCoupon(Coupon(periods: 1), Now);
 
-        var first = sub.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, sub.ActiveCoupon), 7, sub.RenewalDate!.Value);
+        var first = sub.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR", sub.ActiveCoupon), 7, sub.RenewalDate!.Value);
         first.Amount.Should().Be(90m);
         first.CouponCode.Should().Be("SAVE10");
         first.CouponDiscountAmount.Should().Be(10m);
         sub.ActiveCoupon.Should().BeNull();
 
         sub.Renew(sub.RenewalDate!.Value.AddDays(1));
-        var second = sub.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, sub.ActiveCoupon), 7, sub.RenewalDate!.Value);
+        var second = sub.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR", sub.ActiveCoupon), 7, sub.RenewalDate!.Value);
         second.Amount.Should().Be(100m);
         second.CouponCode.Should().BeNull();
     }
@@ -107,12 +107,12 @@ public class TrialAndCouponLifecycleTests
     {
         var repeating = SubscriptionFactory.Active();
         repeating.RedeemCoupon(Coupon(periods: 2), Now);
-        repeating.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, repeating.ActiveCoupon), 7, repeating.RenewalDate!.Value);
+        repeating.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR", repeating.ActiveCoupon), 7, repeating.RenewalDate!.Value);
         repeating.CouponPeriodsRemaining.Should().Be(1);
 
         var forever = SubscriptionFactory.Active();
         forever.RedeemCoupon(Coupon(periods: null), Now);
-        forever.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, forever.ActiveCoupon), 7, forever.RenewalDate!.Value);
+        forever.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR", forever.ActiveCoupon), 7, forever.RenewalDate!.Value);
         forever.ActiveCoupon.Should().NotBeNull();
     }
 
@@ -120,7 +120,7 @@ public class TrialAndCouponLifecycleTests
     public void A_coupon_redeemed_with_the_subscription_discounts_the_activation_bill_and_counts_it()
     {
         var terms = Coupon(periods: 2);
-        var (amountDue, discount) = PricingPolicy.ActivationCharge(100m, Tax, terms);
+        var (amountDue, discount) = PricingPolicy.ActivationCharge(100m, Tax, "SAR", terms);
 
         var sub = Subscription.Create(Guid.NewGuid(), SubscriptionFactory.Plan(100m), amountDue, Now, terms, discount);
 
@@ -146,7 +146,7 @@ public class TrialAndCouponLifecycleTests
         trial.RedeemCoupon(Coupon(periods: 1, percent: 50m), Now);
 
         var payment = trial.EndTrial(
-            PricingPolicy.RenewalCharge(100m, 0m, Tax, trial.ActiveCoupon), 3, trial.TrialEndsAt!.Value);
+            PricingPolicy.RenewalCharge(100m, 0m, Tax, "SAR", trial.ActiveCoupon), 3, trial.TrialEndsAt!.Value);
 
         payment.Amount.Should().Be(50m);
     }

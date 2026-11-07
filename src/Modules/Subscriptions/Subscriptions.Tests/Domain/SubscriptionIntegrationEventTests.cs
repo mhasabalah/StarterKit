@@ -70,7 +70,7 @@ public class SubscriptionIntegrationEventTests
     public void Expiry_adds_one_expired_event_next_to_the_domain_event()
     {
         var subscription = SubscriptionFactory.Active(now: Start);
-        subscription.MarkPastDue(PricingPolicy.RenewalCharge(subscription.Price, 0m, SubscriptionFactory.Tax), 7,
+        subscription.MarkPastDue(PricingPolicy.RenewalCharge(subscription.Price, 0m, SubscriptionFactory.Tax, "SAR"), 7,
             subscription.RenewalDate!.Value);
         subscription.ClearIntegrationEvents();
 
@@ -89,7 +89,7 @@ public class SubscriptionIntegrationEventTests
         var active = SubscriptionFactory.Active(now: Start);
         active.ClearIntegrationEvents();
 
-        active.MarkPastDue(PricingPolicy.RenewalCharge(active.Price, 0m, SubscriptionFactory.Tax), 7, active.RenewalDate!.Value);
+        active.MarkPastDue(PricingPolicy.RenewalCharge(active.Price, 0m, SubscriptionFactory.Tax, "SAR"), 7, active.RenewalDate!.Value);
         active.IntegrationEvents.Should().BeEmpty("past due is not announced");
 
         active.Renew(active.RenewalDate!.Value.AddDays(1));

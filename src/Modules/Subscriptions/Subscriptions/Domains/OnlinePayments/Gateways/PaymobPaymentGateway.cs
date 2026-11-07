@@ -56,7 +56,7 @@ internal sealed class PaymobPaymentGateway(
             throw new PaymentGatewayException("Paymob is not configured (ApiKey, PublicKey and IntegrationIds are required).");
         }
 
-        var cents = ToCents(request.Amount);
+        var cents = Currency.ToMinorUnits(request.Amount, request.Currency);
         var name = string.IsNullOrWhiteSpace(request.Description) ? "Subscription payment" : request.Description;
         var body = new Dictionary<string, object?>
         {
@@ -111,7 +111,7 @@ internal sealed class PaymobPaymentGateway(
         if (!long.TryParse(request.PaymentReference, NumberStyles.None, CultureInfo.InvariantCulture, out var transactionId))
             throw new PaymentGatewayException("The Paymob transaction of this checkout is unknown; refund it in the Paymob dashboard.");
 
-        var cents = ToCents(request.Amount);
+        var cents = Currency.ToMinorUnits(request.Amount, request.Currency);
         using var message = new HttpRequestMessage(HttpMethod.Post, Url("api/acceptance/void_refund/refund"))
         {
             Content = JsonContent.Create(new { transaction_id = transactionId, amount_cents = cents })
@@ -192,7 +192,7 @@ internal sealed class PaymobPaymentGateway(
                 return WebhookParseResult.Malformed();
 
             var cents = obj.GetProperty("amount_cents").GetInt64();
-            var amount = decimal.Round(cents / 100m, 2, MidpointRounding.AwayFromZero);
+            var amount = Currency.FromMinorUnits(cents, currency); // minor units of THIS currency (100 / 1000 / 1)
 
             var success = Flag(obj, "success");
             var pending = Flag(obj, "pending");
@@ -266,8 +266,6 @@ internal sealed class PaymobPaymentGateway(
             _ => null
         };
     }
-
-    private static long ToCents(decimal amount) => (long)decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);
 
     private async Task<JsonDocument> SendAsync(HttpRequestMessage message, string operation, CancellationToken ct)
     {

@@ -11,7 +11,9 @@ public sealed record CheckoutRequest(
     string Currency,
     string Description,
     Uri SuccessUrl,
-    Uri CancelUrl);
+    Uri CancelUrl,
+    bool SavePaymentMethod = false,
+    string? CustomerReference = null);
 
 /// <summary>The hosted checkout created at the provider.</summary>
 /// <param name="SessionId">The provider's session / charge id; webhooks refer to it.</param>
@@ -48,7 +50,58 @@ public sealed record PaymentWebhookEvent(
     decimal Amount,
     string Currency,
     string? ProviderRefundId = null,
-    string? PaymentReference = null);
+    string? PaymentReference = null,
+    SavedMethodCapture? SavedMethod = null);
+
+/// <summary>
+/// What a successful checkout reports about the payment method the subscriber agreed to save for future off-session
+/// charges. <paramref name="MethodRef"/> may be null when the provider needs a follow-up call to learn it
+/// (<see cref="IPaymentGateway.DescribeSavedMethodAsync"/>).
+/// </summary>
+public sealed record SavedMethodCapture(
+    string CustomerRef,
+    string? MethodRef,
+    string? Brand = null,
+    string? Last4 = null,
+    int? ExpMonth = null,
+    int? ExpYear = null);
+
+public enum OffSessionChargeStatus
+{
+    /// <summary>The money was collected.</summary>
+    Succeeded = 0,
+
+    /// <summary>The issuer wants the cardholder (3-D Secure): the subscriber must pay through a checkout link.</summary>
+    RequiresAction = 1,
+
+    /// <summary>The method was refused (declined, expired, insufficient funds, detached): do not retry this step.</summary>
+    Declined = 2,
+
+    /// <summary>A provider / network problem: the outcome is unknown or nothing was charged; the checkout link is the fallback.</summary>
+    Transient = 3
+}
+
+/// <summary>An off-session charge of a saved method: no cardholder present, so the provider may refuse with RequiresAction.</summary>
+/// <param name="IdempotencyKey">
+/// Stable per payment + dunning step, so a repeated call can never charge twice. It is also our session reference: the
+/// provider echoes it in its webhook (Stripe: PaymentIntent metadata) so the session can be found.
+/// </param>
+public sealed record OffSessionChargeRequest(
+    Guid PaymentId,
+    Guid SubscriptionId,
+    decimal Amount,
+    string Currency,
+    string CustomerReference,
+    string MethodReference,
+    string IdempotencyKey,
+    string Description);
+
+/// <param name="ProviderReference">The provider's charge / payment-intent id, when it created one.</param>
+/// <param name="FailureCode">The provider's decline / authentication code (never shown verbatim to the subscriber).</param>
+public sealed record OffSessionChargeResult(
+    OffSessionChargeStatus Status,
+    string? ProviderReference = null,
+    string? FailureCode = null);
 
 /// <summary>A provider call exactly as received: raw body (the signature covers these bytes), headers and query string.</summary>
 /// <param name="Query">Query-string values; Paymob, for one, signs with an <c>hmac</c> query parameter.</param>
@@ -134,4 +187,43 @@ internal interface IPaymentGateway
     /// after an unknown outcome is safe. When false (Paymob), an unknown outcome must be settled by the provider's webhook.
     /// </summary>
     bool SupportsRefundIdempotency => false;
+
+    /// <summary>
+    /// True when the adapter can save a payment method at checkout and charge it later without the cardholder
+    /// (<see cref="ChargeSavedMethodAsync"/>). Adapters that cannot (Paymob) keep the default and need no code.
+    /// </summary>
+    bool SupportsOffSessionCharges => false;
+
+    /// <summary>
+    /// Charges a saved method now, off-session, idempotent by <see cref="OffSessionChargeRequest.IdempotencyKey"/>.
+    /// Never throws for a refusal: it reports <see cref="OffSessionChargeStatus"/>; a provider outage is
+    /// <see cref="OffSessionChargeStatus.Transient"/>.
+    /// </summary>
+    Task<OffSessionChargeResult> ChargeSavedMethodAsync(OffSessionChargeRequest request, CancellationToken ct) =>
+        throw new NotSupportedException($"Gateway '{Name}' does not support off-session charges.");
+
+    /// <summary>
+    /// Looks an earlier off-session charge up at the provider by the reference it returned, so a step that ended
+    /// <see cref="OffSessionChargeStatus.Transient"/> can be reconciled before another charge is tried. Returns
+    /// <see cref="OffSessionChargeStatus.Transient"/> when the charge is still processing or the answer is unknown.
+    /// </summary>
+    Task<OffSessionChargeResult> GetChargeStatusAsync(string providerReference, CancellationToken ct) =>
+        Task.FromResult(new OffSessionChargeResult(OffSessionChargeStatus.Transient, providerReference, "status_unknown"));
+
+    /// <summary>
+    /// False when the provider cannot charge exactly this amount in this currency (Stripe: three-decimal currencies need
+    /// a minor-unit amount that is a multiple of 10). Checkout and dunning skip such a gateway.
+    /// </summary>
+    bool SupportsAmount(decimal amount, string currency) => true;
+
+    /// <summary>Removes a saved method at the provider (best effort: the local row is revoked either way).</summary>
+    Task DetachAsync(string customerReference, string methodReference, CancellationToken ct) => Task.CompletedTask;
+
+    /// <summary>
+    /// Completes a <see cref="SavedMethodCapture"/> whose method / card details the webhook did not carry, from the
+    /// provider's payment (Stripe: the PaymentIntent's payment method). Null = nothing usable could be learned.
+    /// </summary>
+    Task<SavedMethodCapture?> DescribeSavedMethodAsync(
+        SavedMethodCapture partial, string? paymentReference, CancellationToken ct) =>
+        Task.FromResult<SavedMethodCapture?>(partial.MethodRef is null ? null : partial);
 }

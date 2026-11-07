@@ -82,7 +82,7 @@ public sealed class InvoiceIssuer(
             periodEnd,
             buyer,
             Seller(settings.Invoice),
-            TaxCalculator.FromGross(payment.Amount, settings.Tax.ToPolicy()),
+            TaxCalculator.FromGross(payment.Amount, settings.Tax.ToPolicy(), payment.Currency),
             payment.Currency,
             payment.CouponCode,
             payment.CouponDiscountAmount);
@@ -120,7 +120,7 @@ public sealed class InvoiceIssuer(
             original.TaxRate,
             original.PricesIncludeTax);
 
-        var amounts = CreditNotePolicy.Compute(original.Amounts, credited, grossAmount);
+        var amounts = CreditNotePolicy.Compute(original.Amounts, credited, grossAmount, original.Currency);
 
         var now = DateTimeOffset.UtcNow;
         var number = await AllocateNumberAsync(now.Year, ct);
@@ -139,7 +139,7 @@ public sealed class InvoiceIssuer(
 
     private static string CouponNote(SubscriptionPayment payment) =>
         payment.CouponCode is { } code && payment.CouponDiscountAmount > 0m
-            ? $", coupon {code} (-{payment.CouponDiscountAmount.ToString("F2", CultureInfo.InvariantCulture)} {payment.Currency} before tax)"
+            ? $", coupon {code} (-{CurrencyRules.Format(payment.CouponDiscountAmount, payment.Currency)} {payment.Currency} before tax)"
             : string.Empty;
 
     internal static string Describe(
@@ -158,7 +158,7 @@ public sealed class InvoiceIssuer(
         {
             InvoiceType.Activation => $"Subscription activation - {planName}{period}",
             InvoiceType.Renewal when includedProration > 0m =>
-                $"Subscription renewal - {planName}{period}, incl. deferred upgrade proration {includedProration.ToString("F2", CultureInfo.InvariantCulture)} {currency}",
+                $"Subscription renewal - {planName}{period}, incl. deferred upgrade proration {CurrencyRules.Format(includedProration, currency)} {currency}",
             InvoiceType.Renewal => $"Subscription renewal - {planName}{period}",
             InvoiceType.Proration => $"Upgrade proration - {planName}{period}",
             _ => planName

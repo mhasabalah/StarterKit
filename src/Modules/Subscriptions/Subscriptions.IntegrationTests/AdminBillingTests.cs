@@ -460,8 +460,8 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
     public async Task Dashboard_computes_mrr_and_revenue_from_the_ledger_and_is_cached_per_range()
     {
         // A currency and a date range no other test uses, so the shared database does not interfere.
-        var monthly = await fx.CreatePlanAsync($"DashMonthly-{Tag()}", 100m, currency: "XTS");
-        var annual = await fx.CreatePlanAsync($"DashAnnual-{Tag()}", 1200m, currency: "XTS", cycle: 12);
+        var monthly = await fx.CreatePlanAsync($"DashMonthly-{Tag()}", 100m, currency: "NOK");
+        var annual = await fx.CreatePlanAsync($"DashAnnual-{Tag()}", 1200m, currency: "NOK", cycle: 12);
         await _scenario.ActiveAsync(monthly);
         await _scenario.ActiveAsync(annual);
         var comped = await _scenario.CreateAsync(Guid.NewGuid(), monthly);
@@ -473,12 +473,12 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
 
         var dashboard = await fx.SendAsAdmin(new GetBillingDashboardQuery { From = from, To = to });
 
-        var xts = dashboard.RecurringRevenue.Single(x => x.Currency == "XTS");
+        var xts = dashboard.RecurringRevenue.Single(x => x.Currency == "NOK");
         xts.Mrr.Should().Be(200m, "100 monthly + 1200 / 12; the complimentary subscription earns nothing");
         xts.Arr.Should().Be(2400m);
         xts.ActiveSubscriptions.Should().Be(2);
 
-        dashboard.Revenue.Single(x => x.Currency == "XTS").Should().BeEquivalentTo(new
+        dashboard.Revenue.Single(x => x.Currency == "NOK").Should().BeEquivalentTo(new
         {
             Gross = 1500m,
             Refunds = 200m,
@@ -487,19 +487,19 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
             Net = 1300m
         });
         dashboard.Revenue.Single(x => x.Currency == "XTU").Net.Should().Be(10m, "currencies are reported separately");
-        dashboard.RevenueByPlan.Single(x => x.Currency == "XTS" && x.Key == annual.Id.ToString())
+        dashboard.RevenueByPlan.Single(x => x.Currency == "NOK" && x.Key == annual.Id.ToString())
             .Should().BeEquivalentTo(new { Gross = 1200m, Refunds = 200m, Net = 1000m });
-        dashboard.RevenueByPaymentMethod.Single(x => x.Currency == "XTS" && x.Key == "Cash").Gross.Should().Be(300m);
+        dashboard.RevenueByPaymentMethod.Single(x => x.Currency == "NOK" && x.Key == "Cash").Gross.Should().Be(300m);
         dashboard.StatusCounts.Should().Contain(x => x.Status == "Active" && x.Count >= 3);
 
         await SeedLedgerAsync(from.AddDays(1), monthly, annual);
         var cached = await fx.SendAsAdmin(new GetBillingDashboardQuery { From = from, To = to });
-        cached.Revenue.Single(x => x.Currency == "XTS").Gross.Should().Be(1500m, "the result is cached for the range (no invalidation)");
+        cached.Revenue.Single(x => x.Currency == "NOK").Gross.Should().Be(1500m, "the result is cached for the range (no invalidation)");
 
         await fx.WithScope(sp => sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>()
             .RemoveAsync(GetBillingDashboardHandler.CacheKey(from, to)));
         var fresh = await fx.SendAsAdmin(new GetBillingDashboardQuery { From = from, To = to });
-        fresh.Revenue.Single(x => x.Currency == "XTS").Gross.Should().Be(3000m);
+        fresh.Revenue.Single(x => x.Currency == "NOK").Gross.Should().Be(3000m);
     }
 
     [Fact]
@@ -599,7 +599,7 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
     private int AdminEmails(EmailTemplate template, string address) =>
         fx.Notifications.Messages.Count(m => m.Email?.Template == template && m.EmailOverride == address);
 
-    /// <summary>XTS: 300 cash + 1200 bank (annual plan) - 200 refund; XTU: 10. Inside [at, at + 1 month).</summary>
+    /// <summary>NOK: 300 cash + 1200 bank (annual plan) - 200 refund; XTU: 10. Inside [at, at + 1 month).</summary>
     private Task SeedLedgerAsync(DateTimeOffset at, Domains.Plans.Models.Plan monthly, Domains.Plans.Models.Plan annual) =>
         fx.WithDb(async db =>
         {
@@ -608,7 +608,7 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
             var otherSub = Subscription.Create(Guid.NewGuid(), new PlanSnapshot(Guid.NewGuid(), "Other", 10m, "XTU", 1, null, null, null, "{}"), 10m, at);
             var refund = SubscriptionRefundRequest.Create(
                 annualSub.Id, annualSub.SubscriberId, annual.Id, annualSub.PlanName, 12, at, at, at.AddMonths(12),
-                200m, "XTS", RefundType.Prorated);
+                200m, "NOK", RefundType.Prorated);
 
             db.LedgerEntries.AddRange(
                 LedgerEntry.ForPayment(monthlySub, monthlySub.ActivationPayment, 300m, null, TestIds.Admin, at.AddHours(1), "Cash"),

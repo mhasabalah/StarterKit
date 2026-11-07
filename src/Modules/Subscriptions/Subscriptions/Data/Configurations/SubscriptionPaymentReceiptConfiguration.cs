@@ -11,7 +11,7 @@ public class SubscriptionPaymentReceiptConfiguration : IEntityTypeConfiguration<
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
 
-        builder.Property(x => x.Amount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.Amount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
         builder.Property(x => x.Method).HasMaxLength(100).IsRequired();
         builder.Property(x => x.Reference).HasMaxLength(200);

@@ -138,7 +138,7 @@ public class AdminLifecycleTests
         var subscription = SubscriptionFactory.Pending();
         subscription.ActivateComplimentary(SubscriptionFactory.Plan(100m), 1, Admin, Window, Now);
 
-        subscription.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax), 7, subscription.RenewalDate!.Value);
+        subscription.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax, "SAR"), 7, subscription.RenewalDate!.Value);
 
         subscription.ComplimentaryUntil.Should().BeNull();
     }

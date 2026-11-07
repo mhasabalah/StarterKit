@@ -202,15 +202,16 @@ public class SubscriptionPayment : Aggregate<Guid>
         if (!IsAwaitingPayment)
             throw new ConflictException($"Payment is {Status}; no amount is outstanding.");
 
-        if (amount <= 0m || decimal.Round(amount, 2) != amount)
-            throw new BadRequestException("Amount must be positive with at most 2 decimals.");
+        if (amount <= 0m || (!CurrencyRules.HasValidScale(amount, Currency) && amount != OutstandingAmount))
+            throw new BadRequestException(
+                $"Amount must be positive with at most {CurrencyRules.Exponent(Currency)} decimals for {Currency}.");
 
         if (string.IsNullOrWhiteSpace(method))
             throw new BadRequestException("A payment method is required.");
 
         if (amount > OutstandingAmount && !allowOverpayment)
             throw new BadRequestException(
-                $"Amount {amount:F2} exceeds the outstanding {OutstandingAmount:F2} {Currency}; overpayment is not allowed.");
+                $"Amount {CurrencyRules.Format(amount, Currency)} exceeds the outstanding {CurrencyRules.FormatWithCode(OutstandingAmount, Currency)}; overpayment is not allowed.");
 
         var receipt = SubscriptionPaymentReceipt.Create(
             Id, SubscriptionId, amount, Currency, method, reference, receivedAt, note, adminId, now);

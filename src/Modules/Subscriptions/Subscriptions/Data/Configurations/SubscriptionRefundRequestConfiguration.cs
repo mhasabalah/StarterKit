@@ -21,7 +21,7 @@ public class SubscriptionRefundRequestConfiguration : IEntityTypeConfiguration<S
         builder.Property(x => x.SubscriptionStartedAt).IsRequired();
         builder.Property(x => x.CancelledAt).IsRequired();
         builder.Property(x => x.RenewalDate).IsRequired();
-        builder.Property(x => x.RequestedAmount).HasPrecision(18, 2).IsRequired();
+        builder.Property(x => x.RequestedAmount).HasMoneyPrecision().IsRequired();
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.RefundType).HasConversion<int>().IsRequired();
         builder.Property(x => x.Status).HasConversion<int>().IsRequired();

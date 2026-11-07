@@ -81,7 +81,7 @@ public class SubscriptionStateMachineTests
     [MemberData(nameof(AllStatuses))]
     public void Entity_mark_past_due_follows_the_table(SubscriptionStatus status) =>
         AssertEntityTransition(status, SubscriptionStatus.PastDue,
-            s => s.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax), 7, SubscriptionFactory.DefaultNow.AddMonths(2)),
+            s => s.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax, "SAR"), 7, SubscriptionFactory.DefaultNow.AddMonths(2)),
             allowedFrom: [SubscriptionStatus.Active]);
 
     [Theory]

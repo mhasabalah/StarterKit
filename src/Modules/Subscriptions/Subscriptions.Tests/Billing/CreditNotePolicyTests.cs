@@ -13,7 +13,7 @@ public class CreditNotePolicyTests
     [Fact]
     public void Full_credit_mirrors_the_original_exactly_with_negative_amounts()
     {
-        var note = CreditNotePolicy.Compute(Original, NothingCredited, null);
+        var note = CreditNotePolicy.Compute(Original, NothingCredited, null, "SAR");
 
         note.Net.Should().Be(-1000m);
         note.Tax.Should().Be(-150m);
@@ -24,7 +24,7 @@ public class CreditNotePolicyTests
     [Fact]
     public void Partial_credit_splits_with_the_original_rate()
     {
-        var note = CreditNotePolicy.Compute(Original, NothingCredited, 115m);
+        var note = CreditNotePolicy.Compute(Original, NothingCredited, 115m, "SAR");
 
         note.Net.Should().Be(-100m);
         note.Tax.Should().Be(-15m);
@@ -35,10 +35,10 @@ public class CreditNotePolicyTests
     public void Closing_credit_takes_the_exact_remainder_so_parts_sum_to_the_original()
     {
         var odd = new TaxBreakdown(86.95m, 13.05m, 100m, 0.15m, true);
-        var first = CreditNotePolicy.Compute(odd, NothingCredited, 33.33m);
+        var first = CreditNotePolicy.Compute(odd, NothingCredited, 33.33m, "SAR");
         var credited = new TaxBreakdown(-first.Net, -first.Tax, -first.Gross, 0.15m, true);
 
-        var second = CreditNotePolicy.Compute(odd, credited, null);
+        var second = CreditNotePolicy.Compute(odd, credited, null, "SAR");
 
         (first.Net + second.Net).Should().Be(-86.95m);
         (first.Tax + second.Tax).Should().Be(-13.05m);
@@ -50,7 +50,7 @@ public class CreditNotePolicyTests
     {
         var credited = new TaxBreakdown(800m, 120m, 920m, 0.15m, true);
 
-        var act = () => CreditNotePolicy.Compute(Original, credited, 230.01m);
+        var act = () => CreditNotePolicy.Compute(Original, credited, 230.01m, "SAR");
 
         act.Should().Throw<BadRequestException>();
         CreditNotePolicy.Creditable(1150m, 920m).Should().Be(230m);
@@ -59,7 +59,7 @@ public class CreditNotePolicyTests
     [Fact]
     public void Fully_credited_invoice_cannot_be_credited_again()
     {
-        var act = () => CreditNotePolicy.Compute(Original, Original, null);
+        var act = () => CreditNotePolicy.Compute(Original, Original, null, "SAR");
 
         act.Should().Throw<ConflictException>();
     }
@@ -71,7 +71,7 @@ public class CreditNotePolicyTests
     public void Invalid_amounts_are_rejected(string amount)
     {
         var act = () => CreditNotePolicy.Compute(
-            Original, NothingCredited, decimal.Parse(amount, System.Globalization.CultureInfo.InvariantCulture));
+            Original, NothingCredited, decimal.Parse(amount, System.Globalization.CultureInfo.InvariantCulture), "SAR");
 
         act.Should().Throw<BadRequestException>();
     }

@@ -31,7 +31,7 @@ public class SchedulePriceChangeHandler(
 
         if (plan.PendingPrice is not null)
             throw new ConflictException(
-                $"A price change to {plan.Currency} {plan.PendingPrice.Value:F2} is already scheduled for {plan.PriceEffectiveAt:yyyy-MM-dd}. Cancel it before scheduling a new one.");
+                $"A price change to {plan.Currency} {CurrencyRules.Format(plan.PendingPrice.Value, plan.Currency)} is already scheduled for {plan.PriceEffectiveAt:yyyy-MM-dd}. Cancel it before scheduling a new one.");
 
         if (command.NewPrice == plan.Price)
             throw new ConflictException("New price is the same as the current price.");
@@ -42,7 +42,7 @@ public class SchedulePriceChangeHandler(
             "SchedulePriceChange",
             plan.Id,
             "Plan",
-            reason: $"Price change from {plan.Currency} {plan.Price:F2} to {plan.Currency} {command.NewPrice:F2}, effective {command.EffectiveAt:yyyy-MM-dd}",
+            reason: $"Price change from {plan.Currency} {CurrencyRules.Format(plan.Price, plan.Currency)} to {plan.Currency} {CurrencyRules.Format(command.NewPrice, plan.Currency)}, effective {command.EffectiveAt:yyyy-MM-dd}",
             amount: command.NewPrice, currency: plan.Currency, before: new { Price = plan.Price }, after: new { PendingPrice = command.NewPrice, command.EffectiveAt },
             adminId: command.AdminId);
 

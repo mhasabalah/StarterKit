@@ -41,7 +41,7 @@ public class CancelScheduledPriceChangeHandler(
             "CancelScheduledPriceChange",
             plan.Id,
             "Plan",
-            reason: $"Cancelled scheduled price change to {plan.Currency} {cancelledPendingPrice:F2} that was effective {cancelledEffectiveAt:yyyy-MM-dd}",
+            reason: $"Cancelled scheduled price change to {plan.Currency} {CurrencyRules.Format(cancelledPendingPrice ?? 0m, plan.Currency)} that was effective {cancelledEffectiveAt:yyyy-MM-dd}",
             amount: cancelledPendingPrice, currency: plan.Currency, before: new { PendingPrice = cancelledPendingPrice, PriceEffectiveAt = cancelledEffectiveAt }, after: new { PendingPrice = (decimal?)null },
             adminId: command.AdminId);
 
@@ -78,7 +78,7 @@ public class CancelScheduledPriceChangeHandler(
                 {
                     SubscriberName = subscriber?.DisplayName ?? string.Empty,
                     PlanName = plan.Name.En,
-                    CurrentPrice = plan.Price.ToString("F2", CultureInfo.InvariantCulture),
+                    CurrentPrice = CurrencyRules.Format(plan.Price, plan.Currency),
                     Currency = plan.Currency,
                     PortalUrl = $"{frontendBaseUrl}/subscription"
                 };

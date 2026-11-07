@@ -15,7 +15,8 @@ public static class CreditNotePolicy
     /// <param name="original">The original invoice's issue-time breakdown (positive).</param>
     /// <param name="credited">Sum of earlier credit notes as POSITIVE values (net, tax, gross).</param>
     /// <param name="requestedGross">Gross to credit (positive); null = everything still creditable.</param>
-    public static TaxBreakdown Compute(TaxBreakdown original, TaxBreakdown credited, decimal? requestedGross)
+    /// <param name="currency">Decides the allowed decimals.</param>
+    public static TaxBreakdown Compute(TaxBreakdown original, TaxBreakdown credited, decimal? requestedGross, string currency)
     {
         if (original.Gross <= 0m)
         {
@@ -29,14 +30,15 @@ public static class CreditNotePolicy
         }
 
         var amount = requestedGross ?? remaining;
-        if (amount <= 0m || TaxCalculator.Round(amount) != amount)
+        if (amount <= 0m || !Currency.HasValidScale(amount, currency))
         {
-            throw new BadRequestException("The credit amount must be positive with at most 2 decimals.");
+            throw new BadRequestException(
+                $"The credit amount must be positive with at most {Currency.Exponent(currency)} decimals.");
         }
 
         if (amount > remaining)
         {
-            throw new BadRequestException($"The credit amount exceeds the creditable remainder ({remaining:F2}).");
+            throw new BadRequestException($"The credit amount exceeds the creditable remainder ({Currency.Format(remaining, currency)}).");
         }
 
         if (amount == remaining)
@@ -45,7 +47,7 @@ public static class CreditNotePolicy
             return new TaxBreakdown(-net, -(amount - net), -amount, original.Rate, original.PricesIncludeTax);
         }
 
-        var partial = TaxCalculator.FromGross(amount, new TaxPolicy(original.Rate, original.PricesIncludeTax));
+        var partial = TaxCalculator.FromGross(amount, new TaxPolicy(original.Rate, original.PricesIncludeTax), currency);
         return partial.Negate();
     }
 }

@@ -9,7 +9,7 @@ namespace Api.Infrastructure;
 /// configuration provider. Only the final, merged value is checked.
 /// </para>
 /// </summary>
-public static class ProductionConfigurationGuard
+public static partial class ProductionConfigurationGuard
 {
     public const string Placeholder = "CHANGE_ME";
 
@@ -95,6 +95,73 @@ public static class ProductionConfigurationGuard
         }
     }
 
+    /// <summary>
+    /// Payment gateway mode guard (<c>Subscriptions:PaymentGateways:&lt;Name&gt;:Mode</c> = Sandbox | Live, default Sandbox):
+    /// <list type="bullet">
+    /// <item>in EVERY environment an enabled gateway whose key contradicts its mode is refused (<c>sk_test_</c>/<c>rk_test_</c>
+    /// in Live, <c>sk_live_</c>/<c>rk_live_</c> in Sandbox), so test keys never take real orders and live keys never run
+    /// against a half-configured sandbox;</item>
+    /// <item>in Production an enabled Sandbox gateway (the Fake adapter counts as one) is refused unless
+    /// <c>AllowSandboxInProduction=true</c>.</item>
+    /// </list>
+    /// </summary>
+    // Stripe: sk_/rk_ + test|live; Paymob: egy_sk_test_..., ksa_pk_live_... (a region prefix, then the same shape).
+    [System.Text.RegularExpressions.GeneratedRegex("(^|_)[sr]k_(?<kind>test|live)_", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex SecretKeyPattern();
+
+    [System.Text.RegularExpressions.GeneratedRegex("(^|_)pk_(?<kind>test|live)_", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex PublicKeyPattern();
+
+    private static bool IsKind(System.Text.RegularExpressions.Match match, string kind) =>
+        match.Success && string.Equals(match.Groups["kind"].Value, kind, StringComparison.OrdinalIgnoreCase);
+
+    public static void EnsurePaymentGatewayModes(IConfiguration configuration, string environmentName)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var production = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase);
+        foreach (var gateway in configuration.GetSection("Subscriptions:PaymentGateways").GetChildren())
+        {
+            if (!gateway.GetValue<bool>("Enabled"))
+            {
+                continue;
+            }
+
+            var isLive = string.Equals(gateway["Mode"], "Live", StringComparison.OrdinalIgnoreCase);
+            var apiKey = SecretKeyPattern().Match(gateway["ApiKey"] ?? string.Empty);
+            var publicKey = PublicKeyPattern().Match(gateway["PublicKey"] ?? string.Empty);
+            var testKey = IsKind(apiKey, "test") || IsKind(publicKey, "test");
+            var liveKey = IsKind(apiKey, "live") || IsKind(publicKey, "live");
+
+            if (testKey && liveKey)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start: payment gateway '{gateway.Key}' mixes a test key with a live key.");
+            }
+
+            if (isLive && testKey)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start: payment gateway '{gateway.Key}' is Mode=Live but its ApiKey is a test key.");
+            }
+
+            if (!isLive && liveKey)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start: payment gateway '{gateway.Key}' is Mode=Sandbox (the default) but its ApiKey is a live key. " +
+                    "Set Subscriptions:PaymentGateways:" + gateway.Key + ":Mode=Live.");
+            }
+
+            var sandbox = !isLive || string.Equals(gateway.Key, "Fake", StringComparison.OrdinalIgnoreCase);
+            if (production && sandbox && !gateway.GetValue<bool>("AllowSandboxInProduction"))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start in Production: payment gateway '{gateway.Key}' is a sandbox gateway. " +
+                    "Use live keys with Mode=Live, or set AllowSandboxInProduction=true for a demo stack.");
+            }
+        }
+    }
+
     /// <summary>The environment that may run the load-test profile (<c>appsettings.LoadTest.json</c>).</summary>
     public const string LoadTestEnvironment = "LoadTest";
 
@@ -133,6 +200,7 @@ public static class ProductionConfigurationGuard
         EnsureNoPlaceholders(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureDurableMessaging(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureBotProtectionConfigured(builder.Configuration, builder.Environment.EnvironmentName);
+        EnsurePaymentGatewayModes(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureLoadTestProfileIsIsolated(builder.Configuration, builder.Environment.EnvironmentName);
         return builder;
     }

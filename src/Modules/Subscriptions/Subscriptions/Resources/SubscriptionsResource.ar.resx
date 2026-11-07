@@ -34,6 +34,30 @@
   <data name="Validation.PlanFeature.ResetPeriodNeedsLimit" xml:space="preserve">
     <value>لا يصلح ResetPeriod إلا مع تحديد Limit.</value>
   </data>
+  <data name="Billing.PaymentFailed.Title" xml:space="preserve">
+    <value>لم تتم عملية دفع اشتراكك</value>
+  </data>
+  <data name="Billing.PaymentFailed.Body" xml:space="preserve">
+    <value>تعذر تحصيل {0} مقابل خطة {1}. يرجى الدفع قبل {2} للحفاظ على اشتراكك نشطًا.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.authentication_required" xml:space="preserve">
+    <value>يطلب منك البنك تأكيد هذه الدفعة.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.declined" xml:space="preserve">
+    <value>تم رفض بطاقتك المحفوظة.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.expired" xml:space="preserve">
+    <value>انتهت صلاحية بطاقتك المحفوظة.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.unavailable" xml:space="preserve">
+    <value>تعذر الوصول إلى مزود الدفع لتحصيل المبلغ من بطاقتك المحفوظة.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.processing" xml:space="preserve">
+    <value>لا تزال دفعة بطاقتك المحفوظة قيد المعالجة. يرجى عدم الدفع مرة أخرى وسنؤكدها قريبًا.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.method_unusable" xml:space="preserve">
+    <value>لم يعد بالإمكان استخدام بطاقتك المحفوظة. يرجى الدفع عبر الزر أدناه.</value>
+  </data>
   <data name="InApp.billing.subscription-activated.Title" xml:space="preserve">
     <value>تم تفعيل اشتراكك</value>
   </data>

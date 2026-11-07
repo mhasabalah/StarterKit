@@ -57,6 +57,8 @@ wiki/
 - [0013](Decisions/0013-enterprise-sso-and-scim.md): per-tenant SSO (OIDC/SAML) and SCIM inside Identity
 - [0014](Decisions/0014-passkeys-on-built-in-identity.md): passkeys on .NET 10 Identity WebAuthn, server-side ceremonies
 - [0015](Decisions/0015-malware-scanning-clamd-fail-closed.md): upload malware scanning with ClamAV, failing closed
+- [0017](Decisions/0017-money-precision-and-per-currency-rounding.md): money as numeric(19,4), rounding per ISO 4217 currency
+- [0018](Decisions/0018-off-session-dunning-retries-on-saved-cards.md): idempotent off-session card retries in dunning, sandbox vs live gateways
 - [0016](Decisions/0016-bulk-data-transfer-on-hangfire.md): bulk import/export as leased, checkpointed jobs on their own Hangfire queue
 
 ## Modules

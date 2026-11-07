@@ -10,7 +10,7 @@ public class RecordManualPaymentCommandValidator : AbstractValidator<RecordManua
     {
         RuleFor(x => x.SubscriptionId).NotEmpty();
         RuleFor(x => x.AdminId).NotEmpty();
-        RuleFor(x => x.Amount).GreaterThan(0m).PrecisionScale(18, 2, true);
+        RuleFor(x => x.Amount).GreaterThan(0m).PrecisionScale(MoneyPrecision.Precision, MoneyPrecision.Scale, true); // the per-currency scale is enforced by the payment
         RuleFor(x => x.Method).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Reference).MaximumLength(200);
         RuleFor(x => x.Note).MaximumLength(1000);
