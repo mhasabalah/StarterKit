@@ -48,7 +48,7 @@ Follow-up: money columns are numeric(18,2); 3-decimal currencies need precision 
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
 | G21 | Durable saga repository (= #27) | ⬜ |
-| G22 | Load/performance tests (k6 or NBomber) with a CI baseline (🚧 DataTransfer engine baseline done: `datatransfer-perf.yml`) | ⬜ |
+| G22 | Load/performance tests (k6) with a CI baseline (HTTP scenarios: `tests/load`, `load-test.yml`; DataTransfer engine baseline: `datatransfer-perf.yml`) | ✅ |
 | G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
 
