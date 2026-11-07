@@ -34,6 +34,30 @@
   <data name="Validation.PlanFeature.ResetPeriodNeedsLimit" xml:space="preserve">
     <value>ResetPeriod is only valid together with a Limit.</value>
   </data>
+  <data name="Billing.PaymentFailed.Title" xml:space="preserve">
+    <value>Your subscription payment did not go through</value>
+  </data>
+  <data name="Billing.PaymentFailed.Body" xml:space="preserve">
+    <value>We could not collect {0} for your {1} plan. Please pay by {2} to keep your subscription active.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.authentication_required" xml:space="preserve">
+    <value>Your bank requires you to confirm this payment.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.declined" xml:space="preserve">
+    <value>Your saved card was declined.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.expired" xml:space="preserve">
+    <value>Your saved card has expired.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.unavailable" xml:space="preserve">
+    <value>We could not reach the payment provider to charge your saved card.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.processing" xml:space="preserve">
+    <value>A payment from your saved card is still being processed. Please do not pay again; we will confirm it shortly.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.method_unusable" xml:space="preserve">
+    <value>Your saved card can no longer be used. Please pay with the button below.</value>
+  </data>
   <data name="InApp.billing.subscription-activated.Title" xml:space="preserve">
     <value>Subscription activated</value>
   </data>

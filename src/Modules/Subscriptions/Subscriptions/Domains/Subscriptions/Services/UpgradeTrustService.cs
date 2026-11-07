@@ -39,12 +39,13 @@ public class UpgradeTrustService(
         var periodEnd = subscription.RenewalDate ?? now;
         var periodStart = subscription.EffectivePeriodStart ?? now;
 
-        var proration = PricingPolicy.UpgradeProration(subscription.Price, newPrice, periodStart, periodEnd, now);
+        var proration = PricingPolicy.UpgradeProration(
+            subscription.Price, newPrice, periodStart, periodEnd, now, subscription.Currency);
         var trusted = await IsTrustedSubscriberAsync(subscription.SubscriberId, ct);
         var deferred = PricingPolicy.ShouldDeferProration(
             trusted, proration, subscription.Price, settings.ProratedDeferralThresholdPercent);
 
-        var amountDue = deferred || proration <= 0m ? 0m : TaxCalculator.AmountDue(proration, settings.Tax.ToPolicy());
+        var amountDue = deferred || proration <= 0m ? 0m : TaxCalculator.AmountDue(proration, settings.Tax.ToPolicy(), subscription.Currency);
         DateTimeOffset? proofRequiredBy = amountDue > 0m ? now.AddHours(settings.UpgradeSlaHours) : null;
 
         return new UpgradeQuote(newPrice, proration, deferred, amountDue, proofRequiredBy);

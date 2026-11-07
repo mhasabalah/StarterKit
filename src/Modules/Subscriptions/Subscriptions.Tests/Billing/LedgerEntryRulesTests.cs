@@ -97,7 +97,7 @@ public class LedgerEntryRulesTests
     {
         var invoice = Invoice(1150m);
         var note = SubscriptionInvoice.IssueCreditNote(
-            invoice, CreditNotePolicy.Compute(invoice.Amounts, new TaxBreakdown(0, 0, 0, 0.15m, true), 115m),
+            invoice, CreditNotePolicy.Compute(invoice.Amounts, new TaxBreakdown(0, 0, 0, 0.15m, true), 115m, "SAR"),
             "INV-2026-000002", "goodwill", Now);
 
         var entry = LedgerEntry.ForCreditNote(note, Admin, Now);
@@ -150,7 +150,7 @@ public class LedgerEntryRulesTests
                 Guid.NewGuid(), "Pro", 1, Now, Now.AddMonths(1),
                 new InvoiceParty("Buyer", null, null, null),
                 new InvoiceParty("Seller", null, null, null),
-                TaxCalculator.FromGross(gross, SubscriptionFactory.Tax), "SAR"),
+                TaxCalculator.FromGross(gross, SubscriptionFactory.Tax, "SAR"), "SAR"),
             "INV-2026-000001",
             Now);
 }

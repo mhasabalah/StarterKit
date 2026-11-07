@@ -113,6 +113,10 @@ public static class SubscriptionsModule
             .AddStandardResilienceHandler(o => o.Retry.ShouldHandle = _ => ValueTask.FromResult(false));
         services.AddScoped<IPaymentGatewayRegistry, PaymentGatewayRegistry>();
         services.AddScoped<IInboundWebhookProcessor, InboundWebhookProcessor>();
+        services.AddScoped<ISavedMethodRecorder, SavedMethodRecorder>();
+        services.AddScoped<IOffSessionRetryService, OffSessionRetryService>();
+        services.AddScoped<ISavedPaymentMethodRepository, SavedPaymentMethodRepository>();
+        services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
         services.AddScoped<IRefundBooking, RefundBooking>();
 
         services.AddMediator(SubscriptionsRoot.AssemblyName);

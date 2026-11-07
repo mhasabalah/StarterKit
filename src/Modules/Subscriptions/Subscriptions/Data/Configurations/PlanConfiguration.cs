@@ -19,12 +19,12 @@ public class PlanConfiguration : IEntityTypeConfiguration<Plan>
             b.Property(x => x.Ar).HasColumnName("description_ar").HasMaxLength(500).IsRequired(false);
         });
 
-        builder.Property(x => x.Price).HasPrecision(18, 2);
+        builder.Property(x => x.Price).HasMoneyPrecision();
         builder.Property(x => x.Currency).HasMaxLength(3).HasDefaultValue("USD").IsRequired();
         builder.Property(x => x.BillingCycleInMonths).IsRequired();
         builder.Property(x => x.SeedKey).HasMaxLength(100);
         builder.Property(x => x.DeletedAt).IsRequired(false);
-        builder.Property(x => x.PendingPrice).HasPrecision(18, 2).IsRequired(false);
+        builder.Property(x => x.PendingPrice).HasMoneyPrecision().IsRequired(false);
         builder.Property(x => x.PriceEffectiveAt).IsRequired(false);
         builder.Property(x => x.PriceChangeAnnouncedAt).IsRequired(false);
         builder.Property(x => x.DiscountPercent).HasPrecision(5, 2).IsRequired(false);

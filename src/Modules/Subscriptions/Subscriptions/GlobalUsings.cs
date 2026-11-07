@@ -43,6 +43,7 @@ global using CancellationReason = Subscriptions.Contracts.Subscriptions.Enums.Ca
 global using RefundStatus = Subscriptions.Contracts.Subscriptions.Enums.RefundStatus;
 global using SubscriptionStatus = Subscriptions.Contracts.Subscriptions.Enums.SubscriptionStatus;
 global using Subscriptions.Domains.Subscriptions.Billing;
+global using CurrencyRules = Subscriptions.Domains.Subscriptions.Billing.Currency;
 global using Subscriptions.Contracts.Subscriptions.Events;
 global using Subscriptions.Data;
 global using Subscriptions.Data.Repositories;

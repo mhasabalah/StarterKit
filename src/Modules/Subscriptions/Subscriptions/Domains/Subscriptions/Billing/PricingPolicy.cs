@@ -21,14 +21,15 @@ public static class PricingPolicy
 {
     /// <summary>
     /// The plan's effective list price at <paramref name="at"/>: a scheduled price once its effective date has passed,
-    /// then the plan discount (<c>DiscountPercent</c>), rounded to 2 decimals.
+    /// then the plan discount (<c>DiscountPercent</c>), rounded to the currency's decimals.
     /// </summary>
     public static decimal PlanPriceAt(
         decimal price,
         decimal? pendingPrice,
         DateTimeOffset? pendingEffectiveAt,
         decimal? discountPercent,
-        DateTimeOffset at)
+        DateTimeOffset at,
+        string currency)
     {
         var basePrice = pendingPrice is { } pending && pendingEffectiveAt is { } effectiveAt && effectiveAt <= at
             ? pending
@@ -36,15 +37,15 @@ public static class PricingPolicy
 
         if (discountPercent is not { } discount || discount <= 0m)
         {
-            return TaxCalculator.Round(basePrice);
+            return Currency.Round(basePrice, currency);
         }
 
         var clamped = Math.Min(discount, 100m);
-        return TaxCalculator.Round(basePrice * (1m - clamped / 100m));
+        return Currency.Round(basePrice * (1m - clamped / 100m), currency);
     }
 
     public static decimal PlanPriceAt(Plan plan, DateTimeOffset at) =>
-        PlanPriceAt(plan.Price, plan.PendingPrice, plan.PriceEffectiveAt, plan.DiscountPercent, at);
+        PlanPriceAt(plan.Price, plan.PendingPrice, plan.PriceEffectiveAt, plan.DiscountPercent, at, plan.Currency);
 
     /// <summary>
     /// Price of the next period for a subscription renewing at <paramref name="at"/>. Follows the plan's effective
@@ -69,14 +70,15 @@ public static class PricingPolicy
         decimal periodPrice,
         decimal deferredProration,
         TaxPolicy tax,
+        string currency,
         CouponTerms? coupon = null)
     {
         var deferred = Math.Max(0m, deferredProration);
-        var discount = CouponPricing.Discount(periodPrice, coupon);
+        var discount = CouponPricing.Discount(periodPrice, coupon, currency);
         return new RenewalCharge(
             periodPrice,
             deferred,
-            TaxCalculator.AmountDue(periodPrice - discount + deferred, tax),
+            TaxCalculator.AmountDue(periodPrice - discount + deferred, tax, currency),
             discount,
             discount > 0m ? coupon!.Code : null);
     }
@@ -87,10 +89,11 @@ public static class PricingPolicy
     public static (decimal AmountDue, decimal CouponDiscount) ActivationCharge(
         decimal planPrice,
         TaxPolicy tax,
+        string currency,
         CouponTerms? coupon = null)
     {
-        var discount = CouponPricing.Discount(planPrice, coupon);
-        return (TaxCalculator.AmountDue(planPrice - discount, tax), discount);
+        var discount = CouponPricing.Discount(planPrice, coupon, currency);
+        return (TaxCalculator.AmountDue(planPrice - discount, tax, currency), discount);
     }
 
     /// <summary>
@@ -102,7 +105,8 @@ public static class PricingPolicy
         decimal newPrice,
         DateTimeOffset periodStart,
         DateTimeOffset periodEnd,
-        DateTimeOffset at)
+        DateTimeOffset at,
+        string currency)
     {
         var difference = newPrice - currentPrice;
         if (difference <= 0m)
@@ -111,7 +115,7 @@ public static class PricingPolicy
         }
 
         var fraction = BillingPeriod.RemainingFraction(periodStart, periodEnd, at);
-        return TaxCalculator.Round(difference * fraction);
+        return Currency.Round(difference * fraction, currency);
     }
 
     /// <summary>Trusted subscribers may defer small prorations (≤ threshold % of the current price) to the next renewal.</summary>

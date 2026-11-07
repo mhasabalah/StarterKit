@@ -32,6 +32,8 @@ public class SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> opt
     public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
     public DbSet<DunningNotice> DunningNotices => Set<DunningNotice>();
     public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
+    public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
+    public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
 
     /// <summary>Inbox of verified provider webhooks, unique by (provider, event_id). Inserted with ON CONFLICT DO NOTHING.</summary>
     public DbSet<OnlinePaymentRefund> OnlinePaymentRefunds => Set<OnlinePaymentRefund>();
@@ -95,6 +97,12 @@ public class SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> opt
             "This dunning step was already recorded.",
         ScheduledPlanChangeConfiguration.OnePendingPerSubscriptionIndex =>
             "A pending scheduled downgrade already exists. Cancel it first.",
+        SavedPaymentMethodConfiguration.OneDefaultPerSubscriberIndex =>
+            "The subscriber already has a default payment method.",
+        SavedPaymentMethodConfiguration.OnePerProviderMethodIndex =>
+            "This payment method is already saved.",
+        PaymentAttemptConfiguration.OnePerStepIndex =>
+            "This payment step was already attempted.",
         SubscriptionInvoiceConfiguration.OnePerPaymentIndex =>
             "An invoice has already been issued for this payment.",
         _ => "The request conflicts with an existing record."

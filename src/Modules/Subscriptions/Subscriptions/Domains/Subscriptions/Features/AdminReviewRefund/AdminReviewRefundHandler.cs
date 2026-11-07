@@ -36,7 +36,7 @@ public class AdminReviewRefundHandler(SubscriptionsDbContext dbContext, IAdminAu
             var refundable = await RefundInputs.RefundableAsync(
                 dbContext, refundRequest.SubscriptionId, null, refundRequest.Id, cancellationToken);
             if (refundRequest.RequestedAmount > refundable)
-                throw new ConflictException($"The refund exceeds the refundable amount ({refundable:F2} {refundRequest.Currency}).");
+                throw new ConflictException($"The refund exceeds the refundable amount ({CurrencyRules.FormatWithCode(refundable, refundRequest.Currency)}).");
 
             refundRequest.Approve(command.AdminId, command.Notes);
         }

@@ -1,5 +1,11 @@
+using Shared.Contracts.Localization;
 using System.Globalization;
+using Notification.Contracts.InApp;
 using Subscriptions.Contracts.Subscriptions.Commands;
+using Subscriptions.Domains.OnlinePayments.Exceptions;
+using Subscriptions.Domains.OnlinePayments.Gateways;
+using Subscriptions.Domains.OnlinePayments.Services;
+using Subscriptions.Resources;
 using Subscriptions.Options;
 
 namespace Subscriptions.Domains.Subscriptions.Services;
@@ -11,7 +17,9 @@ namespace Subscriptions.Domains.Subscriptions.Services;
 /// (<see cref="DunningNotice"/>, unique per payment + step) BEFORE the email, so a step never re-sends, even when two
 /// runs overlap. When a run finds several steps due (the job was down), only the latest is sent; the others are
 /// recorded as superseded. A renewal whose proof is under review (Submitted) is not nagged.
-/// Automatic card retries are out of scope (they need saved payment methods).
+/// With <c>Subscriptions:Dunning:AutoRetry:Enabled</c> each step first tries ONE off-session charge of the subscriber's
+/// saved default card (<see cref="IOffSessionRetryService"/>, ADR 0018): success settles the payment and sends no
+/// reminder; anything else sends the reminder with the reason, plus an in-app notice.
 /// </summary>
 public interface IDunningProcessor
 {
@@ -103,29 +111,83 @@ public sealed class DunningProcessor(
             dbContext.DunningNotices.Add(DunningNotice.Record(subscriptionId, payment.Id, step, sent: step == send, now));
         await dbContext.SaveChangesAsync(ct); // a unique-index race surfaces as ConflictException: the other run sends
 
+        // Automatic retry first: a collected payment needs no reminder (the settlement sends the invoice).
+        var retry = await services.GetRequiredService<IOffSessionRetryService>()
+            .TryChargeAsync(subscription, payment, send, now, ct);
+        await RecordRetryAsync(dbContext, payment.Id, send, retry, ct);
+        if (retry.Outcome == AutoRetryOutcome.Succeeded)
+        {
+            logger.LogInformation(
+                "Dunning step {Step} collected payment {PaymentId} of subscription {SubscriptionId} off-session.",
+                send, payment.Id, subscriptionId);
+            return false;
+        }
+
         var frontendBaseUrl = configuration["Application:FrontendBaseUrl"] ?? "http://localhost:3000";
         var renewalUrl = $"{frontendBaseUrl}/subscription/renew";
-        var paymentUrl = await TryCreateCheckoutAsync(services, subscription, payment, frontendBaseUrl, ct) ?? renewalUrl;
+        // A charge that may still complete at the provider: never offer a second way to pay (the subscriber could pay twice).
+        var paymentUrl = retry.ChargeInFlight
+            ? renewalUrl
+            : await TryCreateCheckoutAsync(services, subscription, payment, frontendBaseUrl, ct) ?? renewalUrl;
 
         var subscriber = await services.GetRequiredService<ISubscriberInfoProvider>().GetAsync(subscription.SubscriberId, ct);
         var model = new SubscriptionDunningModel
         {
             SubscriberName = subscriber?.DisplayName ?? string.Empty,
             PlanName = subscription.PlanName,
-            AmountDue = $"{payment.OutstandingAmount.ToString("F2", CultureInfo.InvariantCulture)} {payment.Currency}",
+            AmountDue = CurrencyRules.FormatWithCode(payment.OutstandingAmount, payment.Currency),
             GraceDeadline = graceEnd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             PaymentUrl = paymentUrl,
-            IsFinal = send == DunningNotice.FinalStep
+            IsFinal = send == DunningNotice.FinalStep,
+            AutoRetryReason = retry.Reason ?? string.Empty,
+            AutoRetryReasonEn = retry.Reason is null ? string.Empty : SubscriptionsText.En("Billing.Dunning.Reason." + retry.Reason),
+            AutoRetryReasonAr = retry.Reason is null ? string.Empty : SubscriptionsText.Ar("Billing.Dunning.Reason." + retry.Reason)
         };
 
-        await services.GetRequiredService<INotificationSender>()
+        var deadline = model.GraceDeadline;
+        var inApp = new InAppContent(
+            Title: LocalizedText.Create(
+                SubscriptionsText.En("Billing.PaymentFailed.Title"), SubscriptionsText.Ar("Billing.PaymentFailed.Title")),
+            Body: LocalizedText.Create(
+                SubscriptionsText.En("Billing.PaymentFailed.Body", model.AmountDue, subscription.PlanName, deadline),
+                SubscriptionsText.Ar("Billing.PaymentFailed.Body", model.AmountDue, subscription.PlanName, deadline)),
+            Category: "billing.payment-failed",
+            ActionUrl: "/subscription/renew",
+            Severity: NotificationSeverity.Warning,
+            Data: new Dictionary<string, string>
+            {
+                ["subscriptionId"] = subscriptionId.ToString(),
+                ["paymentId"] = payment.Id.ToString()
+            });
+
+        var builder = services.GetRequiredService<INotificationSender>()
             .For(subscription.SubscriberId)
-            .WithEmail(EmailTemplate.SubscriptionDunning, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: ct);
+            .WithEmail(EmailTemplate.SubscriptionDunning, model.ToDictionary());
+
+        // The in-app notice announces a FAILED automatic payment: only when a retry was actually attempted.
+        if (retry.Outcome != AutoRetryOutcome.NotAttempted)
+            builder = builder.WithInApp(inApp);
+
+        await builder.SendAsync(forcedChannel: NotificationChannel.Email, ct: ct);
 
         logger.LogInformation(
             "Dunning step {Step} sent for subscription {SubscriptionId} (payment {PaymentId}).", send, subscriptionId, payment.Id);
         return true;
+    }
+
+    // Writes what the retry did onto the step's notice (and clears "sent" when a collected payment made the reminder moot).
+    private static async Task RecordRetryAsync(
+        SubscriptionsDbContext dbContext, Guid paymentId, string step, AutoRetryResult retry, CancellationToken ct)
+    {
+        if (retry.Outcome == AutoRetryOutcome.NotAttempted && retry.Reason is null)
+            return;
+
+        var notice = await dbContext.DunningNotices.FirstOrDefaultAsync(x => x.PaymentId == paymentId && x.Step == step, ct);
+        if (notice is null)
+            return;
+
+        notice.RecordAutoRetry(retry.Outcome.ToString(), reminderSent: retry.Outcome != AutoRetryOutcome.Succeeded);
+        await dbContext.SaveChangesAsync(ct);
     }
 
     /// <summary>
@@ -154,6 +216,18 @@ public sealed class DunningProcessor(
         return steps;
     }
 
+    private static IPaymentGateway? TryGetGateway(IPaymentGatewayRegistry registry, string name)
+    {
+        try
+        {
+            return registry.Get(name);
+        }
+        catch (PaymentGatewayNotFoundException)
+        {
+            return null;
+        }
+    }
+
     // A fresh hosted checkout for the owed payment through the first enabled gateway; null when none works
     // (the email then links to the renewal page, where the subscriber can pay or upload a proof).
     private async Task<string?> TryCreateCheckoutAsync(
@@ -163,11 +237,13 @@ public sealed class DunningProcessor(
         string frontendBaseUrl,
         CancellationToken ct)
     {
+        // First enabled gateway (by name) that can charge exactly this amount; none = the renewal page link.
+        var registry = services.GetRequiredService<IPaymentGatewayRegistry>();
         var provider = options.Value.PaymentGateways
             .Where(g => g.Value.Enabled)
             .Select(g => g.Key)
             .Order(StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
+            .FirstOrDefault(name => TryGetGateway(registry, name)?.SupportsAmount(payment.OutstandingAmount, payment.Currency) == true);
         if (provider is null)
             return null;
 

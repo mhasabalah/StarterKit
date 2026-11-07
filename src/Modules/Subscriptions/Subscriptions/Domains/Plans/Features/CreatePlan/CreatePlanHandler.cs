@@ -11,7 +11,11 @@ public class CreatePlanCommandValidator : AbstractValidator<CreatePlanCommand>
         RuleFor(x => x.Name.En).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Name.Ar).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.Currency).NotEmpty().MaximumLength(3);
+        RuleFor(x => x.Currency).NotEmpty().Length(3).Must(CurrencyRules.IsKnown)
+            .WithMessage("'{PropertyValue}' is not a valid ISO 4217 currency code.");
+        RuleFor(x => x.Price).Must((command, price) => CurrencyRules.HasValidScale(price, command.Currency))
+            .When(x => CurrencyRules.IsKnown(x.Currency))
+            .WithMessage(x => $"A {x.Currency} price has at most {CurrencyRules.Exponent(x.Currency)} decimals.");
         RuleFor(x => x.TrialDays).InclusiveBetween(0, Plan.MaxTrialDays);
         RuleFor(x => x.BillingCycleInMonths).Must(x => x is 1 or 12);
     }

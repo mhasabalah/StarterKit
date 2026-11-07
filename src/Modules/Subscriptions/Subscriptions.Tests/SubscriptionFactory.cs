@@ -43,7 +43,7 @@ internal static class SubscriptionFactory
             case SubscriptionStatus.PastDue:
             {
                 var s = Active();
-                s.MarkPastDue(PricingPolicy.RenewalCharge(s.Price, 0m, Tax), 7, s.RenewalDate!.Value);
+                s.MarkPastDue(PricingPolicy.RenewalCharge(s.Price, 0m, Tax, "SAR"), 7, s.RenewalDate!.Value);
                 return s;
             }
             case SubscriptionStatus.Expired:

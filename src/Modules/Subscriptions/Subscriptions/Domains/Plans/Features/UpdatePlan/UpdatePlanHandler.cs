@@ -9,7 +9,8 @@ public class UpdatePlanCommandValidator : AbstractValidator<UpdatePlanCommand>
     {
         RuleFor(x => x.Name.En).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Name.Ar).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.Currency).NotEmpty().MaximumLength(3);
+        RuleFor(x => x.Currency).NotEmpty().Length(3).Must(CurrencyRules.IsKnown)
+            .WithMessage("'{PropertyValue}' is not a valid ISO 4217 currency code.");
         RuleFor(x => x.TrialDays).InclusiveBetween(0, Plan.MaxTrialDays);
         RuleFor(x => x.BillingCycleInMonths).Must(x => x is 1 or 12);
         When(x => x.Description is not null, () =>

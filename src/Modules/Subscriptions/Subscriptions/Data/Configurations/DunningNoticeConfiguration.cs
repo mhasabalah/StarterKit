@@ -15,6 +15,7 @@ public class DunningNoticeConfiguration : IEntityTypeConfiguration<DunningNotice
         builder.Property(x => x.Step).IsRequired().HasMaxLength(20);
         builder.Property(x => x.Sent).IsRequired();
         builder.Property(x => x.RecordedAt).IsRequired();
+        builder.Property(x => x.AutoRetryOutcome).HasMaxLength(20);
 
         builder.HasIndex(x => new { x.PaymentId, x.Step }).IsUnique().HasDatabaseName(OnePerStepIndex);
         builder.HasIndex(x => x.SubscriptionId);
