@@ -152,7 +152,16 @@ internal sealed class StripePaymentGateway(
         {
             return ClassifyChargeError(ex);
         }
+        catch (Exception ex) when (IsNetworkFailure(ex, ct))
+        {
+            // Connection refused / DNS / timeout: nothing is known to have been charged; the idempotency key makes a repeat safe.
+            return new OffSessionChargeResult(OffSessionChargeStatus.Transient, null, "provider_unavailable");
+        }
     }
+
+    /// <summary>A transport failure (not a Stripe API answer); a cancellation requested by the caller is not one.</summary>
+    private static bool IsNetworkFailure(Exception ex, CancellationToken ct) =>
+        ex is HttpRequestException || (ex is TaskCanceledException && !ct.IsCancellationRequested);
 
     internal static OffSessionChargeResult ClassifyChargeError(StripeException ex)
     {
@@ -191,7 +200,7 @@ internal sealed class StripePaymentGateway(
                 _ => new OffSessionChargeResult(OffSessionChargeStatus.Transient, intent.Id, intent.Status)
             };
         }
-        catch (StripeException)
+        catch (Exception ex) when (ex is StripeException || IsNetworkFailure(ex, ct))
         {
             return new OffSessionChargeResult(OffSessionChargeStatus.Transient, providerReference, "status_unknown");
         }
@@ -234,7 +243,7 @@ internal sealed class StripePaymentGateway(
                 ExpYear = (int?)method.Card?.ExpYear
             };
         }
-        catch (StripeException)
+        catch (Exception ex) when (ex is StripeException || IsNetworkFailure(ex, ct))
         {
             return null; // best effort: the card just is not saved; the checkout link stays the fallback
         }
