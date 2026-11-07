@@ -28,6 +28,8 @@
         <ProjectReference Include="..\..\Identity\UserDirectory.Contracts\UserDirectory.Contracts.csproj" />
         <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
         <ProjectReference Include="..\..\Subscriptions\Subscriptions.Contracts\Subscriptions.Contracts.csproj" />
+        <!-- Bulk import/export: this module owns the tenancy.members definitions. -->
+        <ProjectReference Include="..\..\DataTransfer\DataTransfer.Contracts\DataTransfer.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup>

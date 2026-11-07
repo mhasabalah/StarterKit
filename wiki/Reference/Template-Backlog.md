@@ -85,7 +85,7 @@ Wave 10 (2026-11-06, [ADR 0016](../Decisions/0016-bulk-data-transfer-on-hangfire
   - **Typed XLSX cells:** `TransferColumn.Kind` (Number, Date), bold frozen header, column widths.
   - **G22 slice:** the opt-in `PerformanceBaselineTests` (100k rows: about 64k rows/s import, 93k rows/s export) and
     the nightly `datatransfer-perf.yml`.
-- Follow-ups: more definitions per project (users, categories); full G22 HTTP load tests (k6/NBomber).
+- Follow-ups: ~~more definitions (categories, members)~~ done (`catalog.categories`, `tenancy.members`; new tenant permission `catalog.categories.manage`; category endpoints now use it instead of `AdminOnly`); users per project; full G22 HTTP load tests (k6/NBomber).
 
 Wave 9 (2026-11-06, [ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md)): **all P0s are done.**
 

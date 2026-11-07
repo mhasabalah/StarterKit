@@ -1,4 +1,7 @@
 namespace Tenancy.Resources;
 
-/// <summary>Marker type for the Tenancy resource files (TenancyResource.resx / .ar.resx): in-app notification text.</summary>
-public class TenancyResource;
+/// <summary>
+/// Marker for <c>IStringLocalizer&lt;TenancyResource&gt;</c> (TenancyResource.resx / .ar.resx): member import row
+/// messages (<c>Import.*</c>) and in-app notification text (<c>Notify.*</c>/<c>InApp.*</c>).
+/// </summary>
+public sealed class TenancyResource;
