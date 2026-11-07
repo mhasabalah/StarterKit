@@ -55,10 +55,10 @@ export function setup() {
   const users = [];
   for (let i = 0; i < USERS; i++) {
     const email = `load-${runId}-${i}@loadtest.example.com`;
-    const reg = register(email);
+    register(email);
     // Plain users hold no platform permission, so they cannot mint scoped API keys (a key never exceeds its owner):
-    // the CRUD and inbox scenarios use the bearer token issued at registration (valid for JwtSettings:AccessTokenExpirationMinutes).
-    users.push({ email, password: USER_PASSWORD, accessToken: reg.accessToken });
+    // the CRUD and inbox scenarios sign in as these users (lib/session.js) and use bearer tokens.
+    users.push({ email });
   }
 
   // Admin: a normal registered user promoted by the seeded SuperAdmin.

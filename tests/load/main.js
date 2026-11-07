@@ -18,15 +18,16 @@ function metric(data, name) {
 
 // Compact console report (no remote imports, so the run works offline) + the full JSON for CI artifacts.
 function report(data) {
-  const lines = ['', 'scenario      reqs     rps    avg ms   p95 ms  failed'];
+  const lines = ['', 'scenario      reqs     rps    avg ms   p95 ms  failed  dropped'];
   for (const name of selectedScenarios()) {
     const dur = metric(data, `http_req_duration{load_scenario:${name}}`);
     const reqs = metric(data, `http_reqs{load_scenario:${name}}`);
     const failed = metric(data, `http_req_failed{load_scenario:${name}}`);
+    const dropped = metric(data, `dropped_iterations{load_scenario:${name}}`);
     if (!dur || !reqs) continue;
     lines.push(
       `${name.padEnd(12)} ${String(reqs.count).padStart(6)} ${reqs.rate.toFixed(1).padStart(7)} ` +
-        `${dur.avg.toFixed(1).padStart(9)} ${dur['p(95)'].toFixed(1).padStart(8)} ${((failed ? failed.rate : 0) * 100).toFixed(2).padStart(6)}%`,
+        `${dur.avg.toFixed(1).padStart(9)} ${dur['p(95)'].toFixed(1).padStart(8)} ${((failed ? failed.rate : 0) * 100).toFixed(2).padStart(6)}% ${String(dropped ? dropped.count : 0).padStart(7)}`,
     );
   }
   const all = metric(data, 'http_reqs');

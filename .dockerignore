@@ -34,3 +34,6 @@ README.md
 
 # Commercial library license files (e.g. a future licensed image adapter) never go into the build context
 **/sixlabors.lic
+
+# k6 load-test output never goes into the build context
+**/tests/load/results
