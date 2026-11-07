@@ -10,6 +10,8 @@ namespace Subscriptions.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Widening is lossless but PostgreSQL rewrites each table (ACCESS EXCLUSIVE lock for the duration), so apply
+            // this during a deploy window; the billing tables are small compared to tenant data (ADR 0017).
             migrationBuilder.AlterColumn<decimal>(
                 name: "price",
                 schema: "subscriptions",
@@ -323,6 +325,9 @@ namespace Subscriptions.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // LOSSY: narrowing numeric(19,4) back to (18,2) rounds every stored amount to 2 decimals and fails if a
+            // value needs more than 16 integer digits. Only roll back before any 3-decimal (KWD, BHD, ...) amount
+            // was written. Like Up, each AlterColumn rewrites its table under an ACCESS EXCLUSIVE lock (ADR 0017).
             migrationBuilder.AlterColumn<decimal>(
                 name: "price",
                 schema: "subscriptions",

@@ -18,7 +18,7 @@ public class SavedMethodsUnitTests
     }
 
     private static OffSessionChargeRequest Charge(string methodRef) =>
-        new(Guid.NewGuid(), Guid.NewGuid(), 10m, "SAR", "cus_1", methodRef, "dunning:p:day-1", "dunning:p:day-1", "Renewal payment");
+        new(Guid.NewGuid(), Guid.NewGuid(), 10m, "SAR", "cus_1", methodRef, "dunning:p:day-1", "Renewal payment");
 
     [Theory]
     [InlineData("pm_ok", OffSessionChargeStatus.Succeeded)]

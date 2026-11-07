@@ -71,13 +71,22 @@ internal sealed class CreateOnlineCheckoutHandler(
         if (amount <= 0m)
             throw new ConflictException("Nothing is outstanding on this payment.");
 
-        // Offer to save the card only when automatic retries are on and the provider can charge it later; reuse the
+        // Keep the card only when the subscriber opted in, automatic retries are on and the provider can charge it later; reuse the
         // provider customer the subscriber already has so cards do not pile up under duplicate customers.
-        var savePaymentMethod = options.Value.Dunning.AutoRetry.Enabled && gateway.SupportsOffSessionCharges;
+        var savePaymentMethod = command.SaveCard && options.Value.Dunning.AutoRetry.Enabled && gateway.SupportsOffSessionCharges;
         var customerReference = savePaymentMethod
             ? (await savedMethods.GetActiveAsync(subscription.SubscriberId, cancellationToken))
                 .FirstOrDefault(x => string.Equals(x.Gateway, gateway.Name, StringComparison.OrdinalIgnoreCase))?.ProviderCustomerRef
             : null;
+
+        if (!gateway.SupportsAmount(amount, payment.Currency))
+        {
+            throw new ConflictException(
+                $"{gateway.Name} cannot charge {CurrencyRules.FormatWithCode(amount, payment.Currency)}; pay with another method.")
+            {
+                ErrorCode = "amount_not_supported"
+            };
+        }
 
         var session = await gateway.CreateCheckoutAsync(
             new CheckoutRequest(

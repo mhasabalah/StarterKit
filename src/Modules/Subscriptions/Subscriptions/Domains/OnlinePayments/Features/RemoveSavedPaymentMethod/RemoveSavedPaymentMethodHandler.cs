@@ -31,25 +31,31 @@ internal sealed class RemoveSavedPaymentMethodHandler(
         if (method is not { IsActive: true })
             throw new SavedPaymentMethodNotFoundException(command.MethodId);
 
-        var wasDefault = method.IsDefault;
-        method.Revoke(timeProvider.GetUtcNow());
-        await methods.SaveChangesAsync(cancellationToken);
-
-        if (wasDefault)
+        // Revoke + promote the next default in ONE transaction (the detach below is a network call, outside it).
+        await using (var transaction = await methods.BeginTransactionAsync(cancellationToken))
         {
-            var next = (await methods.GetActiveAsync(command.SubscriberId, cancellationToken)).FirstOrDefault();
-            if (next is not null)
+            var wasDefault = method.IsDefault;
+            method.Revoke(timeProvider.GetUtcNow());
+            await methods.SaveChangesAsync(cancellationToken);
+
+            if (wasDefault)
             {
-                next.SetDefault(true);
-                await methods.SaveChangesAsync(cancellationToken);
+                var next = (await methods.GetActiveAsync(command.SubscriberId, cancellationToken)).FirstOrDefault();
+                if (next is not null)
+                {
+                    next.SetDefault(true);
+                    await methods.SaveChangesAsync(cancellationToken);
+                }
             }
+
+            await transaction.CommitAsync(cancellationToken);
         }
 
         try
         {
             await gateways.Get(method.Gateway).DetachAsync(method.ProviderCustomerRef, method.ProviderMethodRef, cancellationToken);
         }
-        catch (Exception ex) when (ex is PaymentGatewayException or PaymentGatewayNotFoundException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Saved method {MethodId} was removed locally but could not be detached at {Gateway}.",
                 method.Id, method.Gateway);

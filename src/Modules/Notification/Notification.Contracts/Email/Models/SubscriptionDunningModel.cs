@@ -23,6 +23,11 @@ public sealed class SubscriptionDunningModel
     /// </summary>
     public string AutoRetryReason { get; set; } = string.Empty;
 
+    /// <summary>The reason as a sentence in English / Arabic (the template shows the one for the recipient culture).</summary>
+    public string AutoRetryReasonEn { get; set; } = string.Empty;
+
+    public string AutoRetryReasonAr { get; set; } = string.Empty;
+
     public Dictionary<string, object> ToDictionary() => new()
     {
         ["SubscriberName"] = SubscriberName,
@@ -31,6 +36,8 @@ public sealed class SubscriptionDunningModel
         ["GraceDeadline"] = GraceDeadline,
         ["PaymentUrl"] = PaymentUrl,
         ["IsFinal"] = IsFinal,
-        ["AutoRetryReason"] = AutoRetryReason
+        ["AutoRetryReason"] = AutoRetryReason,
+        ["AutoRetryReasonEn"] = AutoRetryReasonEn,
+        ["AutoRetryReasonAr"] = AutoRetryReasonAr
     };
 }

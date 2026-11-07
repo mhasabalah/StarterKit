@@ -9,7 +9,7 @@ namespace Api.Infrastructure;
 /// configuration provider. Only the final, merged value is checked.
 /// </para>
 /// </summary>
-public static class ProductionConfigurationGuard
+public static partial class ProductionConfigurationGuard
 {
     public const string Placeholder = "CHANGE_ME";
 
@@ -105,6 +105,16 @@ public static class ProductionConfigurationGuard
     /// <c>AllowSandboxInProduction=true</c>.</item>
     /// </list>
     /// </summary>
+    // Stripe: sk_/rk_ + test|live; Paymob: egy_sk_test_..., ksa_pk_live_... (a region prefix, then the same shape).
+    [System.Text.RegularExpressions.GeneratedRegex("(^|_)[sr]k_(?<kind>test|live)_", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex SecretKeyPattern();
+
+    [System.Text.RegularExpressions.GeneratedRegex("(^|_)pk_(?<kind>test|live)_", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex PublicKeyPattern();
+
+    private static bool IsKind(System.Text.RegularExpressions.Match match, string kind) =>
+        match.Success && string.Equals(match.Groups["kind"].Value, kind, StringComparison.OrdinalIgnoreCase);
+
     public static void EnsurePaymentGatewayModes(IConfiguration configuration, string environmentName)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -118,9 +128,16 @@ public static class ProductionConfigurationGuard
             }
 
             var isLive = string.Equals(gateway["Mode"], "Live", StringComparison.OrdinalIgnoreCase);
-            var key = gateway["ApiKey"] ?? string.Empty;
-            var testKey = key.StartsWith("sk_test_", StringComparison.Ordinal) || key.StartsWith("rk_test_", StringComparison.Ordinal);
-            var liveKey = key.StartsWith("sk_live_", StringComparison.Ordinal) || key.StartsWith("rk_live_", StringComparison.Ordinal);
+            var apiKey = SecretKeyPattern().Match(gateway["ApiKey"] ?? string.Empty);
+            var publicKey = PublicKeyPattern().Match(gateway["PublicKey"] ?? string.Empty);
+            var testKey = IsKind(apiKey, "test") || IsKind(publicKey, "test");
+            var liveKey = IsKind(apiKey, "live") || IsKind(publicKey, "live");
+
+            if (testKey && liveKey)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to start: payment gateway '{gateway.Key}' mixes a test key with a live key.");
+            }
 
             if (isLive && testKey)
             {

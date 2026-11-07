@@ -25,7 +25,9 @@ public class SetDefaultSavedPaymentMethodHandler(ISavedPaymentMethodRepository m
         if (target.IsDefault)
             return Unit.Value;
 
-        // Two steps: the filtered unique index allows one default, so the old one is cleared first.
+        // Two saves in ONE transaction: the filtered unique index allows a single default, so the old one is cleared
+        // first, and a failure of the second save must not leave the subscriber without any default.
+        await using var transaction = await methods.BeginTransactionAsync(cancellationToken);
         var previous = await methods.GetDefaultAsync(command.SubscriberId, cancellationToken);
         if (previous is not null)
         {
@@ -35,6 +37,7 @@ public class SetDefaultSavedPaymentMethodHandler(ISavedPaymentMethodRepository m
 
         target.SetDefault(true);
         await methods.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Unit.Value;
     }
 }

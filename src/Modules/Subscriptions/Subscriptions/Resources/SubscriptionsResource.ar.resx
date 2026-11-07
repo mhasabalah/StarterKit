@@ -52,4 +52,10 @@
   <data name="Billing.Dunning.Reason.unavailable" xml:space="preserve">
     <value>تعذر الوصول إلى مزود الدفع لتحصيل المبلغ من بطاقتك المحفوظة.</value>
   </data>
+  <data name="Billing.Dunning.Reason.processing" xml:space="preserve">
+    <value>لا تزال دفعة بطاقتك المحفوظة قيد المعالجة. يرجى عدم الدفع مرة أخرى وسنؤكدها قريبًا.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.method_unusable" xml:space="preserve">
+    <value>لم يعد بالإمكان استخدام بطاقتك المحفوظة. يرجى الدفع عبر الزر أدناه.</value>
+  </data>
 </root>

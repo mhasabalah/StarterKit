@@ -27,7 +27,7 @@ public class SubscriptionLifecycleTests
     {
         var subscription = SubscriptionFactory.Active(now: Start);
         var firstRenewal = subscription.RenewalDate!.Value;
-        subscription.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax), 7, firstRenewal);
+        subscription.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax, "SAR"), 7, firstRenewal);
 
         var approvedLate = firstRenewal.AddDays(5);
         subscription.Renew(approvedLate);
@@ -46,7 +46,7 @@ public class SubscriptionLifecycleTests
             .Should().BeNull();
         subscription.DeferredProrationAmount.Should().Be(12.5m);
 
-        var charge = PricingPolicy.RenewalCharge(subscription.Price, subscription.DeferredProrationAmount, SubscriptionFactory.Tax);
+        var charge = PricingPolicy.RenewalCharge(subscription.Price, subscription.DeferredProrationAmount, SubscriptionFactory.Tax, "SAR");
         var payment = subscription.MarkPastDue(charge, 7, subscription.RenewalDate!.Value);
 
         payment.Purpose.Should().Be(PaymentPurpose.Renewal);
@@ -143,7 +143,7 @@ public class SubscriptionLifecycleTests
     {
         var subscription = SubscriptionFactory.Active(price: 100m, now: Start);
         subscription.ScheduleDowngrade(SubscriptionFactory.Plan(50m), Guid.NewGuid(), Start);
-        subscription.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax), 7, subscription.RenewalDate!.Value);
+        subscription.MarkPastDue(PricingPolicy.RenewalCharge(100m, 0m, SubscriptionFactory.Tax, "SAR"), 7, subscription.RenewalDate!.Value);
 
         var act = () => subscription.ApplyScheduledDowngrade(subscription.RenewalDate!.Value.AddDays(1));
 
@@ -212,11 +212,11 @@ public class SubscriptionLifecycleTests
             Guid.NewGuid(), "Pro", 1, Start, Start.AddMonths(1),
             new InvoiceParty("Buyer", "b@example.com", null, null),
             new InvoiceParty("Seller", null, null, "VAT-1"),
-            TaxCalculator.FromGross(1150m, SubscriptionFactory.Tax), "SAR");
+            TaxCalculator.FromGross(1150m, SubscriptionFactory.Tax, "SAR"), "SAR");
         var invoice = SubscriptionInvoice.Issue(draft, "INV-2026-000001", Start);
 
         var partial = SubscriptionInvoice.IssueCreditNote(
-            invoice, CreditNotePolicy.Compute(invoice.Amounts, new TaxBreakdown(0, 0, 0, 0.15m, true), 115m),
+            invoice, CreditNotePolicy.Compute(invoice.Amounts, new TaxBreakdown(0, 0, 0, 0.15m, true), 115m, "SAR"),
             "INV-2026-000002", "goodwill", Start);
 
         partial.Type.Should().Be(InvoiceType.CreditNote);

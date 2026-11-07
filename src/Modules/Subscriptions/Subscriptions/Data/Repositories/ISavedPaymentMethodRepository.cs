@@ -19,5 +19,8 @@ public interface ISavedPaymentMethodRepository
 
     void Add(SavedPaymentMethod method);
 
+    /// <summary>A transaction for a change that spans several saves (the default flips from one method to another).</summary>
+    Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

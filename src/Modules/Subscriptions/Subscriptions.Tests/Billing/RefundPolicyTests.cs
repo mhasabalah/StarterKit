@@ -12,7 +12,7 @@ public class RefundPolicyTests
     private static readonly DateTimeOffset PeriodEnd = new(2027, 1, 1, 0, 0, 0, TimeSpan.Zero); // 365 days
 
     private static RefundInput Input(decimal periodPaid, decimal refundable, int serviceDays) => new(
-        periodPaid, refundable, PeriodStart, PeriodEnd, PeriodStart.AddDays(serviceDays), 14, 45);
+        periodPaid, refundable, PeriodStart, PeriodEnd, PeriodStart.AddDays(serviceDays), 14, 45, "SAR");
 
     [Fact]
     public void Refundable_is_paid_minus_refunded_and_never_negative()

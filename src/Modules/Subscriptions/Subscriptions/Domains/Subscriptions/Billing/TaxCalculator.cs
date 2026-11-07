@@ -17,8 +17,8 @@ public readonly record struct TaxBreakdown(decimal Net, decimal Tax, decimal Gro
 }
 
 /// <summary>
-/// The ONE place tax is computed. Pure and deterministic; amounts are rounded to the currency's decimals
-/// (2 when no currency is given; <see cref="MidpointRounding.AwayFromZero"/>) and the parts always sum exactly to the gross.
+/// The ONE place tax is computed. Pure and deterministic; amounts are rounded to the decimals of the
+/// currency (<see cref="MidpointRounding.AwayFromZero"/>) and the parts always sum exactly to the gross.
 /// <list type="bullet">
 /// <item>Inclusive: net = round(gross / (1 + r)), tax = gross - net.</item>
 /// <item>Exclusive: net = price, tax = round(net * r), gross = net + tax.</item>
@@ -27,7 +27,7 @@ public readonly record struct TaxBreakdown(decimal Net, decimal Tax, decimal Gro
 public static class TaxCalculator
 {
     /// <summary>Breakdown of a PRICE (gross when prices include tax, net otherwise).</summary>
-    public static TaxBreakdown FromPrice(decimal price, TaxPolicy policy, string? currency = null)
+    public static TaxBreakdown FromPrice(decimal price, TaxPolicy policy, string currency)
     {
         Validate(policy);
 
@@ -45,7 +45,7 @@ public static class TaxCalculator
     /// Breakdown of money actually charged (always gross). Used for invoices so the document matches the payment;
     /// for an exclusive price p this recovers exactly net = p (rounding error of the tax is below half a cent).
     /// </summary>
-    public static TaxBreakdown FromGross(decimal gross, TaxPolicy policy, string? currency = null)
+    public static TaxBreakdown FromGross(decimal gross, TaxPolicy policy, string currency)
     {
         Validate(policy);
 
@@ -55,15 +55,15 @@ public static class TaxCalculator
     }
 
     /// <summary>Gross amount due for a price.</summary>
-    public static decimal AmountDue(decimal price, TaxPolicy policy, string? currency = null) =>
+    public static decimal AmountDue(decimal price, TaxPolicy policy, string currency) =>
         FromPrice(price, policy, currency).Gross;
 
     /// <summary>Formats a rate as a percent without truncation: 0.15 → "15%", 0.075 → "7.5%".</summary>
     public static string FormatRate(decimal rate) =>
         (rate * 100m).ToString("0.####", CultureInfo.InvariantCulture) + "%";
 
-    /// <summary>Rounds to the currency's decimals (2 when <paramref name="currency"/> is null).</summary>
-    public static decimal Round(decimal value, string? currency = null) => Currency.Round(value, currency);
+    /// <summary>Rounds to the decimals of <paramref name="currency"/>.</summary>
+    public static decimal Round(decimal value, string currency) => Currency.Round(value, currency);
 
     private static void Validate(TaxPolicy policy)
     {

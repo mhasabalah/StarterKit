@@ -6,7 +6,7 @@ namespace Subscriptions.Domains.Subscriptions.Billing;
 /// <param name="PeriodStart">Start of the current billing period.</param>
 /// <param name="PeriodEnd">End of the current billing period (renewal date).</param>
 /// <param name="ServiceEnd">When service actually ended (subscription EndDate, else CancelledAt).</param>
-/// <param name="Currency">Decides the rounding decimals of a prorated amount; null = 2.</param>
+/// <param name="Currency">Decides the rounding decimals of a prorated amount.</param>
 public sealed record RefundInput(
     decimal PeriodPaid,
     decimal Refundable,
@@ -15,7 +15,7 @@ public sealed record RefundInput(
     DateTimeOffset ServiceEnd,
     int FullWindowDays,
     int ProratedWindowDays,
-    string? Currency = null);
+    string Currency);
 
 public sealed record RefundQuote(RefundType Type, decimal Amount);
 

@@ -13,25 +13,25 @@ public class PricingPolicyTests
     [Fact]
     public void Plan_price_uses_the_pending_price_once_effective()
     {
-        PricingPolicy.PlanPriceAt(100m, 120m, Now, null, Now).Should().Be(120m);
-        PricingPolicy.PlanPriceAt(100m, 120m, Now.AddDays(1), null, Now).Should().Be(100m);
-        PricingPolicy.PlanPriceAt(100m, null, null, null, Now).Should().Be(100m);
+        PricingPolicy.PlanPriceAt(100m, 120m, Now, null, Now, "SAR").Should().Be(120m);
+        PricingPolicy.PlanPriceAt(100m, 120m, Now.AddDays(1), null, Now, "SAR").Should().Be(100m);
+        PricingPolicy.PlanPriceAt(100m, null, null, null, Now, "SAR").Should().Be(100m);
     }
 
     [Fact]
     public void Plan_price_applies_the_discount_after_the_price_change()
     {
-        PricingPolicy.PlanPriceAt(100m, null, null, 20m, Now).Should().Be(80m);
-        PricingPolicy.PlanPriceAt(100m, 200m, Now, 10m, Now).Should().Be(180m);
-        PricingPolicy.PlanPriceAt(99.99m, null, null, 33.33m, Now).Should().Be(66.66m);
-        PricingPolicy.PlanPriceAt(100m, null, null, 0m, Now).Should().Be(100m);
-        PricingPolicy.PlanPriceAt(100m, null, null, 150m, Now).Should().Be(0m);
+        PricingPolicy.PlanPriceAt(100m, null, null, 20m, Now, "SAR").Should().Be(80m);
+        PricingPolicy.PlanPriceAt(100m, 200m, Now, 10m, Now, "SAR").Should().Be(180m);
+        PricingPolicy.PlanPriceAt(99.99m, null, null, 33.33m, Now, "SAR").Should().Be(66.66m);
+        PricingPolicy.PlanPriceAt(100m, null, null, 0m, Now, "SAR").Should().Be(100m);
+        PricingPolicy.PlanPriceAt(100m, null, null, 150m, Now, "SAR").Should().Be(0m);
     }
 
     [Fact]
     public void Renewal_charge_adds_deferred_proration_and_tax()
     {
-        var charge = PricingPolicy.RenewalCharge(1000m, 50m, new TaxPolicy(0.15m, PricesIncludeTax: false));
+        var charge = PricingPolicy.RenewalCharge(1000m, 50m, new TaxPolicy(0.15m, PricesIncludeTax: false), "SAR");
 
         charge.PeriodPrice.Should().Be(1000m);
         charge.DeferredProration.Should().Be(50m);
@@ -41,7 +41,7 @@ public class PricingPolicyTests
     [Fact]
     public void Renewal_charge_with_inclusive_prices_is_the_price_plus_deferred()
     {
-        var charge = PricingPolicy.RenewalCharge(1150m, 0m, new TaxPolicy(0.15m, PricesIncludeTax: true));
+        var charge = PricingPolicy.RenewalCharge(1150m, 0m, new TaxPolicy(0.15m, PricesIncludeTax: true), "SAR");
 
         charge.AmountDue.Should().Be(1150m);
     }
@@ -67,7 +67,7 @@ public class PricingPolicyTests
         var end = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero); // 28 days
         var at = new DateTimeOffset(2026, 2, 8, 0, 0, 0, TimeSpan.Zero);  // 21 days left
 
-        PricingPolicy.UpgradeProration(100m, 200m, start, end, at).Should().Be(75m);
+        PricingPolicy.UpgradeProration(100m, 200m, start, end, at, "SAR").Should().Be(75m);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class PricingPolicyTests
         var periodEnd = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero);
         var at = new DateTimeOffset(2026, 4, 11, 0, 0, 0, TimeSpan.Zero);
 
-        PricingPolicy.UpgradeProration(90m, 120m, periodStart, periodEnd, at).Should().Be(20m);
+        PricingPolicy.UpgradeProration(90m, 120m, periodStart, periodEnd, at, "SAR").Should().Be(20m);
     }
 
     [Theory]
@@ -87,14 +87,14 @@ public class PricingPolicyTests
     public void Upgrade_proration_is_zero_when_the_price_does_not_rise(string current, string next)
     {
         var start = Now;
-        PricingPolicy.UpgradeProration(decimal.Parse(current), decimal.Parse(next), start, start.AddMonths(1), start)
+        PricingPolicy.UpgradeProration(decimal.Parse(current), decimal.Parse(next), start, start.AddMonths(1), start, "SAR")
             .Should().Be(0m);
     }
 
     [Fact]
     public void Upgrade_proration_is_zero_at_or_after_the_period_end()
     {
-        PricingPolicy.UpgradeProration(100m, 200m, Now, Now.AddMonths(1), Now.AddMonths(1)).Should().Be(0m);
+        PricingPolicy.UpgradeProration(100m, 200m, Now, Now.AddMonths(1), Now.AddMonths(1), "SAR").Should().Be(0m);
     }
 
     [Theory]

@@ -820,8 +820,8 @@ namespace Catalog.Data.Migrations
                                 .HasColumnName("id");
 
                             b1.Property<decimal?>("CompareAtPrice")
-                                .HasPrecision(19, 4)
-                                .HasColumnType("numeric(19,4)")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("numeric(18,2)")
                                 .HasColumnName("compare_at_price");
 
                             b1.Property<string>("Currency")
@@ -831,8 +831,8 @@ namespace Catalog.Data.Migrations
                                 .HasColumnName("currency");
 
                             b1.Property<decimal>("Price")
-                                .HasPrecision(19, 4)
-                                .HasColumnType("numeric(19,4)")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("numeric(18,2)")
                                 .HasColumnName("price");
 
                             b1.HasKey("ProductId")

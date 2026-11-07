@@ -52,4 +52,10 @@
   <data name="Billing.Dunning.Reason.unavailable" xml:space="preserve">
     <value>We could not reach the payment provider to charge your saved card.</value>
   </data>
+  <data name="Billing.Dunning.Reason.processing" xml:space="preserve">
+    <value>A payment from your saved card is still being processed. Please do not pay again; we will confirm it shortly.</value>
+  </data>
+  <data name="Billing.Dunning.Reason.method_unusable" xml:space="preserve">
+    <value>Your saved card can no longer be used. Please pay with the button below.</value>
+  </data>
 </root>

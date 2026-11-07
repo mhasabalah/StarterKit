@@ -47,11 +47,16 @@ internal sealed class StripePaymentGateway(
     /// <summary>Metadata marker on the PaymentIntents of our own off-session charges.</summary>
     public const string OffSessionSource = "off_session";
 
+    /// <summary>Failure-code prefix of a refusal that is about the request / method, not the card.</summary>
+    public const string InvalidRequestPrefix = "invalid_request:";
+
     public string Name => ProviderName;
 
     public bool SupportsRefundIdempotency => true;
 
     public bool SupportsOffSessionCharges => true;
+
+    public bool SupportsAmount(decimal amount, string currency) => StripeAmounts.IsChargeable(amount, currency);
 
     public async Task<CheckoutSession> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
@@ -123,7 +128,7 @@ internal sealed class StripePaymentGateway(
             Metadata = new Dictionary<string, string>
             {
                 ["source"] = OffSessionSource,
-                ["session_ref"] = request.SessionReference,
+                ["session_ref"] = request.IdempotencyKey,
                 ["payment_id"] = request.PaymentId.ToString(),
                 ["subscription_id"] = request.SubscriptionId.ToString()
             }
@@ -164,9 +169,32 @@ internal sealed class StripePaymentGateway(
 
         // api_error / api_connection_error / rate_limit_error / idempotency_error / no body at all (network): nothing
         // is known to have been charged; the idempotency key makes a later repeat safe.
+        // invalid_request_error: the request itself is unusable (detached / unknown method, bad amount), not a card
+        // decline: a distinct failure code so the subscriber is not told "your card was declined".
         return error?.Type is "invalid_request_error"
-            ? new OffSessionChargeResult(OffSessionChargeStatus.Declined, intentId, code)
+            ? new OffSessionChargeResult(OffSessionChargeStatus.Declined, intentId, InvalidRequestPrefix + (error.Code ?? "unknown"))
             : new OffSessionChargeResult(OffSessionChargeStatus.Transient, intentId, code ?? "provider_unavailable");
+    }
+
+    public async Task<OffSessionChargeResult> GetChargeStatusAsync(string providerReference, CancellationToken ct)
+    {
+        try
+        {
+            var intent = await new PaymentIntentService(Client()).GetAsync(providerReference, cancellationToken: ct);
+            return intent.Status switch
+            {
+                "succeeded" => new OffSessionChargeResult(OffSessionChargeStatus.Succeeded, intent.Id),
+                "requires_action" or "requires_confirmation" =>
+                    new OffSessionChargeResult(OffSessionChargeStatus.RequiresAction, intent.Id, "authentication_required"),
+                "requires_payment_method" or "canceled" =>
+                    new OffSessionChargeResult(OffSessionChargeStatus.Declined, intent.Id, intent.LastPaymentError?.Code ?? intent.Status),
+                _ => new OffSessionChargeResult(OffSessionChargeStatus.Transient, intent.Id, intent.Status)
+            };
+        }
+        catch (StripeException)
+        {
+            return new OffSessionChargeResult(OffSessionChargeStatus.Transient, providerReference, "status_unknown");
+        }
     }
 
     public async Task DetachAsync(string customerReference, string methodReference, CancellationToken ct)
@@ -387,20 +415,61 @@ internal sealed class StripePaymentGateway(
 }
 
 /// <summary>
-/// Stripe minor units: the ISO 4217 exponent of <see cref="Currency"/>, except <c>ISK</c> and <c>UGX</c>, which Stripe
-/// treats as two-decimal (the amount must be a multiple of 100) for backwards compatibility although ISO says zero.
+/// Stripe minor units, from Stripe's own tables (https://docs.stripe.com/currencies), which differ from ISO 4217 in a
+/// few places and are therefore NOT taken from <see cref="Currency"/>:
+/// <list type="bullet">
+/// <item>Zero-decimal: BIF CLP DJF GNF JPY KMF KRW MGA PYG RWF VND VUV XAF XOF XPF (MGA is two-decimal in ISO, zero here).</item>
+/// <item>ISK and UGX: zero-decimal currencies that Stripe's API still takes as TWO-decimal for backwards compatibility,
+/// so the amount is sent multiplied by 100 and must be a whole number of units.</item>
+/// <item>Three-decimal: BHD JOD KWD OMR. The amount in minor units must be a multiple of 10 (the last digit is 0).
+/// IQD, LYD and TND have three decimals in ISO but Stripe does not list them: not chargeable here.</item>
+/// <item>HUF and TWD: two-decimal in the API, but Stripe requires whole units (a multiple of 100) for payouts, so only
+/// whole-unit amounts are chargeable.</item>
+/// </list>
 /// </summary>
 internal static class StripeAmounts
 {
-    private static readonly HashSet<string> TwoDecimalExceptions = new(StringComparer.OrdinalIgnoreCase) { "ISK", "UGX" };
+    private static readonly HashSet<string> ZeroDecimal = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "VND", "VUV", "XAF", "XOF", "XPF"
+    };
+
+    private static readonly HashSet<string> LegacyTwoDecimal = new(StringComparer.OrdinalIgnoreCase) { "ISK", "UGX" };
+
+    private static readonly HashSet<string> ThreeDecimal = new(StringComparer.OrdinalIgnoreCase) { "BHD", "JOD", "KWD", "OMR" };
+
+    private static readonly HashSet<string> UnsupportedThreeDecimal = new(StringComparer.OrdinalIgnoreCase) { "IQD", "LYD", "TND" };
+
+    private static readonly HashSet<string> WholeUnitsOnly = new(StringComparer.OrdinalIgnoreCase) { "HUF", "TWD" };
+
+    private static int Exponent(string currency) =>
+        ZeroDecimal.Contains(currency) ? 0
+        : ThreeDecimal.Contains(currency) || UnsupportedThreeDecimal.Contains(currency) ? 3
+        : 2; // includes ISK / UGX (sent x100) and every other currency
+
+    private static decimal Factor(string currency) => (decimal)Math.Pow(10, Exponent(currency));
 
     public static long ToMinorUnits(decimal amount, string currency) =>
-        TwoDecimalExceptions.Contains(currency)
-            ? Currency.ToMinorUnits(amount, currency) * 100
-            : Currency.ToMinorUnits(amount, currency);
+        (long)decimal.Round(amount * Factor(currency), 0, MidpointRounding.AwayFromZero);
 
     public static decimal FromMinorUnits(long minor, string currency) =>
-        TwoDecimalExceptions.Contains(currency)
-            ? Currency.FromMinorUnits(minor / 100, currency)
-            : Currency.FromMinorUnits(minor, currency);
+        decimal.Round(minor / Factor(currency), Exponent(currency), MidpointRounding.AwayFromZero);
+
+    /// <summary>True when Stripe can charge exactly this amount (see the rules above).</summary>
+    public static bool IsChargeable(decimal amount, string currency)
+    {
+        if (UnsupportedThreeDecimal.Contains(currency))
+            return false;
+
+        var exact = amount * Factor(currency);
+        if (exact != decimal.Truncate(exact))
+            return false; // would be rounded: more decimals than Stripe takes for this currency
+
+        var minor = (long)exact;
+        if (ThreeDecimal.Contains(currency))
+            return minor % 10 == 0;
+        if (LegacyTwoDecimal.Contains(currency) || WholeUnitsOnly.Contains(currency))
+            return minor % 100 == 0;
+        return true;
+    }
 }

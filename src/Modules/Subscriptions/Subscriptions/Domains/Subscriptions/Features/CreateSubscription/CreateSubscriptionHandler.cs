@@ -53,7 +53,7 @@ public class CreateSubscriptionHandler(
                 dbContext, command.CouponCode, command.SubscriberId, plan.Id, plan.Currency, now, cancellationToken);
 
         var (amountDue, couponDiscount) = PricingPolicy.ActivationCharge(
-            price, options.Value.Tax.ToPolicy(), coupon?.Terms, plan.Currency);
+            price, options.Value.Tax.ToPolicy(), plan.Currency, coupon?.Terms);
 
         var subscription = Subscription.Create(
             command.SubscriberId, PlanSnapshot.From(plan, price), amountDue, now, coupon?.Terms, couponDiscount);

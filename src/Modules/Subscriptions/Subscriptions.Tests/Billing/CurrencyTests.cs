@@ -95,7 +95,7 @@ public class CurrencyTests
         kwd.Tax.Should().Be(1.518m); // 1.51845 -> 3 decimals
         kwd.Gross.Should().Be(11.641m);
         jpy.Tax.Should().Be(150m);
-        TaxCalculator.FromPrice(10.005m, exclusive).Net.Should().Be(10.01m, "no currency keeps the legacy 2 decimals");
+        TaxCalculator.FromPrice(10.005m, exclusive, "SAR").Net.Should().Be(10.01m, "no currency keeps the legacy 2 decimals");
     }
 
     [Fact]

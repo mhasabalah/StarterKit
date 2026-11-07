@@ -28,16 +28,32 @@ amount was shown as `1000.00`, and Paymob would have sent a wrong amount.
 - **Providers get minor units from the same helper.** Stripe and Paymob no longer carry their own tables (Stripe
   keeps one exception: ISK and UGX are two-decimal in its API).
 - **Display uses `Currency.Format`**, never `ToString("F2")`.
-- **Catalog.** Product price and compare-at price get the same column type so a catalog and a plan can share a
-  currency without a lossy hop. Catalog's validators still allow two decimals for now.
+- **Catalog is not touched.** Product price columns stay `numeric(18,2)`: every catalog currency is two-decimal, and
+  `catalog` is tenant data, so an `ALTER COLUMN` would rewrite the products table of every tenant for no gain. The
+  `HasMoneyPrecision()` convention is for the billing money columns; a module that sells in a 3-decimal currency adopts
+  it with its own migration.
 
 ## Consequences
 
-- The migration is `AlterColumn` from (18,2) to (19,4) in `subscriptions` and `catalog`. **Widening is lossless:**
-  every existing value is representable and none changes. Only the `Down` migration narrows and could round.
+- The migration `WidenMoneyColumnsToPrecision19x4` is an `AlterColumn` from (18,2) to (19,4) on every money column of the
+  `subscriptions` schema. **Widening is lossless:** every existing value is representable and none changes.
+- **Deploy cost.** Changing a `numeric` precision makes PostgreSQL rewrite each table under an `ACCESS EXCLUSIVE` lock
+  for the duration of the statement. The billing tables are small next to tenant data (ledger and invoices are the
+  largest), but apply it in a deploy window (`--migrate-only`), not under live traffic on a very large ledger.
+- **The `Down` migration is lossy.** It narrows back to (18,2) and rounds every stored amount to 2 decimals (and fails
+  for a value with more than 16 integer digits). Roll back only before a 3-decimal amount was written.
 - Old rows keep two decimals; new KWD rows store three. Nothing needs backfilling.
-- `TrialReminderProcessor` still rounds its "price after trial" with the legacy two decimals for the displayed
-  figure (the charge itself is computed with the subscription currency); it is a follow-up.
+- **Legacy rows.** A plan saved before the scale rule may carry more decimals than its currency allows (e.g. a JPY
+  price of 99.5). It is not blocked: `Plan.Update` re-checks the price only when the CURRENCY changes, and a receipt
+  for exactly the outstanding amount of an existing payment is accepted whatever its scale. Find and fix them with:
+
+  ```sql
+  SELECT id, currency, price, pending_price
+  FROM subscriptions.plans
+  WHERE price <> round(price, CASE WHEN currency IN ('BIF','CLP','DJF','GNF','ISK','JPY','KMF','KRW','PYG','RWF','UGX','VND','VUV','XAF','XOF','XPF') THEN 0
+                                   WHEN currency IN ('BHD','IQD','JOD','KWD','LYD','OMR','TND') THEN 3
+                                   WHEN currency IN ('CLF','UYW') THEN 4 ELSE 2 END);
+  ```
 - Anything that sums across currencies stays out of scope: the dashboard groups per currency.
 
 ## Alternatives considered
