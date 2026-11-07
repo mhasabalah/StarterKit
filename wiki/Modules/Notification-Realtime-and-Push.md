@@ -151,36 +151,50 @@ need sticky sessions.
 Revoking a session (sign out of a device, logout-all, lock, delete, password or role change, refresh-token reuse)
 closes its live sockets within seconds, not at access-token expiry:
 
-1. Identity records a short-lived `SessionRevocation` row after the revocation committed; its save carries
-   `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`, urn `userdirectory.user-sessions-revoked.v1`:
-   `UserId`, `SessionIds` or `AllSessions`) through the Identity outbox. Revocation itself is a set-based update with
-   no aggregate, hence the row; `RefreshTokenCleanupJob` purges rows after 7 days. Recording failures are logged, never
-   thrown - the database revocation stays authoritative.
+1. Identity adds a short-lived `SessionRevocation` tombstone row; saving it writes `UserSessionsRevokedIntegrationEvent`
+   (`UserDirectory.Contracts`, urn `userdirectory.user-sessions-revoked.v1`: `UserId`, `SessionIds` or `AllSessions`) to
+   the Identity outbox. Revocation itself is a set-based update with no aggregate, hence the row.
+   - **Inside an open transaction** the recorder only adds the row; the caller's unit of work saves it, so it commits or
+     rolls back WITH the revocation.
+   - **Without one** (the revocation already committed) the row is saved on a dedicated context through
+     `IUnitOfWorkRunner`, so no other pending change is flushed. A failure there is logged, never thrown: the database
+     revocation stays authoritative and the socket still closes at token expiry.
+   - Nothing is recorded for an unknown user. `RefreshTokenCleanupJob` purges rows after 7 days.
 2. `UserSessionsRevokedConsumer` (Notification) hands it to `IHubRevocationBroadcaster`. The event reaches ONE replica
    (competing consumers) but the sockets are on all of them, so with Redis the broadcaster publishes on
-   `<Redis:InstanceName>:notification:hub-revoke` (same approach as the tenant L1 cache invalidation) and every replica
-   closes its own matches; without Redis it closes locally.
-3. `HubSessionCloser` looks up the connections in the per-replica `HubConnectionRegistry` (connection id, user, `sid`),
-   sends `ForceDisconnect`, then aborts the socket. Only the revoked `sid` closes (`AllSessions` closes every socket of the
+   `<Redis:InstanceName>:notification:hub-revoke` (same approach as the tenant L1 cache invalidation) and every
+   subscribed replica closes its own matches; without Redis it closes locally.
+3. `HubSessionCloser` looks up the connections (indexed by user) in the per-replica `HubConnectionRegistry`, sends
+   `ForceDisconnect`, then aborts the socket. Only the revoked `sid` closes (`AllSessions` closes every socket of the
    user); the user's other sessions stay connected.
-4. Defense in depth: `SessionRevocationHubFilter` re-checks the session (`ISessionRevocationChecker`, backed by the Redis
-   blacklist) on connect and on every hub invocation, failing open if the store is down; the handshake check and
-   `CloseOnAuthenticationExpiration` still apply.
+4. `SessionRevocationHubFilter` registers each connection FIRST and then re-checks it on connect
+   (`ISessionRevocationChecker` in `UserDirectory.Contracts`, backed by the Redis blacklist: the session id AND the
+   security-stamp hash, so a revoke-all is caught). A revocation landing between the check and the registration finds the
+   socket in the registry. The hub has no client methods, so there is no per-invocation check. Fails open if the store is
+   down; the handshake check and `CloseOnAuthenticationExpiration` still apply.
+
+**Redis down.** Publishing fails or this replica is not subscribed: the replica always closes its OWN matching sockets
+locally; sockets on other replicas then close at access-token expiry (`JwtSettings:AccessTokenExpirationMinutes`). A failed
+subscription is retried in the background (and after a reconnect), so a replica rejoins the fan-out without a restart.
 
 ### Which events notify
 
 In-app inbox entries (and push where it is actionable) accompany the existing emails and events. Category =
-`<group>.<event>` (groups `billing`, `security`, `membership`, `catalog`, `data-transfer`, `webhooks`, `system`); text
-is in both languages from the owning module's resx (`InApp.<group>.<event>.Title/.Body`, read with
-`Shared.Core.Localization.BilingualResource`). Amounts are kept out of the text.
+`<group>.<event>` (groups in use today: `billing`, `membership`, `catalog`, `data-transfer`, `webhooks`; reserved: `security`,
+`system`); text is in both languages from the owning module's resx (`InApp.<group>.<event>.Title/.Body`, read with
+`Shared.Core.Localization.BilingualResource`). Amounts are kept out of the text; webhook endpoints show only their host.
+Send a STABLE correlation id (`.WithCorrelationId(...)`, e.g. the integration event's message id) from consumers: the inbox
+is unique per user and correlation id, so an at-least-once redelivery does not create a second entry. Billing
+notifications are sent inside the subscriber's tenant scope when multi-tenancy is on (the subscriber is the tenant).
+Membership notifications are not sent to the person who made the change.
 
 | Category | Source | Push |
 |---|---|---|
 | `billing.subscription-activated`, `renewed`, `cancelled`, `cancellation-scheduled`, `downgrade-*`, `upgraded`, `refund-approved`, `refund-rejected`, `invoice-ready` | Subscriptions event handlers, `InvoiceDeliveryJob` | no |
 | `billing.past-due`, `payment-rejected`, `refund-processed` | Subscriptions | yes (sensitive: no details on the lock screen) |
 | `billing.expired`, `subscription-rejected`, `upgrade-reverted`, `trial-ending` | Subscriptions, `TrialReminderProcessor` | yes |
-| `membership.joined`, `membership.role-changed` | Tenancy (to the member) | no |
-| `webhooks.endpoint-disabled` | Webhooks (to the tenant owner) | yes |
+| `membership.joined` (non-owner members added by someone else), `membership.role-changed` (the role SET changed) | Tenancy (to the member) | no |
+| `webhooks.endpoint-disabled` | Webhooks (to the tenant owner) | yes (sensitive) |
 | `catalog.product-published` | Catalog `ProductPublishedConsumer` (to the owner) | no |
 | `data-transfer.job-finished` | DataTransfer | yes |
 

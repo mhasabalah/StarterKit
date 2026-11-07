@@ -34,7 +34,7 @@ public sealed class NotificationHubTests : IAsyncLifetime
     public async Task DisposeAsync() => await _app.DisposeAsync();
 
     internal static async Task<(WebApplication App, TestServer Server)> StartHostAsync(string? redisConnection,
-        ILoggerProvider? logs = null)
+        ILoggerProvider? logs = null, Action<IServiceCollection>? extraServices = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -44,7 +44,7 @@ public sealed class NotificationHubTests : IAsyncLifetime
         builder.Services.AddAuthentication(HeaderAuthHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthHandler>(HeaderAuthHandler.SchemeName, _ => { });
         builder.Services.AddAuthorization();
-        var signalR = builder.Services.AddSignalR();
+        var signalR = builder.Services.AddSignalR(o => o.AddFilter<SessionRevocationHubFilter>());
         if (redisConnection is not null)
             signalR.AddStackExchangeRedis(redisConnection, o => o.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("test"));
         builder.Services.AddSingleton<IUserIdProvider, NotificationHubUserIdProvider>();
@@ -52,6 +52,7 @@ public sealed class NotificationHubTests : IAsyncLifetime
         builder.Services.AddSingleton<HubConnectionRegistry>();
         builder.Services.AddSingleton<HubSessionCloser>();
         builder.Services.AddSingleton<IHubRevocationBroadcaster, LocalHubRevocationBroadcaster>();
+        extraServices?.Invoke(builder.Services);
         builder.Services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
         builder.Services.AddSingleton<IUserEventPublisher, SignalRUserEventPublisher>();
 

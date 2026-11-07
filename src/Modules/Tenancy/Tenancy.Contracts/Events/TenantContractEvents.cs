@@ -25,7 +25,11 @@ public sealed record TenantChangedEvent(Guid TenantId) : IDomainEvent;
 public sealed record TenantMemberJoinedEvent(Guid TenantId, Guid UserId) : IDomainEvent;
 
 /// <summary>A membership changed (roles, branches, status, ownership) or was removed - drop cached memberships.</summary>
-public sealed record TenantMembershipChangedEvent(Guid TenantId, Guid UserId, bool Removed, bool RolesChanged = false) : IDomainEvent;
+public sealed record TenantMembershipChangedEvent(Guid TenantId, Guid UserId, bool Removed) : IDomainEvent
+{
+    /// <summary>True when the member's SET of roles actually changed (not for branch, status or ownership changes).</summary>
+    public bool RolesChanged { get; init; }
+}
 
 /// <summary>Role permissions changed: every membership of the tenant may have new effective permissions.</summary>
 public sealed record TenantRolesChangedEvent(Guid TenantId) : IDomainEvent;

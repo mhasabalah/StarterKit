@@ -22,7 +22,7 @@ public class IdentityJobSchedulerBootstrap : IHostedService
         // Schedule refresh token cleanup job (runs daily at 2 AM)
         RecurringJob.AddOrUpdate<RefreshTokenCleanupJob>(
             "cleanup-expired-refresh-tokens",
-            job => job.ExecuteAsync(),
+            job => job.ExecuteAsync(CancellationToken.None),
             Cron.Daily(2)); // Run at 2 AM every day
 
         _logger.LogInformation(

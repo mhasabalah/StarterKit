@@ -10,14 +10,14 @@ namespace Notification.Realtime;
 /// methods, so there is no hub-side input to validate, authorize or rate-limit; commands go through REST (mediator
 /// pipeline: validation, concurrency, tenant scope). A connection is addressed by its USER id
 /// (<see cref="NotificationHubUserIdProvider"/>), so every tab and device of the user receives the events. Each
-/// connection is tracked in <see cref="HubConnectionRegistry"/> so a revoked session's socket can be closed at once.
+/// connection is tracked (and revocation-checked) by <see cref="SessionRevocationHubFilter"/>, so a revoked session's
+/// socket can be closed at once.
 /// </summary>
 [Authorize]
-public sealed class NotificationHub(HubConnectionRegistry connections, ILogger<NotificationHub> logger) : Hub<INotificationClient>
+public sealed class NotificationHub(ILogger<NotificationHub> logger) : Hub<INotificationClient>
 {
     public override Task OnConnectedAsync()
     {
-        connections.Add(Context);
         logger.LogDebug("Notification hub connected. User: {UserId} Connection: {ConnectionId}",
             Context.UserIdentifier, Context.ConnectionId);
         return base.OnConnectedAsync();
@@ -25,7 +25,6 @@ public sealed class NotificationHub(HubConnectionRegistry connections, ILogger<N
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {
-        connections.Remove(Context.ConnectionId);
         logger.LogDebug(exception, "Notification hub disconnected. User: {UserId} Connection: {ConnectionId}",
             Context.UserIdentifier, Context.ConnectionId);
         return base.OnDisconnectedAsync(exception);

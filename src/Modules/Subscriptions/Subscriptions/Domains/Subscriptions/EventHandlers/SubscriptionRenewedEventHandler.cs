@@ -5,6 +5,7 @@ namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionRenewedEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     IConfiguration configuration,
     SubscriptionsDbContext dbContext,
@@ -33,8 +34,8 @@ public class SubscriptionRenewedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionRenewed, model.ToDictionary())
-            .WithBillingInApp("renewed", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName, model.NewRenewalDate])
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("renewed", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName, model.NewRenewalDate])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
 
         logger.LogInformation(
             "Subscription renewed email sent for {SubscriptionId} subscriber {SubscriberId}",

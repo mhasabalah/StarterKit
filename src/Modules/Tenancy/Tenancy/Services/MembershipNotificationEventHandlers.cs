@@ -3,6 +3,7 @@ using Notification.Contracts;
 using Notification.Contracts.Enums;
 using Notification.Contracts.InApp;
 using Shared.Core.Localization;
+using Shared.Core.Web;
 using Tenancy.Resources;
 
 namespace Tenancy.Services;
@@ -24,13 +25,33 @@ internal static class MembershipInApp
             Severity: NotificationSeverity.Info,
             Data: new Dictionary<string, string> { ["tenantId"] = tenantId.ToString() });
 
-    public static async Task SendAsync(INotificationSender notifications, Guid userId, InAppContent content, CancellationToken ct) =>
-        await notifications.For(userId).WithInApp(content).SendAsync(ct: ct);
+    /// <summary>
+    /// Sends inside the tenant's scope (the inbox row and delivery jobs carry it), never to the person who made the change
+    /// themselves, and never fails the caller.
+    /// </summary>
+    public static async Task NotifyAsync(
+        ITenantStore tenants, IHttpContextService http, INotificationSender notifications,
+        Guid tenantId, Guid memberId, string eventKey, CancellationToken ct)
+    {
+        if (http.GetUserIdAsGuid() == memberId)
+            return; // their own action: they know
+
+        var tenant = await tenants.FindByIdAsync(tenantId, ct);
+        if (tenant is null)
+            return;
+
+        using (TenantScope.Begin(tenant))
+        {
+            await notifications.For(memberId).WithInApp(Content(eventKey, tenant.Name, tenantId)).SendAsync(ct: ct);
+        }
+    }
 }
 
-/// <summary>A new (non-owner) member joined - e.g. accepted an invitation: tell that member.</summary>
+/// <summary>A new (non-owner) member joined (e.g. added by an admin or a directory): tell that member.</summary>
 public sealed class TenantMemberJoinedNotificationEventHandler(
     TenancyDbContext dbContext,
+    ITenantStore tenants,
+    IHttpContextService http,
     INotificationSender notifications,
     ILogger<TenantMemberJoinedNotificationEventHandler> logger) : INotificationHandler<TenantMemberJoinedEvent>
 {
@@ -38,25 +59,24 @@ public sealed class TenantMemberJoinedNotificationEventHandler(
     {
         try
         {
-            using (TenantScope.BeginHostScope())
+            bool isOwner;
+            using (TenantScope.BeginHostScope()) // control-plane read only
             {
                 var membership = await dbContext.Memberships.AsNoTracking()
                     .Where(m => m.TenantId == notification.TenantId && m.UserId == notification.UserId)
                     .Select(m => new { m.IsOwner })
                     .FirstOrDefaultAsync(cancellationToken);
-                // The owner "joins" at tenant creation; telling them is noise.
-                if (membership is null or { IsOwner: true })
+                if (membership is null)
                     return;
-
-                var name = await dbContext.Tenants.AsNoTracking()
-                    .Where(t => t.Id == notification.TenantId).Select(t => t.Name)
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (name is null)
-                    return;
-
-                await MembershipInApp.SendAsync(notifications, notification.UserId,
-                    MembershipInApp.Content("joined", name, notification.TenantId), cancellationToken);
+                isOwner = membership.IsOwner;
             }
+
+            // The owner "joins" at tenant creation; telling them is noise.
+            if (isOwner)
+                return;
+
+            await MembershipInApp.NotifyAsync(tenants, http, notifications, notification.TenantId, notification.UserId,
+                "joined", cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -67,7 +87,8 @@ public sealed class TenantMemberJoinedNotificationEventHandler(
 
 /// <summary>A member's roles changed: tell that member (other membership changes - branches, suspension - stay silent).</summary>
 public sealed class TenantMemberRolesChangedNotificationEventHandler(
-    TenancyDbContext dbContext,
+    ITenantStore tenants,
+    IHttpContextService http,
     INotificationSender notifications,
     ILogger<TenantMemberRolesChangedNotificationEventHandler> logger) : INotificationHandler<TenantMembershipChangedEvent>
 {
@@ -78,17 +99,8 @@ public sealed class TenantMemberRolesChangedNotificationEventHandler(
 
         try
         {
-            using (TenantScope.BeginHostScope())
-            {
-                var name = await dbContext.Tenants.AsNoTracking()
-                    .Where(t => t.Id == notification.TenantId).Select(t => t.Name)
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (name is null)
-                    return;
-
-                await MembershipInApp.SendAsync(notifications, notification.UserId,
-                    MembershipInApp.Content("role-changed", name, notification.TenantId), cancellationToken);
-            }
+            await MembershipInApp.NotifyAsync(tenants, http, notifications, notification.TenantId, notification.UserId,
+                "role-changed", cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

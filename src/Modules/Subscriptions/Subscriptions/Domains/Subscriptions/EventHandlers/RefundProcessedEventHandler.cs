@@ -7,6 +7,7 @@ public class RefundProcessedEventHandler(
     ISubscriberInfoProvider subscriberInfoProvider,
     ISender sender,
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     SubscriptionsDbContext dbContext)
     : INotificationHandler<RefundProcessedEvent>
 {
@@ -37,6 +38,6 @@ public class RefundProcessedEventHandler(
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.RefundProcessed, model.ToDictionary())
             .WithBillingInApp("refund-processed", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, push: true, sensitivePush: true, args: [planName])
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }

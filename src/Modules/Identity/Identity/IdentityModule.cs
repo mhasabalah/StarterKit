@@ -63,7 +63,7 @@ public static class IdentityModule
         services.AddScoped<ISessionRevoker, SessionRevoker>();
         services.AddScoped<ISessionManager, SessionManager>();
         services.AddScoped<ISessionRevocationRecorder, SessionRevocationRecorder>();
-        services.AddSingleton<Shared.Core.Authorization.ISessionRevocationChecker, SessionRevocationChecker>();
+        services.AddSingleton<UserDirectory.Contracts.Sessions.ISessionRevocationChecker, SessionRevocationChecker>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IApiKeyAuthenticator, ApiKeyAuthenticator>();
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
