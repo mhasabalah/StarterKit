@@ -61,9 +61,14 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
         services.AddDistributedMemoryCache();
         services.AddSingleton(TimeProvider.System);
 
-        services.AddDbContext<ApplicationIdentityDbContext>(o => o
+        // The real outbox write side: revocations must leave their integration event in the outbox.
+        services.AddScoped<Shared.Core.Data.IDomainEventCollector, Shared.Core.Data.DomainEventCollector>();
+        services.AddSingleton<Shared.Core.MultiTenancy.ITenantContext>(Shared.Core.MultiTenancy.TenantContext.SingleTenant);
+        services.AddScoped<Shared.Core.Messaging.Outbox.OutboxInterceptor>();
+        services.AddDbContext<ApplicationIdentityDbContext>((sp, o) => o
             .UseNpgsql(_container.GetConnectionString())
-            .UseSnakeCaseNamingConvention());
+            .UseSnakeCaseNamingConvention()
+            .AddInterceptors(sp.GetRequiredService<Shared.Core.Messaging.Outbox.OutboxInterceptor>()));
 
         services.AddIdentityCore<ApplicationUser>(o =>
             {
@@ -109,6 +114,7 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<ISessionRevoker, SessionRevoker>();
         services.AddScoped<ISessionManager, SessionManager>();
+        services.AddScoped<ISessionRevocationRecorder, SessionRevocationRecorder>();
         services.AddScoped<Identity.Data.Repository.ApiKeys.IApiKeyRepository, Identity.Data.Repository.ApiKeys.ApiKeyRepository>();
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
         services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();

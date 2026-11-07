@@ -16,7 +16,7 @@ public sealed class TransferJobFinishedEventHandler(
     TransferProgressPublisher progress,
     ILogger<TransferJobFinishedEventHandler> logger) : INotificationHandler<TransferJobFinishedEvent>
 {
-    public const string Category = "datatransfer.job-finished";
+    public const string Category = "data-transfer.job-finished";
 
     public async Task Handle(TransferJobFinishedEvent notification, CancellationToken cancellationToken)
     {
@@ -31,6 +31,7 @@ public sealed class TransferJobFinishedEventHandler(
             await notifications
                 .For(notification.RequestedBy, culture)
                 .WithInApp(Content(notification))
+                .WithPush()
                 .SendAsync(ct: cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

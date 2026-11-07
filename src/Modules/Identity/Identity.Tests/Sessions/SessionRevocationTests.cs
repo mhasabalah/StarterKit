@@ -19,6 +19,7 @@ public sealed class SessionRevocationTests
     private readonly Mock<UserManager<ApplicationUser>> _users = Mocks.UserManager();
     private readonly Mock<IRefreshTokenRepository> _repo = new();
     private readonly Mock<ITokenBlacklistService> _blacklist = new();
+    private readonly Mock<ISessionRevocationRecorder> _revocations = new();
     private readonly Mock<IHttpContextService> _http = new();
     private readonly Mock<ISessionRevoker> _revoker = new();
     private readonly ApplicationUser _user = Mocks.User();
@@ -37,7 +38,7 @@ public sealed class SessionRevocationTests
             .Callback(() => _user.SecurityStamp = "new-stamp")
             .ReturnsAsync(IdentityResult.Success);
 
-        var revoker = new SessionRevoker(_users.Object, _repo.Object, _blacklist.Object, _http.Object,
+        var revoker = new SessionRevoker(_users.Object, _repo.Object, _blacklist.Object, _revocations.Object, _http.Object,
             Microsoft.Extensions.Options.Options.Create(new JwtOptions { SecretKey = "x", Issuer = "i", Audience = "a", AccessTokenExpirationMinutes = 30 }),
             NullLogger<SessionRevoker>.Instance);
 
@@ -46,6 +47,7 @@ public sealed class SessionRevocationTests
         _users.Verify(m => m.UpdateSecurityStampAsync(_user), Times.Once);
         _repo.Verify(r => r.RevokeAllForUserAsync(_user.Id, "test", It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
         _blacklist.Verify(b => b.BlacklistUserAsync(_user.Id, TokenHasher.HashSecurityStamp("new-stamp"), TimeSpan.FromMinutes(31)), Times.Once);
+        _revocations.Verify(r => r.RecordAllSessionsAsync(_user.Id, It.IsAny<CancellationToken>()), Times.Once);
         TokenHasher.HashSecurityStamp("new-stamp").Should().NotBe(TokenHasher.HashSecurityStamp(oldStamp));
     }
 
@@ -56,7 +58,7 @@ public sealed class SessionRevocationTests
         _blacklist.Setup(b => b.BlacklistUserAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<TimeSpan>()))
             .ThrowsAsync(new TimeoutException("redis down"));
 
-        var revoker = new SessionRevoker(_users.Object, _repo.Object, _blacklist.Object, _http.Object,
+        var revoker = new SessionRevoker(_users.Object, _repo.Object, _blacklist.Object, _revocations.Object, _http.Object,
             Microsoft.Extensions.Options.Options.Create(new JwtOptions { SecretKey = "x", Issuer = "i", Audience = "a" }),
             NullLogger<SessionRevoker>.Instance);
 

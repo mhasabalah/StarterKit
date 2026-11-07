@@ -145,9 +145,11 @@ it); SCIM deactivation revokes all sessions of the account.
 
 Follow-ups of G13/G18 (2026-11-05, [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)): per-category mute and
 quiet hours for push; a direct APNs adapter behind `IPushProvider` if FCM is not wanted for iOS; push and in-app
-payloads on the existing business events (only the channel exists - no sender uses it yet); an OTP email template so
-`VerificationPurpose.EmailVerification` stops returning `ChannelUnavailable`; drop the hub socket immediately on
-session revocation (today: at access-token expiry).
+payloads on the existing business events (**done**: billing, membership, webhooks, catalog, data transfer; categories
+`<group>.<event>`, see [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md#which-events-notify));
+an OTP email template so `VerificationPurpose.EmailVerification` stops returning `ChannelUnavailable`; drop the hub
+socket immediately on session revocation (**done**: `UserSessionsRevokedIntegrationEvent`, see
+[Closing sockets on revocation](../Modules/Notification-Realtime-and-Push.md#closing-sockets-on-revocation)).
 
 ## 2026-11-04 — Production-readiness wave
 

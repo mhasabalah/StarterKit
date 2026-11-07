@@ -1,4 +1,6 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class RefundApprovedEventHandler(
@@ -33,6 +35,7 @@ public class RefundApprovedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.RefundApproved, model.ToDictionary())
+            .WithBillingInApp("refund-approved", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, args: [planName])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
     }
 }

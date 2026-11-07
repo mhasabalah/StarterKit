@@ -1,4 +1,6 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionUpgradedEventHandler(
@@ -39,6 +41,7 @@ public class SubscriptionUpgradedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionUpgraded, model.ToDictionary())
+            .WithBillingInApp("upgraded", NotificationSeverity.Success, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [model.OldPlanName, model.NewPlanName])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
     }
 }

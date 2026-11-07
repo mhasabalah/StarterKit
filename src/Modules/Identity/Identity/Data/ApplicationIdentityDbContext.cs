@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Identity.Domains.Audit.Models;
 using Identity.Domains.Onboarding.Models;
+using Identity.Domains.Sessions.Models;
 using Identity.Domains.Sso.Models;
 using Shared.Core.Auditing;
 using Identity.Infrastructure.DataProtection;
@@ -38,6 +39,7 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
     public DbSet<OtpCode> OtpCodes => Set<OtpCode>();
     public DbSet<AdminActionAuditLog> AdminAuditLogs => Set<AdminActionAuditLog>();
     public DbSet<AccountDeletion> AccountDeletions => Set<AccountDeletion>();
+    public DbSet<SessionRevocation> SessionRevocations => Set<SessionRevocation>();
     public DbSet<DataProtectionKeyEntry> DataProtectionKeys => Set<DataProtectionKeyEntry>();
     public DbSet<SsoConnection> SsoConnections => Set<SsoConnection>();
     public DbSet<SsoDomain> SsoDomains => Set<SsoDomain>();
@@ -131,7 +133,7 @@ public class ApplicationIdentityDbContext : IdentityDbContext<
         // Apply configurations from assembly
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-        // Transactional outbox (UserDeletedIntegrationEvent).
+        // Transactional outbox (UserDeletedIntegrationEvent, UserSessionsRevokedIntegrationEvent).
         builder.AddOutbox();
 
         // Generic "who changed what" for IAuditable entities (SSO connections, SCIM directories).

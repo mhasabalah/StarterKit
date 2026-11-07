@@ -1,3 +1,5 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionUpgradeRevertedEventHandler(
@@ -29,6 +31,7 @@ public class SubscriptionUpgradeRevertedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionUpgradeReverted, model.ToDictionary())
+            .WithBillingInApp("upgrade-reverted", NotificationSeverity.Warning, BillingInApp.SubscriptionUrl, push: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
     }
 }

@@ -186,6 +186,7 @@ public sealed class RefreshTokenTests(IdentityPostgresFixture fixture)
         {
             var job = new RefreshTokenCleanupJob(
                 scope.ServiceProvider.GetRequiredService<IRefreshTokenRepository>(),
+                scope.ServiceProvider.GetRequiredService<ISessionRevocationRecorder>(),
                 NullLogger<RefreshTokenCleanupJob>.Instance);
             await job.ExecuteAsync();
         }

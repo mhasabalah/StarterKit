@@ -122,6 +122,7 @@ failure domains apart: an FCM outage never re-runs (re-sends) the email, and an 
 | `NotificationsRead` | `{ ids \| null, readAt, upTo }` | read on another tab/device (`ids: null` = all up to `upTo`) |
 | `NotificationDeleted` | `{ id }` | deleted on another tab/device |
 | `UserEvent` | `{ type, tenantId, data }` | a transient event from another module, e.g. `datatransfer.job-progress` (not stored) |
+| `ForceDisconnect` | `{ reason }` | the session behind this socket was revoked; the server closes the socket right after. **Do not reconnect with the same token** - sign in again |
 
 Other modules push `UserEvent`s through `IUserEventPublisher` (`Notification.Contracts.Realtime`): best effort, at
 most `UserEvent.MaxDataEntries` (20) entries of ids, counts and statuses, never PII. Unlike inbox entries they are not
@@ -144,6 +145,44 @@ the client reconnects with a fresh token.
 load balancer without sticky sessions (the shipped nginx is `least_conn`), clients connect with **WebSockets and
 `skipNegotiation: true`**; `appsettings.Docker.json` allows only WebSockets (`Realtime:Transports`). SSE/long polling
 need sticky sessions.
+
+### Closing sockets on revocation
+
+Revoking a session (sign out of a device, logout-all, lock, delete, password or role change, refresh-token reuse)
+closes its live sockets within seconds, not at access-token expiry:
+
+1. Identity records a short-lived `SessionRevocation` row after the revocation committed; its save carries
+   `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`, urn `userdirectory.user-sessions-revoked.v1`:
+   `UserId`, `SessionIds` or `AllSessions`) through the Identity outbox. Revocation itself is a set-based update with
+   no aggregate, hence the row; `RefreshTokenCleanupJob` purges rows after 7 days. Recording failures are logged, never
+   thrown - the database revocation stays authoritative.
+2. `UserSessionsRevokedConsumer` (Notification) hands it to `IHubRevocationBroadcaster`. The event reaches ONE replica
+   (competing consumers) but the sockets are on all of them, so with Redis the broadcaster publishes on
+   `<Redis:InstanceName>:notification:hub-revoke` (same approach as the tenant L1 cache invalidation) and every replica
+   closes its own matches; without Redis it closes locally.
+3. `HubSessionCloser` looks up the connections in the per-replica `HubConnectionRegistry` (connection id, user, `sid`),
+   sends `ForceDisconnect`, then aborts the socket. Only the revoked `sid` closes (`AllSessions` closes every socket of the
+   user); the user's other sessions stay connected.
+4. Defense in depth: `SessionRevocationHubFilter` re-checks the session (`ISessionRevocationChecker`, backed by the Redis
+   blacklist) on connect and on every hub invocation, failing open if the store is down; the handshake check and
+   `CloseOnAuthenticationExpiration` still apply.
+
+### Which events notify
+
+In-app inbox entries (and push where it is actionable) accompany the existing emails and events. Category =
+`<group>.<event>` (groups `billing`, `security`, `membership`, `catalog`, `data-transfer`, `webhooks`, `system`); text
+is in both languages from the owning module's resx (`InApp.<group>.<event>.Title/.Body`, read with
+`Shared.Core.Localization.BilingualResource`). Amounts are kept out of the text.
+
+| Category | Source | Push |
+|---|---|---|
+| `billing.subscription-activated`, `renewed`, `cancelled`, `cancellation-scheduled`, `downgrade-*`, `upgraded`, `refund-approved`, `refund-rejected`, `invoice-ready` | Subscriptions event handlers, `InvoiceDeliveryJob` | no |
+| `billing.past-due`, `payment-rejected`, `refund-processed` | Subscriptions | yes (sensitive: no details on the lock screen) |
+| `billing.expired`, `subscription-rejected`, `upgrade-reverted`, `trial-ending` | Subscriptions, `TrialReminderProcessor` | yes |
+| `membership.joined`, `membership.role-changed` | Tenancy (to the member) | no |
+| `webhooks.endpoint-disabled` | Webhooks (to the tenant owner) | yes |
+| `catalog.product-published` | Catalog `ProductPublishedConsumer` (to the owner) | no |
+| `data-transfer.job-finished` | DataTransfer | yes |
 
 ### Browser client (TypeScript, `@microsoft/signalr`)
 

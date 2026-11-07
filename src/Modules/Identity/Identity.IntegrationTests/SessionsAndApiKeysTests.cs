@@ -30,6 +30,47 @@ public sealed class SessionsAndApiKeysTests(IdentityPostgresFixture fixture)
             .ListActiveFamiliesAsync(userId, DateTime.UtcNow);
     }
 
+    private async Task<List<Shared.Core.Messaging.Outbox.OutboxMessage>> RevocationOutboxAsync(Guid userId)
+    {
+        await using var scope = fixture.NewScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationIdentityDbContext>();
+        var rows = await db.Set<Shared.Core.Messaging.Outbox.OutboxMessage>()
+            .Where(m => m.MessageType.EndsWith("userdirectory.user-sessions-revoked.v1")).ToListAsync();
+        return rows.Where(m => m.Payload.Contains(userId.ToString(), StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    [Fact]
+    public async Task Revoking_a_session_writes_a_sessions_revoked_event_to_the_outbox_with_that_sid()
+    {
+        var user = await fixture.CreateUserAsync();
+        await LoginAsync(user);
+        var sid = (await ActiveAsync(user.Id)).Single().FamilyId;
+
+        await using (var scope = fixture.NewScope())
+        {
+            (await scope.ServiceProvider.GetRequiredService<ISessionManager>().RevokeAsync(user.Id, sid, "test")).Should().BeTrue();
+        }
+
+        var rows = await RevocationOutboxAsync(user.Id);
+        rows.Should().ContainSingle();
+        rows[0].Payload.Should().Contain(sid.ToString()).And.Contain("\"allSessions\": false");
+    }
+
+    [Fact]
+    public async Task Revoking_all_sessions_writes_an_all_sessions_event_to_the_outbox()
+    {
+        var user = await fixture.CreateUserAsync();
+        await LoginAsync(user);
+
+        await using (var scope = fixture.NewScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ISessionRevoker>().RevokeAllAsync(user.Id, "test");
+        }
+
+        var rows = await RevocationOutboxAsync(user.Id);
+        rows.Should().ContainSingle().Which.Payload.Should().Contain("\"allSessions\": true");
+    }
+
     [Fact]
     public async Task Login_creates_one_listed_session_per_device_with_device_metadata()
     {

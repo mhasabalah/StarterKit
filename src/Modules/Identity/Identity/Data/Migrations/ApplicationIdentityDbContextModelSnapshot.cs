@@ -405,6 +405,58 @@ namespace Identity.Data.Migrations
                     b.ToTable("scim_users", "identity");
                 });
 
+            modelBuilder.Entity("Identity.Domains.Sessions.Models.SessionRevocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllSessions")
+                        .HasColumnType("boolean")
+                        .HasColumnName("all_sessions");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<DateTime>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_session_revocations");
+
+                    b.HasIndex("RevokedAt")
+                        .HasDatabaseName("ix_session_revocations_revoked_at");
+
+                    b.ToTable("session_revocations", "identity");
+                });
+
             modelBuilder.Entity("Identity.Domains.Sso.Models.SsoConnection", b =>
                 {
                     b.Property<Guid>("Id")

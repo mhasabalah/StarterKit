@@ -78,4 +78,10 @@
   <data name="Import.Category.NotFound" xml:space="preserve"><value>لا يوجد تصنيف نشط بالمعرف النصي '{0}'.</value></data>
   <data name="Import.Sku.Deleted" xml:space="preserve"><value>رمز المنتج '{0}' يخص منتجًا محذوفًا؛ استعده أو استخدم رمزًا آخر.</value></data>
   <data name="Import.Product.NotEditable" xml:space="preserve"><value>المنتج '{0}' موجود ولا يمكنك تعديله (ليس ملكك أو لا يمكن تعديله في حالته الحالية).</value></data>
+  <data name="InApp.catalog.product-published.Title" xml:space="preserve">
+    <value>تم نشر المنتج</value>
+  </data>
+  <data name="InApp.catalog.product-published.Body" xml:space="preserve">
+    <value>منتجك {0} متاح الآن في الكتالوج.</value>
+  </data>
 </root>

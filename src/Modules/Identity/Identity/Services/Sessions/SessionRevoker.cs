@@ -20,6 +20,7 @@ public sealed class SessionRevoker(
     UserManager<ApplicationUser> userManager,
     IRefreshTokenRepository refreshTokens,
     ITokenBlacklistService tokenBlacklist,
+    ISessionRevocationRecorder revocations,
     IHttpContextService httpContextService,
     IOptions<JwtOptions> jwtOptions,
     ILogger<SessionRevoker> logger) : ISessionRevoker
@@ -58,6 +59,8 @@ public sealed class SessionRevoker(
                 logger.LogError(ex, "Failed to revoke access tokens in Redis for user {UserId}", userId);
             }
         }
+
+        await revocations.RecordAllSessionsAsync(userId, ct);
 
         logger.LogInformation(
             "Revoked all sessions of user {UserId} ({Count} refresh tokens). Reason: {Reason}",

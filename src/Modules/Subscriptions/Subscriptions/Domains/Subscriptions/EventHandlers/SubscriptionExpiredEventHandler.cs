@@ -1,4 +1,6 @@
 using System.Globalization;
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionExpiredEventHandler(
@@ -31,6 +33,7 @@ public class SubscriptionExpiredEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionExpired, model.ToDictionary())
+            .WithBillingInApp("expired", NotificationSeverity.Critical, BillingInApp.RenewUrl, push: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [model.PlanName])
             .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
 
         logger.LogInformation(
