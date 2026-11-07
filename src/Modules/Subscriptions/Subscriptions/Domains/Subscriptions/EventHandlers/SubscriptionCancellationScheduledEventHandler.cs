@@ -5,6 +5,7 @@ namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionCancellationScheduledEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     ISender sender,
     SubscriptionsDbContext dbContext)
@@ -34,7 +35,7 @@ public class SubscriptionCancellationScheduledEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionCancellationScheduled, model.ToDictionary())
-            .WithBillingInApp("cancellation-scheduled", NotificationSeverity.Warning, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName, model.CancellationDate])
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("cancellation-scheduled", NotificationSeverity.Warning, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName, model.CancellationDate])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }

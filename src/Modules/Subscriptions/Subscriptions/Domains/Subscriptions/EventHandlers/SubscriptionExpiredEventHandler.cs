@@ -5,6 +5,7 @@ namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionExpiredEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     IConfiguration configuration,
     SubscriptionsDbContext dbContext,
@@ -33,8 +34,8 @@ public class SubscriptionExpiredEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionExpired, model.ToDictionary())
-            .WithBillingInApp("expired", NotificationSeverity.Critical, BillingInApp.RenewUrl, push: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [model.PlanName])
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("expired", NotificationSeverity.Critical, BillingInApp.RenewUrl, push: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [model.PlanName])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
 
         logger.LogInformation(
             "Subscription expired email sent for {SubscriptionId} subscriber {SubscriberId}",

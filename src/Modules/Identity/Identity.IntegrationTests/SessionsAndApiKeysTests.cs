@@ -53,7 +53,9 @@ public sealed class SessionsAndApiKeysTests(IdentityPostgresFixture fixture)
 
         var rows = await RevocationOutboxAsync(user.Id);
         rows.Should().ContainSingle();
-        rows[0].Payload.Should().Contain(sid.ToString()).And.Contain("\"allSessions\": false");
+        var payload = System.Text.Json.JsonDocument.Parse(rows[0].Payload).RootElement;
+        payload.GetProperty("allSessions").GetBoolean().Should().BeFalse();
+        payload.GetProperty("sessionIds").EnumerateArray().Select(e => e.GetGuid()).Should().Equal(sid);
     }
 
     [Fact]
@@ -68,7 +70,8 @@ public sealed class SessionsAndApiKeysTests(IdentityPostgresFixture fixture)
         }
 
         var rows = await RevocationOutboxAsync(user.Id);
-        rows.Should().ContainSingle().Which.Payload.Should().Contain("\"allSessions\": true");
+        rows.Should().ContainSingle();
+        System.Text.Json.JsonDocument.Parse(rows[0].Payload).RootElement.GetProperty("allSessions").GetBoolean().Should().BeTrue();
     }
 
     [Fact]

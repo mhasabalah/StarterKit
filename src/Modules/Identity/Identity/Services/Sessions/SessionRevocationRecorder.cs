@@ -1,14 +1,22 @@
 using Identity.Domains.Sessions.Models;
 using Identity.Services.Token;
-using Shared.Core.Authorization;
+using Shared.Core.Data;
+using UserDirectory.Contracts.Sessions;
 
 namespace Identity.Services.Sessions;
 
 /// <summary>
 /// Announces ended sessions to the rest of the system (<c>UserSessionsRevokedIntegrationEvent</c>, through the
-/// transactional outbox) so long-lived connections close at once. Called AFTER the revocation itself committed
-/// (refresh tokens revoked, sid blacklisted): the database stays authoritative, and a failure to record is logged, not
-/// thrown - the hub still drops the socket at the next access-token expiry and its per-invocation revocation check.
+/// transactional outbox) so long-lived connections close at once.
+/// <list type="bullet">
+/// <item><b>Inside an open transaction</b> (the caller runs a unit of work on this context): the tombstone is only
+/// added to the context; the caller's own save commits it WITH the revocation, atomically. Nothing is saved here, so no
+/// other pending change is flushed by accident.</item>
+/// <item><b>No open transaction</b> (the revocation itself is already committed: set-based update, Redis blacklist): the
+/// tombstone is saved on a DEDICATED context through <see cref="IUnitOfWorkRunner"/>, so only the tombstone and its
+/// outbox row are written. A failure there is logged, not thrown - the database revocation stays authoritative and the
+/// hub still drops the socket at token expiry or on the revocation check.</item>
+/// </list>
 /// </summary>
 public interface ISessionRevocationRecorder
 {
@@ -22,32 +30,43 @@ public interface ISessionRevocationRecorder
 
 public sealed class SessionRevocationRecorder(
     ApplicationIdentityDbContext dbContext,
+    IUnitOfWorkRunner unitOfWork,
     TimeProvider timeProvider,
     ILogger<SessionRevocationRecorder> logger) : ISessionRevocationRecorder
 {
     public Task RecordSessionsAsync(Guid userId, IReadOnlyCollection<Guid> sessionIds, CancellationToken ct = default) =>
         sessionIds.Count == 0
             ? Task.CompletedTask
-            : SaveAsync(SessionRevocation.Create(userId, sessionIds, allSessions: false, Now()), ct);
+            : RecordAsync(SessionRevocation.Create(userId, sessionIds, allSessions: false, Now()), ct);
 
     public Task RecordAllSessionsAsync(Guid userId, CancellationToken ct = default) =>
-        SaveAsync(SessionRevocation.Create(userId, null, allSessions: true, Now()), ct);
+        RecordAsync(SessionRevocation.Create(userId, null, allSessions: true, Now()), ct);
 
     public Task<int> PurgeAsync(DateTime cutoffUtc, CancellationToken ct = default) =>
         dbContext.SessionRevocations.Where(r => r.RevokedAt < cutoffUtc).ExecuteDeleteAsync(ct);
 
     private DateTime Now() => timeProvider.GetUtcNow().UtcDateTime;
 
-    private async Task SaveAsync(SessionRevocation revocation, CancellationToken ct)
+    private async Task RecordAsync(SessionRevocation revocation, CancellationToken ct)
     {
-        dbContext.SessionRevocations.Add(revocation);
+        if (dbContext.Database.CurrentTransaction is not null)
+        {
+            // The caller's unit of work saves (and commits) it together with the revocation.
+            dbContext.SessionRevocations.Add(revocation);
+            return;
+        }
+
         try
         {
-            await dbContext.SaveChangesAsync(ct);
+            await unitOfWork.RunAsync(async (services, token) =>
+            {
+                var db = services.GetRequiredService<ApplicationIdentityDbContext>();
+                db.SessionRevocations.Add(revocation);
+                await db.SaveChangesAsync(token);
+            }, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            dbContext.Entry(revocation).State = EntityState.Detached;
             logger.LogError(ex, "Failed to record the session revocation of user {UserId}; live connections close at token expiry",
                 revocation.UserId);
         }
@@ -57,5 +76,7 @@ public sealed class SessionRevocationRecorder(
 /// <summary><see cref="ISessionRevocationChecker"/> over the access-token blacklist (Redis).</summary>
 public sealed class SessionRevocationChecker(ITokenBlacklistService blacklist) : ISessionRevocationChecker
 {
-    public Task<bool> IsRevokedAsync(Guid sessionId, CancellationToken ct = default) => blacklist.IsSessionRevokedAsync(sessionId);
+    public async Task<bool> IsRevokedAsync(Guid userId, Guid? sessionId, string? securityStampHash, CancellationToken ct = default) =>
+        (sessionId is { } sid && await blacklist.IsSessionRevokedAsync(sid))
+        || await blacklist.IsUserTokenRevokedAsync(userId, securityStampHash);
 }

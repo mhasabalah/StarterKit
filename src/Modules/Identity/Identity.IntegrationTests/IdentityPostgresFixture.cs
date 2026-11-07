@@ -63,6 +63,9 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
 
         // The real outbox write side: revocations must leave their integration event in the outbox.
         services.AddScoped<Shared.Core.Data.IDomainEventCollector, Shared.Core.Data.DomainEventCollector>();
+        services.AddScoped<Shared.Core.Data.IDomainEventDispatcher, Shared.Core.Data.DomainEventDispatcher>();
+        services.AddSingleton<Shared.Contracts.Mediation.IPublisher>(Moq.Mock.Of<Shared.Contracts.Mediation.IPublisher>());
+        services.AddSingleton<Shared.Core.Data.IUnitOfWorkRunner, Shared.Core.Data.UnitOfWorkRunner>();
         services.AddSingleton<Shared.Core.MultiTenancy.ITenantContext>(Shared.Core.MultiTenancy.TenantContext.SingleTenant);
         services.AddScoped<Shared.Core.Messaging.Outbox.OutboxInterceptor>();
         services.AddDbContext<ApplicationIdentityDbContext>((sp, o) => o

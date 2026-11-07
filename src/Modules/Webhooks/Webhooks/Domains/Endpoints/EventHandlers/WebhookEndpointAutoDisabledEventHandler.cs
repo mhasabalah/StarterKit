@@ -26,15 +26,21 @@ public sealed class WebhookEndpointAutoDisabledEventHandler(
 
     private static readonly ResourceManager Resources = new(typeof(WebhooksResource));
 
-    /// <summary>The inbox entry (and push text): ids and the endpoint address only, in both languages.</summary>
+    /// <summary>
+    /// The inbox entry (and push text) in both languages. Only the HOST of the endpoint is shown: URLs can carry paths or
+    /// query strings with tokens, and the push text reaches lock screens (sent as sensitive).
+    /// </summary>
     public static InAppContent InApp(WebhookEndpointAutoDisabledEvent e) =>
         new(
             Title: BilingualResource.Get(Resources, "InApp.webhooks.endpoint-disabled.Title"),
-            Body: BilingualResource.Get(Resources, "InApp.webhooks.endpoint-disabled.Body", e.Url, e.ConsecutiveFailures),
+            Body: BilingualResource.Get(Resources, "InApp.webhooks.endpoint-disabled.Body", HostOf(e.Url), e.ConsecutiveFailures),
             Category: Category,
             ActionUrl: "/settings/webhooks",
             Severity: NotificationSeverity.Warning,
             Data: new Dictionary<string, string> { ["endpointId"] = e.EndpointId.ToString() });
+
+    public static string HostOf(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host) ? uri.Host : "-";
 
     public async Task Handle(WebhookEndpointAutoDisabledEvent notification, CancellationToken cancellationToken)
     {
@@ -65,7 +71,7 @@ public sealed class WebhookEndpointAutoDisabledEventHandler(
                 .For(tenant.OwnerUserId)
                 .WithEmail(EmailTemplate.WebhookEndpointDisabled, model.ToDictionary())
                 .WithInApp(InApp(notification))
-                .WithPush()
+                .WithPush(sensitive: true)
                 .SendAsync(NotificationChannel.Email, cancellationToken);
 
             logger.LogWarning("Webhook endpoint {EndpointId} auto-disabled after {Failures} failures; owner {OwnerId} notified",

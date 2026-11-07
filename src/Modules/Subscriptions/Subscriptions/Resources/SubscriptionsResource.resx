@@ -34,112 +34,112 @@
   <data name="Validation.PlanFeature.ResetPeriodNeedsLimit" xml:space="preserve">
     <value>ResetPeriod is only valid together with a Limit.</value>
   </data>
-  <data name="InApp.subscription-activated.Title" xml:space="preserve">
+  <data name="InApp.billing.subscription-activated.Title" xml:space="preserve">
     <value>Subscription activated</value>
   </data>
-  <data name="InApp.subscription-activated.Body" xml:space="preserve">
+  <data name="InApp.billing.subscription-activated.Body" xml:space="preserve">
     <value>Your {0} plan is active. Next renewal: {1}.</value>
   </data>
-  <data name="InApp.past-due.Title" xml:space="preserve">
+  <data name="InApp.billing.past-due.Title" xml:space="preserve">
     <value>Payment overdue</value>
   </data>
-  <data name="InApp.past-due.Body" xml:space="preserve">
+  <data name="InApp.billing.past-due.Body" xml:space="preserve">
     <value>Your {0} subscription is past due. Renew before {1} to keep your access.</value>
   </data>
-  <data name="InApp.expired.Title" xml:space="preserve">
+  <data name="InApp.billing.expired.Title" xml:space="preserve">
     <value>Subscription expired</value>
   </data>
-  <data name="InApp.expired.Body" xml:space="preserve">
+  <data name="InApp.billing.expired.Body" xml:space="preserve">
     <value>Your {0} subscription has expired. Renew to restore your access.</value>
   </data>
-  <data name="InApp.renewed.Title" xml:space="preserve">
+  <data name="InApp.billing.renewed.Title" xml:space="preserve">
     <value>Subscription renewed</value>
   </data>
-  <data name="InApp.renewed.Body" xml:space="preserve">
+  <data name="InApp.billing.renewed.Body" xml:space="preserve">
     <value>Your {0} plan was renewed until {1}.</value>
   </data>
-  <data name="InApp.payment-rejected.Title" xml:space="preserve">
+  <data name="InApp.billing.payment-rejected.Title" xml:space="preserve">
     <value>Payment rejected</value>
   </data>
-  <data name="InApp.payment-rejected.Body" xml:space="preserve">
+  <data name="InApp.billing.payment-rejected.Body" xml:space="preserve">
     <value>We could not accept the payment for your {0} plan. Open billing to try again.</value>
   </data>
-  <data name="InApp.subscription-rejected.Title" xml:space="preserve">
+  <data name="InApp.billing.subscription-rejected.Title" xml:space="preserve">
     <value>Subscription request rejected</value>
   </data>
-  <data name="InApp.subscription-rejected.Body" xml:space="preserve">
+  <data name="InApp.billing.subscription-rejected.Body" xml:space="preserve">
     <value>Your request for the {0} plan was not approved.</value>
   </data>
-  <data name="InApp.refund-approved.Title" xml:space="preserve">
+  <data name="InApp.billing.refund-approved.Title" xml:space="preserve">
     <value>Refund approved</value>
   </data>
-  <data name="InApp.refund-approved.Body" xml:space="preserve">
+  <data name="InApp.billing.refund-approved.Body" xml:space="preserve">
     <value>Your refund request for the {0} plan was approved.</value>
   </data>
-  <data name="InApp.refund-processed.Title" xml:space="preserve">
+  <data name="InApp.billing.refund-processed.Title" xml:space="preserve">
     <value>Refund issued</value>
   </data>
-  <data name="InApp.refund-processed.Body" xml:space="preserve">
+  <data name="InApp.billing.refund-processed.Body" xml:space="preserve">
     <value>Your refund for the {0} plan has been issued.</value>
   </data>
-  <data name="InApp.refund-rejected.Title" xml:space="preserve">
+  <data name="InApp.billing.refund-rejected.Title" xml:space="preserve">
     <value>Refund request declined</value>
   </data>
-  <data name="InApp.refund-rejected.Body" xml:space="preserve">
+  <data name="InApp.billing.refund-rejected.Body" xml:space="preserve">
     <value>Your refund request for the {0} plan was declined.</value>
   </data>
-  <data name="InApp.cancellation-scheduled.Title" xml:space="preserve">
+  <data name="InApp.billing.cancellation-scheduled.Title" xml:space="preserve">
     <value>Cancellation scheduled</value>
   </data>
-  <data name="InApp.cancellation-scheduled.Body" xml:space="preserve">
+  <data name="InApp.billing.cancellation-scheduled.Body" xml:space="preserve">
     <value>Your {0} subscription will end on {1}.</value>
   </data>
-  <data name="InApp.cancelled.Title" xml:space="preserve">
+  <data name="InApp.billing.cancelled.Title" xml:space="preserve">
     <value>Subscription cancelled</value>
   </data>
-  <data name="InApp.cancelled.Body" xml:space="preserve">
+  <data name="InApp.billing.cancelled.Body" xml:space="preserve">
     <value>Your {0} subscription was cancelled.</value>
   </data>
-  <data name="InApp.downgrade-scheduled.Title" xml:space="preserve">
+  <data name="InApp.billing.downgrade-scheduled.Title" xml:space="preserve">
     <value>Downgrade scheduled</value>
   </data>
-  <data name="InApp.downgrade-scheduled.Body" xml:space="preserve">
+  <data name="InApp.billing.downgrade-scheduled.Body" xml:space="preserve">
     <value>Your plan will change from {0} to {1} on {2}.</value>
   </data>
-  <data name="InApp.downgrade-cancelled.Title" xml:space="preserve">
+  <data name="InApp.billing.downgrade-cancelled.Title" xml:space="preserve">
     <value>Downgrade cancelled</value>
   </data>
-  <data name="InApp.downgrade-cancelled.Body" xml:space="preserve">
+  <data name="InApp.billing.downgrade-cancelled.Body" xml:space="preserve">
     <value>The scheduled downgrade was cancelled. You stay on {0}.</value>
   </data>
-  <data name="InApp.downgrade-applied.Title" xml:space="preserve">
+  <data name="InApp.billing.downgrade-applied.Title" xml:space="preserve">
     <value>Plan changed</value>
   </data>
-  <data name="InApp.downgrade-applied.Body" xml:space="preserve">
+  <data name="InApp.billing.downgrade-applied.Body" xml:space="preserve">
     <value>You are now on the {0} plan. Next renewal: {1}.</value>
   </data>
-  <data name="InApp.upgraded.Title" xml:space="preserve">
+  <data name="InApp.billing.upgraded.Title" xml:space="preserve">
     <value>Plan upgraded</value>
   </data>
-  <data name="InApp.upgraded.Body" xml:space="preserve">
+  <data name="InApp.billing.upgraded.Body" xml:space="preserve">
     <value>You upgraded from {0} to {1}.</value>
   </data>
-  <data name="InApp.upgrade-reverted.Title" xml:space="preserve">
+  <data name="InApp.billing.upgrade-reverted.Title" xml:space="preserve">
     <value>Upgrade reverted</value>
   </data>
-  <data name="InApp.upgrade-reverted.Body" xml:space="preserve">
+  <data name="InApp.billing.upgrade-reverted.Body" xml:space="preserve">
     <value>Your upgrade was reverted because no payment proof arrived in time. You stay on {0}.</value>
   </data>
-  <data name="InApp.invoice-ready.Title" xml:space="preserve">
+  <data name="InApp.billing.invoice-ready.Title" xml:space="preserve">
     <value>Invoice ready</value>
   </data>
-  <data name="InApp.invoice-ready.Body" xml:space="preserve">
+  <data name="InApp.billing.invoice-ready.Body" xml:space="preserve">
     <value>Your invoice {0} is ready.</value>
   </data>
-  <data name="InApp.trial-ending.Title" xml:space="preserve">
+  <data name="InApp.billing.trial-ending.Title" xml:space="preserve">
     <value>Trial ending soon</value>
   </data>
-  <data name="InApp.trial-ending.Body" xml:space="preserve">
+  <data name="InApp.billing.trial-ending.Body" xml:space="preserve">
     <value>Your {0} trial ends on {1}. Review your plan to keep access.</value>
   </data>
 </root>

@@ -60,7 +60,9 @@ public sealed class SessionRevoker(
             }
         }
 
-        await revocations.RecordAllSessionsAsync(userId, ct);
+        // No user = nothing signed in to close (and no tombstone for an id that does not exist).
+        if (user is not null)
+            await revocations.RecordAllSessionsAsync(userId, ct);
 
         logger.LogInformation(
             "Revoked all sessions of user {UserId} ({Count} refresh tokens). Reason: {Reason}",

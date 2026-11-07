@@ -5,6 +5,7 @@ namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionPastDueEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     ISender sender,
     IConfiguration configuration,
@@ -38,8 +39,8 @@ public class SubscriptionPastDueEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionPastDue, model.ToDictionary())
-            .WithBillingInApp("past-due", NotificationSeverity.Warning, BillingInApp.RenewUrl, push: true, sensitivePush: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId), args: [planName, model.GraceDeadline])
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("past-due", NotificationSeverity.Warning, BillingInApp.RenewUrl, push: true, sensitivePush: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName, model.GraceDeadline])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
 
         logger.LogInformation(
             "Subscription past due email sent for {SubscriptionId} subscriber {SubscriberId} grace {GracePeriodEndsAt}",

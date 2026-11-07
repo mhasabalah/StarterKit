@@ -52,6 +52,19 @@ public sealed class SessionRevocationTests
     }
 
     [Fact]
+    public async Task RevokeAll_for_an_unknown_user_records_no_announcement()
+    {
+        _users.Setup(m => m.FindByIdAsync(It.IsAny<string>())).ReturnsAsync((ApplicationUser?)null);
+        var revoker = new SessionRevoker(_users.Object, _repo.Object, _blacklist.Object, _revocations.Object, _http.Object,
+            Microsoft.Extensions.Options.Options.Create(new JwtOptions { SecretKey = "x", Issuer = "i", Audience = "a" }),
+            NullLogger<SessionRevoker>.Instance);
+
+        await revoker.RevokeAllAsync(Guid.NewGuid(), "test");
+
+        _revocations.Verify(r => r.RecordAllSessionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task RevokeAll_survives_a_redis_failure_after_the_database_revocation()
     {
         _users.Setup(m => m.UpdateSecurityStampAsync(_user)).ReturnsAsync(IdentityResult.Success);

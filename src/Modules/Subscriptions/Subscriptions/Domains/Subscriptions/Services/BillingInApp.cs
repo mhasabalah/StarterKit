@@ -7,7 +7,7 @@ namespace Subscriptions.Domains.Subscriptions.Services;
 
 /// <summary>
 /// The in-app inbox entry (and optional push) that accompanies a billing email. Category <c>billing.&lt;event&gt;</c>;
-/// title and body come from <c>SubscriptionsResource</c> keys <c>InApp.&lt;event&gt;.Title</c> / <c>.Body</c> in BOTH
+/// title and body come from <c>SubscriptionsResource</c> keys <c>InApp.billing.&lt;event&gt;.Title</c> / <c>.Body</c> in BOTH
 /// languages (the recipient's culture picks one at delivery). Amounts are deliberately left out of the text: the
 /// inbox shows the event, the invoice or portal holds the figures.
 /// </summary>
@@ -22,8 +22,8 @@ internal static class BillingInApp
         string eventKey, NotificationSeverity severity, string actionUrl, IReadOnlyDictionary<string, string>? data = null,
         params object?[] args) =>
         new(
-            Title: BilingualResource.Get(Resources, $"InApp.{eventKey}.Title", args),
-            Body: BilingualResource.Get(Resources, $"InApp.{eventKey}.Body", args),
+            Title: BilingualResource.Get(Resources, $"InApp.billing.{eventKey}.Title", args),
+            Body: BilingualResource.Get(Resources, $"InApp.billing.{eventKey}.Body", args),
             Category: $"{CategoryGroup}.{eventKey}",
             ActionUrl: actionUrl,
             Severity: severity,
@@ -39,8 +39,34 @@ internal static class BillingInApp
         return push ? builder.WithPush(sensitivePush) : builder;
     }
 
-    public static IReadOnlyDictionary<string, string> SubscriptionData(Guid subscriptionId) =>
-        new Dictionary<string, string> { ["subscriptionId"] = subscriptionId.ToString() };
+    /// <summary>Client payload: ids only. <c>tenantId</c> (= the subscriber) is added when multi-tenancy is on.</summary>
+    public static IReadOnlyDictionary<string, string> SubscriptionData(
+        Guid subscriptionId, Guid subscriberId, ITenantScopeFactory tenants) =>
+        WithTenant(new Dictionary<string, string> { ["subscriptionId"] = subscriptionId.ToString() }, subscriberId, tenants);
+
+    public static IReadOnlyDictionary<string, string> WithTenant(
+        Dictionary<string, string> data, Guid subscriberId, ITenantScopeFactory tenants)
+    {
+        if (tenants.IsMultiTenant)
+            data["tenantId"] = subscriberId.ToString();
+        return data;
+    }
+
+    /// <summary>
+    /// Sends inside the subscriber's tenant scope when multi-tenancy is on (the subscriber IS the tenant): the inbox row
+    /// and the delivery jobs then carry the right tenant even when the handler runs in host or another scope.
+    /// </summary>
+    public static async Task SendForSubscriberAsync(
+        this INotificationBuilder builder, ITenantScopeFactory tenants, Guid subscriberId,
+        NotificationChannel? forcedChannel, CancellationToken ct)
+    {
+        var tenant = await tenants.FindAsync(subscriberId, ct);
+        var scope = tenant is null ? null : TenantScope.Begin(tenant);
+        using (scope)
+        {
+            await builder.SendAsync(forcedChannel, ct);
+        }
+    }
 
     public const string SubscriptionUrl = "/subscription";
     public const string RenewUrl = "/subscription/renew";

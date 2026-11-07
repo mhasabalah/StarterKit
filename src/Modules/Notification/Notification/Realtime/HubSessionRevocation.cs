@@ -1,10 +1,11 @@
 using System.Security.Claims;
-using RedisOptions = Shared.Core.Options.RedisOptions;
 using MassTransit;
 using Microsoft.AspNetCore.SignalR;
 using Notification.Contracts.Realtime;
 using StackExchange.Redis;
+using UserDirectory.Contracts.Sessions;
 using UserDirectory.Contracts.Users.IntegrationEvents;
+using RedisOptions = Shared.Core.Options.RedisOptions;
 
 namespace Notification.Realtime;
 
@@ -78,15 +79,29 @@ public sealed class NoOpHubRevocationBroadcaster : IHubRevocationBroadcaster
 
 /// <summary>
 /// Redis pub/sub fan-out (same approach as the tenant L1 cache invalidation bus): the replica that consumed the event
-/// publishes; EVERY replica, including the publisher, is subscribed and closes its own matching sockets. If publishing
-/// fails the local sockets are still closed and the rest fall back to token expiry and the per-invocation check.
+/// publishes; every SUBSCRIBED replica, including the publisher, closes its own matching sockets.
+/// <para>
+/// Degraded behavior (Redis down or this replica not subscribed): sockets of this replica are always closed locally
+/// (publish failure, or publish succeeded while this replica is not subscribed); sockets on OTHER replicas then close at
+/// access-token expiry (<c>CloseOnAuthenticationExpiration</c>) or on their next revocation check. A failed subscription
+/// is retried in the background (and after a reconnect), so the replica rejoins the fan-out without a restart.
+/// </para>
 /// </summary>
 public sealed class RedisHubRevocationBroadcaster(
     IConnectionMultiplexer redis,
     HubSessionCloser closer,
     IOptions<RedisOptions> redisOptions,
-    ILogger<RedisHubRevocationBroadcaster> logger) : IHubRevocationBroadcaster, IHostedService
+    ILogger<RedisHubRevocationBroadcaster> logger) : IHubRevocationBroadcaster, IHostedService, IDisposable
 {
+    private CancellationTokenSource? _stop;
+    private Task? _retryLoop;
+    private volatile bool _subscribed;
+
+    /// <summary>How often a missing subscription is retried.</summary>
+    public TimeSpan RetryInterval { get; init; } = TimeSpan.FromSeconds(5);
+
+    public bool IsSubscribed => _subscribed;
+
     private RedisChannel Channel =>
         RedisChannel.Literal(redisOptions.Value.InstanceName.TrimEnd(':') + ":notification:hub-revoke");
 
@@ -100,23 +115,34 @@ public sealed class RedisHubRevocationBroadcaster(
         {
             logger.LogWarning(ex, "Broadcasting the hub revocation of user {UserId} failed; closing local sockets only", revocation.UserId);
             await closer.CloseAsync(revocation);
+            return;
+        }
+
+        if (!_subscribed)
+        {
+            // Published, but we will not hear our own message: do our own part.
+            await closer.CloseAsync(revocation);
         }
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            await redis.GetSubscriber().SubscribeAsync(Channel, (channel, message) => { _ = HandleAsync(message.ToString()); });
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "Subscribing to hub revocations failed; sockets of this replica close at token expiry");
-        }
+        redis.ConnectionRestored += OnConnectionRestored;
+        await TrySubscribeAsync();
+        _stop = new CancellationTokenSource();
+        _retryLoop = RetryUntilStoppedAsync(_stop.Token);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        redis.ConnectionRestored -= OnConnectionRestored;
+        if (_stop is not null)
+        {
+            await _stop.CancelAsync();
+            if (_retryLoop is not null)
+                await _retryLoop.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        }
+
         try
         {
             await redis.GetSubscriber().UnsubscribeAsync(Channel);
@@ -124,6 +150,52 @@ public sealed class RedisHubRevocationBroadcaster(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogDebug(ex, "Unsubscribing from hub revocations failed");
+        }
+
+        _subscribed = false;
+    }
+
+    public void Dispose() => _stop?.Dispose();
+
+    /// <summary>One subscription attempt; returns whether this replica is subscribed afterwards.</summary>
+    public async Task<bool> TrySubscribeAsync()
+    {
+        try
+        {
+            await redis.GetSubscriber().SubscribeAsync(Channel, (channel, message) => { _ = HandleAsync(message.ToString()); });
+            _subscribed = true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _subscribed = false;
+            logger.LogWarning(ex, "Subscribing to hub revocations failed; retrying in {Seconds}s (sockets of this replica close locally or at token expiry meanwhile)",
+                RetryInterval.TotalSeconds);
+        }
+
+        return _subscribed;
+    }
+
+    private void OnConnectionRestored(object? sender, ConnectionFailedEventArgs e)
+    {
+        // Redis re-establishes subscriptions itself; this makes sure and covers a subscribe that failed during the outage.
+        _subscribed = false;
+        _ = TrySubscribeAsync();
+    }
+
+    private async Task RetryUntilStoppedAsync(CancellationToken stopping)
+    {
+        using var timer = new PeriodicTimer(RetryInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stopping))
+            {
+                if (!_subscribed)
+                    await TrySubscribeAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // stopping
         }
     }
 
@@ -156,47 +228,56 @@ public sealed class UserSessionsRevokedConsumer(IHubRevocationBroadcaster broadc
 }
 
 /// <summary>
-/// Defense in depth: re-checks the session's revocation on connect and on every hub invocation (the hub has none today,
-/// so this guards any future method), beyond the handshake check and <c>CloseOnAuthenticationExpiration</c>. Cheap
-/// (one store lookup). Fails open when the store is down: the other layers still apply.
+/// Tracks every connection in the <see cref="HubConnectionRegistry"/> and re-checks the session's revocation when it
+/// connects (<see cref="ISessionRevocationChecker"/>: the session id AND the security-stamp hash, so a revoke-all that
+/// rotated the stamp is caught). The connection is REGISTERED FIRST and checked second: a revocation that lands in
+/// between finds the socket in the registry, one that landed before is caught by the check. The hub has no client
+/// methods, so there is no per-invocation check; beyond this and the handshake check, <c>CloseOnAuthenticationExpiration</c>
+/// bounds a missed revocation to one access-token lifetime. Fails open when the store is down.
 /// </summary>
-public sealed class SessionRevocationHubFilter(ILogger<SessionRevocationHubFilter> logger) : IHubFilter
+public sealed class SessionRevocationHubFilter(HubConnectionRegistry registry, ILogger<SessionRevocationHubFilter> logger) : IHubFilter
 {
-    public async ValueTask<object?> InvokeMethodAsync(
-        HubInvocationContext invocationContext, Func<HubInvocationContext, ValueTask<object?>> next)
-    {
-        if (await IsRevokedAsync(invocationContext.Context, invocationContext.ServiceProvider))
-            throw new HubException("session_revoked");
-
-        return await next(invocationContext);
-    }
+    /// <summary>The security-stamp hash claim of Identity access tokens (<c>IdentityClaimTypes.SecurityStampHash</c>).</summary>
+    public const string SecurityStampHashClaim = "sstamp";
 
     public async Task OnConnectedAsync(HubLifetimeContext context, Func<HubLifetimeContext, Task> next)
     {
-        if (await IsRevokedAsync(context.Context, context.ServiceProvider))
+        var caller = context.Context;
+        registry.Add(caller);
+
+        if (await IsRevokedAsync(caller, context.ServiceProvider))
+        {
+            registry.Remove(caller.ConnectionId);
+            caller.Abort();
             return;
+        }
 
         await next(context);
+    }
+
+    public Task OnDisconnectedAsync(HubLifetimeContext context, Exception? exception, Func<HubLifetimeContext, Exception?, Task> next)
+    {
+        registry.Remove(context.Context.ConnectionId);
+        return next(context, exception);
     }
 
     private async Task<bool> IsRevokedAsync(HubCallerContext caller, IServiceProvider services)
     {
         var checker = services.GetService<ISessionRevocationChecker>();
-        if (checker is null || HubConnectionRegistry.SessionIdOf(caller.User) is not { } sessionId)
+        var user = caller.User;
+        if (checker is null || !Guid.TryParse(user?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
             return false;
 
         try
         {
-            if (!await checker.IsRevokedAsync(sessionId, caller.ConnectionAborted))
-                return false;
+            return await checker.IsRevokedAsync(
+                userId, HubConnectionRegistry.SessionIdOf(user), user?.FindFirst(SecurityStampHashClaim)?.Value,
+                caller.ConnectionAborted);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Session revocation check failed; allowing the hub call");
+            logger.LogWarning(ex, "Session revocation check failed; allowing the hub connection");
             return false;
         }
-
-        caller.Abort();
-        return true;
     }
 }
