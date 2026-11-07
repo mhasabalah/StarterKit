@@ -46,7 +46,7 @@ public static class IdentityModule
 
         services.ConfigureOptions(configuration);
         services.AddCustomDbContext<ApplicationIdentityDbContext>(configuration, "starterkit");
-        services.AddOutbox<ApplicationIdentityDbContext>(); // delivers UserDeletedIntegrationEvent
+        services.AddOutbox<ApplicationIdentityDbContext>(); // delivers UserDeletedIntegrationEvent, UserSessionsRevokedIntegrationEvent
         services.ConfigureIdentity();
         // Data Protection key ring (encrypts authenticator keys, signs reset tokens): database-backed, shared
         // application name, optional at-rest encryption (Identity:DataProtection) + production guard.
@@ -62,6 +62,8 @@ public static class IdentityModule
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<ISessionRevoker, SessionRevoker>();
         services.AddScoped<ISessionManager, SessionManager>();
+        services.AddScoped<ISessionRevocationRecorder, SessionRevocationRecorder>();
+        services.AddSingleton<UserDirectory.Contracts.Sessions.ISessionRevocationChecker, SessionRevocationChecker>();
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IApiKeyAuthenticator, ApiKeyAuthenticator>();
         services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
@@ -100,6 +102,8 @@ public static class IdentityModule
         services.AddScoped<SsoReturnUrlPolicy>();
         services.AddScoped<OidcSsoClient>();
         services.AddScoped<SamlSsoClient>();
+        services.AddScoped<SamlMetadataFetcher>();
+        services.AddScoped<SamlMetadataRefresher>();
         services.AddScoped<SsoAccountService>();
         services.AddScoped<SsoLoginFlow>();
         services.AddScoped<SsoConnectionMapper>();
@@ -128,6 +132,8 @@ public static class IdentityModule
 
         // Background jobs
         services.AddScoped<RefreshTokenCleanupJob>();
+        services.AddScoped<Identity.Domains.Sso.Jobs.RefreshSamlMetadataJob>();
+        services.AddScoped<Identity.Domains.Sso.Jobs.CheckSamlCertificateExpiryJob>();
         services.AddHostedService<IdentityJobSchedulerBootstrap>();
 
         services.AddMediator(IdentityRoot.AssemblyName);
@@ -207,6 +213,11 @@ public static class IdentityModule
         services.Configure<OnboardingOptions>(configuration.GetSection("Notification:Onboarding"));
         services.Configure<PasskeyOptions>(configuration.GetSection(PasskeyOptions.SectionName));
         services.Configure<SsoOptions>(configuration.GetSection(SsoOptions.SectionName));
+        services.PostConfigure<SsoOptions>(o =>
+        {
+            if (o.CertificateExpiryAlertDays.Length == 0)
+                o.CertificateExpiryAlertDays = [.. SsoOptions.DefaultCertificateExpiryAlertDays];
+        });
     }
 
     private static void ConfigureIdentity(this IServiceCollection services)

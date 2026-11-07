@@ -1,9 +1,12 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class RefundRejectedEventHandler(
     ISubscriberInfoProvider subscriberInfoProvider,
     ISender sender,
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     SubscriptionsDbContext dbContext)
     : INotificationHandler<RefundRejectedEvent>
 {
@@ -31,6 +34,7 @@ public class RefundRejectedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.RefundRejected, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("refund-rejected", NotificationSeverity.Warning, BillingInApp.SubscriptionUrl, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }

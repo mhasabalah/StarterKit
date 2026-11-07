@@ -1,0 +1,21 @@
+{% comment %}Variables: ConnectionName, ExpiresOn, DaysLeft{% endcomment %}
+
+<h2 class="sk-h" style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:{{ t.text }};line-height:1.35;">
+  {% if culture == 'ar' %}شهادة SSO توشك على الانتهاء{% else %}SSO certificate expiring soon{% endif %}
+</h2>
+
+<p class="sk-p" style="margin:0 0 20px 0;font-size:15px;color:{{ t.textSecondary }};line-height:1.75;">
+  {% if culture == 'ar' %}
+    ستنتهي صلاحية شهادة التوقيع الخاصة بموفر الهوية في اتصال <strong style="color:{{ t.text }};">{{ ConnectionName }}</strong> بعد {{ DaysLeft }} يومًا ({{ ExpiresOn }}).
+  {% else %}
+    The identity provider signing certificate of the connection <strong style="color:{{ t.text }};">{{ ConnectionName }}</strong> expires in {{ DaysLeft }} days ({{ ExpiresOn }}).
+  {% endif %}
+</p>
+
+<p class="sk-p" style="margin:0;font-size:13px;color:{{ t.textSubtle }};line-height:1.75;">
+  {% if culture == 'ar' %}
+    بعد انتهاء الصلاحية سيفشل تسجيل الدخول عبر SSO. حدّث بيانات الوصفية لدى موفر الهوية أو أضف الشهادة الجديدة من إعدادات SSO.
+  {% else %}
+    After it expires, SSO sign-ins will fail. Make sure the IdP metadata is up to date or add the new certificate in your SSO settings.
+  {% endif %}
+</p>

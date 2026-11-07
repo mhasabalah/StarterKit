@@ -55,8 +55,9 @@ public class TenantMembership : Aggregate<Guid>, IMustHaveTenant
 
     public void SetRoles(IEnumerable<Guid> roleIds)
     {
+        var before = RoleIds.ToHashSet();
         SetRolesCore(roleIds);
-        Changed();
+        Changed(rolesChanged: !before.SetEquals(RoleIds));
     }
 
     public void SetBranches(IEnumerable<BranchAssignment> branches)
@@ -112,10 +113,10 @@ public class TenantMembership : Aggregate<Guid>, IMustHaveTenant
             .ToList();
     }
 
-    private void Changed()
+    private void Changed(bool rolesChanged = false)
     {
         Rotate();
-        AddDomainEvent(new TenantMembershipChangedEvent(TenantId, UserId, Removed: false));
+        AddDomainEvent(new TenantMembershipChangedEvent(TenantId, UserId, Removed: false) { RolesChanged = rolesChanged });
     }
 
     private void Rotate() => Stamp = Guid.NewGuid().ToString("N");

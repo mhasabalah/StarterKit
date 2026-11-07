@@ -62,6 +62,17 @@ public sealed class AdditiveChannelDispatchTests
     }
 
     [Fact]
+    public async Task A_pinned_correlation_id_is_used_by_every_job_so_a_redelivery_maps_to_the_same_entry()
+    {
+        var pinned = Guid.NewGuid();
+
+        var correlation = await Enqueuer().EnqueueAsync(Message() with { CorrelationId = pinned });
+
+        correlation.Should().Be(pinned);
+        _enqueued.Should().OnlyContain(j => j.Args.Contains(pinned));
+    }
+
+    [Fact]
     public async Task An_in_app_only_notification_runs_no_email_chain()
     {
         await Enqueuer().EnqueueAsync(Message(email: false, push: false));

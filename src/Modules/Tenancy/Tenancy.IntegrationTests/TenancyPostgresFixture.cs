@@ -40,7 +40,8 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
     public FakeUserDirectory Users { get; } = new();
 
     /// <summary>The notification sender the invitation e-mail would go through (verify "nothing was queued").</summary>
-    public Mock<Notification.Contracts.INotificationSender> Notifications { get; } = new();
+    // DefaultValue.Mock: senders that chain the builder (invitation mailer, membership notifications) get mock builders.
+    public Mock<Notification.Contracts.INotificationSender> Notifications { get; } = new() { DefaultValue = DefaultValue.Mock };
 
     public async Task InitializeAsync()
     {

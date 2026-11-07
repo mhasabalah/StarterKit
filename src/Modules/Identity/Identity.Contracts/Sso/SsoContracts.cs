@@ -58,7 +58,7 @@ public sealed record SsoConnectionInput
     /// <summary>The IdP's SingleSignOnService URL (HTTP-Redirect binding).</summary>
     public string? SamlIdpSsoUrl { get; init; }
 
-    /// <summary>Optional metadata URL: certificates and URLs are refreshed from it daily (key rollover).</summary>
+    /// <summary>Optional metadata URL: the IdP certificates and SSO URL are refreshed from it every few hours (key rollover; entity id must match).</summary>
     public string? SamlIdpMetadataUrl { get; init; }
 
     /// <summary>IdP signing certificates (Base64 DER or PEM). Several are allowed during a rollover.</summary>
@@ -105,6 +105,9 @@ public sealed record SsoConnectionDto(
     string? SamlIdpMetadataUrl,
     IReadOnlyList<SsoCertificateDto> SamlIdpCertificates,
     bool SamlAllowIdpInitiated,
+    DateTime? SamlMetadataRefreshedAt,
+    string? SamlMetadataLastError,
+    DateTime? SamlCertificatesNotAfter,
     string? EmailClaim,
     string? GivenNameClaim,
     string? FamilyNameClaim,
@@ -145,6 +148,18 @@ public sealed record DisableSsoConnectionCommand(Guid Id, long? Version = null) 
 public sealed record DeleteSsoConnectionCommand(Guid Id) : ICommand<DeleteSsoConnectionResult>;
 
 public sealed record DeleteSsoConnectionResult(Guid Id);
+
+/// <summary>
+/// "Refresh now": re-reads the SAML metadata URL of the connection. Failures are reported in the result
+/// (<see cref="RefreshSamlMetadataResult.Error"/>), not as an HTTP error; read the connection for the full state.
+/// </summary>
+public sealed record RefreshSamlMetadataCommand(Guid Id) : ICommand<RefreshSamlMetadataResult>;
+
+/// <param name="Id">Connection.</param>
+/// <param name="Outcome"><c>Updated</c>, <c>Unchanged</c> or <c>Failed</c>.</param>
+/// <param name="Error">Stable code when failed (<c>metadata_entity_id_mismatch</c>, <c>metadata_fetch_failed</c>, ...).</param>
+/// <param name="RefreshedAt">Last successful refresh (UTC).</param>
+public sealed record RefreshSamlMetadataResult(Guid Id, string Outcome, string? Error, DateTime? RefreshedAt);
 
 /// <summary>Adds an email domain; returns the TXT record to publish.</summary>
 public sealed record AddSsoDomainCommand(Guid ConnectionId, string Domain) : ICommand<SsoDomainDto>;

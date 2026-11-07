@@ -273,4 +273,10 @@
   <data name="Sso.Connection.PublicEmailDomain" xml:space="preserve">
     <value>'{0}' مزود بريد إلكتروني عام ولا يمكن استخدامه للدخول الموحد.</value>
   </data>
+  <data name="Sso.Connection.NotSaml" xml:space="preserve">
+    <value>اتصالات SAML فقط لها بيانات وصفية لموفر الهوية.</value>
+  </data>
+  <data name="Sso.Connection.MetadataUrlRequired" xml:space="preserve">
+    <value>يجب ضبط رابط البيانات الوصفية أولاً.</value>
+  </data>
 </root>

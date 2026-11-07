@@ -37,7 +37,7 @@ ProcessImportJob: claim lease ─> re-check the requester (membership + permissi
   ─> batches of BatchSize rows: ONE unit of work of the owning module's definition (its repository, aggregate,
      domain events, outbox), then checkpoint + counters + row errors saved under the lease, cancel checked
   ─> error report CSV (from the stored errors) ─> Completed / CompletedWithErrors
-  ─> TransferJobFinishedEvent -> in-app notification "datatransfer.job-finished" (+ SignalR hint)
+  ─> TransferJobFinishedEvent -> in-app notification "data-transfer.job-finished" (+ SignalR hint)
 ```
 
 - **Lease.** `LeaseOwner` / `LeaseUntil` are claimed and renewed under optimistic concurrency. A duplicate run (a
@@ -266,7 +266,7 @@ The Attachment upload limit for documents (`Attachment:Validation:MaxDocumentSiz
 
 ## Events, metrics, permissions
 
-- Domain event `TransferJobFinishedEvent` → in-app notification to the requester (category `datatransfer.job-finished`).
+- Domain event `TransferJobFinishedEvent` → in-app notification to the requester (category `data-transfer.job-finished`).
 - Integration event `DataImportCompletedIntegrationEvent` (commit imports that completed): job id, definition, counts.
 - Metrics (meter `StarterKit.DataTransfer`): `datatransfer.rows` (definition, outcome), `datatransfer.job.duration`,
   `datatransfer.jobs.finished` (kind, definition, status). Logs never contain cell values.
