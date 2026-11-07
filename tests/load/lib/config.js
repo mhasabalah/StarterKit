@@ -13,17 +13,19 @@ export const USER_PASSWORD = __ENV.LOAD_USER_PASSWORD || '';
 export const TENANT = __ENV.LOAD_TENANT || '';
 
 const DURATION = __ENV.LOAD_DURATION || '30s';
-const SCALE = Number(__ENV.LOAD_VU_SCALE || '1');
+const RATE_SCALE = Number(__ENV.LOAD_RATE_SCALE || '1');
 
-// Per-scenario virtual users (scaled by LOAD_VU_SCALE) and p95 budgets in ms. The budgets are deliberately wide: they
-// are a regression tripwire for a CI runner / developer machine, not an SLA. Tighten them against real baselines.
+// Open model: each scenario starts `rate` ITERATIONS per second whatever the latency (a slow server cannot throttle the
+// load, which a closed VU loop would do). `vus` pre-allocates the VU pool, `maxVus` caps it; an iteration that finds no
+// free VU is counted in dropped_iterations, which fails the run (the target rate was not sustained).
+// p95 budgets are in ms and deliberately wide: a regression tripwire for a CI runner / developer machine, not an SLA.
 export const SCENARIOS = {
-  auth: { vus: 4, p95: 1500, exec: 'authScenario' },
-  catalog: { vus: 10, p95: 500, exec: 'catalogScenario' },
-  products: { vus: 6, p95: 800, exec: 'productsScenario' },
-  inbox: { vus: 6, p95: 400, exec: 'inboxScenario' },
-  // One active import per definition and tenant (409 otherwise): exactly one VU.
-  import: { vus: 1, p95: 1000, exec: 'importScenario', fixed: true },
+  auth: { rate: 5, vus: 8, maxVus: 30, p95: 1500, exec: 'authScenario' },
+  catalog: { rate: 20, vus: 10, maxVus: 40, p95: 500, exec: 'catalogScenario' },
+  products: { rate: 8, vus: 8, maxVus: 30, p95: 800, exec: 'productsScenario' },
+  inbox: { rate: 12, vus: 6, maxVus: 30, p95: 400, exec: 'inboxScenario' },
+  // One active import per definition and tenant (409 otherwise): exactly one VU, closed loop (submit, then poll).
+  import: { vus: 1, p95: 1000, exec: 'importScenario', closed: true },
 };
 
 export function selectedScenarios() {
@@ -36,14 +38,22 @@ export function buildOptions() {
   const thresholds = { http_req_failed: ['rate<0.01'], checks: ['rate>0.99'] };
   for (const name of selectedScenarios()) {
     const s = SCENARIOS[name];
-    scenarios[name] = {
-      executor: 'constant-vus',
-      vus: s.fixed ? s.vus : Math.max(1, Math.round(s.vus * SCALE)),
-      duration: DURATION,
-      exec: s.exec,
-      tags: { load_scenario: name },
-      gracefulStop: '60s',
-    };
+    const common = { duration: DURATION, exec: s.exec, tags: { load_scenario: name }, gracefulStop: '60s' };
+    if (s.closed) {
+      scenarios[name] = Object.assign({ executor: 'constant-vus', vus: s.vus }, common);
+    } else {
+      scenarios[name] = Object.assign(
+        {
+          executor: 'constant-arrival-rate',
+          rate: Math.max(1, Math.round(s.rate * RATE_SCALE)),
+          timeUnit: '1s',
+          preAllocatedVUs: s.vus,
+          maxVUs: s.maxVus,
+        },
+        common,
+      );
+      thresholds[`dropped_iterations{load_scenario:${name}}`] = ['count<1'];
+    }
     thresholds[`http_req_duration{load_scenario:${name}}`] = [`p(95)<${s.p95}`];
     thresholds[`http_req_failed{load_scenario:${name}}`] = ['rate<0.01'];
     thresholds[`http_reqs{load_scenario:${name}}`] = ['count>0']; // a scenario that sent nothing must fail the run

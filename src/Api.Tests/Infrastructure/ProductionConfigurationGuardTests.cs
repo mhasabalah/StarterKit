@@ -171,4 +171,16 @@ public sealed class ProductionConfigurationGuardTests
 
         act.Should().NotThrow();
     }
+
+    [Theory]
+    [InlineData("LoadTest", "false")]
+    [InlineData("loadtest", null)]
+    public void LoadTest_environment_without_the_profile_blocks_startup(string environment, string? enabled)
+    {
+        var config = Config(("LoadTest:Enabled", enabled));
+
+        var act = () => ProductionConfigurationGuard.EnsureLoadTestProfileIsIsolated(config, environment);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*profile*missing*");
+    }
 }

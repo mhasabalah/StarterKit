@@ -1,4 +1,4 @@
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 import { get, headers, ok } from '../lib/http.js';
 import { pick, seedData } from '../lib/seed-data.js';
 
@@ -13,5 +13,4 @@ export function catalogScenario() {
 
   const detail = get(`/api/v1/products/${pick(seed.productIds)}`, { headers: headers() });
   ok(detail, 'product detail');
-  sleep(0.2);
 }
