@@ -52,6 +52,58 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 | G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
 
+Wave 11 (2026-11-07, PRs #17-#23): **follow-ups of the shipped work + G22.**
+
+Six workstreams were each implemented and then reviewed by an architecture audit, with 99 findings fixed.
+- **Billing** (#21): numeric(19,4) money with per-currency rounding ([ADR 0017](../Decisions/0017-money-precision-and-per-currency-rounding.md)), saved cards with an
+  opt-in, off-session dunning retry on Stripe ([ADR 0018](../Decisions/0018-off-session-dunning-retries-on-saved-cards.md)), sandbox/live gateway mode.
+- **SSO/SCIM** (#17): SAML metadata refresh, certificate expiry alerts, the SCIM enterprise extension, a multi-tenant SSO E2E.
+- **Notifications** (#18, #22): per-group mutes and quiet hours, a direct APNs adapter, in-app/push on business
+  events, and closing hub sockets when a session is revoked.
+- **DataTransfer** (#20): the `catalog.categories` and `tenancy.members` definitions.
+- **G22** (#19): k6 HTTP load tests with a nightly CI baseline ([Load-Testing](../Testing/Load-Testing.md)).
+- **CI date bomb** (#23): the DataTransfer integration-test clock was pinned to 2026-11-06, so every branch failed
+  from the next day on. Never pin a fixture clock to a date when a test compares it with Postgres `now()`.
+
+**Hints before the next production deploy:**
+- **Gateway mode.** An enabled payment gateway with a live key and no `Mode` now refuses to boot. Set
+  `Subscriptions:PaymentGateways:<Name>:Mode=Live` ([Billing](../Subscriptions/Billing.md)).
+- **Money migration.** `WidenMoneyColumnsToPrecision19x4` rewrites the Subscriptions tables under an ACCESS
+  EXCLUSIVE lock. On a large database, run `--migrate-only` in a maintenance window. Its `Down` narrows the columns
+  again and loses digits.
+- **Stripe placeholder.** It is renamed to `CHANGE_ME_stripe_secret_api_key`. Check that secrets and env files
+  override `ApiKey`.
+- **Category permission (breaking).** Category CRUD now needs `catalog.categories.manage`. In multi-tenant mode, a
+  platform Admin without a membership loses it. Grant the permission to custom tenant roles
+  ([Catalog](../Modules/Catalog.md)).
+- **APNs key.** It is read only from `Push:Apns:PrivateKeyFile` (Docker secret `apns.p8`). The earlier
+  `Push:Apns:PrivateKey` setting and the `apns_private_key` secret are gone. A sandbox/production mismatch gives
+  `BadDeviceToken`, which is logged but no longer deletes devices.
+- **Forced email.** A forced email (`SendAsync(NotificationChannel.Email)`) is muted when its category's group allows
+  email mutes. Uncategorized, `security` and `billing` email never are.
+- **DataTransfer category.** It is renamed to `data-transfer.job-finished`. Clients that filter on the old
+  `datatransfer.` prefix need an update.
+- **Time zones.** Linux images need `tzdata` for quiet hours. The `aspnet:10.0` Debian base image includes it.
+
+**Still open from this wave:**
+- [ ] **Live Stripe test.** Off-session charge, reconcile, describe and detach are tested only against a stub HTTP
+  endpoint. Run one real charge against a Stripe test account before enabling `Dunning:AutoRetry`.
+- [ ] **Paymob saved cards.** Paymob implements only the port defaults, so its dunning falls back to the email link.
+  Add the saved-card token flow (TOKEN callback + MOTO integration id) when a merchant account is available.
+- [ ] **Flaky E2E.** `PendingAttachmentFlowE2ETests.Anonymous_upload_then_sign_in_associate_and_download` failed once
+  in CI with 409 "modified by another request" (it passed on re-run). It is probably the thumbnail job saving the
+  attachment while `associate` runs; give it the same re-read-once handling the delete got in Wave 9.
+- [ ] **Unsigned SAML metadata.** It is still accepted, and entity-id pinning does not protect against a hijacked
+  metadata host. Consider an optional pinned metadata-signing certificate, or a per-connection "require signed metadata"
+  switch.
+- [ ] **Hub fan-out.** Closing sockets across replicas is tested with a Redis round trip, not a live two-replica
+  deployment. Verify on the first multi-replica environment.
+- [ ] **Member import at scale.** Invitations save one row at a time, and a crash between the save and the email
+  leaves an unsent invitation, which admins resend ([DataTransfer](../Modules/DataTransfer.md)).
+- [ ] **Load-test budgets.** The p95 budgets are wide, with CI multiplying them by 3 for the 2-CPU runner. Tighten
+  them once a week of nightly numbers exists.
+- [ ] **Housekeeping.** Delete the merged remote branches of PRs #16-#23.
+
 Wave 10 (2026-11-06, [ADR 0016](../Decisions/0016-bulk-data-transfer-on-hangfire.md)): **G19 bulk import/export.**
 - New `DataTransfer` module (engine) + `catalog.products` definitions (reference); owning modules plug in through
   `DataTransfer.Contracts`.
