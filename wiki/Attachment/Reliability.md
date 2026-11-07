@@ -154,6 +154,11 @@ dotnet ef migrations add AttachmentReliability --context AttachmentDbContext \
   idempotent, failed blob delete backoff and sweeper retry, delete-by-entity incl. in-flight uploads, avatar
   replacement, thumbnail job (events published, non-Ready rows skipped, pending thumbnails), streaming download,
   SQL paging.
+- `Integration/PendingDeleteRaceTests` and `Integration/PendingAssociateRaceTests` (real PostgreSQL conflicts):
+  the thumbnail job may commit a pending row (thumbnail path + version) between a delete's or an associate's read
+  and save. Both handlers re-read the rows once and complete: the delete also removes the new thumbnail, and the
+  associate moves it to the entity folder and attaches it. A row really changed by someone else (deleted,
+  associated) still fails, and the associate moves its files back.
 - `Integration/ReconciliationTests`: storage scan (safety window, dry run, row and pending-row references, off by
   default), purge retention, the recurring job end to end.
 - `Unit/AttachmentLifecycleUnitTests`: entity state machine, hash format, backoff, options validation, delete
