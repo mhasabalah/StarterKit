@@ -32,6 +32,20 @@ public interface ISsoConnectionRepository
     /// </summary>
     Task RecordMetadataRefreshAsync(Guid id, DateTime? refreshedAt, string? error, CancellationToken ct = default);
 
+    /// <summary>
+    /// Claims the certificate expiry alert of <paramref name="thresholdDays"/> for the expiry date
+    /// <paramref name="notAfter"/> with ONE conditional set-based update (<c>WHERE alerted_not_after IS DISTINCT FROM
+    /// notAfter OR alerted_days IS NULL OR alerted_days &gt; band</c>). True = this caller won the row and must send the
+    /// alert; replicas racing on the same alert get false. No version bump (no 409 for a concurrent admin edit).
+    /// </summary>
+    Task<bool> TryClaimExpiryAlertAsync(Guid id, DateTime notAfter, int thresholdDays, CancellationToken ct = default);
+
+    /// <summary>
+    /// Undoes a claim whose delivery failed, so the next run retries (only if the row still holds exactly that claim).
+    /// </summary>
+    Task ReleaseExpiryAlertAsync(Guid id, DateTime notAfter, int thresholdDays, DateTime? previousNotAfter,
+        int? previousDays, CancellationToken ct = default);
+
     /// <summary>Active SAML connections that have a metadata URL (ids only; background refresh).</summary>
     Task<List<Guid>> GetRefreshableSamlIdsAsync(CancellationToken ct = default);
 
@@ -84,6 +98,24 @@ public sealed class SsoConnectionRepository(ApplicationIdentityDbContext dbConte
                     .SetProperty(c => c.SamlMetadataLastError, (string?)null), ct)
             : dbContext.SsoConnections.Where(c => c.Id == id)
                 .ExecuteUpdateAsync(s => s.SetProperty(c => c.SamlMetadataLastError, error), ct);
+
+    public async Task<bool> TryClaimExpiryAlertAsync(Guid id, DateTime notAfter, int thresholdDays, CancellationToken ct = default) =>
+        await dbContext.SsoConnections
+            .Where(c => c.Id == id &&
+                        (c.SamlExpiryAlertedNotAfter != notAfter || c.SamlExpiryAlertedDays == null ||
+                         c.SamlExpiryAlertedDays > thresholdDays))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.SamlCertificatesNotAfter, notAfter)
+                .SetProperty(c => c.SamlExpiryAlertedNotAfter, notAfter)
+                .SetProperty(c => c.SamlExpiryAlertedDays, thresholdDays), ct) == 1;
+
+    public Task ReleaseExpiryAlertAsync(Guid id, DateTime notAfter, int thresholdDays, DateTime? previousNotAfter,
+        int? previousDays, CancellationToken ct = default) =>
+        dbContext.SsoConnections
+            .Where(c => c.Id == id && c.SamlExpiryAlertedNotAfter == notAfter && c.SamlExpiryAlertedDays == thresholdDays)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.SamlExpiryAlertedNotAfter, previousNotAfter)
+                .SetProperty(c => c.SamlExpiryAlertedDays, previousDays), ct);
 
     public Task<List<Guid>> GetRefreshableSamlIdsAsync(CancellationToken ct = default) =>
         dbContext.SsoConnections.AsNoTracking()

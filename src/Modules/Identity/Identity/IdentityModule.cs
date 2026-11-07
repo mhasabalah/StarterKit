@@ -211,6 +211,11 @@ public static class IdentityModule
         services.Configure<OnboardingOptions>(configuration.GetSection("Notification:Onboarding"));
         services.Configure<PasskeyOptions>(configuration.GetSection(PasskeyOptions.SectionName));
         services.Configure<SsoOptions>(configuration.GetSection(SsoOptions.SectionName));
+        services.PostConfigure<SsoOptions>(o =>
+        {
+            if (o.CertificateExpiryAlertDays.Length == 0)
+                o.CertificateExpiryAlertDays = [.. SsoOptions.DefaultCertificateExpiryAlertDays];
+        });
     }
 
     private static void ConfigureIdentity(this IServiceCollection services)

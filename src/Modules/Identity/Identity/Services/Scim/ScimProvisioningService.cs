@@ -64,13 +64,14 @@ public sealed class ScimProvisioningService(
             .Join(dbContext.Users, s => s.UserId, a => a.Id, (s, a) => new { Scim = s, User = a })
             .ToListAsync(ct);
 
-        return new ScimResult(200, ScimJson.List(rows.Select(r => ScimJson.User(r.Scim, r.User, BaseUrl)), total, start));
+        var managers = await ManagerNamesAsync(directoryId, rows.Select(r => r.Scim), ct);
+        return new ScimResult(200, ScimJson.List(rows.Select(r => ScimJson.User(r.Scim, r.User, BaseUrl, managers)), total, start));
     }
 
     public async Task<ScimResult> GetUserAsync(Guid directoryId, Guid id, CancellationToken ct)
     {
         var (scim, user) = await LoadUserAsync(directoryId, id, tracking: false, ct);
-        return UserResult(200, scim, user);
+        return await UserResultAsync(200, scim, user, ct);
     }
 
     public async Task<ScimResult> CreateUserAsync(ScimDirectory directory, JsonObject resource, CancellationToken ct)
@@ -119,7 +120,7 @@ public sealed class ScimProvisioningService(
 
         await ApplyMembershipAsync(directory.Id, user.Id, active, ct);
         logger.LogInformation("SCIM directory {DirectoryId} provisioned user {UserId}", directory.Id, user.Id);
-        return UserResult(201, scim, user);
+        return await UserResultAsync(201, scim, user, ct);
     }
 
     public async Task<ScimResult> ReplaceUserAsync(ScimDirectory directory, Guid id, JsonObject resource, CancellationToken ct)
@@ -131,14 +132,14 @@ public sealed class ScimProvisioningService(
         ApplyName(user, resource);
         await userManager.UpdateAsync(user);
         var wasActive = scim.Active;
-        // PUT replaces the extension when the resource carries it; a resource without it leaves it untouched.
-        var enterprise = await KnownManagerAsync(directory.Id, ScimEnterpriseJson.FromResource(resource), ct) ?? scim.Enterprise;
+        // PUT replaces the whole resource (RFC 7644 section 3.5.1): a body without the enterprise object clears it.
+        var enterprise = (await KnownManagerAsync(directory.Id, ScimEnterpriseJson.FromResource(resource) ?? ScimEnterprise.Empty, ct))!;
         scim.Update(userName, ScimJson.Text(ScimJson.Get(resource, "externalId")), active, enterprise, Now);
         await SaveUniqueAsync(ct);
 
         if (wasActive != active)
             await ApplyMembershipAsync(directory.Id, user.Id, active, ct);
-        return UserResult(200, scim, user);
+        return await UserResultAsync(200, scim, user, ct);
     }
 
     /// <summary>
@@ -163,7 +164,7 @@ public sealed class ScimProvisioningService(
             if (op == "remove")
             {
                 if (path is null)
-                    throw ScimException.InvalidPath("A remove operation needs a path.");
+                    throw ScimException.NoTarget("A remove operation needs a path.");
 
                 if (ScimUserPaths.EnterpriseRemainder(path) is { } removedExtension)
                 {
@@ -252,7 +253,7 @@ public sealed class ScimProvisioningService(
 
         if (wasActive != active)
             await ApplyMembershipAsync(directory.Id, user.Id, active, ct);
-        return UserResult(200, scim, user);
+        return await UserResultAsync(200, scim, user, ct);
     }
 
     public async Task<ScimResult> DeleteUserAsync(ScimDirectory directory, Guid id, CancellationToken ct)
@@ -537,8 +538,29 @@ public sealed class ScimProvisioningService(
     private static (int Start, int Size) Page(int? startIndex, int? count) =>
         (Math.Max(1, startIndex ?? 1), Math.Clamp(count ?? 100, 0, MaxPageSize));
 
-    private ScimResult UserResult(int status, ScimUser scim, ApplicationUser user) =>
-        new(status, ScimJson.User(scim, user, BaseUrl), $"{BaseUrl}/Users/{scim.UserId}", ScimJson.ETag(scim.Revision));
+    private async Task<ScimResult> UserResultAsync(int status, ScimUser scim, ApplicationUser user, CancellationToken ct)
+    {
+        var managers = await ManagerNamesAsync(scim.DirectoryId, [scim], ct);
+        return new ScimResult(status, ScimJson.User(scim, user, BaseUrl, managers),
+            $"{BaseUrl}/Users/{scim.UserId}", ScimJson.ETag(scim.Revision));
+    }
+
+    /// <summary>Display names of the managers (that still exist in the directory) referenced by <paramref name="users"/>.</summary>
+    private async Task<IReadOnlyDictionary<Guid, string?>> ManagerNamesAsync(
+        Guid directoryId, IEnumerable<ScimUser> users, CancellationToken ct)
+    {
+        var ids = users.Select(u => u.ManagerScimUserId).OfType<Guid>().Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, string?>();
+
+        var rows = await dbContext.ScimUsers.AsNoTracking()
+            .Where(s => s.DirectoryId == directoryId && ids.Contains(s.UserId))
+            .Join(dbContext.Users, s => s.UserId, a => a.Id, (s, a) => new { s.UserId, s.UserName, a.FirstName, a.LastName })
+            .ToListAsync(ct);
+        return rows.ToDictionary(
+            r => r.UserId,
+            r => (string?)(string.IsNullOrWhiteSpace($"{r.FirstName} {r.LastName}") ? r.UserName : $"{r.FirstName} {r.LastName}".Trim()));
+    }
 
     private ScimResult GroupResult(int status, ScimGroup group, bool excludeMembers) =>
         new(status, ScimJson.Group(group, BaseUrl, excludeMembers), $"{BaseUrl}/Groups/{group.Id}", ScimJson.ETag(group.Revision));

@@ -63,9 +63,19 @@ public class SsoCertificateExpiringEventHandlerTests
     private static MemberDto Member(Guid userId, bool owner, TenantMembershipStatus status, params Guid[] roles) =>
         new(userId, null, "x@acme.example", status, owner, roles, [], [], DateTime.UtcNow, 1);
 
+    /// <summary>The members endpoint: an unfiltered query returns everyone; a role query only that role's members.</summary>
     private void Members(params MemberDto[] members) =>
         _sender.Setup(s => s.Send(It.IsAny<GetMembersQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PaginatedResult<MemberDto> { Result = members.ToList() });
+            .ReturnsAsync((IRequest<PaginatedResult<MemberDto>> r, CancellationToken _) =>
+            {
+                var query = (GetMembersQuery)r;
+                var rows = members.Where(m => query.RoleId is null || m.RoleIds.Contains(query.RoleId.Value)).ToList();
+                return new PaginatedResult<MemberDto>
+                {
+                    Result = rows,
+                    PageInfoResult = new PageInfoResult { CurrentPage = 1, PageSize = 100, TotalItems = rows.Count }
+                };
+            });
 
     [Fact]
     public async Task The_owner_and_members_of_a_role_with_sso_manage_are_alerted_by_email_and_in_app()
@@ -81,6 +91,17 @@ public class SsoCertificateExpiringEventHandlerTests
         _notified.Should().BeEquivalentTo([owner, admin]);
         _emails.Should().OnlyContain(t => t == EmailTemplate.SsoCertificateExpiring);
         _inApp.Should().HaveCount(2).And.OnlyContain(c => c.Category == "security.sso-certificate-expiring");
+    }
+
+    [Fact]
+    public async Task A_delivery_failure_propagates_so_the_job_can_release_its_claim_and_retry()
+    {
+        Members(Member(Guid.NewGuid(), true, TenantMembershipStatus.Active));
+        _notifications.Setup(n => n.For(It.IsAny<Guid>(), It.IsAny<NotificationCulture>())).Throws<InvalidOperationException>();
+
+        var act = () => Handler().Handle(Event(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
