@@ -19,7 +19,7 @@ public sealed class NotificationJobEnqueuer(
     public Task<Guid> EnqueueAsync(NotificationMessage message, NotificationChannel? forcedChannel = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(message);
-        var correlationId = Guid.NewGuid();
+        var correlationId = message.CorrelationId ?? Guid.NewGuid();
         var forcedAdditive = forcedChannel is { } forced && forced.IsAdditive();
 
         var chain = message with { InApp = null, Push = null };

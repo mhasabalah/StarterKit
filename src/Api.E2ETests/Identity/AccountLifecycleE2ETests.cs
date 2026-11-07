@@ -91,11 +91,13 @@ public class AccountLifecycleE2ETests(E2ETestFixture fixture)
         stored.IsActive.Should().BeFalse();
         (await db.AccountDeletions.AnyAsync(a => a.Id == user.Id)).Should().BeTrue();
 
-        // The outbox row proves the integration event was committed with the erasure (it may already be delivered).
+        // The outbox rows prove the integration events were committed with the erasure (they may already be delivered):
+        // exactly one user-deleted event, plus the sessions-revoked event that closes the user's live hub sockets.
         var outbox = await db.Database
             .SqlQuery<string>($"SELECT message_type AS \"Value\" FROM identity.outbox_messages WHERE payload::text LIKE {"%" + user.Id + "%"}")
             .ToListAsync();
-        outbox.Should().ContainSingle().Which.Should().Contain("userdirectory.user-deleted.v1");
+        outbox.Should().ContainSingle(t => t.Contains("userdirectory.user-deleted.v1"));
+        outbox.Should().ContainSingle(t => t.Contains("userdirectory.user-sessions-revoked.v1"));
     }
 
     [Fact]

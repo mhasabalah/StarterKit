@@ -52,6 +52,14 @@ public interface INotificationBuilder
     INotificationBuilder WithPush(bool sensitive = false);
 
     /// <summary>
+    /// Pins the correlation id of this notification (default: a new id per send). Pass a STABLE id - e.g. the message id
+    /// of the integration event being handled - so a redelivery maps to the same id and the inbox entry (unique per
+    /// user and correlation id) is not created twice. Default interface member: implementations that do not support it
+    /// ignore the id.
+    /// </summary>
+    INotificationBuilder WithCorrelationId(Guid correlationId) => this;
+
+    /// <summary>
     /// Enqueues the notification. <paramref name="forcedChannel"/> bypasses user channel preferences (use it for
     /// security mail that preferences must never suppress); it applies to the email/WhatsApp chain only - in-app and
     /// push payloads are always delivered when attached. Returns the correlation id of the delivery log.

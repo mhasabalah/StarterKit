@@ -34,7 +34,7 @@ public sealed class NotificationHubTests : IAsyncLifetime
     public async Task DisposeAsync() => await _app.DisposeAsync();
 
     internal static async Task<(WebApplication App, TestServer Server)> StartHostAsync(string? redisConnection,
-        ILoggerProvider? logs = null)
+        ILoggerProvider? logs = null, Action<IServiceCollection>? extraServices = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -44,11 +44,15 @@ public sealed class NotificationHubTests : IAsyncLifetime
         builder.Services.AddAuthentication(HeaderAuthHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthHandler>(HeaderAuthHandler.SchemeName, _ => { });
         builder.Services.AddAuthorization();
-        var signalR = builder.Services.AddSignalR();
+        var signalR = builder.Services.AddSignalR(o => o.AddFilter<SessionRevocationHubFilter>());
         if (redisConnection is not null)
             signalR.AddStackExchangeRedis(redisConnection, o => o.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("test"));
         builder.Services.AddSingleton<IUserIdProvider, NotificationHubUserIdProvider>();
         builder.Services.AddSingleton<NotificationMetrics>();
+        builder.Services.AddSingleton<HubConnectionRegistry>();
+        builder.Services.AddSingleton<HubSessionCloser>();
+        builder.Services.AddSingleton<IHubRevocationBroadcaster, LocalHubRevocationBroadcaster>();
+        extraServices?.Invoke(builder.Services);
         builder.Services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
         builder.Services.AddSingleton<IUserEventPublisher, SignalRUserEventPublisher>();
 
@@ -60,7 +64,7 @@ public sealed class NotificationHubTests : IAsyncLifetime
         return (app, app.GetTestServer());
     }
 
-    internal static HubConnection Connect(TestServer server, Guid? userId, HttpTransportType transport = HttpTransportType.LongPolling) =>
+    internal static HubConnection Connect(TestServer server, Guid? userId, HttpTransportType transport = HttpTransportType.LongPolling, Guid? sessionId = null) =>
         new HubConnectionBuilder()
             .WithUrl(new Uri(server.BaseAddress, NotificationHubContract.Path.TrimStart('/')), o =>
             {
@@ -73,13 +77,20 @@ public sealed class NotificationHubTests : IAsyncLifetime
                     {
                         var ws = server.CreateWebSocketClient();
                         if (userId is { } id)
-                            ws.ConfigureRequest = r => r.Headers[HeaderAuthHandler.Header] = id.ToString();
+                            ws.ConfigureRequest = r =>
+                            {
+                                r.Headers[HeaderAuthHandler.Header] = id.ToString();
+                                if (sessionId is { } sidWs)
+                                    r.Headers[HeaderAuthHandler.SidHeader] = sidWs.ToString();
+                            };
                         return await ws.ConnectAsync(context.Uri, ct);
                     };
                 }
 
                 if (userId is { } user)
                     o.Headers[HeaderAuthHandler.Header] = user.ToString();
+                if (sessionId is { } sid)
+                    o.Headers[HeaderAuthHandler.SidHeader] = sid.ToString();
             })
             .Build();
 
@@ -226,12 +237,16 @@ public sealed class NotificationHubTests : IAsyncLifetime
     {
         public const string SchemeName = "TestHeader";
         public const string Header = "X-Test-User";
+        public const string SidHeader = "X-Test-Sid";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             if (!Request.Headers.TryGetValue(Header, out var value) || !Guid.TryParse(value, out var id))
                 return Task.FromResult(AuthenticateResult.NoResult());
-            var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, id.ToString())], SchemeName);
+            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, id.ToString()) };
+            if (Request.Headers.TryGetValue(SidHeader, out var sid))
+                claims.Add(new Claim("sid", sid.ToString()));
+            var identity = new ClaimsIdentity(claims, SchemeName);
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
         }
     }

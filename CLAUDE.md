@@ -238,7 +238,7 @@ Notification is the exception: its context is in `Persistence/`.
   - In-app and push are ADDITIVE channels (never in a channel order): `.WithInApp(new InAppContent(...))`,
     `.WithPush(...)`. Each channel group is its own Hangfire job sharing one correlation id; keep the chain's
     idempotency check on chain rows only.
-  - Real time = the push-only hub `/hubs/notifications` (`IRealtimeNotifier`, best effort, never throws). Commands
+  - Real time = the push-only hub `/hubs/notifications` (revoked sessions' sockets are closed by `UserSessionsRevokedConsumer`, fanned out to all replicas over Redis pub/sub) (`IRealtimeNotifier`, best effort, never throws). Commands
     stay REST. A token in the URL (`?access_token=`) is accepted ONLY under `RealtimePaths.HubPrefix`, and every
     revocation check runs on the validated token (`TokenBlacklistJwtBearerEvents`).
   - Email templates are built from the design-system components; colors only as tokens (`{{ t.* }}`, defined in
@@ -319,6 +319,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
 | Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
+| Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |
