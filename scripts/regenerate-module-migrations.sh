@@ -51,6 +51,8 @@ for entry in "${COMBOS[@]}"; do
   dest="$REPO/templates/module/_migrations/$combo"
   rm -rf "$dest" && mkdir -p "$dest"
   cp "$MODULE_DIR"/ModuleName/Data/Migrations/*.cs "$dest/"
+  # dotnet ef writes a UTF-8 BOM; .editorconfig (charset = utf-8) and the Quality workflow reject it.
+  for f in "$dest"/*.cs; do sed -i '1s/^\xEF\xBB\xBF//' "$f"; done
 
   if [[ "$combo" == tenant-* ]]; then
     python3 - "$dest" <<'PY'
