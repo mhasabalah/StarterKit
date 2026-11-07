@@ -27,6 +27,7 @@ public static class SubscriptionsModule
     {
         PdfConfiguration.Configure(configuration["Subscriptions:Pdf:License"]);
 
+        services.TryAddScoped<ITenantScopeFactory, NoOpTenantScopeFactory>(); // the host's AddMultiTenancy registers the real one first
         services.AddScoped<IPlanRepository, PlanRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IFeatureService, FeatureService>();

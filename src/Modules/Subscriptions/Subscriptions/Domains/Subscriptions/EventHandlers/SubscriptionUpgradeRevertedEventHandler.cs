@@ -1,7 +1,10 @@
+using Subscriptions.Domains.Subscriptions.Services;
+
 namespace Subscriptions.Domains.Subscriptions.EventHandlers;
 
 public class SubscriptionUpgradeRevertedEventHandler(
     INotificationSender notificationSender,
+    ITenantScopeFactory tenants,
     ISubscriberInfoProvider subscriberInfoProvider,
     IConfiguration configuration,
     SubscriptionsDbContext dbContext)
@@ -29,6 +32,7 @@ public class SubscriptionUpgradeRevertedEventHandler(
         await notificationSender
             .For(notification.SubscriberId)
             .WithEmail(EmailTemplate.SubscriptionUpgradeReverted, model.ToDictionary())
-            .SendAsync(forcedChannel: NotificationChannel.Email, ct: cancellationToken);
+            .WithBillingInApp("upgrade-reverted", NotificationSeverity.Warning, BillingInApp.SubscriptionUrl, push: true, data: BillingInApp.SubscriptionData(notification.SubscriptionId, notification.SubscriberId, tenants), args: [planName])
+            .SendForSubscriberAsync(tenants, notification.SubscriberId, NotificationChannel.Email, cancellationToken);
     }
 }

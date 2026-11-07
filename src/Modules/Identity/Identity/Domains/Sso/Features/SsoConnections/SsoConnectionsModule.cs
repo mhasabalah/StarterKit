@@ -89,6 +89,17 @@ public class SsoConnectionsModule : ICarterModule
             .Produces<ApiResponse<DeleteSsoConnectionResult>>()
             .Write();
 
+        group.MapPost("/connections/{id:guid}/refresh-metadata", async (Guid id, ISender sender, CancellationToken ct) =>
+                Results.Ok(ApiResponse.Success(await sender.Send(new RefreshSamlMetadataCommand(id), ct))))
+            .WithName("RefreshSamlMetadata").WithSummary("Refresh the SAML metadata now")
+            .WithDescription("Re-reads the connection's IdP metadata URL (certificates and SSO URL). The metadata's entity " +
+                             "id must equal the configured one. The outcome (Updated / Unchanged / Failed + error code) is " +
+                             "in the result; the same refresh also runs on a schedule.")
+            .Produces<ApiResponse<RefreshSamlMetadataResult>>()
+            .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+            .Write()
+            .RequireRateLimiting("create");
+
         group.MapPost("/connections/{id:guid}/domains", async (Guid id, AddSsoDomainRequest request, ISender sender,
                 CancellationToken ct) =>
                 Results.Ok(ApiResponse.Success(await sender.Send(new AddSsoDomainCommand(id, request.Domain), ct))))

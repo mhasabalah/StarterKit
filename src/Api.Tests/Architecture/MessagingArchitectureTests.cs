@@ -53,7 +53,7 @@ public sealed class MessagingArchitectureTests
     {
         IntegrationEvents().Select(t => t.Name).Should().Contain(
         [
-            "ProductPublishedIntegrationEvent", "UserAvatarChangedIntegrationEvent", "UserDeletedIntegrationEvent",
+            "ProductPublishedIntegrationEvent", "UserAvatarChangedIntegrationEvent", "UserDeletedIntegrationEvent", "UserSessionsRevokedIntegrationEvent",
             "SubscriptionActivatedIntegrationEvent", "SubscriptionExpiredIntegrationEvent",
             "DataImportCompletedIntegrationEvent"
         ]);
@@ -158,7 +158,7 @@ public sealed class MessagingArchitectureTests
     [Fact]
     public void Consumers_exist_and_are_found_by_the_scan()
     {
-        Consumers().Select(t => t.Name).Should().Contain(["UserAvatarChangedConsumer", "TenantBillingStatusConsumer", "UserDeletedAttachmentConsumer", "UserDeletedTenancyConsumer", "UserDeletedNotificationConsumer"]);
+        Consumers().Select(t => t.Name).Should().Contain(["UserAvatarChangedConsumer", "TenantBillingStatusConsumer", "UserDeletedAttachmentConsumer", "UserDeletedTenancyConsumer", "UserDeletedNotificationConsumer", "UserSessionsRevokedConsumer"]);
     }
 
     [Fact]

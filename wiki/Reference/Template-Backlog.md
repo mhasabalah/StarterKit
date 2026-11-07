@@ -48,7 +48,7 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
 | G21 | Durable saga repository (= #27) | ⬜ |
-| G22 | Load/performance tests (k6 or NBomber) with a CI baseline (🚧 DataTransfer engine baseline done: `datatransfer-perf.yml`) | ⬜ |
+| G22 | Load/performance tests (k6) with a CI baseline (HTTP scenarios: `tests/load`, `load-test.yml`; DataTransfer engine baseline: `datatransfer-perf.yml`) | ✅ |
 | G23 | `dotnet new` project + module templates (= #12, #13) | ⬜ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
 
@@ -134,8 +134,9 @@ off-session card retry in dunning on saved payment methods; sandbox vs live gate
 Wave 8 (2026-11-05, ADRs [0013](../Decisions/0013-enterprise-sso-and-scim.md) / [0014](../Decisions/0014-passkeys-on-built-in-identity.md)):
 G15 + G16 shipped, plus the email design system v2 ([page](../Modules/Notification-Email-Design-System.md)), the
 email OTP channel (`OneTimeCode`, closes the G13/G18 follow-up below) and the [feature catalog](Features.md). G4
-progress: E2E for passkeys, SSO and SCIM. Follow-ups: SAML metadata-URL refresh job; multi-tenant E2E of SSO
-(`MultiTenantE2EFixture`); SCIM enterprise-extension attributes; still open from G4 - refresh/logout/password-reset
+progress: E2E for passkeys, SSO and SCIM. Follow-ups, done: SAML metadata-URL refresh job with certificate expiry
+alerts, multi-tenant E2E of SSO (`SsoTenantTests`) and SCIM enterprise-extension attributes with `invalidPath`
+([SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md)). Still open from G4: refresh/logout/password-reset
 E2E and the attachment pending flow over HTTP. The architecture review items of 2026-11-05 are closed
 (discovery-cache eviction across replicas with the old authority, tenant-role validation for SSO default roles and
 SCIM group mappings, SCIM directory repository and single-query counts, one `AddDnsTxtVerifier()`, en/ar messages
@@ -145,9 +146,11 @@ it); SCIM deactivation revokes all sessions of the account.
 
 Follow-ups of G13/G18 (2026-11-05, [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)): per-category mute and
 quiet hours for push; a direct APNs adapter behind `IPushProvider` if FCM is not wanted for iOS; push and in-app
-payloads on the existing business events (only the channel exists - no sender uses it yet); an OTP email template so
-`VerificationPurpose.EmailVerification` stops returning `ChannelUnavailable`; drop the hub socket immediately on
-session revocation (today: at access-token expiry).
+payloads on the existing business events (**done**: billing, membership, webhooks, catalog, data transfer; categories
+`<group>.<event>`, see [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md#which-events-notify));
+an OTP email template so `VerificationPurpose.EmailVerification` stops returning `ChannelUnavailable`; drop the hub
+socket immediately on session revocation (**done**: `UserSessionsRevokedIntegrationEvent`, see
+[Closing sockets on revocation](../Modules/Notification-Realtime-and-Push.md#closing-sockets-on-revocation)).
 
 ## 2026-11-04 — Production-readiness wave
 

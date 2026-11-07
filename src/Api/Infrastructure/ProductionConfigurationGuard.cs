@@ -162,12 +162,46 @@ public static partial class ProductionConfigurationGuard
         }
     }
 
+    /// <summary>The environment that may run the load-test profile (<c>appsettings.LoadTest.json</c>).</summary>
+    public const string LoadTestEnvironment = "LoadTest";
+
+    /// <summary>
+    /// Keeps the load-test profile (<c>appsettings.LoadTest.json</c>: relaxed rate limits and 2FA) apart from real
+    /// deployments, in both directions:
+    /// <list type="bullet">
+    /// <item><c>LoadTest:Enabled=true</c> in any environment other than <c>LoadTest</c> throws (Development and
+    /// Production included), so a copied file or variable cannot leak the profile.</item>
+    /// <item>The <c>LoadTest</c> environment without <c>LoadTest:Enabled=true</c> throws: the profile file is not part of
+    /// published images, so a "LoadTest" host without it is a mislabelled deployment running on the base settings.</item>
+    /// </list>
+    /// </summary>
+    public static void EnsureLoadTestProfileIsIsolated(IConfiguration configuration, string environmentName)
+    {
+        var enabled = configuration.GetValue<bool>("LoadTest:Enabled");
+        var isLoadTestEnvironment = string.Equals(environmentName, LoadTestEnvironment, StringComparison.OrdinalIgnoreCase);
+
+        if (enabled && !isLoadTestEnvironment)
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start in '{environmentName}': LoadTest:Enabled is true (load-test profile: relaxed rate " +
+                $"limits and 2FA). Only the '{LoadTestEnvironment}' environment may run it; remove the LoadTest section.");
+        }
+
+        if (!enabled && isLoadTestEnvironment)
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start in '{environmentName}': LoadTest:Enabled is not true. The load-test profile " +
+                "(appsettings.LoadTest.json, mounted by docker-compose.loadtest.yml) is missing.");
+        }
+    }
+
     public static WebApplicationBuilder EnsureProductionReadyConfiguration(this WebApplicationBuilder builder)
     {
         EnsureNoPlaceholders(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureDurableMessaging(builder.Configuration, builder.Environment.EnvironmentName);
         EnsureBotProtectionConfigured(builder.Configuration, builder.Environment.EnvironmentName);
         EnsurePaymentGatewayModes(builder.Configuration, builder.Environment.EnvironmentName);
+        EnsureLoadTestProfileIsIsolated(builder.Configuration, builder.Environment.EnvironmentName);
         return builder;
     }
 }

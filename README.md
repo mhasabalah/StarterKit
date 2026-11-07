@@ -161,6 +161,7 @@ dotnet test StarterKit.slnx            # needs Docker (Testcontainers)
 | HTTP end-to-end (+ multi-tenant) | `src/Api.E2ETests` | `dotnet test src/Api.E2ETests` |
 | Shared kernel / Aspire | `src/Shared/Shared.Core.Tests`, `src/Aspire/AppHost.Tests` | `dotnet test <project>` |
 | Browser smoke | `tests/e2e` (Playwright) | `cd tests/e2e && npm ci && npx playwright test` |
+| HTTP load (k6, Docker) | `tests/load` + `docker-compose.loadtest.yml` | `make loadtest` ([wiki/Testing/Load-Testing.md](wiki/Testing/Load-Testing.md)) |
 
 To run a single test, add `--filter "FullyQualifiedName~<Name>"`. The strategy and the per-feature checklist are
 in [wiki/Testing](wiki/Testing/Testing-Strategy.md).

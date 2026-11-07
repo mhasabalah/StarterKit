@@ -9,7 +9,9 @@ namespace Notification.Realtime;
 /// The real-time notification hub (<see cref="NotificationHubContract.Path"/>). Push-only by design: it exposes no
 /// methods, so there is no hub-side input to validate, authorize or rate-limit; commands go through REST (mediator
 /// pipeline: validation, concurrency, tenant scope). A connection is addressed by its USER id
-/// (<see cref="NotificationHubUserIdProvider"/>), so every tab and device of the user receives the events.
+/// (<see cref="NotificationHubUserIdProvider"/>), so every tab and device of the user receives the events. Each
+/// connection is tracked (and revocation-checked) by <see cref="SessionRevocationHubFilter"/>, so a revoked session's
+/// socket can be closed at once.
 /// </summary>
 [Authorize]
 public sealed class NotificationHub(ILogger<NotificationHub> logger) : Hub<INotificationClient>

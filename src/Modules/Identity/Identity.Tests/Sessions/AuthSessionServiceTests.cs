@@ -17,6 +17,7 @@ public sealed class AuthSessionServiceTests
     private readonly Mock<UserManager<ApplicationUser>> _users = Mocks.UserManager();
     private readonly Mock<IJwtTokenGenerator> _jwt = new();
     private readonly Mock<IRefreshTokenRepository> _repo = new();
+    private readonly Mock<ISessionRevocationRecorder> _revocations = new();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
     private readonly ApplicationUser _user = Mocks.User();
 
@@ -37,7 +38,7 @@ public sealed class AuthSessionServiceTests
             SecretKey = new string('k', 40), Issuer = "i", Audience = "a",
             AccessTokenExpirationMinutes = 15, RefreshTokenExpirationDays = 7
         }),
-        _time, NullLogger<AuthSessionService>.Instance);
+        _time, NullLogger<AuthSessionService>.Instance, revocations: _revocations.Object);
 
     private RefreshToken StoredToken(string raw, Action<RefreshToken>? configure = null)
     {
@@ -106,6 +107,23 @@ public sealed class AuthSessionServiceTests
             It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
         _repo.Verify(r => r.TryRotateAsync(It.IsAny<Guid>(), It.IsAny<RefreshToken>(), It.IsAny<string?>(),
             It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Reusing_a_revoked_token_announces_the_ended_session_so_live_connections_close()
+    {
+        var current = StoredToken("raw", t =>
+        {
+            t.RevokedAt = DateTime.UtcNow;
+            t.RevokedReason = RefreshToken.RotatedReason;
+        });
+        _repo.Setup(r => r.RevokeFamilyAsync(current.FamilyId, It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>())).ReturnsAsync(2);
+
+        await Service().Invoking(s => s.RefreshAsync("raw", "ip")).Should().ThrowAsync<UnauthorizedException>();
+
+        _revocations.Verify(r => r.RecordSessionsAsync(_user.Id,
+            It.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == current.FamilyId), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

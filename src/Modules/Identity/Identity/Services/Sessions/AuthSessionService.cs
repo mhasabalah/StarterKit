@@ -19,7 +19,8 @@ public sealed class AuthSessionService(
     ITenantStore? tenantStore = null,
     ITenantContext? tenantContext = null,
     IOptions<MultiTenancyOptions>? multiTenancyOptions = null,
-    IHttpContextService? httpContext = null) : IAuthSessionService
+    IHttpContextService? httpContext = null,
+    ISessionRevocationRecorder? revocations = null) : IAuthSessionService
 {
     private bool MultiTenancyEnabled => multiTenancyOptions?.Value.Enabled == true && memberships is not null;
 
@@ -127,7 +128,8 @@ public sealed class AuthSessionService(
         if (rejection is not null)
         {
             logger.LogWarning("Refresh rejected for user {UserId}: {Reason}", current.UserId, rejection);
-            await refreshTokens.RevokeFamilyAsync(current.FamilyId, $"Refresh rejected: {rejection}", ipAddress, ct);
+            var ended = await refreshTokens.RevokeFamilyAsync(current.FamilyId, $"Refresh rejected: {rejection}", ipAddress, ct);
+            await AnnounceAsync(current, ended, ct);
             throw new UnauthorizedException(InvalidRefreshTokenMessage);
         }
 
@@ -175,7 +177,14 @@ public sealed class AuthSessionService(
         logger.LogWarning(
             "Refresh token reuse detected for user {UserId}; revoked {Count} tokens of family {FamilyId}",
             token.UserId, revoked, token.FamilyId);
+        await AnnounceAsync(token, revoked, ct);
     }
+
+    /// <summary>Tells live connections (notification hub) that the session ended, so they close at once.</summary>
+    private Task AnnounceAsync(RefreshTokenEntity token, int revoked, CancellationToken ct) =>
+        revocations is null || revoked == 0
+            ? Task.CompletedTask
+            : revocations.RecordSessionsAsync(token.UserId, [token.FamilyId], ct);
 
     private async Task<(AuthSession Session, RefreshTokenEntity Token)> CreateSessionAsync(
         ApplicationUser user, Guid familyId, string? ipAddress, bool multiFactor, TenantMembershipInfo? membership = null,

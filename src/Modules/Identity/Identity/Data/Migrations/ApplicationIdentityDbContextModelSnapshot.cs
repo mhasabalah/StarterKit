@@ -363,9 +363,29 @@ namespace Identity.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("active");
 
+                    b.Property<string>("CostCenter")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("cost_center");
+
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("department");
+
+                    b.Property<string>("Division")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("division");
+
+                    b.Property<string>("EmployeeNumber")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("employee_number");
 
                     b.Property<string>("ExternalId")
                         .HasMaxLength(256)
@@ -375,6 +395,15 @@ namespace Identity.Data.Migrations
                     b.Property<DateTime>("LastModified")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_modified");
+
+                    b.Property<Guid?>("ManagerScimUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_scim_user_id");
+
+                    b.Property<string>("Organization")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("organization");
 
                     b.Property<long>("Revision")
                         .IsConcurrencyToken()
@@ -403,6 +432,58 @@ namespace Identity.Data.Migrations
                         .HasDatabaseName("ux_scim_users_directory_user_name");
 
                     b.ToTable("scim_users", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Domains.Sessions.Models.SessionRevocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllSessions")
+                        .HasColumnType("boolean")
+                        .HasColumnName("all_sessions");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<DateTime>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_session_revocations");
+
+                    b.HasIndex("RevokedAt")
+                        .HasDatabaseName("ix_session_revocations_revoked_at");
+
+                    b.ToTable("session_revocations", "identity");
                 });
 
             modelBuilder.Entity("Identity.Domains.Sso.Models.SsoConnection", b =>
@@ -499,6 +580,18 @@ namespace Identity.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("saml_allow_idp_initiated");
 
+                    b.Property<DateTime?>("SamlCertificatesNotAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saml_certificates_not_after");
+
+                    b.Property<int?>("SamlExpiryAlertedDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("saml_expiry_alerted_days");
+
+                    b.Property<DateTime?>("SamlExpiryAlertedNotAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saml_expiry_alerted_not_after");
+
                     b.PrimitiveCollection<List<string>>("SamlIdpCertificates")
                         .IsRequired()
                         .HasColumnType("text[]")
@@ -518,6 +611,15 @@ namespace Identity.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("saml_idp_sso_url");
+
+                    b.Property<string>("SamlMetadataLastError")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("saml_metadata_last_error");
+
+                    b.Property<DateTime?>("SamlMetadataRefreshedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saml_metadata_refreshed_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
