@@ -8,6 +8,12 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- The load-test profile (rate limits and 2FA relaxed) is never part of a published image: the load-test
+             compose file mounts it read-only. -->
+        <Content Update="appsettings.LoadTest.json" CopyToPublishDirectory="Never" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Aspire.Seq" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>

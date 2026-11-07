@@ -406,3 +406,6 @@ secrets/*
 
 # Commercial library license files: pass as a secret, never commit
 sixlabors.lic
+
+# k6 load-test output (tests/load/run.sh)
+tests/load/results/

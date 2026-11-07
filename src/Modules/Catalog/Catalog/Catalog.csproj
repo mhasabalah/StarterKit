@@ -26,6 +26,7 @@
         <ProjectReference Include="..\..\Attachment\Attachment.Contracts\Attachment.Contracts.csproj" />
         <ProjectReference Include="..\..\DataTransfer\DataTransfer.Contracts\DataTransfer.Contracts.csproj" />
         <ProjectReference Include="..\Catalog.Contracts\Catalog.Contracts.csproj" />
+        <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup>

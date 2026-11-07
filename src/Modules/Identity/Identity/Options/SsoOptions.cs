@@ -41,4 +41,26 @@ public sealed class SsoOptions
     /// SSO - the break-glass path if the IdP is down or misconfigured.
     /// </summary>
     public bool AllowBreakGlassPasswordLogin { get; set; } = true;
+
+    /// <summary>Cron of the recurring SAML metadata refresh (connections with a metadata URL). Default: every 6 hours.</summary>
+    public string MetadataRefreshCron { get; set; } = "0 */6 * * *";
+
+    /// <summary>Turns the recurring SAML metadata refresh off ("refresh now" in the admin API still works).</summary>
+    public bool MetadataRefreshEnabled { get; set; } = true;
+
+    /// <summary>Cron of the SAML certificate expiry check. Default: daily at 07:00 UTC.</summary>
+    public string CertificateExpiryCheckCron { get; set; } = "0 7 * * *";
+
+    /// <summary>Turns the SAML certificate expiry alerts off (the daily check does not run).</summary>
+    public bool CertificateExpiryAlertsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// SSO administrators are alerted once for each of these "days before the IdP certificates expire" thresholds
+    /// (and once more for every smaller one that is crossed). The code default is EMPTY on purpose: the configuration
+    /// binder APPENDS to a non-empty default array, so a configured <c>[14, 3]</c> would become <c>[30, 14, 7, 1, 14, 3]</c>.
+    /// An empty value is replaced by <see cref="DefaultCertificateExpiryAlertDays"/> in a post-configure step.
+    /// </summary>
+    public int[] CertificateExpiryAlertDays { get; set; } = [];
+
+    public static readonly int[] DefaultCertificateExpiryAlertDays = [30, 14, 7, 1];
 }

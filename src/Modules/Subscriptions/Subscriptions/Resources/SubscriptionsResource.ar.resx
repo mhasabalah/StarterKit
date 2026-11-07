@@ -34,4 +34,112 @@
   <data name="Validation.PlanFeature.ResetPeriodNeedsLimit" xml:space="preserve">
     <value>لا يصلح ResetPeriod إلا مع تحديد Limit.</value>
   </data>
+  <data name="InApp.billing.subscription-activated.Title" xml:space="preserve">
+    <value>تم تفعيل اشتراكك</value>
+  </data>
+  <data name="InApp.billing.subscription-activated.Body" xml:space="preserve">
+    <value>باقة {0} مفعّلة الآن. موعد التجديد القادم: {1}.</value>
+  </data>
+  <data name="InApp.billing.past-due.Title" xml:space="preserve">
+    <value>الدفع متأخر</value>
+  </data>
+  <data name="InApp.billing.past-due.Body" xml:space="preserve">
+    <value>اشتراكك في باقة {0} متأخر السداد. جدّد قبل {1} للحفاظ على وصولك.</value>
+  </data>
+  <data name="InApp.billing.expired.Title" xml:space="preserve">
+    <value>انتهى الاشتراك</value>
+  </data>
+  <data name="InApp.billing.expired.Body" xml:space="preserve">
+    <value>انتهى اشتراكك في باقة {0}. جدّد لاستعادة وصولك.</value>
+  </data>
+  <data name="InApp.billing.renewed.Title" xml:space="preserve">
+    <value>تم تجديد الاشتراك</value>
+  </data>
+  <data name="InApp.billing.renewed.Body" xml:space="preserve">
+    <value>تم تجديد باقة {0} حتى {1}.</value>
+  </data>
+  <data name="InApp.billing.payment-rejected.Title" xml:space="preserve">
+    <value>تم رفض الدفعة</value>
+  </data>
+  <data name="InApp.billing.payment-rejected.Body" xml:space="preserve">
+    <value>لم نتمكن من قبول دفعة باقة {0}. افتح صفحة الفوترة للمحاولة مرة أخرى.</value>
+  </data>
+  <data name="InApp.billing.subscription-rejected.Title" xml:space="preserve">
+    <value>تم رفض طلب الاشتراك</value>
+  </data>
+  <data name="InApp.billing.subscription-rejected.Body" xml:space="preserve">
+    <value>لم تتم الموافقة على طلبك لباقة {0}.</value>
+  </data>
+  <data name="InApp.billing.refund-approved.Title" xml:space="preserve">
+    <value>تمت الموافقة على الاسترداد</value>
+  </data>
+  <data name="InApp.billing.refund-approved.Body" xml:space="preserve">
+    <value>تمت الموافقة على طلب استرداد باقة {0}.</value>
+  </data>
+  <data name="InApp.billing.refund-processed.Title" xml:space="preserve">
+    <value>تم إصدار الاسترداد</value>
+  </data>
+  <data name="InApp.billing.refund-processed.Body" xml:space="preserve">
+    <value>تم إصدار استرداد باقة {0}.</value>
+  </data>
+  <data name="InApp.billing.refund-rejected.Title" xml:space="preserve">
+    <value>تم رفض طلب الاسترداد</value>
+  </data>
+  <data name="InApp.billing.refund-rejected.Body" xml:space="preserve">
+    <value>تم رفض طلب استرداد باقة {0}.</value>
+  </data>
+  <data name="InApp.billing.cancellation-scheduled.Title" xml:space="preserve">
+    <value>تم جدولة الإلغاء</value>
+  </data>
+  <data name="InApp.billing.cancellation-scheduled.Body" xml:space="preserve">
+    <value>سينتهي اشتراكك في باقة {0} بتاريخ {1}.</value>
+  </data>
+  <data name="InApp.billing.cancelled.Title" xml:space="preserve">
+    <value>تم إلغاء الاشتراك</value>
+  </data>
+  <data name="InApp.billing.cancelled.Body" xml:space="preserve">
+    <value>تم إلغاء اشتراكك في باقة {0}.</value>
+  </data>
+  <data name="InApp.billing.downgrade-scheduled.Title" xml:space="preserve">
+    <value>تم جدولة خفض الباقة</value>
+  </data>
+  <data name="InApp.billing.downgrade-scheduled.Body" xml:space="preserve">
+    <value>ستتغير باقتك من {0} إلى {1} بتاريخ {2}.</value>
+  </data>
+  <data name="InApp.billing.downgrade-cancelled.Title" xml:space="preserve">
+    <value>تم إلغاء خفض الباقة</value>
+  </data>
+  <data name="InApp.billing.downgrade-cancelled.Body" xml:space="preserve">
+    <value>تم إلغاء خفض الباقة المجدول. ستبقى على باقة {0}.</value>
+  </data>
+  <data name="InApp.billing.downgrade-applied.Title" xml:space="preserve">
+    <value>تم تغيير الباقة</value>
+  </data>
+  <data name="InApp.billing.downgrade-applied.Body" xml:space="preserve">
+    <value>أنت الآن على باقة {0}. موعد التجديد القادم: {1}.</value>
+  </data>
+  <data name="InApp.billing.upgraded.Title" xml:space="preserve">
+    <value>تمت ترقية الباقة</value>
+  </data>
+  <data name="InApp.billing.upgraded.Body" xml:space="preserve">
+    <value>تمت ترقية باقتك من {0} إلى {1}.</value>
+  </data>
+  <data name="InApp.billing.upgrade-reverted.Title" xml:space="preserve">
+    <value>تم التراجع عن الترقية</value>
+  </data>
+  <data name="InApp.billing.upgrade-reverted.Body" xml:space="preserve">
+    <value>تم التراجع عن الترقية لعدم وصول إثبات الدفع في الوقت المناسب. ستبقى على باقة {0}.</value>
+  </data>
+  <data name="InApp.billing.invoice-ready.Title" xml:space="preserve">
+    <value>الفاتورة جاهزة</value>
+  </data>
+  <data name="InApp.billing.invoice-ready.Body" xml:space="preserve">
+    <value>فاتورتك {0} جاهزة.</value>
+  </data>
+  <data name="InApp.billing.trial-ending.Title" xml:space="preserve">
+    <value>اقتربت نهاية الفترة التجريبية</value>
+  </data>
+  <data name="InApp.billing.trial-ending.Body" xml:space="preserve">
+    <value>تنتهي الفترة التجريبية لباقة {0} بتاريخ {1}. راجع باقتك للحفاظ على وصولك.</value>
+  </data>
 </root>

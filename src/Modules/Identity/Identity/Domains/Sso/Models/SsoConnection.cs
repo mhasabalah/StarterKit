@@ -49,6 +49,31 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
 
     public bool SamlAllowIdpInitiated { get; private set; }
 
+    /// <summary>Last time the IdP metadata URL was fetched successfully (changed or not).</summary>
+    [AuditIgnore]
+    public DateTime? SamlMetadataRefreshedAt { get; private set; }
+
+    /// <summary>
+    /// Stable error code of the last failed metadata refresh (<see cref="SamlMetadataErrors"/>), null after a success.
+    /// A code (not text) so clients localize it.
+    /// </summary>
+    public string? SamlMetadataLastError { get; private set; }
+
+    /// <summary>
+    /// When the connection can no longer verify IdP signatures: the LATEST <c>NotAfter</c> of its certificates (an IdP
+    /// rolling over publishes the new certificate next to the old one, so the earliest expiry alone is not an outage).
+    /// </summary>
+    [AuditIgnore]
+    public DateTime? SamlCertificatesNotAfter { get; private set; }
+
+    /// <summary>The <see cref="SamlCertificatesNotAfter"/> the expiry alert was last sent for.</summary>
+    [AuditIgnore]
+    public DateTime? SamlExpiryAlertedNotAfter { get; private set; }
+
+    /// <summary>The smallest alert threshold (days) already sent for <see cref="SamlExpiryAlertedNotAfter"/>.</summary>
+    [AuditIgnore]
+    public int? SamlExpiryAlertedDays { get; private set; }
+
     public string? EmailClaim { get; private set; }
     public string? GivenNameClaim { get; private set; }
     public string? FamilyNameClaim { get; private set; }
@@ -166,7 +191,88 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
         if (list.Count == 0)
             throw new InvalidSsoConnectionException("Sso.Connection.CertificateRequired");
         SamlIdpCertificates = list;
+        TrackCertificateExpiry();
+        RaiseChanged();
     }
+
+    /// <summary>
+    /// Applies freshly fetched IdP metadata. The entity id is the trust anchor: metadata of a DIFFERENT entity is
+    /// rejected (a hijacked or mistyped URL must never swap the keys). Returns whether anything changed.
+    /// </summary>
+    public SamlMetadataApplyResult ApplyIdpMetadata(
+        string entityId, string? ssoUrl, IReadOnlyList<string> certificates, DateTime now)
+    {
+        if (Protocol != SsoProtocol.Saml)
+            throw new InvalidSsoConnectionException("Sso.Connection.ProtocolFixed");
+
+        if (!string.Equals(entityId, SamlIdpEntityId, StringComparison.Ordinal))
+            return SamlMetadataApplyResult.Rejected(SamlMetadataErrors.EntityIdMismatch);
+
+        List<string> normalized;
+        try
+        {
+            normalized = NormalizeCertificates(certificates);
+        }
+        catch (InvalidSsoConnectionException)
+        {
+            return SamlMetadataApplyResult.Rejected(SamlMetadataErrors.InvalidCertificates);
+        }
+
+        if (normalized.Count == 0)
+            return SamlMetadataApplyResult.Rejected(SamlMetadataErrors.NoCertificates);
+
+        var newSsoUrl = string.IsNullOrWhiteSpace(ssoUrl) ? SamlIdpSsoUrl : ssoUrl.Trim();
+        // The same certificates in another order are not a change (IdPs list them in no stable order).
+        var certificatesChanged = !normalized.ToHashSet(StringComparer.Ordinal).SetEquals(SamlIdpCertificates);
+        var urlChanged = !string.Equals(newSsoUrl, SamlIdpSsoUrl, StringComparison.Ordinal);
+
+        // Unchanged: leave the tracked state alone (the caller records the refresh with a set-based update, so the
+        // version never moves and no later SaveChanges can write it back).
+        if (!certificatesChanged && !urlChanged)
+            return SamlMetadataApplyResult.Unchanged;
+
+        SamlMetadataRefreshedAt = now;
+        SamlMetadataLastError = null;
+
+        if (urlChanged)
+            SamlIdpSsoUrl = newSsoUrl;
+        if (certificatesChanged)
+        {
+            SamlIdpCertificates = normalized;
+            TrackCertificateExpiry();
+        }
+
+        RaiseChanged();
+        return SamlMetadataApplyResult.Updated;
+    }
+
+    /// <summary>
+    /// The expiry alert that is due, or null: the certificates expire within one of <paramref name="thresholdDays"/> and
+    /// that threshold (or a smaller one) has not been alerted yet for this expiry date. This is only the cheap local
+    /// check on a loaded row; the job claims the alert with a conditional set-based update, which is what makes it
+    /// exactly-once across replicas.
+    /// </summary>
+    public SamlExpiryAlert? ExpiryAlertDue(DateTime now, IReadOnlyCollection<int> thresholdDays)
+    {
+        if (Protocol != SsoProtocol.Saml || LatestNotAfter() is not { } notAfter)
+            return null;
+
+        var daysLeft = (notAfter - now).TotalDays;
+        var band = thresholdDays.Where(d => d > 0 && daysLeft <= d).DefaultIfEmpty(0).Min();
+        if (band == 0)
+            return null;
+
+        var alreadySent = SamlExpiryAlertedNotAfter == notAfter && SamlExpiryAlertedDays <= band;
+        return alreadySent ? null : new SamlExpiryAlert(band, notAfter, Math.Max(0, (int)Math.Floor(daysLeft)));
+    }
+
+    private void TrackCertificateExpiry() => SamlCertificatesNotAfter = LatestNotAfter();
+
+    /// <summary>The latest <c>NotAfter</c> of the certificates (when signature validation really stops).</summary>
+    public DateTime? LatestNotAfter() =>
+        SamlIdpCertificates.Count == 0
+            ? null
+            : SamlIdpCertificates.Max(c => SsoCertificates.Describe(c).NotAfter);
 
     /// <summary>
     /// Raises the change event with the authority before and after the change, so every replica drops the cached
@@ -207,7 +313,10 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
             SamlIdpMetadataUrl = Optional(input.SamlIdpMetadataUrl, UrlMaxLength);
             SamlAllowIdpInitiated = input.SamlAllowIdpInitiated;
             if (input.SamlIdpCertificates is not null)
+            {
                 SamlIdpCertificates = NormalizeCertificates(input.SamlIdpCertificates);
+                TrackCertificateExpiry();
+            }
         }
     }
 
@@ -260,6 +369,39 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
             throw new InvalidSsoConnectionException("Sso.Connection.ValueTooLong", max);
         return trimmed;
     }
+}
+
+/// <summary>Stable codes of <see cref="SsoConnection.SamlMetadataLastError"/>.</summary>
+public static class SamlMetadataErrors
+{
+    public const string FetchFailed = "metadata_fetch_failed";
+    public const string UrlNotAllowed = "metadata_url_not_allowed";
+    public const string TooLarge = "metadata_too_large";
+    public const string InvalidMetadata = "metadata_invalid";
+    public const string EntityIdMismatch = "metadata_entity_id_mismatch";
+    public const string NoCertificates = "metadata_no_certificates";
+    public const string InvalidCertificates = "metadata_invalid_certificates";
+    public const string SignatureInvalid = "metadata_signature_invalid";
+}
+
+/// <summary>An SAML certificate expiry alert that is due (see <see cref="SsoConnection.ExpiryAlertDue"/>).</summary>
+public readonly record struct SamlExpiryAlert(int ThresholdDays, DateTime NotAfter, int DaysLeft);
+
+public enum SamlMetadataOutcome
+{
+    Unchanged = 0,
+    Updated = 1,
+    Failed = 2
+}
+
+/// <summary>Outcome of <see cref="SsoConnection.ApplyIdpMetadata"/>.</summary>
+public readonly record struct SamlMetadataApplyResult(SamlMetadataOutcome Outcome, string? Error = null)
+{
+    public static SamlMetadataApplyResult Unchanged => new(SamlMetadataOutcome.Unchanged);
+
+    public static SamlMetadataApplyResult Updated => new(SamlMetadataOutcome.Updated);
+
+    public static SamlMetadataApplyResult Rejected(string error) => new(SamlMetadataOutcome.Failed, error);
 }
 
 /// <summary>An email domain claimed by a connection, proven with a DNS TXT record before it counts.</summary>

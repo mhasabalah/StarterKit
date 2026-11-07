@@ -38,6 +38,9 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     /// <summary>Adds <c>email</c> + <c>email_verified=True</c> claims (invitation acceptance).</summary>
     public const string EmailHeader = "X-Test-Email";
 
+    /// <summary>Adds the <c>act</c> claim: the request is an IMPERSONATED session of the given platform user.</summary>
+    public const string ActorHeader = "X-Test-Actor";
+
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
@@ -81,6 +84,11 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         if (Request.Headers[TenantHeader].ToString() is { Length: > 0 } tenantId)
         {
             claims.Add(new Claim(TenantClaimTypes.TenantId, tenantId));
+        }
+
+        if (Request.Headers[ActorHeader].ToString() is { Length: > 0 } actor)
+        {
+            claims.Add(new Claim(TenantClaimTypes.Actor, actor));
         }
 
         if (Request.Headers[MembershipStampHeader].ToString() is { Length: > 0 } stamp)

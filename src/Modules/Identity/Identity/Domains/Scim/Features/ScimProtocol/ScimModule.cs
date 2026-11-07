@@ -185,22 +185,36 @@ public static class ScimDiscovery
 
     public static JsonObject ResourceTypes() => ScimJson.List(
     [
-        ResourceType("User", "/Users", ScimSchemas.User),
+        ResourceType("User", "/Users", ScimSchemas.User, ScimSchemas.EnterpriseUser),
         ResourceType("Group", "/Groups", ScimSchemas.Group)
     ], 2, 1);
 
     public static JsonObject Schemas() => ScimJson.List(
     [
         new JsonObject { ["id"] = ScimSchemas.User, ["name"] = "User" },
+        new JsonObject { ["id"] = ScimSchemas.EnterpriseUser, ["name"] = "EnterpriseUser" },
         new JsonObject { ["id"] = ScimSchemas.Group, ["name"] = "Group" }
-    ], 2, 1);
+    ], 3, 1);
 
-    private static JsonObject ResourceType(string name, string endpoint, string schema) => new()
+    private static JsonObject ResourceType(string name, string endpoint, string schema, string? extension = null)
     {
-        ["schemas"] = new JsonArray(ScimSchemas.ResourceType),
-        ["id"] = name,
-        ["name"] = name,
-        ["endpoint"] = endpoint,
-        ["schema"] = schema
-    };
+        var resourceType = new JsonObject
+        {
+            ["schemas"] = new JsonArray(ScimSchemas.ResourceType),
+            ["id"] = name,
+            ["name"] = name,
+            ["endpoint"] = endpoint,
+            ["schema"] = schema
+        };
+        if (extension is not null)
+        {
+            resourceType["schemaExtensions"] = new JsonArray(new JsonObject
+            {
+                ["schema"] = extension,
+                ["required"] = false
+            });
+        }
+
+        return resourceType;
+    }
 }
