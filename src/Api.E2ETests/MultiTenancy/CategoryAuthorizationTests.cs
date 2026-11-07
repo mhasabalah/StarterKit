@@ -126,6 +126,18 @@ public sealed class CategoryAuthorizationTests(MultiTenantE2EFixture fixture)
         (await member.PostAsJsonAsync($"{Api}/data-transfer/exports", new { definitionKey = "tenancy.members" }))
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
+        foreach (var key in new[] { "catalog.categories", "tenancy.members" })
+        {
+            using var form = new MultipartFormDataContent();
+            var file = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("slug,x"));
+            file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
+            form.Add(file, "file", "rows.csv");
+            form.Add(new StringContent(key), "definitionKey");
+            form.Add(new StringContent("DryRun"), "mode");
+            (await member.PostAsync($"{Api}/data-transfer/imports", form)).StatusCode
+                .Should().Be(HttpStatusCode.Forbidden, $"import of {key} needs the definition's own permission");
+        }
+
         using var ownerExport = await owner.PostAsJsonAsync($"{Api}/data-transfer/exports", new { definitionKey = "catalog.categories" });
         ownerExport.StatusCode.Should().Be(HttpStatusCode.Accepted, await ownerExport.Content.ReadAsStringAsync());
     }
