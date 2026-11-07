@@ -363,9 +363,29 @@ namespace Identity.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("active");
 
+                    b.Property<string>("CostCenter")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("cost_center");
+
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("department");
+
+                    b.Property<string>("Division")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("division");
+
+                    b.Property<string>("EmployeeNumber")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("employee_number");
 
                     b.Property<string>("ExternalId")
                         .HasMaxLength(256)
@@ -375,6 +395,15 @@ namespace Identity.Data.Migrations
                     b.Property<DateTime>("LastModified")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_modified");
+
+                    b.Property<Guid?>("ManagerScimUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_scim_user_id");
+
+                    b.Property<string>("Organization")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("organization");
 
                     b.Property<long>("Revision")
                         .IsConcurrencyToken()
@@ -499,6 +528,18 @@ namespace Identity.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("saml_allow_idp_initiated");
 
+                    b.Property<DateTime?>("SamlCertificatesNotAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saml_certificates_not_after");
+
+                    b.Property<int?>("SamlExpiryAlertedDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("saml_expiry_alerted_days");
+
+                    b.Property<DateTime?>("SamlExpiryAlertedNotAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saml_expiry_alerted_not_after");
+
                     b.PrimitiveCollection<List<string>>("SamlIdpCertificates")
                         .IsRequired()
                         .HasColumnType("text[]")
@@ -518,6 +559,15 @@ namespace Identity.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("saml_idp_sso_url");
+
+                    b.Property<string>("SamlMetadataLastError")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("saml_metadata_last_error");
+
+                    b.Property<DateTime?>("SamlMetadataRefreshedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saml_metadata_refreshed_at");
 
                     b.Property<string>("Status")
                         .IsRequired()

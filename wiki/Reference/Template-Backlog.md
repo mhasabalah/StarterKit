@@ -134,8 +134,9 @@ sandbox keys per project.
 Wave 8 (2026-11-05, ADRs [0013](../Decisions/0013-enterprise-sso-and-scim.md) / [0014](../Decisions/0014-passkeys-on-built-in-identity.md)):
 G15 + G16 shipped, plus the email design system v2 ([page](../Modules/Notification-Email-Design-System.md)), the
 email OTP channel (`OneTimeCode`, closes the G13/G18 follow-up below) and the [feature catalog](Features.md). G4
-progress: E2E for passkeys, SSO and SCIM. Follow-ups: SAML metadata-URL refresh job; multi-tenant E2E of SSO
-(`MultiTenantE2EFixture`); SCIM enterprise-extension attributes; still open from G4 - refresh/logout/password-reset
+progress: E2E for passkeys, SSO and SCIM. Follow-ups, done: SAML metadata-URL refresh job with certificate expiry
+alerts, multi-tenant E2E of SSO (`SsoTenantTests`) and SCIM enterprise-extension attributes with `invalidPath`
+([SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md)). Still open from G4: refresh/logout/password-reset
 E2E and the attachment pending flow over HTTP. The architecture review items of 2026-11-05 are closed
 (discovery-cache eviction across replicas with the old authority, tenant-role validation for SSO default roles and
 SCIM group mappings, SCIM directory repository and single-query counts, one `AddDnsTxtVerifier()`, en/ar messages
