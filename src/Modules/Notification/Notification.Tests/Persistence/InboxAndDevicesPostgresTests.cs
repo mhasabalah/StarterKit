@@ -69,7 +69,7 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
     private async Task<InboxNotification> DeliverAsync(Guid userId, Guid? tenantId = null, string title = "Hello")
     {
         await using var db = Db();
-        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), _realtime,
+        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), new NotificationPreferenceRepository(db, MsOptions.Create(new NotificationOptions())), _realtime,
             MsOptions.Create(new EmailOptions { AppBaseUrl = "https://app.example.com" }),
             MsOptions.Create(new InboxOptions { RetentionDays = 30 }), new NotificationMetrics(), _clock,
             NullLogger<InAppDeliveryJob>.Instance, Tenant(tenantId));
@@ -106,7 +106,7 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
     public async Task A_re_run_of_the_delivery_job_keeps_exactly_one_entry_and_one_Sent_row()
     {
         await using var db = Db();
-        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), _realtime,
+        var job = new InAppDeliveryJob(new InboxNotificationRepository(db), new NotificationLogRepository(db), new NotificationPreferenceRepository(db, MsOptions.Create(new NotificationOptions())), _realtime,
             MsOptions.Create(new EmailOptions()), MsOptions.Create(new InboxOptions()), new NotificationMetrics(), _clock,
             NullLogger<InAppDeliveryJob>.Instance);
         var delivery = new InAppDelivery(_me, NotificationCulture.En,
@@ -378,6 +378,32 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
         await preferences.UpsertAsync(_me, [NotificationChannel.Email, NotificationChannel.WhatsApp]);
 
         (await preferences.IsPushEnabledAsync(_me)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Mutes_quiet_hours_and_time_zone_round_trip_and_survive_an_unrelated_update()
+    {
+        await using var db = Db();
+        var preferences = new NotificationPreferenceRepository(db, MsOptions.Create(new NotificationOptions()));
+
+        (await preferences.GetDeliveryPreferenceAsync(_me)).Should().BeNull();
+        await preferences.UpdateAsync(_me, new PreferenceChange([NotificationChannel.Email], null,
+            new Dictionary<string, ChannelMuteSet> { ["billing"] = new(Push: true), ["catalog"] = new() },
+            new TimeOnly(22, 0), new TimeOnly(7, 30), "Africa/Cairo"));
+        await preferences.UpsertAsync(_me, [NotificationChannel.Email]);
+
+        await using var fresh = Db();
+        var stored = await new NotificationPreferenceRepository(fresh, MsOptions.Create(new NotificationOptions()))
+            .GetDeliveryPreferenceAsync(_me);
+        stored!.CategoryMutes.Should().ContainSingle().Which.Should().Be(new KeyValuePair<string, ChannelMuteSet>("billing", new(Push: true)));
+        (stored.QuietHoursStart, stored.QuietHoursEnd, stored.TimeZone).Should().Be((new TimeOnly(22, 0), new TimeOnly(7, 30), "Africa/Cairo"));
+
+        await preferences.UpdateAsync(_me, new PreferenceChange([NotificationChannel.Email], ClearQuietHours: true));
+        await using var cleared = Db();
+        var after = await new NotificationPreferenceRepository(cleared, MsOptions.Create(new NotificationOptions()))
+            .GetDeliveryPreferenceAsync(_me);
+        (after!.QuietHoursStart, after.TimeZone).Should().Be(((TimeOnly?)null, (string?)null));
+        after.CategoryMutes.Should().ContainKey("billing");
     }
 
     [Fact]

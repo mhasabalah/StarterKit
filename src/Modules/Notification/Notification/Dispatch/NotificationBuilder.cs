@@ -20,6 +20,7 @@ internal sealed class NotificationBuilder : INotificationBuilder
     private InAppContent? _inApp;
     private PushContent? _push;
     private bool? _pushFromInAppSensitive;
+    private string? _category;
     private Guid? _correlationId;
 
     internal NotificationBuilder(
@@ -99,6 +100,15 @@ internal sealed class NotificationBuilder : INotificationBuilder
         return this;
     }
 
+    public INotificationBuilder InCategory(string category)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(category);
+        if (category.Length > InAppContent.CategoryMaxLength)
+            throw new ArgumentException($"Category must not exceed {InAppContent.CategoryMaxLength} characters.", nameof(category));
+        _category = category;
+        return this;
+    }
+
     /// <summary>
     /// Enqueues the notification for asynchronous dispatch.
     /// Pass <paramref name="forcedChannel"/> to bypass user channel preferences
@@ -116,6 +126,7 @@ internal sealed class NotificationBuilder : INotificationBuilder
             userId = resolved;
         }
 
+        var push = ResolvePush();
         var message = new NotificationMessage
         {
             UserId = userId,
@@ -125,7 +136,8 @@ internal sealed class NotificationBuilder : INotificationBuilder
             Email = _email,
             WhatsApp = _whatsApp,
             InApp = _inApp,
-            Push = ResolvePush(),
+            Push = push,
+            Category = _category ?? _inApp?.Category ?? push?.Data?.GetValueOrDefault("category"),
             CorrelationId = _correlationId
         };
         return await _enqueuer.EnqueueAsync(message, forcedChannel, ct);

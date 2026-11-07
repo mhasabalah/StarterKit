@@ -1,5 +1,6 @@
 using Notification.Contracts.InApp;
 using Notification.Contracts.Inbox;
+using Notification.Contracts.Preferences;
 
 namespace Notification.Dispatch;
 
@@ -16,6 +17,7 @@ namespace Notification.Dispatch;
 public sealed class InAppDeliveryJob(
     IInboxNotificationRepository inbox,
     INotificationLogRepository logs,
+    INotificationPreferenceRepository preferences,
     IRealtimeNotifier realtime,
     IOptions<EmailOptions> emailOptions,
     IOptions<InboxOptions> inboxOptions,
@@ -45,6 +47,16 @@ public sealed class InAppDeliveryJob(
             return;
         }
 
+        var category = delivery.Category ?? delivery.Content.Category;
+        var preference = await preferences.GetDeliveryPreferenceAsync(delivery.UserId, ct);
+        if (NotificationPolicy.IsMuted(preference, category, NotificationChannel.InApp))
+        {
+            await logs.InsertAsync(Log(correlationId, delivery, NotificationDeliveryStatus.Skipped,
+                $"The user muted in-app notifications for the '{NotificationCategoryGroups.GroupOf(category)}' group.",
+                timeProvider.GetUtcNow().UtcDateTime), ct);
+            return;
+        }
+
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var tenantId = InboxScope.CurrentTenantId(tenantContext);
         var entry = Render(delivery, correlationId, tenantId, now, emailOptions.Value, inboxOptions.Value);
@@ -59,7 +71,9 @@ public sealed class InAppDeliveryJob(
             metrics.InAppDelivered();
         }
 
-        await realtime.NotificationReceivedAsync(delivery.UserId, ToDto(entry), ct);
+        // Quiet hours: the entry is stored (it waits in the inbox, counted as unread) but nothing pops up live.
+        if (NotificationPolicy.QuietHoursEnd(preference, category, now) is null)
+            await realtime.NotificationReceivedAsync(delivery.UserId, ToDto(entry), ct);
         var unread = await inbox.CountUnreadAsync(delivery.UserId, entry.TenantId, ct);
         await realtime.UnreadCountChangedAsync(delivery.UserId, entry.TenantId, unread, ct);
 

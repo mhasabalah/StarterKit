@@ -52,6 +52,15 @@ public interface INotificationBuilder
     INotificationBuilder WithPush(bool sensitive = false);
 
     /// <summary>
+    /// Sets the category (<c>&lt;group&gt;.&lt;event&gt;</c>, e.g. <c>billing.invoice-issued</c>) used for the user's
+    /// per-group mutes and quiet hours. Needed for EMAIL-ONLY sends; with an in-app payload the in-app category is used
+    /// when this is not called. Without any category, email is never muted, and neither is <c>security</c> or <c>billing</c> email,
+    /// forced or not (see <c>NotificationCategoryGroups</c>). The default implementation ignores the category, so
+    /// test doubles keep compiling; the real builder overrides it.
+    /// </summary>
+    INotificationBuilder InCategory(string category) => this;
+
+    /// <summary>
     /// Pins the correlation id of this notification (default: a new id per send). Pass a STABLE id - e.g. the message id
     /// of the integration event being handled - so a redelivery maps to the same id and the inbox entry (unique per
     /// user and correlation id) is not created twice. Default interface member: implementations that do not support it

@@ -23,10 +23,12 @@ public sealed class PushDeliveryJobTests
     private readonly PushOptions _options = new() { MaxAttempts = 3, RetryDelaysSeconds = [30, 120] };
     private readonly Guid _user = Guid.NewGuid();
     private HashSet<Guid> _activeSessions = [];
+    private DeliveryPreference? _preference;
 
     public PushDeliveryJobTests()
     {
-        _preferences.Setup(p => p.IsPushEnabledAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _preferences.Setup(p => p.GetDeliveryPreferenceAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => _preference);
         _sender.Setup(s => s.Send(It.IsAny<GetActiveSessionIdsQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _activeSessions);
         _jobs.Setup(j => j.Create(It.IsAny<Job>(), It.IsAny<IState>()))
@@ -97,7 +99,7 @@ public sealed class PushDeliveryJobTests
     public async Task Push_turned_off_is_skipped_and_logged()
     {
         _devices.Add(_user);
-        _preferences.Setup(p => p.IsPushEnabledAsync(_user, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _preference = new DeliveryPreference(false, new Dictionary<string, ChannelMuteSet>(), null, null, null);
 
         await Job().ExecuteAsync(Delivery(), Guid.NewGuid());
 

@@ -41,6 +41,9 @@ public sealed class SubscriptionActivatedEventHandler(INotificationSender notifi
   admin digests). `userId` only links the log row.
 - `SendAsync(NotificationChannel.Email)` - **force** a channel: preferences are ignored. Use it for security mail
   (password reset) that a preference must never suppress.
+- `InCategory("membership.invitation-accepted")` - names the category of an email-only send so the user's per-group email
+  mute applies (it mutes the whole email/WhatsApp chain). Security email and billing email can never be muted; an email
+  with no category is never muted.
 - `INotificationRecipientResolver` (implemented by Tenancy) maps a non-user recipient (a tenant subscriber) to the
   user who receives it (the tenant owner).
 - `INotificationLinkResolver.ToAbsolute(url)` - links put into notifications: relative URLs are resolved against
@@ -102,7 +105,8 @@ throwing. Channel per purpose: `PhoneVerification` → WhatsApp (`PhoneVerificat
 
 | Route | Auth |
 |---|---|
-| `GET/PUT /api/v1/notifications/preferences` | the user - `channelOrder` (email/WhatsApp only) and `pushEnabled` |
+| `GET/PUT /api/v1/notifications/preferences` | the user - `channelOrder` (email/WhatsApp only), `pushEnabled`, per-group `categoryMutes`, `quietHours` + `timeZone` ([details](Notification-Realtime-and-Push.md#mutes-and-quiet-hours)) |
+| `GET /api/v1/notifications/preferences/category-groups` | the user - mutable groups with `en`/`ar` names |
 | `/api/v1/notifications/inbox/*`, `/api/v1/notifications/devices/*`, `/hubs/notifications` | the user - [Notification-Realtime-and-Push](Notification-Realtime-and-Push.md#endpoints) |
 | `GET/PUT /api/v1/notifications/preferences/{userId}` | `AdminOnly` |
 | `GET /api/v1/notifications/history?userId=&channel=&status=` | `AdminOnly` - e.g. `?status=Failed&channel=Email` |
@@ -127,7 +131,7 @@ path through `Push:CredentialsFile`; see `docker-compose.push.yml`). (The OTP HM
 
 `NotificationDbContext`, schema `notification`, history table `__notification_migrations_history`:
 `notification_log` (every delivery attempt of every channel), `user_notification_preference` (channel order,
-`push_enabled`), `inbox_notification` (unique `(user_id, correlation_id)`, partial index for the unread count) and
+`push_enabled`, `category_mutes` jsonb, quiet hours + `time_zone`), `inbox_notification` (unique `(user_id, correlation_id)`, partial index for the unread count) and
 `push_device` (unique `token`). A host-database context (not `ITenantDataContext`): log and inbox rows carry a
 nullable `tenant_id` and are deleted by the tenant purge (`TenantDataPurgeRequestedEvent`); the user erasure
 (`UserDeletedIntegrationEvent`) deletes the user's log, preferences, inbox and devices.

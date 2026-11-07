@@ -4,7 +4,8 @@ using Notification.Contracts.Push;
 namespace Notification.Dispatch;
 
 /// <summary>Hangfire argument of <see cref="InAppDeliveryJob"/>: one inbox entry for one user.</summary>
-public sealed record InAppDelivery(Guid UserId, NotificationCulture Culture, InAppContent Content);
+/// <param name="Category">The category mutes and quiet hours apply to (<c>InCategory</c>, else the content category).</param>
+public sealed record InAppDelivery(Guid UserId, NotificationCulture Culture, InAppContent Content, string? Category = null);
 
 /// <summary>
 /// Hangfire argument of <see cref="PushDeliveryJob"/>. <see cref="DeviceIds"/> null = every active device of the user
@@ -16,7 +17,9 @@ public sealed record PushDelivery(
     NotificationCulture Culture,
     PushContent Content,
     IReadOnlyList<Guid>? DeviceIds = null,
-    int Attempt = 1);
+    int Attempt = 1,
+    string? Category = null,
+    bool Deferred = false);
 
 /// <summary>Channels delivered alongside (not as part of) the email/WhatsApp fallback chain.</summary>
 public static class AdditiveChannels
