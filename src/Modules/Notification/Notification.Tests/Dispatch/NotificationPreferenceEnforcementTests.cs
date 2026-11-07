@@ -40,7 +40,7 @@ public sealed class NotificationPreferenceEnforcementTests
     [Theory]
     [InlineData("billing.invoice-issued", "billing")]
     [InlineData("Security.new-login", "security")]
-    [InlineData("data-transfer.finished", "data-transfer")]
+    [InlineData("data-transfer.job-finished", "data-transfer")]
     [InlineData("unknown.thing", "system")]
     [InlineData("nodot", "system")]
     [InlineData("", "system")]
@@ -49,10 +49,24 @@ public sealed class NotificationPreferenceEnforcementTests
         NotificationCategoryGroups.GroupOf(category).Should().Be(expected);
 
     [Fact]
-    public void Every_group_has_an_english_and_arabic_name_and_only_security_is_fixed()
+    public void Every_group_has_an_english_and_arabic_name_and_the_fixed_channels_are_security_and_billing_email()
     {
         NotificationCategoryGroups.All.Should().OnlyContain(g => !string.IsNullOrWhiteSpace(g.Name.En) && !string.IsNullOrWhiteSpace(g.Name.Ar));
-        NotificationCategoryGroups.All.Where(g => !g.Mutable).Select(g => g.Key).Should().Equal("security");
+
+        var fixedChannels = NotificationCategoryGroups.All.SelectMany(g => new[]
+        {
+            (g.Key, Channel: NotificationChannel.InApp, g.InAppMutable),
+            (g.Key, Channel: NotificationChannel.Push, g.PushMutable),
+            (g.Key, Channel: NotificationChannel.Email, g.EmailMutable)
+        }).Where(x => !x.Item3).Select(x => $"{x.Key}:{x.Channel}");
+        fixedChannels.Should().BeEquivalentTo("security:InApp", "security:Push", "security:Email", "billing:Email");
+    }
+
+    [Fact]
+    public void Only_security_skips_quiet_hours()
+    {
+        NotificationCategoryGroups.All.Where(g => !NotificationCategoryGroups.DefersForQuietHours(g.Key)).Select(g => g.Key)
+            .Should().Equal("security");
     }
 
     // ----- mute matrix ----------------------------------------------------------------------------------------------
@@ -91,12 +105,26 @@ public sealed class NotificationPreferenceEnforcementTests
             .Should().BeFalse();
 
     [Fact]
-    public void Forced_email_is_never_muted_and_no_preference_means_nothing_is_muted()
+    public void Billing_email_is_transactional_and_a_stale_mute_of_it_is_ignored_but_billing_push_and_in_app_can_be_muted()
     {
-        var pref = Muting("billing", new ChannelMuteSet(Email: true));
+        var pref = Muting("billing", new ChannelMuteSet(true, true, true));
 
-        NotificationPolicy.IsMuted(pref, "billing.paid", NotificationChannel.Email, forced: true).Should().BeFalse();
-        NotificationPolicy.IsMuted(null, "billing.paid", NotificationChannel.Email).Should().BeFalse();
+        NotificationPolicy.IsMuted(pref, "billing.invoice-issued", NotificationChannel.Email).Should().BeFalse();
+        NotificationPolicy.IsMuted(pref, "billing.invoice-issued", NotificationChannel.Push).Should().BeTrue();
+        NotificationPolicy.IsMuted(pref, "billing.invoice-issued", NotificationChannel.InApp).Should().BeTrue();
+    }
+
+    [Fact]
+    public void No_preference_or_no_category_means_nothing_is_muted_on_any_channel()
+    {
+        var all = Muting("system", new ChannelMuteSet(true, true, true));
+
+        NotificationPolicy.IsMuted(null, "catalog.x", NotificationChannel.Email).Should().BeFalse();
+        foreach (var channel in new[] { NotificationChannel.InApp, NotificationChannel.Push, NotificationChannel.Email })
+        {
+            NotificationPolicy.IsMuted(all, null, channel).Should().BeFalse();
+            NotificationPolicy.IsMuted(all, " ", channel).Should().BeFalse();
+        }
     }
 
     // ----- quiet hours ----------------------------------------------------------------------------------------------
@@ -142,6 +170,33 @@ public sealed class NotificationPreferenceEnforcementTests
         NotificationPolicy.QuietHoursEnd(newYork, "billing.paid", Utc(7, 3)).Should().Be(Utc(7, 12));
         // 15:00Z = 10:00 EST (outside).
         NotificationPolicy.QuietHoursEnd(newYork, "billing.paid", Utc(7, 15)).Should().BeNull();
+    }
+
+    [Fact]
+    public void Spring_forward_gap_ends_at_the_first_local_time_that_exists()
+    {
+        // New York 2027-03-14: 02:00 EST jumps to 03:00 EDT, so a 02:30 end does not exist and the window ends at 03:00 EDT = 07:00Z.
+        var pref = Pref(start: TenPm, end: new TimeOnly(2, 30), zone: "America/New_York");
+        var now = new DateTimeOffset(2027, 3, 14, 3, 0, 0, TimeSpan.Zero); // 22:00 EST on Mar 13
+
+        NotificationPolicy.QuietHoursEnd(pref, "billing.paid", now).Should().Be(new DateTimeOffset(2027, 3, 14, 7, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Fall_back_ambiguity_ends_at_the_first_occurrence_of_the_end_time()
+    {
+        // New York 2026-11-01: 02:00 EDT falls back to 01:00 EST, so 01:30 happens twice; the window ends the first time (EDT = 05:30Z).
+        var pref = Pref(start: TenPm, end: new TimeOnly(1, 30), zone: "America/New_York");
+        var now = new DateTimeOffset(2026, 11, 1, 3, 0, 0, TimeSpan.Zero); // 23:00 EDT on Oct 31
+
+        NotificationPolicy.QuietHoursEnd(pref, "billing.paid", now).Should().Be(new DateTimeOffset(2026, 11, 1, 5, 30, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void A_delivery_without_a_category_is_never_deferred()
+    {
+        NotificationPolicy.QuietHoursEnd(Quiet(), null, Utc(6, 21)).Should().BeNull();
+        NotificationPolicy.QuietHoursEnd(Quiet(), "", Utc(6, 21)).Should().BeNull();
     }
 
     [Fact]
@@ -199,7 +254,31 @@ public sealed class NotificationPreferenceEnforcementTests
     {
         Build(Request(new Dictionary<string, ChannelMuteSet> { ["security"] = new(inApp, push, email) }), null, out var error)
             .Should().BeNull();
-        error.Should().Be("Validation.Preference.SecurityNotMutable");
+        error.Should().Be("Validation.Preference.ChannelNotMutable");
+    }
+
+    [Fact]
+    public void Muting_billing_email_is_rejected_but_billing_push_and_in_app_are_accepted()
+    {
+        Build(Request(new Dictionary<string, ChannelMuteSet> { ["billing"] = new(Email: true) }), null, out var error).Should().BeNull();
+        error.Should().Be("Validation.Preference.ChannelNotMutable");
+
+        Build(Request(new Dictionary<string, ChannelMuteSet> { ["billing"] = new(InApp: true, Push: true) }), null, out error).Should().NotBeNull();
+        error.Should().BeNull();
+    }
+
+    [Fact]
+    public void The_stored_time_zone_is_the_canonical_IANA_id_and_windows_ids_are_converted()
+    {
+        PreferenceRules.CanonicalIanaId("Africa/Cairo").Should().Be("Africa/Cairo");
+        PreferenceRules.CanonicalIanaId("UTC").Should().NotBeNull();
+        PreferenceRules.CanonicalIanaId("Egypt Standard Time").Should().Be("Africa/Cairo");
+        PreferenceRules.CanonicalIanaId("Not/AZone").Should().BeNull();
+        PreferenceRules.CanonicalIanaId(new string('x', 80)).Should().BeNull();
+
+        var change = Build(Request(quiet: new QuietHoursDto(true, "22:00", "07:00"), zone: "Egypt Standard Time"), null, out var error);
+        error.Should().BeNull();
+        change!.TimeZone.Should().Be("Africa/Cairo");
     }
 
     [Fact]
@@ -319,6 +398,50 @@ public sealed class NotificationPreferenceEnforcementTests
     }
 
     [Fact]
+    public async Task Deferral_writes_a_log_row_and_a_duplicate_run_of_the_original_job_schedules_nothing_more()
+    {
+        var h = new PushHarness(Utc(6, 21), Quiet());
+        h.Devices.Add(_user);
+        var correlation = Guid.NewGuid();
+
+        await h.Job().ExecuteAsync(PushFor("billing.paid"), correlation);
+        await h.Job().ExecuteAsync(PushFor("billing.paid"), correlation);
+
+        h.Scheduled.Should().ContainSingle();
+        h.Logs.Rows.Should().ContainSingle(r => r.Channel == NotificationChannel.Push && r.Status == NotificationDeliveryStatus.Queued
+                                                && r.Error!.StartsWith("Deferred until "));
+    }
+
+    [Fact]
+    public async Task A_deferred_run_that_fires_early_reschedules_without_a_second_log_row()
+    {
+        var h = new PushHarness(Utc(6, 21), Quiet());
+        h.Devices.Add(_user);
+        var correlation = Guid.NewGuid();
+        await h.Job().ExecuteAsync(PushFor("billing.paid"), correlation);
+        var deferred = (PushDelivery)h.Scheduled.Single().Job.Args[0];
+
+        await h.Job().ExecuteAsync(deferred, correlation); // still inside the window
+
+        h.Scheduled.Should().HaveCount(2);
+        h.Logs.Rows.Where(r => r.Status == NotificationDeliveryStatus.Queued).Should().ContainSingle();
+        h.Provider.Calls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_push_without_a_category_is_never_muted_or_deferred()
+    {
+        var h = new PushHarness(Utc(6, 21), Pref(new Dictionary<string, ChannelMuteSet> { ["system"] = new(Push: true) }, start: TenPm, end: SevenAm, zone: Cairo));
+        h.Devices.Add(_user);
+        var delivery = new PushDelivery(_user, NotificationCulture.En, new PushContent(new LocalizedText("T", "ت"), new LocalizedText("B", "ب")));
+
+        await h.Job().ExecuteAsync(delivery, Guid.NewGuid());
+
+        h.Provider.Calls.Should().ContainSingle();
+        h.Scheduled.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task The_deferred_push_goes_out_once_the_window_has_ended()
     {
         var h = new PushHarness(Utc(7, 5), Quiet()); // 07:00 Cairo
@@ -407,6 +530,17 @@ public sealed class NotificationPreferenceEnforcementTests
     }
 
     [Fact]
+    public async Task The_in_app_category_resolved_by_the_sender_wins_over_the_content_category()
+    {
+        var h = new InAppHarness(Utc(7, 12), Muting("billing", new ChannelMuteSet(InApp: true)));
+        var delivery = InAppFor("catalog.something") with { Category = "billing.paid" };
+
+        await h.Job().ExecuteAsync(delivery, Guid.NewGuid());
+
+        h.Inbox.Rows.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task During_quiet_hours_the_entry_is_stored_and_counted_but_not_pushed_live()
     {
         var h = new InAppHarness(Utc(6, 21), Quiet());
@@ -459,9 +593,9 @@ public sealed class NotificationPreferenceEnforcementTests
     [Fact]
     public async Task A_muted_email_group_is_skipped_and_logged()
     {
-        var (job, email, logs) = EmailJob(Muting("billing", new ChannelMuteSet(Email: true)));
+        var (job, email, logs) = EmailJob(Muting("membership", new ChannelMuteSet(Email: true)));
 
-        await job.ExecuteAsync(EmailMessage("billing.invoice-issued"), Guid.NewGuid());
+        await job.ExecuteAsync(EmailMessage("membership.invitation-accepted"), Guid.NewGuid());
 
         email.Sends.Should().Be(0);
         logs.Rows.Should().ContainSingle(r => r.Channel == NotificationChannel.Email && r.Status == NotificationDeliveryStatus.Skipped);
@@ -470,35 +604,63 @@ public sealed class NotificationPreferenceEnforcementTests
     [Fact]
     public async Task A_rerun_of_a_muted_email_adds_no_second_Skipped_row()
     {
-        var (job, _, logs) = EmailJob(Muting("billing", new ChannelMuteSet(Email: true)));
+        var (job, _, logs) = EmailJob(Muting("membership", new ChannelMuteSet(Email: true)));
         var correlation = Guid.NewGuid();
 
-        await job.ExecuteAsync(EmailMessage("billing.invoice-issued"), correlation);
-        await job.ExecuteAsync(EmailMessage("billing.invoice-issued"), correlation);
+        await job.ExecuteAsync(EmailMessage("membership.invitation-accepted"), correlation);
+        await job.ExecuteAsync(EmailMessage("membership.invitation-accepted"), correlation);
 
         logs.Rows.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task Email_is_sent_when_forced_security_uncategorized_or_another_group_is_muted()
+    public async Task Email_is_sent_for_security_billing_uncategorized_and_unmuted_groups_even_with_stale_mutes()
     {
-        var muted = Muting("billing", new ChannelMuteSet(Email: true));
-
-        var forced = EmailJob(muted);
-        await forced.Job.ExecuteAsync(EmailMessage("billing.invoice-issued"), Guid.NewGuid(), NotificationChannel.Email);
-        forced.Email.Sends.Should().Be(1, "forced email is security mail");
+        var muted = Muting("membership", new ChannelMuteSet(Email: true));
 
         var security = EmailJob(Muting("security", new ChannelMuteSet(Email: true)));
         await security.Job.ExecuteAsync(EmailMessage("security.password-changed"), Guid.NewGuid());
         security.Email.Sends.Should().Be(1);
 
+        var billing = EmailJob(Muting("billing", new ChannelMuteSet(Email: true)));
+        await billing.Job.ExecuteAsync(EmailMessage("billing.invoice-issued"), Guid.NewGuid());
+        billing.Email.Sends.Should().Be(1, "billing email is transactional");
+
         var none = EmailJob(muted);
         await none.Job.ExecuteAsync(EmailMessage(null), Guid.NewGuid());
         none.Email.Sends.Should().Be(1, "an email-only send without a category is never muted");
 
+        var uncategorizedForced = EmailJob(Muting("system", new ChannelMuteSet(Email: true)));
+        await uncategorizedForced.Job.ExecuteAsync(EmailMessage(null), Guid.NewGuid(), NotificationChannel.Email);
+        uncategorizedForced.Email.Sends.Should().Be(1, "forced email without a category is never muted");
+
         var other = EmailJob(muted);
         await other.Job.ExecuteAsync(EmailMessage("catalog.product-published"), Guid.NewGuid());
         other.Email.Sends.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Muting_email_mutes_the_whole_chain_and_never_falls_back_to_WhatsApp()
+    {
+        var email = new FakeChannelAdapter(NotificationChannel.Email);
+        var whatsApp = new FakeChannelAdapter(NotificationChannel.WhatsApp);
+        var logs = new FakeNotificationLogRepository();
+        var sender = new Mock<ISender>();
+        sender.Setup(s => s.Send(It.IsAny<GetUserContactInfoQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserContactInfoDto("user@example.com", "+201001234567"));
+        var preferences = new Mock<INotificationPreferenceRepository>();
+        preferences.Setup(p => p.ResolveChannelOrderAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([NotificationChannel.Email, NotificationChannel.WhatsApp]);
+        preferences.Setup(p => p.GetDeliveryPreferenceAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Muting("membership", new ChannelMuteSet(Email: true)));
+        var job = new NotificationDispatchJob(sender.Object, logs, preferences.Object, [email, whatsApp],
+            MsOptions.Create(new NotificationOptions()), NullLogger<NotificationDispatchJob>.Instance);
+        var message = EmailMessage("membership.invitation-accepted") with { WhatsApp = new WhatsAppPayload(WhatsAppTemplate.SubscriptionActivated) };
+
+        await job.ExecuteAsync(message, Guid.NewGuid());
+
+        email.Sends.Should().Be(0);
+        whatsApp.Sends.Should().Be(0);
     }
 
     // ----- builder --------------------------------------------------------------------------------------------------

@@ -37,7 +37,7 @@ public sealed class NotificationJobEnqueuer(
 
         if (runInApp)
         {
-            var inApp = new InAppDelivery(message.UserId, message.Culture, message.InApp!);
+            var inApp = new InAppDelivery(message.UserId, message.Culture, message.InApp!, message.Category);
             jobs.Add(jobClient.Enqueue<InAppDeliveryJob>(job => job.ExecuteAsync(inApp, correlationId, CancellationToken.None)));
         }
 

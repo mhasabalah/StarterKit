@@ -41,8 +41,9 @@ public sealed class SubscriptionActivatedEventHandler(INotificationSender notifi
   admin digests). `userId` only links the log row.
 - `SendAsync(NotificationChannel.Email)` - **force** a channel: preferences are ignored. Use it for security mail
   (password reset) that a preference must never suppress.
-- `InCategory("billing.invoice-issued")` - names the category of an email-only send so the user's per-group email mute
-  applies; security mail and forced email are never muted.
+- `InCategory("membership.invitation-accepted")` - names the category of an email-only send so the user's per-group email
+  mute applies (it mutes the whole email/WhatsApp chain). Security email and billing email can never be muted; an email
+  with no category is never muted.
 - `INotificationRecipientResolver` (implemented by Tenancy) maps a non-user recipient (a tenant subscriber) to the
   user who receives it (the tenant owner).
 - `INotificationLinkResolver.ToAbsolute(url)` - links put into notifications: relative URLs are resolved against
