@@ -41,7 +41,9 @@ public sealed class PushProviderTests
 
         var fcm = FcmPushProvider.Build(message, targets);
 
+#pragma warning disable CS0618 // the provider deliberately sends registration tokens, not FIDs (see FcmPushProvider.Build)
         fcm.Tokens.Should().Equal("token-a", "token-b");
+#pragma warning restore CS0618
         fcm.Notification.Title.Should().Be("Title");
         fcm.Notification.Body.Should().Be("Body");
         fcm.Data.Should().Contain("id", "7");
