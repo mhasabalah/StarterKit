@@ -1,6 +1,4 @@
-using System.Globalization;
-using System.Text.Json;
-using Subscriptions.Options;
+using Subscriptions.Domains.Ledger.Services;
 
 namespace Subscriptions.Domains.Ledger.Features.GetBillingDashboard;
 
@@ -16,48 +14,32 @@ public class GetBillingDashboardQueryValidator : AbstractValidator<GetBillingDas
 
 /// <summary>
 /// Billing KPIs. Every figure is aggregated in SQL; <see cref="BillingDashboardCalculator"/> does the money math.
-/// Revenue comes from the ledger only. The result is cached in <see cref="IDistributedCache"/> per range for
-/// <c>Subscriptions:BillingDashboardCacheMinutes</c> (default 5); there is no invalidation, so KPIs may lag by up to
-/// that long after a money event.
+/// Revenue comes from the ledger only. The result is cached per range by <see cref="IBillingDashboardCache"/> for
+/// <c>Subscriptions:BillingDashboardCacheMinutes</c> (default 5, 0 disables it), and every cached range is dropped
+/// after a ledger entry, a payment review change or a subscription status change commits
+/// (<c>BillingDashboardCacheInvalidationHandler</c>).
 /// </summary>
 public class GetBillingDashboardHandler(
     SubscriptionsDbContext dbContext,
-    IDistributedCache cache,
-    IOptions<SubscriptionOptions> options,
+    IBillingDashboardCache cache,
     TimeProvider timeProvider)
     : IQueryHandler<GetBillingDashboardQuery, BillingDashboardDto>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public async Task<BillingDashboardDto> Handle(GetBillingDashboardQuery query, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var (from, to) = BillingDashboardCalculator.ResolveRange(query.From, query.To, now);
 
-        var key = CacheKey(from, to);
-        var cached = await cache.GetStringAsync(key, cancellationToken);
-        if (cached is not null && JsonSerializer.Deserialize<BillingDashboardDto>(cached, JsonOptions) is { } hit)
+        if (await cache.GetAsync(from, to, cancellationToken) is { } hit)
         {
             return hit;
         }
 
         var dashboard = await ComputeAsync(from, to, now, cancellationToken);
-
-        var minutes = Math.Max(0, options.Value.BillingDashboardCacheMinutes);
-        if (minutes > 0)
-        {
-            await cache.SetStringAsync(
-                key,
-                JsonSerializer.Serialize(dashboard, JsonOptions),
-                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(minutes) },
-                cancellationToken);
-        }
+        await cache.SetAsync(from, to, dashboard, cancellationToken);
 
         return dashboard;
     }
-
-    public static string CacheKey(DateTimeOffset from, DateTimeOffset to) =>
-        string.Create(CultureInfo.InvariantCulture, $"subscriptions:billing-dashboard:v1:{from.UtcTicks}:{to.UtcTicks}");
 
     private async Task<BillingDashboardDto> ComputeAsync(
         DateTimeOffset from,

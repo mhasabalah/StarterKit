@@ -5,6 +5,7 @@ using Shared.Core.Extensions;
 using Shared.Core.Mapster;
 using Shared.Core.Messaging.Outbox;
 using Subscriptions.Data.Repositories;
+using Subscriptions.Domains.Ledger.Services;
 using Subscriptions.Domains.Metering;
 using Subscriptions.Domains.Metering.Jobs;
 using Subscriptions.Domains.Subscriptions.Entitlements;
@@ -57,6 +58,7 @@ public static class SubscriptionsModule
         services.AddScoped<IPaymentInstructionsRepository, PaymentInstructionsRepository>();
         services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
         services.AddScoped<ILedgerRepository, LedgerRepository>();
+        services.AddScoped<IBillingDashboardCache, BillingDashboardCache>();
         services.AddScoped<IOnlinePaymentSessionRepository, OnlinePaymentSessionRepository>();
         services.AddScoped<IOnlinePaymentRefundRepository, OnlinePaymentRefundRepository>();
         services.AddScoped<IInboundWebhookEventRepository, InboundWebhookEventRepository>();

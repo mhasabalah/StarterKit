@@ -457,7 +457,7 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
     // ----- dashboard -----
 
     [Fact]
-    public async Task Dashboard_computes_mrr_and_revenue_from_the_ledger_and_is_cached_per_range()
+    public async Task Dashboard_computes_mrr_and_revenue_from_the_ledger_is_cached_and_invalidated_by_money_events()
     {
         // A currency and a date range no other test uses, so the shared database does not interfere.
         var monthly = await fx.CreatePlanAsync($"DashMonthly-{Tag()}", 100m, currency: "NOK");
@@ -494,10 +494,12 @@ public sealed class AdminBillingTests(SubscriptionsPostgresFixture fx)
 
         await SeedLedgerAsync(from.AddDays(1), monthly, annual);
         var cached = await fx.SendAsAdmin(new GetBillingDashboardQuery { From = from, To = to });
-        cached.Revenue.Single(x => x.Currency == "NOK").Gross.Should().Be(1500m, "the result is cached for the range (no invalidation)");
+        cached.Revenue.Single(x => x.Currency == "NOK").Gross.Should().Be(1500m,
+            "rows written behind the repository's back raise no event, so the cached range is served");
 
-        await fx.WithScope(sp => sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>()
-            .RemoveAsync(GetBillingDashboardHandler.CacheKey(from, to)));
+        // Any committed money command (here an approval booked through ILedgerRepository) drops EVERY cached range,
+        // not only the range its entry falls into.
+        await _scenario.ActiveAsync(await fx.CreatePlanAsync($"DashInvalidate-{Tag()}", 50m));
         var fresh = await fx.SendAsAdmin(new GetBillingDashboardQuery { From = from, To = to });
         fresh.Revenue.Single(x => x.Currency == "NOK").Gross.Should().Be(3000m);
     }
