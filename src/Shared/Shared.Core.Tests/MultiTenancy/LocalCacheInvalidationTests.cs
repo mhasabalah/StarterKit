@@ -103,13 +103,13 @@ public sealed class LocalCacheInvalidationRedisTests : IAsyncLifetime
     private readonly RedisContainer _container = new RedisBuilder("redis:7-alpine").Build();
     private IConnectionMultiplexer _redis = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _redis = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _redis.DisposeAsync();
         await _container.DisposeAsync();

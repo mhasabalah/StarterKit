@@ -121,14 +121,14 @@ public sealed class RedisTotpReplayGuardTests : IAsyncLifetime
     private IConnectionMultiplexer _first = null!;
     private IConnectionMultiplexer _second = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _first = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
         _second = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _first.DisposeAsync();
         await _second.DisposeAsync();

@@ -153,13 +153,13 @@ public sealed class TabularFileTests : IAsyncLifetime
         (await act.Should().ThrowAsync<InvalidTransferFileException>()).Which.ErrorCode.Should().Be("invalid_xlsx");
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         foreach (var file in _files.Where(File.Exists))
             File.Delete(file);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
     private string Track(string extension)

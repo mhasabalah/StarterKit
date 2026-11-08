@@ -53,7 +53,7 @@ public static partial class ProductionConfigurationGuard
     /// <summary>
     /// Throws if the environment is not relaxed and <c>Messaging:Transport</c> is <c>InMemory</c> (explicit or the
     /// default when missing): in-memory messaging is not durable, so integration events and outbox deliveries in
-    /// flight would be lost on every restart or deploy.
+    /// flight would be lost on every restart or deploy. Also throws for <c>RabbitMq</c> with no broker address or password.
     /// </summary>
     public static void EnsureDurableMessaging(IConfiguration configuration, string environmentName)
     {
@@ -70,6 +70,33 @@ public static partial class ProductionConfigurationGuard
             throw new InvalidOperationException(
                 $"Refusing to start in '{environmentName}': Messaging:Transport is InMemory (not durable). " +
                 "Set Messaging:Transport to PostgreSql or RabbitMq (env MESSAGING_TRANSPORT).");
+        }
+
+        // RabbitMq needs a broker address and a password, unless ConnectionStrings:rabbitmq carries both (Aspire).
+        // - Host: outside Docker the appsettings default is `localhost`, so the app would dial itself. An explicit
+        //   loopback address (127.0.0.1) stays possible for a broker on the host.
+        // - Password: in Docker, appsettings.Docker.json already points at `rabbitmq`, so MESSAGING_TRANSPORT=RabbitMq
+        //   without docker-compose.rabbitmq.yml is caught here: only the overlay supplies the rabbitmq_password secret.
+        if (!string.Equals(transport, nameof(Shared.Messaging.Extensions.MessagingTransport.RabbitMq),
+                StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrWhiteSpace(configuration.GetConnectionString("rabbitmq")))
+        {
+            return;
+        }
+
+        var host = configuration["Messaging:RabbitMq:Host"];
+        if (string.IsNullOrWhiteSpace(host) || string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start in '{environmentName}': Messaging:Transport is RabbitMq but Messaging:RabbitMq:Host " +
+                "is not set. Add docker-compose.rabbitmq.yml, or set Messaging__RabbitMq__Host / ConnectionStrings__rabbitmq.");
+        }
+
+        if (string.IsNullOrWhiteSpace(configuration["Messaging:RabbitMq:Password"]))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start in '{environmentName}': Messaging:Transport is RabbitMq but Messaging:RabbitMq:Password " +
+                "is empty. Add docker-compose.rabbitmq.yml (secrets/rabbitmq_password.txt) or set Messaging__RabbitMq__Password.");
         }
     }
 

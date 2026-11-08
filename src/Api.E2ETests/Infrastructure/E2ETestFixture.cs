@@ -21,7 +21,7 @@ public class E2ETestFixture : IAsyncLifetime
     /// <summary>Creates an anonymous client (no auth headers).</summary>
     public HttpClient CreateAnonymousClient() => Factory.CreateAnonymousClient();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _postgres.InitializeAsync();
 
@@ -33,7 +33,7 @@ public class E2ETestFixture : IAsyncLifetime
         await Task.CompletedTask;
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (Factory is not null)
         {

@@ -314,6 +314,7 @@
             "deployment/**",
             "infra/nginx/**",
             ".github/workflows/rollback.yml",
+            ".github/workflows/test-runner.yml",
             ".github/workflows/database-backup.yml",
             ".github/workflows/health-monitoring.yml"
           ]

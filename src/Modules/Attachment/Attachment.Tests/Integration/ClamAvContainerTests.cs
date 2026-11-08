@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Attachment.Infrastructure.Configuration;
 using Attachment.Infrastructure.Validation.ClamAv;
 using Attachment.Tests.TestSupport;
@@ -11,7 +12,8 @@ public sealed class ClamAvFactAttribute : FactAttribute
 {
     public const string Variable = "STARTERKIT_CLAMAV_TESTS";
 
-    public ClamAvFactAttribute()
+    public ClamAvFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (Environment.GetEnvironmentVariable(Variable) != "1")
             Skip = $"Real ClamAV test: set {Variable}=1 (Docker required, slow).";

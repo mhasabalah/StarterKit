@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -9,13 +10,15 @@ namespace AppHost.Tests;
 /// <summary>Runs only when <c>ASPIRE_LIVE_TESTS=1</c> (needs Docker; pulls images on first run).</summary>
 public sealed class LiveFactAttribute : FactAttribute
 {
-    public LiveFactAttribute() => Skip = LiveTests.SkipReason;
+    public LiveFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber) => Skip = LiveTests.SkipReason;
 }
 
 /// <inheritdoc cref="LiveFactAttribute"/>
 public sealed class LiveTheoryAttribute : TheoryAttribute
 {
-    public LiveTheoryAttribute() => Skip = LiveTests.SkipReason;
+    public LiveTheoryAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber) => Skip = LiveTests.SkipReason;
 }
 
 internal static class LiveTests

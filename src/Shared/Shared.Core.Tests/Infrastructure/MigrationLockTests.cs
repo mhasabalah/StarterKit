@@ -9,8 +9,8 @@ public sealed class MigrationLockTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
-    public Task InitializeAsync() => _db.StartAsync();
-    public async Task DisposeAsync() => await _db.DisposeAsync();
+    public async ValueTask InitializeAsync() => await _db.StartAsync();
+    public async ValueTask DisposeAsync() => await _db.DisposeAsync();
 
     [Fact]
     public async Task Second_migrator_waits_until_the_first_releases_the_lock()

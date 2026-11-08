@@ -24,3 +24,5 @@ link it here.
 | [0020](0020-dotnet-new-templates.md) | The repository is the product template; modules come from a generated, CI-verified module template | Accepted |
 <!--#endif-->
 | [0019](0019-module-manifests-and-discovery.md) | Modules plug in through a manifest the host discovers from the build graph (no Program.cs edits) | Accepted |
+| [0021](0021-aggregate-version-covers-child-collections.md) | The aggregate version covers its child collections, decided per aggregate | Accepted |
+| [0022](0022-production-message-transport.md) | PostgreSQL is the default production transport; the one-shot migrator owns its schema | Accepted |

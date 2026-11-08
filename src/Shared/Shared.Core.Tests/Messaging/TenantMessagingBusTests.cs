@@ -46,7 +46,7 @@ public abstract class TenantMessagingBusTests : IAsyncLifetime
 
     protected virtual Task CleanupAsync() => Task.CompletedTask;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -66,7 +66,7 @@ public abstract class TenantMessagingBusTests : IAsyncLifetime
             await service.StartAsync(cts.Token);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         for (var i = _hosted.Count - 1; i >= 0; i--)
             await _hosted[i].StopAsync(CancellationToken.None);

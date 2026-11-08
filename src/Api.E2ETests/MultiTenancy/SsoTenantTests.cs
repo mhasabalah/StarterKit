@@ -216,6 +216,71 @@ public sealed class SsoTenantTests(MultiTenantE2EFixture fixture)
     }
 
     [Fact]
+    public async Task Requiring_signed_metadata_refuses_an_unsigned_rollover_and_keeps_the_keys()
+    {
+        await using var metadata = await MetadataServer.StartAsync();
+        var (tenantId, ownerId) = await CreateTenantAsync("signed");
+        var owner = fixture.Client(ownerId, tenantId);
+        using var idp = new SamlTestIdp("https://idp.signed.example/saml", "https://idp.signed.example/sso");
+        metadata.Xml = idp.MetadataXml();
+        var connection = await CreateConnectionAsync(owner, idp, $"signed-{Guid.NewGuid():N}.example", metadata.Url);
+
+        var updated = await owner.PutAsJsonAsync($"{Admin}/connections/{connection.Id}", new
+        {
+            input = new
+            {
+                name = connection.Name,
+                protocol = "Saml",
+                samlIdpEntityId = idp.EntityId,
+                samlIdpSsoUrl = idp.SsoUrl,
+                samlIdpMetadataUrl = metadata.Url,
+                samlRequireSignedMetadata = true,
+                jitProvisioning = true
+            }
+        });
+        updated.StatusCode.Should().Be(HttpStatusCode.OK, await updated.Content.ReadAsStringAsync());
+
+        using var attacker = SamlTestIdp.SelfSigned("CN=attacker");
+        metadata.Xml = idp.MetadataXml(null, attacker);
+        var refused = await RefreshAsync(owner, connection.Id);
+
+        refused.Outcome.Should().Be("Failed");
+        refused.Error.Should().Be("metadata_signature_required");
+        var stored = await GetConnectionAsync(owner, connection.Id);
+        stored.SamlRequireSignedMetadata.Should().BeTrue();
+        stored.SamlMetadataSignatureRequired.Should().BeTrue();
+        stored.SamlIdpCertificates.Should().ContainSingle().Which.Thumbprint.Should().NotBe(attacker.Thumbprint);
+    }
+
+    [Fact]
+    public async Task Adding_a_domain_moves_the_connection_version_so_a_stale_edit_gets_a_conflict()
+    {
+        var (tenantId, ownerId) = await CreateTenantAsync("stale");
+        var owner = fixture.Client(ownerId, tenantId);
+        using var idp = new SamlTestIdp("https://idp.stale.example/saml", "https://idp.stale.example/sso");
+        var connection = await CreateConnectionAsync(owner, idp, $"stale-{Guid.NewGuid():N}.example", null);
+
+        (await owner.PostAsJsonAsync($"{Admin}/connections/{connection.Id}/domains", new { domain = $"more-{Guid.NewGuid():N}.example" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var stale = await owner.PutAsJsonAsync($"{Admin}/connections/{connection.Id}", new
+        {
+            input = new
+            {
+                name = "Stale edit",
+                protocol = "Saml",
+                samlIdpEntityId = idp.EntityId,
+                samlIdpSsoUrl = idp.SsoUrl,
+                jitProvisioning = true
+            },
+            version = connection.Version
+        });
+
+        stale.StatusCode.Should().Be(HttpStatusCode.Conflict, await stale.Content.ReadAsStringAsync());
+        (await GetConnectionAsync(owner, connection.Id)).Version.Should().Be(connection.Version + 1);
+    }
+
+    [Fact]
     public async Task Metadata_refresh_rolls_the_certificate_over_and_pins_the_entity_id()
     {
         await using var metadata = await MetadataServer.StartAsync();

@@ -67,6 +67,7 @@ public partial class FeatureFlag : Aggregate<Guid>
             _overrides.Add(existing);
         }
 
+        BumpVersionOnSave();
         Touch();
         return existing;
     }
@@ -76,6 +77,7 @@ public partial class FeatureFlag : Aggregate<Guid>
         var existing = _overrides.FirstOrDefault(o => o.Id == overrideId)
                        ?? throw new FeatureFlagOverrideNotFoundException(Key, overrideId);
         _overrides.Remove(existing);
+        BumpVersionOnSave();
         Touch();
     }
 

@@ -5,7 +5,6 @@
     - Pinned to the last OSS (free) major on purpose — newer majors are commercially licensed:
         MassTransit 8.x (9+ commercial), FluentAssertions 7.x (8+ commercial). MediatR was removed (owned mediator port,
         wiki/Decisions/0007-owned-mediator-port.md). Licenses of everything: wiki/Reference/Third-Party-Licenses.md.
-      Mapster 7.x kept (10.x has breaking API; upgrade separately).
     - Roslyn (Microsoft.CodeAnalysis.*) pinned to 5.0.0 = the exact version EF Core 10 Design (Workspaces.MSBuild 5.0.0) requires.
     - OpenTelemetry Process/GrpcNetClient/Prometheus have no stable release yet → latest pre-release.
   -->
@@ -65,7 +64,7 @@
     <PackageVersion Include="FirebaseAdmin" Version="3.1.0" />
   </ItemGroup>
   <ItemGroup Label="Mapping and Utilities">
-    <PackageVersion Include="Mapster" Version="7.4.0" />
+    <PackageVersion Include="Mapster" Version="10.0.14" />
     <PackageVersion Include="QuestPDF" Version="2026.9.1" />
     <PackageVersion Include="Stripe.net" Version="53.1.0" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
@@ -156,7 +155,8 @@
   </ItemGroup>
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <PackageVersion Include="xunit" Version="2.9.3" />
+    <!-- xUnit v3 without Microsoft.Testing.Platform: keeps VSTest dotnet test, the filter option and coverlet (CI). -->
+    <PackageVersion Include="xunit.v3.mtp-off" Version="4.0.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="FluentAssertions" Version="7.2.2" />

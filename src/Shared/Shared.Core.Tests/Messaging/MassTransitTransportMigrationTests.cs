@@ -17,9 +17,9 @@ public sealed class MassTransitTransportMigrationTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
-    public Task InitializeAsync() => _db.StartAsync();
+    public async ValueTask InitializeAsync() => await _db.StartAsync();
 
-    public Task DisposeAsync() => _db.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _db.DisposeAsync();
 
     private static ServiceCollection Register(Dictionary<string, string?> values)
     {

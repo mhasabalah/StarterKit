@@ -5,4 +5,4 @@ using Xunit;
 // RecurringJob.AddOrUpdate bootstrap calls). Run in parallel, a test could therefore enqueue against another fixture's
 // already-disposed container: intermittent 500s / "Failed to connect". Collections run one after the other instead;
 // tests inside a collection were already sequential, so only the cross-collection overlap is lost.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+// The switch is "parallelizeTestCollections": false in xunit.runner.json (xUnit v3 obsoletes the assembly attribute).

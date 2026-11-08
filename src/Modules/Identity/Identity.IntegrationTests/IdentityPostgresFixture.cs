@@ -49,7 +49,7 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
 
     private readonly FixedHttpContextAccessor _httpContextAccessor = new();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -165,7 +165,7 @@ public sealed class IdentityPostgresFixture : IAsyncLifetime
         }
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await Services.DisposeAsync();
         await _container.DisposeAsync();

@@ -29,7 +29,7 @@ public sealed class MemberTransferDefinitionTests(TenancyPostgresFixture fx) : I
     private Guid _ownerId;
     private TenantInfo _tenant = default!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _ownerId = Guid.NewGuid();
         var identifier = $"m-{Guid.NewGuid():N}"[..20];
@@ -40,11 +40,11 @@ public sealed class MemberTransferDefinitionTests(TenancyPostgresFixture fx) : I
         fx.Users.Add(_ownerId, $"owner-{_ownerId:N}@example.com", "Owner Person");
     }
 
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         fx.PlanLimits.MaxUsers = null;
         fx.Http.Real = null;
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
     [Fact]

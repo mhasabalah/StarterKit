@@ -27,7 +27,7 @@ public sealed class RlsBypassRoleTests : IAsyncLifetime
     private string _host = string.Empty;
     private string _member = string.Empty;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         await using var admin = new NpgsqlConnection(_container.GetConnectionString());
@@ -63,7 +63,7 @@ public sealed class RlsBypassRoleTests : IAsyncLifetime
         _member = As("rt_member");
     }
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 
     [Fact]
     public async Task Runtime_role_cannot_switch_rls_off_with_the_session_variable()

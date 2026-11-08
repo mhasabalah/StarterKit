@@ -118,9 +118,12 @@ public sealed class SamlMetadataRefresher(
             return await FailAsync(connection, error!, ct);
 
         // Signed metadata must verify against the keys we already trust (rollover: the old key signs the new metadata).
-        // Unsigned metadata is accepted - see SamlMetadataSignature for what that does NOT protect against.
-        if (SamlMetadataSignature.Verify(xml, connection.SamlIdpCertificates) == MetadataSignature.Invalid)
+        // Unsigned metadata passes only on connections that do not require a signature - see SamlMetadataSignature.
+        var signature = SamlMetadataSignature.Verify(xml, connection.MetadataTrustAnchors);
+        if (signature == MetadataSignature.Invalid)
             return await FailAsync(connection, SamlMetadataErrors.SignatureInvalid, ct);
+        if (signature == MetadataSignature.NotSigned && connection.RequiresSignedMetadata)
+            return await FailAsync(connection, SamlMetadataErrors.SignatureRequired, ct);
 
         string entityId;
         string? ssoUrl;

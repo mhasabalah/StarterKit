@@ -7,9 +7,9 @@ namespace DataTransfer.IntegrationTests;
 [Collection(DataTransferPostgresCollection.Name)]
 public sealed class ExportJobTests(DataTransferPostgresFixture fx) : IAsyncLifetime
 {
-    public Task InitializeAsync() => fx.ResetAsync();
+    public async ValueTask InitializeAsync() => await fx.ResetAsync();
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Theory]
     [InlineData(TransferFormat.Xlsx)]

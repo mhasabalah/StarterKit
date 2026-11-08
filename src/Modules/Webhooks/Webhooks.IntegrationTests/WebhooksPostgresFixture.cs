@@ -53,7 +53,7 @@ public sealed class WebhooksPostgresFixture : IAsyncLifetime
     public SwitchableSender Sender { get; } = new();
     public FakeNotificationSender Notifications { get; } = new();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -127,7 +127,7 @@ public sealed class WebhooksPostgresFixture : IAsyncLifetime
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

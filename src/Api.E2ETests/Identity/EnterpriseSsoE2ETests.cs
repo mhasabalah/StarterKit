@@ -38,13 +38,13 @@ public class EnterpriseSsoE2ETests(E2ETestFixture fixture) : IAsyncLifetime
 
     private sealed record LoginData(string? AccessToken, string? RefreshToken, bool RequiresTwoFactor);
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _idp = await FakeOidcProvider.StartAsync();
         _domain = $"acme-{Guid.NewGuid():N}.example";
     }
 
-    public async Task DisposeAsync() => await _idp.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _idp.DisposeAsync();
 
     [Fact]
     public async Task Full_oidc_sign_in_provisions_just_in_time_and_links_on_the_next_sign_in()

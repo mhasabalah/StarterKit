@@ -471,6 +471,8 @@ csharp_style_prefer_simple_property_accessors = true:suggestion
 dotnet_diagnostic.CA1707.severity = none
 # Fixtures own IDisposable resources through xUnit IAsyncLifetime, which CA1001 does not recognise.
 dotnet_diagnostic.CA1001.severity = none
+# xUnit v3 IAsyncLifetime extends IAsyncDisposable; fixtures have no finalizers, so GC.SuppressFinalize adds nothing.
+dotnet_diagnostic.CA1816.severity = none
 # `throw new Exception("boom")` / `new Exception()` is the point of many failure-mode tests.
 dotnet_diagnostic.CA2201.severity = none
 # Perf / allocation micro-rules that are irrelevant for test helpers and inline literals.
@@ -485,3 +487,6 @@ dotnet_diagnostic.CA1310.severity = none
 dotnet_diagnostic.CA1862.severity = none
 # Sync-over-async inside a few deliberately synchronous test seams.
 dotnet_diagnostic.xUnit1031.severity = suggestion
+# xUnit v3 asks every call to pass TestContext.Current.CancellationToken. It only shortens an aborted run, and most calls here
+# go through helpers without a token: 800 call sites of noise for no behavior.
+dotnet_diagnostic.xUnit1051.severity = none

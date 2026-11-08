@@ -15,7 +15,7 @@ public sealed class NotificationLogRepositoryPostgresTests : IAsyncLifetime
 
     private static readonly DateTime Now = new(2026, 11, 3, 12, 0, 0, DateTimeKind.Utc);
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -30,7 +30,7 @@ public sealed class NotificationLogRepositoryPostgresTests : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     private NotificationLogRepository Repository(NotificationDbContext db) => new(db);
 
