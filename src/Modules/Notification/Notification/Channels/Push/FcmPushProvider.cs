@@ -106,7 +106,12 @@ public sealed class FcmPushProvider : IPushProvider, IDisposable
         var ttlSeconds = ((long)message.TimeToLive.TotalSeconds).ToString(CultureInfo.InvariantCulture);
         return new MulticastMessage
         {
+            // FirebaseAdmin 3.6 marks Tokens obsolete in favour of Fids (Firebase Installation IDs), but those are a
+            // different identifier: devices register FCM registration tokens, which the v1 API still accepts.
+            // Moving to Fids needs the clients to send FIDs first, so keep Tokens until then.
+#pragma warning disable CS0618 // registration tokens are still the device identifier we store
             Tokens = targets.Select(t => t.Token).ToList(),
+#pragma warning restore CS0618
             Notification = new FirebaseAdmin.Messaging.Notification { Title = message.Title, Body = message.Body },
             Data = new Dictionary<string, string>(message.Data, StringComparer.Ordinal),
             Android = new AndroidConfig
