@@ -20,8 +20,8 @@ public class PublishProductEndPoint : ICarterModule
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .WithSummary("Publish Product")
-            .WithDescription("Approved → Published (publicly visible; raises ProductPublishedIntegrationEvent). Admin only. Optional `version` → 409 when stale; the response carries the new version.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithDescription("Approved → Published (publicly visible; raises ProductPublishedIntegrationEvent). Needs `catalog.moderate` (Admin, SuperAdmin). Optional `version` → 409 when stale; the response carries the new version.")
+            .RequirePermission(Permissions.CatalogModerate)
             .HasApiVersion(1.0);
     }
 }
