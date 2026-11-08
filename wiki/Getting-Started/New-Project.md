@@ -47,6 +47,25 @@ The template does all of this for you, so prefer it.
    `deployment/nginx/conf.d/app-production.conf`.
 4. Review `appsettings.Production.json`: payment gateways, email, push and malware scanning.
 
+### Product decisions before the first production migration
+
+The template ships neutral defaults for these. Each one is cheap to change now and expensive after go-live:
+
+1. **Attachment enums.** `EntityType` and `AttachmentCategory`
+   (`src/Modules/Attachment/Attachment.Contracts/Attachments/Dtos/AttachmentEnums.cs`) are stored as strings and
+   referenced by clients. Replace the generic values (`User`, `Product`, `Company`, `Other`, ...) with your domain's.
+2. **Who may manage the subscription.** The subscriber endpoints in
+   `src/Modules/Subscriptions/Subscriptions/Domains/*/Features/` declare `.RequireAuthorization()` (any signed-in
+   user). The subscriber is resolved per request (`ISubscriberIdProvider`): in multi-tenant mode, managing billing
+   needs `tenant.billing.manage`. If only owners may buy, cancel or upload proofs in your product, add a stricter gate
+   (a tenant permission or `.DisallowImpersonation()`) to those endpoints.
+3. **WhatsApp templates.** `WhatsApp:Templates` in `src/Api/appsettings.json` maps every message to a Meta template
+   name, language and body parameters. The defaults are Arabic sample names. Register your own templates with Meta
+   and set the names and `LanguageCode` per environment.
+4. **Admin allow-list.** In `deployment/nginx/conf.d/app-production.conf`, `/swagger` and `/scalar` allow only
+   `127.0.0.1`, and `/seq/`, `/grafana/`, `/prometheus/` and `/jaeger/` deny everyone. Add an `allow` line with your
+   operators' IPs (or a VPN range) to each location you need, above its `deny all;`.
+
 ## 3. Migrations
 
 The generated project keeps the template's migrations, and they match its model (the `PendingModelChangesTests` E2E
