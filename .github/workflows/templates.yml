@@ -72,6 +72,17 @@ jobs:
           dotnet pack templates/StarterKit.Templates.csproj -c Release -o artifacts
           -p:PackageVersion=${{ steps.version.outputs.version }}
 
+      - name: Files without an extension are packed as files
+        # A full-file PackagePath makes NuGet nest an extensionless file in a folder of its own name
+        # (content/starterkit/LICENSE/LICENSE); the generated products build anyway, so check the package itself.
+        run: |
+          entries=$(unzip -Z1 artifacts/*.nupkg)
+          nested=$(grep -E '^content/(starterkit|module)/(.+)/\2$' <<< "$entries" || true)
+          if [ -n "$nested" ]; then echo "::error::nested package entries:"; echo "$nested"; exit 1; fi
+          for f in LICENSE Makefile src/Api/Dockerfile infra/nginx/Dockerfile .github/CODEOWNERS; do
+            grep -qx "content/starterkit/$f" <<< "$entries" || { echo "::error::content/starterkit/$f missing"; exit 1; }
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: templates-nupkg

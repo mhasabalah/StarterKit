@@ -30,14 +30,17 @@
     <NoWarn>$(NoWarn);NU5110;NU5111;NU5123;NU5128</NoWarn>
   </PropertyGroup>
 
+  <!-- PackagePath is the target FOLDER: NuGet appends each file's recursive path. A full file path breaks files
+       without an extension (LICENSE, Makefile, Dockerfile, CODEOWNERS): NuGet reads it as a folder and nests the
+       file inside it (templates.yml guards this). -->
   <ItemGroup>
     <Content Include="..\**\*"
              Exclude="..\.git\**;..\.vs\**;..\**\bin\**;..\**\obj\**;..\**\node_modules\**;..\templates\**;..\postgres\**;..\redis\**;..\.artifacts*\**;..\artifacts\**;..\**\TestResults\**;..\**\*.user;..\**\*.build.log;..\.env;..\secrets\*.txt;..\.claude\settings.local.json;..\src\Api\uploads\**;..\tests\load\results\**;..\tests\e2e\test-results\**;..\tests\e2e\playwright-report\**"
-             PackagePath="content\starterkit\%(RecursiveDir)%(Filename)%(Extension)"
+             PackagePath="content\starterkit"
              Pack="true" />
     <Content Include="module\**\*"
              Exclude="module\**\bin\**;module\**\obj\**"
-             PackagePath="content\module\%(RecursiveDir)%(Filename)%(Extension)"
+             PackagePath="content\module"
              Pack="true" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
