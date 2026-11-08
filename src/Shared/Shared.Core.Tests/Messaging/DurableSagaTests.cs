@@ -27,6 +27,12 @@ public sealed record CounterIncremented(Guid CorrelationId, int By = 1);
 
 public sealed record CounterFinished(Guid CorrelationId);
 
+/// <summary>Arms the saga's timeout: a message scheduled through the bus's message scheduler.</summary>
+public sealed record CounterArmed(Guid CorrelationId);
+
+/// <summary>The scheduled timeout message, delivered back to the saga after <see cref="CounterStateMachine.TimeoutDelay"/>.</summary>
+public sealed record CounterTimedOut(Guid CorrelationId);
+
 /// <summary>Published by the saga when it finishes or jumps; observed by <see cref="CounterNoticeConsumer"/>.</summary>
 public sealed record CounterNotice(Guid CorrelationId, int Count);
 
@@ -36,13 +42,25 @@ public sealed class CounterState : SagaStateMachineInstance, IMustHaveTenant
     public Guid TenantId { get; set; }
     public string CurrentState { get; set; } = default!;
     public int Count { get; set; }
+
+    /// <summary>The token of the scheduled timeout (MassTransit unschedules/correlates with it).</summary>
+    public Guid? TimeoutTokenId { get; set; }
 }
 
 public sealed class CounterStateMachine : MassTransitStateMachine<CounterState>
 {
+    public static readonly TimeSpan TimeoutDelay = TimeSpan.FromSeconds(2);
+
     public CounterStateMachine()
     {
         InstanceState(x => x.CurrentState);
+
+        Schedule(() => Timeout, x => x.TimeoutTokenId, s =>
+        {
+            s.Delay = TimeoutDelay;
+            s.Received = r => r.CorrelateById(m => m.Message.CorrelationId);
+        });
+        Event(() => Armed, e => e.CorrelateById(m => m.Message.CorrelationId));
 
         Event(() => Started, e => e.CorrelateById(m => m.Message.CorrelationId));
         Event(() => Incremented, e =>
@@ -61,11 +79,19 @@ public sealed class CounterStateMachine : MassTransitStateMachine<CounterState>
                 .Publish(c => new CounterNotice(c.Saga.CorrelationId, c.Saga.Count)),
             When(Finished)
                 .Publish(c => new CounterNotice(c.Saga.CorrelationId, c.Saga.Count))
-                .TransitionTo(Done));
+                .TransitionTo(Done),
+            When(Armed)
+                .Schedule(Timeout, c => new CounterTimedOut(c.Saga.CorrelationId)),
+            When(Timeout!.Received)
+                .TransitionTo(TimedOut));
     }
 
     public State Running { get; private set; } = default!;
     public State Done { get; private set; } = default!;
+    public State TimedOut { get; private set; } = default!;
+
+    public Event<CounterArmed> Armed { get; private set; } = default!;
+    public Schedule<CounterState, CounterTimedOut> Timeout { get; private set; } = default!;
 
     public Event<CounterStarted> Started { get; private set; } = default!;
     public Event<CounterIncremented> Incremented { get; private set; } = default!;
@@ -297,6 +323,21 @@ public abstract class DurableSagaTests : IAsyncLifetime
         await PublishAsync(TenantA, new CounterIncremented(id, By: 2));
         (await NoticeAsync(id, n => n.Count == 2)).Count.Should().Be(2);
         (await ReadAsync(id))!.Count.Should().Be(2, "the failed step never reached the database");
+    }
+
+    [Fact]
+    public async Task A_scheduled_timeout_is_delivered_back_to_the_saga_in_its_tenant()
+    {
+        var id = Guid.NewGuid();
+        await PublishAsync(TenantA, new CounterStarted(id));
+        await WaitForAsync(id, s => s.CurrentState == "Running");
+
+        await PublishAsync(TenantA, new CounterArmed(id));
+        var armed = await WaitForAsync(id, s => s.TimeoutTokenId is not null);
+        armed.CurrentState.Should().Be("Running", "the timeout is not due yet");
+
+        (await WaitForAsync(id, s => s.CurrentState == "TimedOut")).TenantId.Should().Be(TenantA.Id,
+            "the transport's message scheduler delivered the timeout, carrying the tenant header back to the saga");
     }
 }
 

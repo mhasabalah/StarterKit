@@ -62,7 +62,8 @@ public sealed class RabbitMqTransportOptions
 
     /// <summary>
     /// The broker has the <c>rabbitmq_delayed_message_exchange</c> plugin: messages of a migrating tenant are then
-    /// redelivered later instead of retried in memory (which holds consumer slots and can stall other tenants).
+    /// redelivered later instead of retried in memory (which holds consumer slots and can stall other tenants), and the
+    /// bus gets a message scheduler (saga timeouts, <c>IMessageScheduler</c>); without it RabbitMQ has none.
     /// Off by default because the stock <c>rabbitmq</c> image does not ship the plugin.
     /// </summary>
     public bool UseDelayedExchange { get; set; }

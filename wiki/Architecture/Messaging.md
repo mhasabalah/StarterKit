@@ -254,8 +254,19 @@ Tenancy: the bus restores the message's tenant, `TenantEntityInterceptor` stamps
 filter scopes the lookup. Mark events with `OnMissingInstance(m => m.Discard())` when a message may legitimately find no
 instance, for example another tenant's.
 
-Not there yet: saga timeouts (`Schedule`) need a message scheduler (`AddSqlMessageScheduler` on PostgreSql, the delayed
-exchange on RabbitMQ), which the first saga that schedules adds.
+**Timeouts.** Declare them with `Schedule(() => Timeout, x => x.TimeoutTokenId, s => { s.Delay = ...; })` and a
+`Guid? TimeoutTokenId` on the state. The bus registers a message scheduler per transport, and `IMessageScheduler` is
+injectable wherever it exists:
+
+| Transport | Scheduler | Durable |
+|---|---|---|
+| PostgreSql | `AddSqlMessageScheduler` / `UseSqlMessageScheduler` (the transport's own tables) | yes |
+| InMemory | delayed message scheduler | no (dev and tests) |
+| RabbitMq | delayed message scheduler, only with `Messaging:RabbitMq:UseDelayedExchange=true` | yes (plugin) |
+
+On RabbitMQ without the delayed-exchange plugin there is no scheduler: a saga that schedules faults to its `_error`
+queue. Enable the plugin before shipping such a saga. The scheduled message carries the tenant header like any send,
+so the timeout reaches the saga in its tenant (`DurableSagaTests.A_scheduled_timeout_is_delivered_back_to_the_saga_in_its_tenant`).
 
 Guarded by `SagaArchitectureTests` (Api.Tests) and pinned by `Shared.Core.Tests/Messaging/DurableSagaTests`.
 
