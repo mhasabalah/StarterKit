@@ -18,10 +18,13 @@ Decide the switches first, then generate. See [Templates](Templates.md) for ever
 | Repository owner | `--github-owner acme-inc` | `CODEOWNERS`, the issue links |
 
 ```bash
-dotnet new install StarterKit.Templates                  # once (or: dotnet new install <path-to-template-repo>)
+dotnet new install StarterKit.Templates                  # once; source setup: Templates.md#install (or: dotnet new install <path-to-template-repo>)
 dotnet new starterkit -n Acme --multitenancy shared --github-owner acme-inc
 cd Acme && git init
 ```
+
+The pack comes from GitHub Packages: add its NuGet source once, outside any repository, as shown in
+[Templates → Install](Templates.md#install).
 
 `LICENSE` is MIT with the template author's copyright. Keep it for the code you reuse (MIT requires the notice), and
 add your own license and copyright for the new product.

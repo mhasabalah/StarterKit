@@ -28,6 +28,12 @@ The template renames `StarterKit` / `starterkit` / `STARTERKIT` everywhere (slnx
 JWT issuer, Redis instance, plugin, env-var prefixes), regenerates every `UserSecretsId`, applies the presets and
 leaves out what was switched off. Switches: `wiki/Getting-Started/Templates.md`.
 
+If `dotnet new install StarterKit.Templates` says the package does not exist, the GitHub Packages source is missing or
+hidden. Run it outside any repository (the template repo and every product have a `nuget.config` that clears the
+machine's feeds), and add the source once with `--configfile` pointing at the user NuGet config and a token with
+`read:packages` (`gh auth refresh -h github.com -s read:packages`). Never add the source to a repository
+`nuget.config`. Exact commands: `wiki/Getting-Started/Templates.md#install`.
+
 Verify right away: `dotnet build <Name>.slnx`, `dotnet test src/Api.Tests`, `bash scripts/check-docs.sh`, and
 `git grep -il starterkit` (expect nothing).
 
