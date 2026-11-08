@@ -39,7 +39,7 @@ make loadtest                                        # k6 HTTP load scenarios ag
 
 dotnet run --project src/Api -- --migrate-only       # apply all migrations + seeds (shared + dedicated tenant DBs), then exit
 
-# Migrations: from the repo root; --project MUST be the module owning the context
+# Migrations: from the repo root (`dotnet tool restore` once: dotnet-ef is a local tool); --project MUST be the module owning the context
 dotnet ef migrations add <Name> --context <Ctx> --project src/Modules/<M>/<M> --startup-project src/Api --output-dir Data/Migrations
 
 dotnet new starterkit-module -n Orders               # a drop-in module (four projects, manifest, example, migration)

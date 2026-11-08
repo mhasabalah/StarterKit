@@ -5,7 +5,8 @@ explanations in [`wiki/`](../wiki/README.md).
 
 ## Setup
 
-1. Install the .NET SDK from `global.json` (10.0.x), Docker, and `dotnet tool install -g dotnet-ef`.
+1. Install the .NET SDK from `global.json` (10.0.x) and Docker, then run `dotnet tool restore` (installs `dotnet ef`
+   at the version pinned in `.config/dotnet-tools.json`).
 2. `cd src/Aspire/AppHost && dotnet run` starts the API, Postgres, Redis and Seq. Alternatively, run
    `cp .env.example .env && docker compose up -d`.
 3. `dotnet build StarterKit.slnx`, then `dotnet test StarterKit.slnx` (integration and E2E tests need Docker).
