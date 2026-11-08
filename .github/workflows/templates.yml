@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -83,7 +83,7 @@ jobs:
             grep -qx "content/starterkit/$f" <<< "$entries" || { echo "::error::content/starterkit/$f missing"; exit 1; }
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: templates-nupkg
           path: artifacts/*.nupkg
@@ -116,11 +116,11 @@ jobs:
           sparse-checkout: global.json
           sparse-checkout-cone-mode: false
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: templates-nupkg
           path: artifacts
@@ -187,11 +187,11 @@ jobs:
     permissions:
       packages: write
     steps:
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: templates-nupkg
           path: artifacts
