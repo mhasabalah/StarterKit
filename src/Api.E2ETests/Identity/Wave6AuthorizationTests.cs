@@ -1,11 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Api.E2ETests.Infrastructure;
 using FluentAssertions;
-using Identity.Domains.Users.Models;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
 using Shared.Core.Authorization;
 using Xunit;
 
@@ -22,7 +18,6 @@ namespace Api.E2ETests.Identity;
 public class Wave6AuthorizationTests(E2ETestFixture fixture)
 {
     private const string Api = "/api/v1";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private HttpClient As(string? role) => role is null
         ? fixture.CreateAnonymousClient()
@@ -145,32 +140,7 @@ public class Wave6AuthorizationTests(E2ETestFixture fixture)
 
     // ----- API keys -----
 
-    private sealed record Envelope<T>(bool IsSuccess, T? Data);
-
-    private sealed record Created(string ApiKey);
-
-    /// <summary>A real user with the given role, plus a real key for it created through the API.</summary>
-    private async Task<string> KeyFor(string role, params string[] scopes)
-    {
-        var userId = await fixture.WithScopeAsync(async sp =>
-        {
-            var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
-            var user = new ApplicationUser
-            {
-                Id = Guid.NewGuid(), UserName = $"key{Guid.NewGuid():N}", Email = $"key{Guid.NewGuid():N}@example.com",
-                EmailConfirmed = true, IsActive = true, IsProfileComplete = true
-            };
-            (await users.CreateAsync(user, "E2e!Passw0rd")).Succeeded.Should().BeTrue();
-            (await users.AddToRolesAsync(user, [RoleConstants.User, role])).Succeeded.Should().BeTrue();
-            return user.Id;
-        });
-
-        using var response = await fixture.CreateClientAs(userId, RoleConstants.User, role)
-            .PostAsJsonAsync($"{Api}/me/api-keys", new { name = "e2e", scopes });
-        response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var body = await response.Content.ReadFromJsonAsync<Envelope<Created>>(Json);
-        return body!.Data!.ApiKey;
-    }
+    private Task<string> KeyFor(string role, params string[] scopes) => fixture.CreateApiKeyForAsync(role, scopes);
 
     [Fact]
     public async Task Api_key_is_rejected_on_a_DisallowApiKey_route_and_accepted_on_a_scoped_one()

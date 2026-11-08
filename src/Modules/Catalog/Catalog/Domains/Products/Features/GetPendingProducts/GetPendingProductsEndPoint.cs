@@ -18,8 +18,8 @@ public class GetPendingProductsEndPoint : ICarterModule
             .Produces<ApiResponse<object>>(StatusCodes.Status401Unauthorized)
             .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden)
             .WithSummary("Get Moderation Queue")
-            .WithDescription("Products waiting for review (default PendingReview), oldest first. Admin only.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithDescription("Products waiting for review (default PendingReview), oldest first. Needs `catalog.moderate` (Admin, SuperAdmin).")
+            .RequirePermission(Permissions.CatalogModerate)
             .HasApiVersion(1.0);
     }
 }
