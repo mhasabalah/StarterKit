@@ -15,7 +15,7 @@ public sealed class UserDeletedNotificationConsumerTests : IAsyncLifetime
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private DbContextOptions<NotificationDbContext> _options = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _options = new DbContextOptionsBuilder<NotificationDbContext>()
@@ -27,7 +27,7 @@ public sealed class UserDeletedNotificationConsumerTests : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     private async Task SeedAsync(Guid userId, int logs)
     {

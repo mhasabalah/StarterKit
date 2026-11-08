@@ -42,9 +42,9 @@ public sealed class HubSessionRevocationTests : IAsyncLifetime
     private WebApplication _app = null!;
     private TestServer _server = null!;
 
-    public async Task InitializeAsync() => (_app, _server) = await NotificationHubTests.StartHostAsync(redisConnection: null);
+    public async ValueTask InitializeAsync() => (_app, _server) = await NotificationHubTests.StartHostAsync(redisConnection: null);
 
-    public async Task DisposeAsync() => await _app.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _app.DisposeAsync();
 
     /// <summary>
     /// The client's StartAsync completes before the server's OnConnectedAsync has registered the connection (it is
@@ -279,7 +279,7 @@ public sealed class HubRevocationRedisTests : IAsyncLifetime
         services.AddHostedService(sp => sp.GetRequiredService<RedisHubRevocationBroadcaster>());
     };
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _redis.StartAsync();
         var connection = _redis.GetConnectionString();
@@ -287,7 +287,7 @@ public sealed class HubRevocationRedisTests : IAsyncLifetime
         (_replicaB, _serverB) = await NotificationHubTests.StartHostAsync(null, extraServices: UseRedisBroadcaster(connection));
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _replicaA.DisposeAsync();
         await _replicaB.DisposeAsync();

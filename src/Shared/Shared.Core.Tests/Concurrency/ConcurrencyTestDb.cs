@@ -26,6 +26,40 @@ public sealed class Widget : Aggregate<Guid>
     public void Rename(string name) => Name = name;
 
     public void Resize(decimal width, decimal height) => Size = new Dimensions(width, height);
+
+    private readonly List<WidgetPart> _parts = [];
+
+    public IReadOnlyCollection<WidgetPart> Parts => _parts.AsReadOnly();
+
+    /// <summary>A child-only change that keeps the aggregate version honest.</summary>
+    public void AddPartVersioned(string name)
+    {
+        AddPartUnversioned(name);
+        BumpVersionOnSave();
+    }
+
+    public void AddPartUnversioned(string name) => _parts.Add(WidgetPart.Create(Id, name));
+
+    public void RemovePartVersioned(string name)
+    {
+        _parts.RemoveAll(p => p.Name == name);
+        BumpVersionOnSave();
+    }
+}
+
+public sealed class WidgetPart : Entity<Guid>
+{
+    private WidgetPart() { }
+
+    public Guid WidgetId { get; private set; }
+    public string Name { get; private set; } = default!;
+
+    internal static WidgetPart Create(Guid widgetId, string name) => new()
+    {
+        Id = Guid.NewGuid(),
+        WidgetId = widgetId,
+        Name = name
+    };
 }
 
 public sealed record Dimensions(decimal Width, decimal Height);
@@ -46,6 +80,15 @@ public sealed class ConcurrencyTestDbContext(DbContextOptions<ConcurrencyTestDbC
             b.Ignore(w => w.DomainEvents);
             b.Property(w => w.Name).HasMaxLength(100).IsRequired();
             b.OwnsOne(w => w.Size);
+            b.HasMany(w => w.Parts).WithOne().HasForeignKey(p => p.WidgetId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(w => w.Parts).HasField("_parts").UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        builder.Entity<WidgetPart>(b =>
+        {
+            b.HasKey(p => p.Id);
+            b.Property(p => p.Id).ValueGeneratedNever();
+            b.Property(p => p.Name).HasMaxLength(100).IsRequired();
         });
 
         // Same conventions as every module DbContext.
@@ -64,14 +107,14 @@ public sealed class PostgresConcurrencyFixture : IAsyncLifetime
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         await using var db = CreateContext();
         await db.Database.EnsureCreatedAsync();
     }
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 
     /// <summary>A new context models a new HTTP request: its own change tracker and the real interceptor.</summary>
     public ConcurrencyTestDbContext CreateContext()

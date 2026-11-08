@@ -15,9 +15,9 @@ public sealed class FreshDatabaseMigrationTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
-    public Task InitializeAsync() => _container.StartAsync();
+    public async ValueTask InitializeAsync() => await _container.StartAsync();
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     [Fact]
     public async Task Migrating_a_fresh_database_logs_no_errors_and_applies_every_migration()

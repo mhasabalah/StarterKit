@@ -29,9 +29,9 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
 
     public string ConnectionString => _container.GetConnectionString();
 
-    public async Task InitializeAsync() => await _container.StartAsync();
+    public async ValueTask InitializeAsync() => await _container.StartAsync();
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     /// <summary>
     /// Registers <typeparamref name="TContext"/> against the container the same way production

@@ -23,7 +23,7 @@ failure mode has a test: not found, forbidden, conflict, validation, stale versi
 
 ## Conventions
 
-- **Stack:** xUnit 2, FluentAssertions 7, Moq 4. Bogus is available but unused. Don't add NSubstitute or Shouldly.
+- **Stack:** xUnit v3, FluentAssertions 7, Moq 4. Bogus is available but unused. Don't add NSubstitute or Shouldly.
 - **Names:** `Scenario_Expectation` or `Method_Condition_Result`, for example
   `Update_WithStaleVersion_IsRejected_AndNothingChanges` or `DuplicateSku_Throws409_AndDoesNotAdd`.
 - **Builders:** put them in `TestSupport.cs` (`New<X>()`, `<X>In(status)` walking the real state machine,

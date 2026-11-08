@@ -97,14 +97,14 @@ public sealed class RedisIdempotencyStoreOwnershipTests : IdempotencyStoreOwners
 
     protected override IIdempotencyStore Store => _store!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _redis = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
         _store = new RedisIdempotencyStore(_redis, "test:");
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _redis.DisposeAsync();
         await _container.DisposeAsync();

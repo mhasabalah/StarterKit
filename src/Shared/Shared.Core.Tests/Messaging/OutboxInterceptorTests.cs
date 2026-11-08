@@ -18,9 +18,9 @@ public sealed class OutboxInterceptorTests : IAsyncLifetime
 
     public OutboxInterceptorTests(OutboxFixture fx) => _fx = fx;
 
-    public Task InitializeAsync() => _fx.ResetAsync();
+    public async ValueTask InitializeAsync() => await _fx.ResetAsync();
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public async Task Saving_an_aggregate_writes_one_outbox_row_with_urn_payload_and_metadata()

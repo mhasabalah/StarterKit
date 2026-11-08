@@ -138,7 +138,7 @@ public sealed class AuditFixture : IAsyncLifetime
     public string? Ip { get; set; }
     public AuditTrailOptions Options { get; } = new();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -182,7 +182,7 @@ public sealed class AuditFixture : IAsyncLifetime
         }
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();
@@ -244,8 +244,8 @@ public sealed class AuditTrailTests(AuditFixture fx) : IAsyncLifetime
 {
     private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement;
 
-    public Task InitializeAsync() => fx.ResetAsync();
-    public Task DisposeAsync() => Task.CompletedTask;
+    public async ValueTask InitializeAsync() => await fx.ResetAsync();
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     private async Task<Guid> InsertAsync(Action<AuditedNote>? tweak = null)
     {

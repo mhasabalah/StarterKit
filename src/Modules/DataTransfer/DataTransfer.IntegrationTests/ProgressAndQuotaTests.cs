@@ -12,9 +12,9 @@ public sealed class ProgressAndQuotaTests(DataTransferPostgresFixture fx) : IAsy
     private const int Completed = 3;
     private const int Failed = 5;
 
-    public Task InitializeAsync() => fx.ResetAsync();
+    public async ValueTask InitializeAsync() => await fx.ResetAsync();
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public async Task Progress_is_pushed_to_the_requester_after_each_batch_and_ends_with_the_final_counters()

@@ -42,6 +42,8 @@ public sealed class SsoConnectionInputValidator : AbstractValidator<SsoConnectio
         RuleFor(x => x.SamlIdpEntityId).MaximumLength(SsoConnection.UrlMaxLength);
         RuleFor(x => x.SamlIdpCertificates!.Count).LessThanOrEqualTo(SsoConnection.MaxCertificates)
             .When(x => x.SamlIdpCertificates is not null);
+        RuleFor(x => x.SamlMetadataSigningCertificates!.Count).LessThanOrEqualTo(SsoConnection.MaxCertificates)
+            .When(x => x.SamlMetadataSigningCertificates is not null);
 
         RuleFor(x => x.EmailClaim).MaximumLength(SsoConnection.ClaimMaxLength);
         RuleFor(x => x.GivenNameClaim).MaximumLength(SsoConnection.ClaimMaxLength);
@@ -360,6 +362,9 @@ public sealed class SsoConnectionMapper(SsoUrls urls)
         c.SamlCertificatesNotAfter ?? (c.SamlIdpCertificates.Count == 0
             ? null
             : c.SamlIdpCertificates.Max(x => SsoCertificates.Describe(x).NotAfter)),
+        c.SamlRequireSignedMetadata,
+        c.SamlMetadataSigningCertificates.Select(SsoCertificates.Describe).ToList(),
+        c.RequiresSignedMetadata,
         c.EmailClaim, c.GivenNameClaim, c.FamilyNameClaim,
         c.JitProvisioning, c.DefaultRoleIds, c.EnforceSso, c.TrustIdpMfa,
         c.Domains.OrderBy(d => d.Domain).Select(ToDto).ToList(),

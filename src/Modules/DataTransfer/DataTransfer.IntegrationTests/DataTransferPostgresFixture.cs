@@ -60,7 +60,7 @@ public sealed class DataTransferPostgresFixture : IAsyncLifetime
     public DataTransfer.Options.DataTransferOptions Options =>
         Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<DataTransfer.Options.DataTransferOptions>>().Value;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -126,7 +126,7 @@ public sealed class DataTransferPostgresFixture : IAsyncLifetime
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

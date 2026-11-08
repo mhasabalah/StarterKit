@@ -36,7 +36,7 @@ public class ScimE2ETests(E2ETestFixture fixture) : IAsyncLifetime
 
     private sealed record Envelope<T>(bool IsSuccess, T? Data);
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _domain = $"globex-{Guid.NewGuid():N}.example";
         await VerifiedDomainAsync(_domain);
@@ -45,7 +45,7 @@ public class ScimE2ETests(E2ETestFixture fixture) : IAsyncLifetime
     }
 
     /// <summary>Every test shares the Default tenant (max 5 directories): remove what this test created.</summary>
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         foreach (var id in _directories)
             await AdminClient().DeleteAsync($"/api/v1/tenant/scim/directories/{id}");

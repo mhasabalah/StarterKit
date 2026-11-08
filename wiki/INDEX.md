@@ -68,6 +68,8 @@ wiki/
 <!--#if (templateSource)-->
 - [0020](Decisions/0020-dotnet-new-templates.md): `dotnet new` product and module templates (the repo is the template)
 <!--#endif-->
+- [0021](Decisions/0021-aggregate-version-covers-child-collections.md): the aggregate version covers its child collections
+- [0022](Decisions/0022-production-message-transport.md): PostgreSQL is the default production message transport
 
 ## Modules
 

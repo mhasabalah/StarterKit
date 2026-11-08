@@ -25,7 +25,7 @@ public sealed class RowLevelSecurityTests : IAsyncLifetime
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private string _appConnection = string.Empty;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -69,7 +69,7 @@ public sealed class RowLevelSecurityTests : IAsyncLifetime
         }
     }
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 
     [Fact]
     public async Task Raw_sql_only_sees_the_current_tenants_rows()

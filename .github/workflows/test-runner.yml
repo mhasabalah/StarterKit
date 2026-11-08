@@ -13,6 +13,10 @@ on:
           - deployment-dry-run
         default: 'basic'
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   # ---- Deployment settings: override with GitHub repository *variables* (Settings > Secrets and variables > Actions > Variables)
   APP_NAME: ${{ vars.APP_NAME || 'starterkit' }}                    # docker compose container prefix / pgBackRest stanza
@@ -64,41 +68,20 @@ jobs:
     if: inputs.test_type == 'docker'
     
     steps:
-      - name: 🐳 Test Docker access
-        run: |
-          echo "=== Docker Version ==="
-          docker --version
-          docker compose version
-          echo ""
-          
-          echo "=== Docker Info ==="
-          docker info | head -20
-          echo ""
-          
-          echo "=== Running Containers ==="
-          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          echo ""
-          
-          echo "=== Docker Images ==="
-          docker images | head -10
-          echo ""
-          
-          echo "✅ Docker access test passed!"
+      - name: 📥 Checkout runner checks
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            deployment/scripts/
+          sparse-checkout-cone-mode: false
 
-      - name: 🔍 Test workspace access
+      - name: 🐳 Verify Docker and the deploy directory
+        run: bash deployment/scripts/verify-runner.sh "$DEPLOY_DIR"
+
+      - name: 📦 Show containers and images
         run: |
-          echo "=== Workspace Directory ==="
-          ls -la /workspace || echo "⚠️  Workspace not mounted"
-          echo ""
-          
-          echo "=== StarterKit Directory ==="
-          if [ -d "${{ env.DEPLOY_DIR }}" ]; then
-            ls -la ${{ env.DEPLOY_DIR }}
-            echo "✅ StarterKit directory accessible"
-          else
-            echo "❌ StarterKit directory not found"
-            exit 1
-          fi
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 
   # ==============================================
   # Deployment Dry Run Test
@@ -136,23 +119,30 @@ jobs:
             exit 1
           fi
 
+      - name: 🐳 Verify Docker and the deploy directory
+        run: bash deployment/scripts/verify-runner.sh "$DEPLOY_DIR"
+
       - name: 🐳 Test Docker commands
+        working-directory: ${{ env.DEPLOY_DIR }}
         run: |
           echo "=== Testing Docker Compose config ==="
-          cd ${{ env.DEPLOY_DIR }}
-          docker compose config --services
+          docker compose -f docker-compose.yml --env-file .env.prod config --services
           echo ""
-          
+
           echo "=== Current container status ==="
-          docker compose ps
+          docker compose -f docker-compose.yml --env-file .env.prod ps
           echo ""
-          
+
           echo "✅ Docker Compose configuration valid"
 
       - name: 🔑 Test registry login
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
         run: |
           echo "=== Testing GitHub Container Registry login ==="
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+          docker logout ghcr.io
           echo "✅ Registry login successful"
 
       - name: 🏥 Test health endpoint

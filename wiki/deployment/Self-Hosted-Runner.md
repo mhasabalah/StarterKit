@@ -79,6 +79,13 @@ sudo usermod -aG docker ubuntu
 newgrp docker
 ```
 
+Once the repository is on the host, one read-only script checks all of this at once (Docker CLI, daemon access, Compose
+2.24+, free disk, the deploy directory). The deploy job runs it too, and so does the **Test Self-Hosted Runner** workflow:
+
+```bash
+bash deployment/scripts/verify-runner.sh /opt/starterkit
+```
+
 ### Step 3: Verify Directory Access
 
 ```bash
