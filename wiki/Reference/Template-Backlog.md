@@ -52,6 +52,26 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 | G23 | `dotnet new` project + module templates (= #12, #13) ([Templates](../Getting-Started/Templates.md), ADRs [0019](../Decisions/0019-module-manifests-and-discovery.md) / [0020](../Decisions/0020-dotnet-new-templates.md)) | ✅ |
 | G24 | Observability-lite compose profile (= #21) | ⬜ |
 
+**High priority — documentation and brand**
+
+| # | Item | Status |
+|---|---|---|
+| G25 | Public documentation site for the template: senior-level, built from the `wiki/` Markdown, hosted on GitHub, with a modern light and dark design and a brand identity | ⬜ |
+
+G25 scope (requested 2026-11-08, not started):
+- **Source stays Markdown.** `wiki/` remains the single source of truth; the site is generated HTML, published by CI on
+  GitHub (GitHub Pages), so docs and code change in the same PR.
+- **Senior-level structure.** Reorganized for readers rather than mirroring the folders: getting started, concepts and
+  architecture, how-to guides per task, reference (template switches, configuration, guardrails), the ADRs, and
+  deployment. Navigation, full-text search, a page outline, deep links, and link checking in CI.
+- **Modern design, light and dark mode.** Follows the system setting with a manual toggle, readable code blocks, works
+  on phones.
+- **Brand identity for the template.** Name treatment, logo, color palette and typography, used on the site and on
+  where the template is presented (the repository README and social preview, the `StarterKit.Templates` package page).
+- **Decide when it starts:** the static-site generator; public or private (GitHub Pages on a private repository needs a
+  paid plan), which goes with the public-or-private decision for the package feed; the custom domain, if any; whether
+  the site ships in generated products or stays template-only (it must not break `dotnet new` or `check-docs.sh`).
+
 Wave 12 (2026-11-08): **G23 `dotnet new` templates**
 ([Templates](../Getting-Started/Templates.md), [ADR 0019](../Decisions/0019-module-manifests-and-discovery.md),
 [ADR 0020](../Decisions/0020-dotnet-new-templates.md)).
