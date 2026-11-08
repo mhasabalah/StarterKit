@@ -18,6 +18,46 @@ Complete observability solution for StarterKit using modern open-source tools in
 | **Node Exporter** | Latest | 9100 | System-level metrics |
 | **cAdvisor** | Latest | 8080 | Container metrics |
 
+## Lite profile (Prometheus + Grafana only)
+
+The full stack below runs about ten containers and reserves about 5 GB. A small deployment that already reads logs and
+traces in **Seq** (base compose) mostly needs metrics and the alert rules. The lite overlay gives exactly that.
+
+| | Full (`docker-compose.observability.yml`) | Lite (`docker-compose.observability-lite.yml`) |
+|---|---|---|
+| Logs | Loki (+ Seq) | Seq |
+| Traces | Tempo, Jaeger (+ Seq) | Seq |
+| Metrics | Collector → Prometheus | Prometheus scrapes the API's `/metrics` directly |
+| Alerts (`alerts.yaml`) | yes | yes, the same rules |
+| Host/container/DB exporters | node, cAdvisor, Postgres, Redis | none |
+| Memory limits | about 5 GB | about 0.75 GB |
+
+```bash
+# Development (or: make obs-lite-up / make obs-lite-down)
+docker compose -f docker-compose.yml -f docker-compose.override.yml   -f docker-compose.observability-lite.yml -f docker-compose.override.observability-lite.yml up -d
+
+# Production (Prometheus and Grafana bind to 127.0.0.1; reach them through an SSH tunnel or nginx)
+docker compose -f docker-compose.yml -f docker-compose.observability-lite.yml --env-file .env.prod up -d
+
+# With the worker overlay, add its companion so the worker stops exporting to a collector too
+docker compose -f docker-compose.yml -f docker-compose.worker.yml -f docker-compose.observability-lite.yml   -f docker-compose.observability-lite-worker.yml --env-file .env.prod up -d
+```
+
+How it works:
+- `infra/observability/configs/prometheus-lite.yaml` scrapes the jobs `api` and `worker` through Docker DNS
+  (`dns_sd_configs`), so every replica of `--scale api=N` / `--scale worker=N` is a target. `/metrics` comes from
+  `ObservabilityOptions:UsePrometheusExporter` (on in `appsettings.Docker.json`). It stays inside the `backend`
+  network, because nginx does not expose it publicly.
+- The overlay sets `OTEL_EXPORTER_OTLP_ENDPOINT` to empty for `api` and `migrator`, so the API registers no standard
+  OTLP exporter (`OtlpExporterPlan`) and does not log export failures against a collector that doesn't exist. Seq keeps
+  receiving logs and traces through `ConnectionStrings:seq`.
+- Grafana is provisioned with the Prometheus datasource only, from `grafana/provisioning-lite/`. It keeps the same uid
+  (`prometheus-uid`), so dashboards in `grafana/dashboards/` work in both profiles.
+- Use one profile or the other, never both: they share the container and volume names `prometheus` / `grafana`.
+  Switching keeps the Prometheus data.
+- Alertmanager is not part of either profile: the rules are evaluated and visible at `/alerts` in Prometheus. Add an
+  Alertmanager (or Grafana alerting) to page someone.
+
 ## 🚀 Quick Start
 
 ### 1. Start Full Observability Stack
@@ -274,32 +314,12 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,service.version=1.0.0
 
 ## 🎯 Usage Scenarios
 
-### Scenario 1: Development with Minimal Observability
-
-```powershell
-# Start only Prometheus + Grafana
-docker-compose -f docker-compose.observability.yml up prometheus grafana -d
-```
-
-### Scenario 2: Full Observability Stack
-
-```powershell
-# Start complete stack
-docker-compose -f docker-compose.observability.yml --profile observability up -d
-```
-
-### Scenario 3: Production with Monitoring
-
-```powershell
-# Include monitoring tools
-docker-compose -f docker-compose.observability.yml --profile observability --profile monitoring up -d
-```
-
-### Scenario 4: Traces Only (Tempo + Grafana)
-
-```powershell
-docker-compose -f docker-compose.observability.yml up tempo grafana -d
-```
+| Need | Command |
+|---|---|
+| Metrics + alerts, logs/traces in Seq | the [lite profile](#lite-profile-prometheus--grafana-only) |
+| Full Grafana stack | `docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d` |
+| Full stack + Jaeger | add `--profile jaeger` (the dev override enables it without the profile) |
+| Working on dashboards or the collector from Aspire | `cd src/Aspire/AppHost && dotnet run -- Observability:FullStack=true` |
 
 ## 📊 Example Queries
 

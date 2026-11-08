@@ -11,6 +11,7 @@ Running the Grafana / Prometheus / Tempo / Loki / Jaeger stack in Docker is cove
 | Aspire (`cd src/Aspire/AppHost && dotnet run`) | Aspire dashboard + Seq | Aspire dashboard | Aspire dashboard |
 | Aspire full stack (`-- Observability:FullStack=true`) | + Loki/Grafana | + Tempo/Jaeger | + Prometheus/Grafana |
 | Docker Compose | Seq (`SEQ_PORT`) | Jaeger/Tempo with the observability overlay | Prometheus/Grafana with the overlay |
+| Docker Compose, lite overlay | Seq | Seq | Prometheus (scrapes `/metrics`) + Grafana ([Lite profile](../deployment/Observability.md#lite-profile-prometheus--grafana-only)) |
 | Production | Seq behind Nginx (IP-restricted) | Tempo/Jaeger | Prometheus/Grafana |
 
 Every log line carries the `TraceId`, so you can jump from a Seq log entry to its trace. Error responses return

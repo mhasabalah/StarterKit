@@ -59,12 +59,24 @@ Templates: [references/templates.md](references/templates.md).
      `Catalog.IntegrationTests/ProductLifecycleTests.OutboxRowsFor`).
    - The consumer unit test covers a duplicate delivery (no-op) and an out-of-order delivery.
 
+## Sagas (a long-running reaction to several events)
+
+When a consumer must remember progress across several events (fulfilment, onboarding, refunds), use a saga, not
+hand-kept status columns. It is durable, in the module's own DbContext
+(`wiki/Decisions/0023-durable-sagas-on-module-dbcontexts.md`, `wiki/Architecture/Messaging.md` → *Sagas*):
+- the state class (+ `IMustHaveTenant` for tenant data), mapped with `SagaStateConfiguration<T>`, plus a migration with
+  RLS (`/starterkit:add-migration`);
+- `public override void ConfigureMessaging(IBusRegistrationConfigurator bus) =>
+  bus.AddDurableSagaStateMachine<TMachine, TState, TDbContext>();` in the module manifest;
+- never `bus.AddSagaStateMachine` / `AddSaga` (in-memory repository, guarded by `SagaArchitectureTests`).
+
 ## Guardrails (`src/Api.Tests/Architecture/`)
 
 - `MessagingArchitectureTests`: events live in `.Contracts` under an `IntegrationEvents` namespace with a unique,
   valid URN; they are not mediator notifications; consumers live in module implementations; outbox contexts and
   registrations match.
 - `BackgroundJobEventDispatchTests`: a consumer that saves must take `IUnitOfWorkRunner` or `IDomainEventDispatcher`.
+- `SagaArchitectureTests`: sagas only through `AddDurableSagaStateMachine`, with the state mapped in a module DbContext.
 
 ## Verify
 
