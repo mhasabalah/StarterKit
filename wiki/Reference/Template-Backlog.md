@@ -72,6 +72,28 @@ G25 scope (requested 2026-11-08, not started):
   paid plan), which goes with the public-or-private decision for the package feed; the custom domain, if any; whether
   the site ships in generated products or stays template-only (it must not break `dotnet new` or `check-docs.sh`).
 
+Wave 14 (2026-11-08, branch `chore/backlog-leftovers`): **the smaller leftovers of the older sections.**
+- **Moderation:** approve, reject, request changes, publish and the pending queue need `catalog.moderate` instead of
+  `AdminOnly` (same callers; API keys need the scope) ([Catalog](../Modules/Catalog.md)).
+- **Billing dashboard cache:** invalidated after every committed ledger entry, payment review change and subscription
+  status change, using a generation token in Redis. `ILedgerRepository.Add` stages `LedgerEntryRecordedEvent`. A
+  cache failure no longer fails the request ([Billing](../Subscriptions/Billing.md)).
+- **Saga timeouts:** a message scheduler on every transport (SQL scheduler on PostgreSql, delayed on InMemory, on
+  RabbitMQ with the delayed exchange). Pinned by `DurableSagaTests` ([Messaging](../Architecture/Messaging.md)).
+- **dotnet-ef:** a local tool at the EF Core version (`.config/dotnet-tools.json`, `dotnet tool restore`), guarded by
+  `ToolManifestTests`.
+- **Aspire:** `MultiTenancy:DedicatedSample=true` adds a dedicated tenant database ([Aspire](../Infrastructure/Aspire.md)).
+- **Decided, no code:**
+  - No per-tenant storage containers by default ([Storage](../Attachment/Storage-Providers.md)).
+  - The per-product items (#15-17, #20) moved to the
+    [New-Project checklist](../Getting-Started/New-Project.md#product-decisions-before-the-first-production-migration).
+- **Stale entries closed:**
+  - TOTP replay is already guarded by `TotpReplayGuard`.
+  - The Data Protection KMS option shipped with G5.
+  - ImageSharp was replaced by SkiaSharp (2b).
+  - #10 shipped with G4.
+- **Still open:** HealthChecks 10.x (not released, checked 2026-11-08).
+
 Wave 13 (2026-11-08): **G21 durable sagas + G24 observability-lite.**
 - **G21** ([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)):
   - Sagas are no longer scanned onto the in-memory repository.
@@ -82,7 +104,7 @@ Wave 13 (2026-11-08): **G21 durable sagas + G24 observability-lite.**
   - Guarded by `SagaArchitectureTests`.
   - Pinned by `DurableSagaTests` on both transports: restart, 25 concurrent events, tenant isolation, no publish on a
     failed save. Each was mutation-checked: an in-memory repository, a removed outbox and optimistic mode each fail them.
-  - Follow-up: a message scheduler for saga timeouts, added with the first saga that schedules.
+  - ~~Follow-up: a message scheduler for saga timeouts~~ Done in wave 14 (every transport).
 - **G24** ([Lite profile](../deployment/Observability.md#lite-profile-prometheus--grafana-only)):
   - `docker-compose.observability-lite.yml` (+ the dev override and the worker companion): Prometheus scrapes the API
     and worker `/metrics` through Docker DNS, and Grafana gets the Prometheus datasource only.
@@ -319,12 +341,12 @@ Still open:
 - **E2E stability:** the E2E host raises the `auth`/`otp` rate limits (all clients share one IP), so the suite is no longer order-dependent.
 
 ### Follow-ups / open after Wave 5
-- **Catalog moderation → `catalog.moderate`:** deferred by owner.
-- **ImageSharp:** decided to use a license key (2b). Add `SIXLABORS_LICENSE_KEY` to each project's repo secrets.
-- **Data Protection rollout:** setting `ApplicationName` on a live deployment orphans existing encrypted authenticator keys. Set it to the old value (derived from the content root, `/app`), or have users re-enroll 2FA. A KMS key-protection option isn't implemented yet.
+- ~~**Catalog moderation → `catalog.moderate`**~~ Done in wave 14.
+- ~~**ImageSharp:** license key~~ Moot: ImageSharp was replaced by SkiaSharp (2b), no key needed.
+- **Data Protection rollout:** setting `ApplicationName` on a live deployment orphans existing encrypted authenticator keys. Set it to the old value (derived from the content root, `/app`), or have users re-enroll 2FA. (The KMS key-protection option shipped with G5.)
 - **OTP behaviour changes:** a reused onboarding code now says "Invalid verification code." The standalone `PhoneVerification` purpose shares its code and cooldown with `/api/identity/phone/*`.
 - Tenant roles aren't in the token: other instances see changes after `MultiTenancy:Cache:LocalSeconds` (see #26).
-- Update the `dotnet-ef` tool to 10.x (it's 9.0.9).
+- ~~Update the `dotnet-ef` tool to 10.x~~ Done in wave 14: a local tool pinned to the EF Core version.
 - Some E2E tests read Hangfire storage through DI, because the eager `ConnectionStrings__starterkit` env var is process-global. A second factory in the same process could point Hangfire at another database; keep one E2E host per process.
 
 ## ✅ Wave 4 — Admin portal P0 (2026-11-02)
@@ -362,10 +384,10 @@ Still open:
 ### Follow-ups created by Wave 4
 - **Rollout:** production enforces admin 2FA. Set `Identity:TwoFactor:EnforcementMode=Warn` until admins have enrolled.
 - **Breaking:** login returns `requiresTwoFactor` + `twoFactorChallengeToken` for 2FA users (no tokens until `/2fa/verify`).
-- A TOTP code can be replayed within its window (ASP.NET Identity limitation). Consider a used-code cache.
-- Data Protection keys are stored unencrypted in the DB. Use `ProtectKeysWithCertificate` or a KMS in production.
-- Catalog moderation endpoints are still `AdminOnly`. Move them to `catalog.moderate` in Wave 5.
-- Billing dashboard cache (5 min) has no invalidation; this is documented.
+- ~~A TOTP code can be replayed within its window~~ Done in Wave 5: `TotpReplayGuard` remembers used codes (Redis).
+- ~~Data Protection keys are stored unencrypted~~ Done: certificate or KMS key protection (G5).
+- ~~Catalog moderation endpoints are still `AdminOnly`~~ Done in wave 14 (`catalog.moderate`).
+- ~~Billing dashboard cache has no invalidation~~ Done in wave 14 (generation token, invalidated on money events).
 
 ## ✅ Wave 3 — Reliability (2026-11-02)
 
@@ -505,7 +527,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 3. ~~**Mapster 7.4 → 10.x**~~ **Done** (2026-11-08, 10.0.14, no code changes needed). ImageSharp is gone (2b).
 4. ~~**xUnit v2 → xUnit v3**~~ **Done** (2026-11-08, `xunit.v3` 4.x; test projects are executables, `IAsyncLifetime`
    returns `ValueTask`).
-5. **AspNetCore.HealthChecks.* 9.0.0** is still the latest on NuGet (checked 2026-11-08); blocked upstream. Dependabot
+5. **AspNetCore.HealthChecks.* 9.0.0** is still the latest on NuGet (re-checked 2026-11-08, wave 14); blocked upstream. Dependabot
    proposes 10.x when it is released. Transitive pinning currently forces its EF dependency to 10.x.
 
 ## P1 — Platform / correctness
@@ -527,8 +549,8 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 
 ## P1 — Tests
 
-10. **Identity and Attachment have no module tests.** Add unit tests (register/login/OTP/refresh token, attachment
-    authorization) and E2E flows (register → verify → login; upload → confirm → download).
+10. ~~**Identity and Attachment have no module tests.**~~ Done with G4 (`Identity.Tests`, `Identity.IntegrationTests`,
+    `Attachment.Tests` including `Integration/`).
 11. ~~CI should run the Testcontainers suites~~ Already covered: `hybrid-ci-cd.yml` runs `dotnet test StarterKit.slnx` on
     `ubuntu-latest` (Docker available), and `setup-dotnet` now reads `global.json`. Self-hosted jobs: the deploy job and
     `test-runner.yml` now run `deployment/scripts/verify-runner.sh` and fail with what is missing. Per server: install
@@ -544,9 +566,12 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
     impersonation, tenant-aware CORS, `tenant_id` on e-mail/notification logs (+ purge), tenant subscriber
     notifications → owner, invitation e-mails. Remaining:
     - Zero-downtime move (logical replication / CDC) - today the tenant is read-only for the copy.
-    - Blobs in the data export (today only their metadata rows) and per-tenant storage containers.
-    - Aspire AppHost sample with a second database for a dedicated tenant.
-15. **Attachment enums.** `EntityType` / `AttachmentCategory` were reset (User/Product/Company/Other). Each project
+    - Blobs in the data export (today only their metadata rows). Per-tenant storage containers: decided against by
+      default in wave 14 ([Storage](../Attachment/Storage-Providers.md#tenant-isolation-one-container-a-prefix-per-tenant)).
+    - ~~Aspire AppHost sample with a second database for a dedicated tenant~~ Done in wave 14
+      (`MultiTenancy:DedicatedSample=true`).
+15. **Per product, now in the [New-Project checklist](../Getting-Started/New-Project.md#product-decisions-before-the-first-production-migration)** (#15-17, #20).
+    **Attachment enums.** `EntityType` / `AttachmentCategory` were reset (User/Product/Company/Other). Each project
     should edit them for its domain *before* its first production migration.
 16. **Subscriber endpoints** use `.RequireAuthorization()` (any signed-in user) where BateCom used `OwnerOnly`.
     Revisit per project.
@@ -585,7 +610,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 18. ✅ **CI variables** (2026-11-04: fail-fast added). The workflows read `vars.APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_*` and `BACKUP_BUCKET`.
     They are documented in `wiki/deployment/CI-CD.md#github-setup` and the deploy job fails immediately when one is missing.
 19. ✅ **Health / readiness** (2026-11-04). Split `/health/live` and `/health/ready` (DB, Redis, Seq) for compose and K8s, and wire them into the deploy health check.
-20. **Nginx admin allow-list.** `deployment/nginx/conf.d/app-production.conf` allows only `127.0.0.1` for admin paths. Set it per deployment.
+20. **Per product (New-Project checklist).** **Nginx admin allow-list.** `deployment/nginx/conf.d/app-production.conf` allows only `127.0.0.1` for admin paths. Set it per deployment.
 21. ~~**Observability stack** is heavy.~~ **Done** (2026-11-08, G24): `docker-compose.observability-lite.yml`
     (Prometheus scraping the API `/metrics` + Grafana, the same alerts; logs and traces stay in Seq).
 
