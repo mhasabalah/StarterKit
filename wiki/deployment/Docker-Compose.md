@@ -10,6 +10,9 @@ them with repeated `-f` flags. Without `-f`, `docker compose` merges `docker-com
 | `docker-compose.override.yml` | **Dev** (merged automatically) | Dev ports and settings for postgres/redis/seq/api (builds `src/Api/Dockerfile`), `pgadmin`, `redis-commander`, `mailhog` |
 | `docker-compose.observability.yml` | Observability overlay | `otel-collector`, `prometheus`, `grafana`, `tempo`, `loki`, exporters (`node`, `cadvisor`, `postgres`, `redis`), `jaeger` (`--profile jaeger`) |
 | `docker-compose.override.observability.yml` | Dev tweaks for the overlay | Dev ports; enables Jaeger without the profile |
+| `docker-compose.observability-lite.yml` | Observability-lite overlay (use instead of the full one) | `prometheus` scraping the API `/metrics` + `grafana`; clears the OTLP endpoint; logs/traces stay in Seq ([Lite profile](Observability.md#lite-profile-prometheus--grafana-only)) |
+| `docker-compose.override.observability-lite.yml` | Dev tweaks for the lite overlay | Ports on all interfaces, anonymous Grafana |
+| `docker-compose.observability-lite-worker.yml` | Lite + worker combination | Clears the worker's OTLP endpoint (the worker `extends` the base `api`) |
 | `docker-compose.rabbitmq.yml` | Messaging overlay | `rabbitmq` + switches the API and the migrator to `Messaging:Transport=RabbitMq` (needs `secrets/rabbitmq_password.txt`) |
 | `docker-compose.rabbitmq-worker.yml` | Combination overlay | Required when `docker-compose.rabbitmq.yml` and `docker-compose.worker.yml` are both on: switches the worker to RabbitMQ too |
 | `docker-compose.clamav.yml` | Malware-scanning overlay | `clamav` (clamd, ~1.5 GB RAM, healthy after 1-2 min) + turns on upload scanning with `RequireVirusScanning=true` ([details](../Attachment/Security.md#malware-scanning)) |
@@ -26,6 +29,9 @@ docker compose logs -f api
 # Development + observability
 docker compose -f docker-compose.yml -f docker-compose.override.yml \
   -f docker-compose.observability.yml -f docker-compose.override.observability.yml up -d
+
+# Development + observability-lite (Prometheus + Grafana; or: make obs-lite-up)
+docker compose -f docker-compose.yml -f docker-compose.override.yml   -f docker-compose.observability-lite.yml -f docker-compose.override.observability-lite.yml up -d
 
 # Production core (server: run in DEPLOY_DIR with .env.prod)
 docker compose -f docker-compose.yml --env-file .env.prod up -d

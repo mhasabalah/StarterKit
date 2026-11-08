@@ -3,7 +3,7 @@
 # ==============================================
 # Professional commands for Docker management
 
-.PHONY: help build up down restart logs ps clean prune dev prod tools backup restore nginx-dev nginx-prod nginx-logs nginx-test nginx-reload docs-check arch-test loadtest loadtest-env loadtest-up loadtest-seed loadtest-run loadtest-down
+.PHONY: help build up down restart logs ps clean prune dev prod tools backup restore nginx-dev nginx-prod nginx-logs nginx-test nginx-reload docs-check arch-test obs-lite-up obs-lite-down loadtest loadtest-env loadtest-up loadtest-seed loadtest-run loadtest-down
 
 # Default target
 .DEFAULT_GOAL := help
@@ -354,6 +354,18 @@ vps-ssl: ## Setup SSL certificate on VPS
 	@echo "$(GREEN)✓ SSL certificate installed$(NC)"
 
 # ==============================================
+# Observability
+# ==============================================
+OBS_LITE := -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.observability-lite.yml -f docker-compose.override.observability-lite.yml
+
+obs-lite-up: ## Start the dev stack + observability-lite (Prometheus + Grafana; logs/traces stay in Seq)
+	@echo "$(GREEN)Starting the stack with observability-lite...$(NC)"
+	docker compose $(OBS_LITE) up -d
+
+obs-lite-down: ## Stop the dev stack started with obs-lite-up
+	docker compose $(OBS_LITE) down
+
+# ==============================================
 # URL Access
 # ==============================================
 urls: ## Show all service URLs
@@ -367,6 +379,8 @@ urls: ## Show all service URLs
 	@echo "$(YELLOW)Seq Logs:$(NC)         http://localhost:5341"
 	@echo "$(YELLOW)PgAdmin:$(NC)          http://localhost:5050"
 	@echo "$(YELLOW)Redis Commander:$(NC)  http://localhost:8081"
+	@echo "$(YELLOW)Prometheus:$(NC)       http://localhost:9090  (make obs-lite-up)"
+	@echo "$(YELLOW)Grafana:$(NC)          http://localhost:3000  (make obs-lite-up)"
 	@echo "$(BLUE)═══════════════════════════════════════════════$(NC)"
 
 # ==============================================

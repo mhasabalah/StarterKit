@@ -22,7 +22,16 @@ public static class ModuleHostExtensions
         builder.Services.AddSingleton(catalog);
 
         // Transport: Messaging:Transport - InMemory | PostgreSql | RabbitMq.
-        builder.Services.AddMassTransitWithAssemblies(builder.Configuration, catalog.ConsumerAssemblies);
+        // Sagas: each module's ConfigureMessaging (durable, in the module's own DbContext - ADR-0023).
+        builder.Services.AddMassTransitWithAssemblies(builder.Configuration,
+            bus =>
+            {
+                foreach (var module in catalog.Modules)
+                {
+                    module.ConfigureMessaging(bus);
+                }
+            },
+            catalog.ConsumerAssemblies);
         builder.Services.AddEnumLookup(catalog.EnumAssemblies);
 
         foreach (var module in catalog.Modules)

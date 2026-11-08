@@ -1,0 +1,14 @@
+# ==============================================
+# Observability-lite + Worker (optional companion)
+# ==============================================
+# Only together with docker-compose.worker.yml AND docker-compose.observability-lite.yml: the worker extends the base
+# `api` service, so it does not inherit the lite overlay's cleared OTLP endpoint. Prometheus already scrapes it
+# (job "worker" in infra/observability/configs/prometheus-lite.yaml).
+#   docker compose -f docker-compose.yml -f docker-compose.worker.yml -f docker-compose.observability-lite.yml #     -f docker-compose.observability-lite-worker.yml --env-file .env.prod up -d
+# ==============================================
+
+services:
+
+  worker:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""

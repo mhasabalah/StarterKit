@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 
@@ -26,6 +27,14 @@ public interface IModule
 
     /// <summary>Registers the module's services (the <c>Add&lt;M&gt;Module</c> step).</summary>
     void AddServices(IHostApplicationBuilder builder);
+
+    /// <summary>
+    /// The module's explicit bus registrations, made while the host registers MassTransit once. Consumers are
+    /// discovered from <see cref="ConsumerAssemblies"/>; sagas never are. Register each saga here with
+    /// <c>AddDurableSagaStateMachine&lt;TMachine, TState, TDbContext&gt;()</c>, so its state lives in this module's
+    /// DbContext (ADR-0023).
+    /// </summary>
+    void ConfigureMessaging(IBusRegistrationConfigurator bus);
 
     /// <summary>
     /// Initializes the module once the app is built: migrations + seeds, recurring jobs, extra endpoints (the

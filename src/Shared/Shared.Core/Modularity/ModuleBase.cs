@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 
@@ -20,6 +21,11 @@ public abstract class ModuleBase : IModule
 
     /// <inheritdoc />
     public abstract void AddServices(IHostApplicationBuilder builder);
+
+    /// <inheritdoc />
+    public virtual void ConfigureMessaging(IBusRegistrationConfigurator bus)
+    {
+    }
 
     /// <inheritdoc />
     public virtual void Initialize(WebApplication app)
