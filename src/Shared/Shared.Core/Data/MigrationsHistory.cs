@@ -1,4 +1,7 @@
 using Humanizer;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 
 namespace Shared.Core.Data;
@@ -36,4 +39,19 @@ public static class MigrationsHistory
     public static NpgsqlDbContextOptionsBuilder UseModuleMigrationsHistory<TContext>(
         this NpgsqlDbContextOptionsBuilder builder) where TContext : DbContext =>
         builder.MigrationsHistoryTable(TableName<TContext>(), Schema);
+
+    /// <summary>
+    /// Creates the context's history table when it is missing, before anything reads it. On a fresh database EF Core
+    /// otherwise reads the table first and logs the "relation does not exist" failure at Error level (once per read)
+    /// before recovering: harmless, but it made every first start look broken. Skipped while the database itself
+    /// does not exist (a new dedicated tenant database): <c>MigrateAsync</c> creates it.
+    /// </summary>
+    public static async Task EnsureHistoryTableAsync(this DatabaseFacade database,
+        CancellationToken cancellationToken = default)
+    {
+        if (await database.GetService<IRelationalDatabaseCreator>().ExistsAsync(cancellationToken))
+        {
+            await database.GetService<IHistoryRepository>().CreateIfNotExistsAsync(cancellationToken);
+        }
+    }
 }

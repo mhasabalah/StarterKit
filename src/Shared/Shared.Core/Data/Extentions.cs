@@ -208,6 +208,7 @@ public static class Extensions
         {
             await using var scope = services.CreateAsyncScope();
             var context = (DbContext)scope.ServiceProvider.GetRequiredService(contextType);
+            await context.Database.EnsureHistoryTableAsync(cancellationToken);
             await context.Database.MigrateAsync(cancellationToken);
         }
     }
@@ -295,6 +296,7 @@ public static class Extensions
 
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TContext>>();
 
+        await context.Database.EnsureHistoryTableAsync();
         var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
 
         if (pendingMigrations.Any())
