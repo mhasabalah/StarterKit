@@ -1,6 +1,6 @@
 ---
 name: new-project
-description: Bootstrap a new product from the StarterKit template - rename the solution and identifiers, configure .env and Docker secrets, decide multi-tenancy/messaging/storage, optionally remove the Catalog sample, regenerate migrations, and prepare GitHub CI/CD (environment, secrets, variables, runner). Use for "start a new project from StarterKit", "rename the template", "set up a new app from this starter", "remove the sample module".
+description: Bootstrap a new product from the StarterKit template with `dotnet new starterkit` - name and switches, configure .env and Docker secrets, decide multi-tenancy/messaging/storage, optionally remove the Catalog sample, regenerate migrations, and prepare GitHub CI/CD (environment, secrets, variables, runner). Use for "start a new project from StarterKit", "rename the template", "set up a new app from this starter", "remove the sample module".
 ---
 
 # New project from StarterKit
@@ -10,30 +10,33 @@ user, in order, and verifies each step.
 
 ## 0. Ask first (one `AskUserQuestion`, up to 4 questions)
 
-1. Project name (PascalCase, e.g. `Acme`) and lower-case slug (`acme`).
-2. Multi-tenancy: **off** (single tenant, the default) or **on** (`MultiTenancy:Enabled`). With it on, ask whether
-   tenants use a shared or a dedicated database.
-3. Messaging transport for production: `PostgreSql` (no extra infra) or `RabbitMq`. `InMemory` is dev and tests
-   only.
-4. Keep the Catalog sample as reference, or remove it now?
+1. Project name (PascalCase, e.g. `Acme`) and the GitHub owner of the new repository.
+2. Multi-tenancy: **off** (single tenant, the default), **shared** or **dedicated** database per tenant.
+3. Messaging transport for production (`PostgreSql`, no extra infra, or `RabbitMq`) and attachment storage
+   (`Local`, `AzureBlob`, `S3`).
+4. Keep the Catalog sample as a reference? Keep the Claude tooling, the GitHub workflows and the VPS deploy kit?
 
-## 1. Copy and rename
+## 1. Generate (never rename in the template repo itself)
 
-- Work in the **new** folder. Never rename in the template repo itself.
-- `git mv StarterKit.slnx <Name>.slnx`, then update every reference: `.github/workflows/*.yml`, `Makefile`,
-  `README.md`, `CLAUDE.md`, `AGENTS.md`, `scripts/*`.
-- Case-sensitive search/replace `StarterKit` → `<Name>` and `starterkit` → `<slug>` across text files. Exclude
-  `bin/`, `obj/`, `node_modules/`, `.git/` and `Data/Migrations/` (migrations get regenerated in step 4). Check
-  each of these by hand:
-  - The connection-string key `starterkit`. It must match in `appsettings*.json`,
-    `src/Aspire/AppHost/AppHost.cs`, docker-compose, and every module's `AddCustomDbContext(..., "<key>")` and
-    integration fixture.
-  - JWT issuer and audience, Redis instance name, container names, `/opt/<slug>`, Grafana and pgAdmin labels.
-  - `.claude-plugin/marketplace.json` and `.claude/settings.json`. The plugin can keep the name `starterkit`, or be
-    renamed consistently in both files.
-- Before each bulk replacement, show a `git grep -il starterkit` count, and the count again afterwards.
-- `LICENSE` (MIT): keep the template's notice for reused code (MIT requires it), and ask the user which license and
-  copyright holder the new product uses.
+```bash
+dotnet new install StarterKit.Templates              # or: dotnet new install <path-to-template-repo>
+dotnet new starterkit -n <Name> -o <target-folder>   --multitenancy off|shared|dedicated --transport PostgreSql|RabbitMq --storage Local|AzureBlob|S3   --sample true|false --ai-tooling true|false --ci true|false --deploy true|false --github-owner <owner>
+cd <target-folder> && git init
+```
+
+The template renames `StarterKit` / `starterkit` / `STARTERKIT` everywhere (slnx, connection-string key, containers,
+JWT issuer, Redis instance, plugin, env-var prefixes), regenerates every `UserSecretsId`, applies the presets and
+leaves out what was switched off. Switches: `wiki/Getting-Started/Templates.md`.
+
+Verify right away: `dotnet build <Name>.slnx`, `dotnet test src/Api.Tests`, `bash scripts/check-docs.sh`, and
+`git grep -il starterkit` (expect nothing).
+
+`LICENSE` (MIT): keep the template's notice for reused code (MIT requires it), and ask the user which license and
+copyright holder the new product uses.
+
+Fallback without the template pack: copy the repo, rename `StarterKit.slnx`, case-sensitive replace of the three
+spellings (exclude `bin/`, `obj/`, `.git/`, `Data/Migrations/`), and resolve the template's conditional markers by
+hand (the template repository's Changing-The-Template page lists them). Prefer the template.
 
 ## 2. Configuration and secrets
 
@@ -41,24 +44,19 @@ user, in order, and verifies each step.
 - Create `secrets/*.txt` as listed in `secrets/README.md` (git-ignored).
 - Set `DOMAIN`, and the Nginx `server_name` and admin IP allow-list in
   `deployment/nginx/conf.d/app-production.conf`.
-- Apply the answers from step 0: `MultiTenancy:Enabled`, `Messaging:Transport`, and the attachment storage provider.
+- The step-0 presets are already applied by the template; review them in `appsettings.json`,
+  `appsettings.Docker.json` and `.env.example`.
 
-## 3. Optional: remove the Catalog sample
+## 3. The Catalog sample
 
-Follow `wiki/Modules/Catalog.md` → *Removing the Catalog sample*, then also:
-
-- Remove `ProductPublishedIntegrationEvent` from the expected list in
-  `src/Api.Tests/Architecture/MessagingArchitectureTests.cs`, and `CatalogDbContext` from its outbox expectation.
-- Replace the expectation in `TenantIsolationArchitectureTests.Catalog_and_Attachment_are_tenant_data_contexts`
-  with the remaining tenant-data contexts.
-- Remove `TenantPermissions.ProductsManage` and `Permissions.CatalogModerate`, plus their grants in
-  `SystemTenantRoles` and `RolePermissionMap`, unless you reuse them.
-- Remove Catalog rows from the README, `wiki/INDEX.md` and the CLAUDE.md messaging table.
+`--sample false` already left it out (with its E2E flows, the product webhook, dashboard stats and docs rows). To
+remove it from an existing product later, follow `wiki/Modules/Catalog.md` → *Removing the Catalog sample*.
 
 ## 4. Migrations
 
-If entities or schemas changed, delete the affected `Data/Migrations` folders and create one
-`Initial<Module>` migration per DbContext with the `add-migration` skill. Re-add RLS calls for tenant-data
+The generated migrations match the model. Only if entities or schemas changed before the first deploy: delete the
+affected `Data/Migrations` folders and create one `Initial<Module>` migration per DbContext with the `add-migration`
+skill. Re-add RLS calls for tenant-data
 contexts, including `outbox_messages`.
 
 ## 5. GitHub
@@ -74,7 +72,7 @@ contexts, including `outbox_messages`.
 ```bash
 dotnet build <Name>.slnx
 dotnet test <Name>.slnx              # Docker running
-git grep -i starterkit -- . ':!*.md' # expect only intentional leftovers (plugin name, if kept)
+git grep -il starterkit            # expect nothing
 bash scripts/check-docs.sh
 ```
 

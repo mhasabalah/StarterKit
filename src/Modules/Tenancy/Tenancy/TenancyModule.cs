@@ -29,7 +29,7 @@ public static class TenancyModule
 
     public static IServiceCollection AddTenancyModule(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddCustomDbContext<TenancyDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<TenancyDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
         services.AddScoped<IDataSeeder, TenancyDataSeeder>();
 
         // Kernel implementations (replace the single-tenant defaults).

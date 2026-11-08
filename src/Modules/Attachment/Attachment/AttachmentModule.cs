@@ -39,7 +39,7 @@ public static class AttachmentModule
         services.AddCustomMapster(AttachmentRoot.AssemblyName);
         services.AddCarterWithAssemblies(AttachmentRoot.AssemblyName);
 
-        services.AddCustomDbContext<AttachmentDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<AttachmentDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
         services.AddOutbox<AttachmentDbContext>(); // delivers the integration events raised by Attachment aggregates
         services.AddScoped<IDataSeeder, AttachmentDataSeeder>();
 

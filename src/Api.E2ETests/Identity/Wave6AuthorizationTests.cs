@@ -66,7 +66,9 @@ public class Wave6AuthorizationTests(E2ETestFixture fixture)
         yield return ["GET", $"{Api}/webhooks/deliveries", RoleConstants.User];
         yield return ["GET", $"{Api}/webhooks/deliveries/{id}", RoleConstants.Support];
         yield return ["POST", $"{Api}/webhooks/deliveries/{id}/redeliver", RoleConstants.User];
+#if (SAMPLE)
         yield return ["GET", $"{Api}/products/{id}/history", RoleConstants.User];
+#endif
     }
 
     /// <summary>Routes that only need a signed-in user: anonymous is 401.</summary>
@@ -122,8 +124,10 @@ public class Wave6AuthorizationTests(E2ETestFixture fixture)
         (await StatusAsync(As(RoleConstants.Admin), HttpMethod.Get, $"{Api}/webhooks/endpoints")).Should().Be(HttpStatusCode.OK);
         (await StatusAsync(As(RoleConstants.Admin), HttpMethod.Get, $"{Api}/webhooks/deliveries")).Should().Be(HttpStatusCode.OK);
         (await StatusAsync(As(RoleConstants.Admin), HttpMethod.Get, $"{Api}/webhooks/event-types")).Should().Be(HttpStatusCode.OK);
+#if (SAMPLE)
         (await StatusAsync(As(RoleConstants.Admin), HttpMethod.Get, $"{Api}/products/{id}/history"))
             .Should().NotBe(HttpStatusCode.Forbidden).And.NotBe(HttpStatusCode.Unauthorized);
+#endif
     }
 
     [Fact]
@@ -199,10 +203,11 @@ public class Wave6AuthorizationTests(E2ETestFixture fixture)
         var key = await KeyFor(RoleConstants.Admin, Permissions.BillingRead);
         var viaKey = fixture.Factory.CreateClientWithApiKey(key);
 
-        // The Admin itself passes the AdminOnly gate (400: empty body); the Admin's key does not (403).
-        (await StatusAsync(fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.Admin), HttpMethod.Post, $"{Api}/attribute-types", new { }))
+        // The Admin itself passes the AdminOnly gate; the Admin's key does not (403). The dashboard is AdminOnly in every
+        // generated product (with or without the Catalog sample).
+        (await StatusAsync(fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.Admin), HttpMethod.Get, $"{Api}/dashboard/stats"))
             .Should().NotBe(HttpStatusCode.Forbidden);
-        (await StatusAsync(viaKey, HttpMethod.Post, $"{Api}/attribute-types", new { })).Should().Be(HttpStatusCode.Forbidden);
+        (await StatusAsync(viaKey, HttpMethod.Get, $"{Api}/dashboard/stats")).Should().Be(HttpStatusCode.Forbidden);
 
         // Its one scope still works; permissions it holds as Admin but was not scoped for do not.
         (await viaKey.GetAsync($"{Api}/admin/subscriptions/pending")).StatusCode.Should().Be(HttpStatusCode.OK);

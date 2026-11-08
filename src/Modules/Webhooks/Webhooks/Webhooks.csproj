@@ -24,7 +24,9 @@
         <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
         <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
         <!-- Other modules: ONLY their .Contracts. Catalog/Subscriptions events are forwarded by their [PublicWebhookEvent] contracts. -->
+        <!--#if (sample)-->
         <ProjectReference Include="..\..\Catalog\Catalog.Contracts\Catalog.Contracts.csproj" />
+        <!--#endif-->
         <ProjectReference Include="..\..\Subscriptions\Subscriptions.Contracts\Subscriptions.Contracts.csproj" />
         <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
         <ProjectReference Include="..\..\Tenancy\Tenancy.Contracts\Tenancy.Contracts.csproj" />

@@ -1,4 +1,6 @@
+#if (SAMPLE)
 using Catalog.Contracts.Products.IntegrationEvents;
+#endif
 using Hangfire;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,9 +76,11 @@ public abstract class WebhookForwardingConsumer<TEvent>(
     }
 }
 
+#if (SAMPLE)
 public sealed class ProductPublishedWebhookConsumer(
     IUnitOfWorkRunner unitOfWork, IBackgroundJobClient jobs, ITenantContext tenantContext, ITenantStore tenantStore)
     : WebhookForwardingConsumer<ProductPublishedIntegrationEvent>(unitOfWork, jobs, tenantContext, tenantStore);
+#endif
 
 public sealed class SubscriptionActivatedWebhookConsumer(
     IUnitOfWorkRunner unitOfWork, IBackgroundJobClient jobs, ITenantContext tenantContext, ITenantStore tenantStore)

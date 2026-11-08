@@ -123,7 +123,7 @@ public static class SubscriptionsModule
         services.AddCustomMapster(SubscriptionsRoot.AssemblyName);
         services.AddCarterWithAssemblies(SubscriptionsRoot.AssemblyName);
 
-        services.AddCustomDbContext<SubscriptionsDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<SubscriptionsDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
         services.AddOutbox<SubscriptionsDbContext>(); // delivers the integration events raised by Subscriptions aggregates
         services.AddHostedService<PlanSeedService>();
 

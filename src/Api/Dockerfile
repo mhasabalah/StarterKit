@@ -18,36 +18,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 
+# Every *.csproj with its path, nothing else. This stage re-runs on any source change, but its output only changes
+# when a project file does, so the restore layer below stays cached. It also needs no edits when a module is added
+# (Api.csproj references modules by glob, ADR-0019).
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS projects
+WORKDIR /src
+COPY . .
+RUN mkdir /projects && find . -name '*.csproj' -not -path '*/bin/*' -not -path '*/obj/*' -print0 | tar --null -cf - -T - | tar -xf - -C /projects
+
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-# Restore layer: only the build inputs that affect restore, so it is cached until a package or project
-# reference changes. Keep this list = the ProjectReference closure of src/Api/Api.csproj (a new module adds its
-# project + .Contracts here; a missing entry only costs cache, the later "COPY . ." still builds).
+# Restore layer: only the build inputs that affect restore.
 COPY ["global.json", "nuget.config", "Directory.Build.props", "Directory.Packages.props", "./"]
-COPY ["src/Api/Api.csproj", "src/Api/"]
-COPY ["src/Aspire/ServiceDefaults/ServiceDefaults.csproj", "src/Aspire/ServiceDefaults/"]
-COPY ["src/Shared/Shared.Contracts/Shared.Contracts.csproj", "src/Shared/Shared.Contracts/"]
-COPY ["src/Shared/Shared.Core/Shared.Core.csproj", "src/Shared/Shared.Core/"]
-COPY ["src/Shared/Shared.Messaging/Shared.Messaging.csproj", "src/Shared/Shared.Messaging/"]
-COPY ["src/Modules/Identity/Identity/Identity.csproj", "src/Modules/Identity/Identity/"]
-COPY ["src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj", "src/Modules/Identity/Identity.Contracts/"]
-COPY ["src/Modules/Identity/UserDirectory.Contracts/UserDirectory.Contracts.csproj", "src/Modules/Identity/UserDirectory.Contracts/"]
-COPY ["src/Modules/Tenancy/Tenancy/Tenancy.csproj", "src/Modules/Tenancy/Tenancy/"]
-COPY ["src/Modules/Tenancy/Tenancy.Contracts/Tenancy.Contracts.csproj", "src/Modules/Tenancy/Tenancy.Contracts/"]
-COPY ["src/Modules/Attachment/Attachment/Attachment.csproj", "src/Modules/Attachment/Attachment/"]
-COPY ["src/Modules/Attachment/Attachment.Contracts/Attachment.Contracts.csproj", "src/Modules/Attachment/Attachment.Contracts/"]
-COPY ["src/Modules/Catalog/Catalog/Catalog.csproj", "src/Modules/Catalog/Catalog/"]
-COPY ["src/Modules/Catalog/Catalog.Contracts/Catalog.Contracts.csproj", "src/Modules/Catalog/Catalog.Contracts/"]
-COPY ["src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj", "src/Modules/Subscriptions/Subscriptions/"]
-COPY ["src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj", "src/Modules/Subscriptions/Subscriptions.Contracts/"]
-COPY ["src/Modules/Notification/Notification/Notification.csproj", "src/Modules/Notification/Notification/"]
-COPY ["src/Modules/Notification/Notification.Contracts/Notification.Contracts.csproj", "src/Modules/Notification/Notification.Contracts/"]
-COPY ["src/Modules/Webhooks/Webhooks/Webhooks.csproj", "src/Modules/Webhooks/Webhooks/"]
-COPY ["src/Modules/Webhooks/Webhooks.Contracts/Webhooks.Contracts.csproj", "src/Modules/Webhooks/Webhooks.Contracts/"]
-COPY ["src/Modules/DataTransfer/DataTransfer/DataTransfer.csproj", "src/Modules/DataTransfer/DataTransfer/"]
-COPY ["src/Modules/DataTransfer/DataTransfer.Contracts/DataTransfer.Contracts.csproj", "src/Modules/DataTransfer/DataTransfer.Contracts/"]
+COPY --from=projects /projects/ ./
 RUN dotnet restore "./src/Api/Api.csproj"
 COPY . .
 WORKDIR "/src/src/Api"

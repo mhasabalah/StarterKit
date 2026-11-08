@@ -172,7 +172,9 @@ mockService.Setup(x => x.GetIpAddress()).Returns("192.168.1.100");
 var handler = new MyHandler(repository, mockService.Object);
 ```
 
+<!--#if (sample)-->
 For test doubles, see `TestSupport.Http(userId, roles)` in `src/Modules/Catalog/Catalog.Tests/TestSupport.cs` and `FakeHttpContextService` in `Catalog.IntegrationTests`.
+<!--#endif-->
 
 ## Background Jobs
 
@@ -217,7 +219,9 @@ All methods return nullable values - always check for null in background operati
 
 ## Related Documentation
 
+<!--#if (sample)-->
 - [Catalog tests](../../src/Modules/Catalog/Catalog.Tests/TestSupport.cs) - how to fake the current user in tests
+<!--#endif-->
 - [Notification module](../Modules/Notification.md) - email + WhatsApp delivery, templates, retries, OTP and admin APIs
 - Source: `src/Shared/Shared.Core/Web/IHttpContextService.cs`
 - Implementation: `src/Shared/Shared.Core/Web/HttpContextService.cs`

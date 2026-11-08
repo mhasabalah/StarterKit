@@ -22,7 +22,7 @@ namespace Notification;
 /// </summary>
 public static class NotificationModule
 {
-    public const string ConnectionStringName = "starterkit";
+    public const string ConnectionStringName = Shared.Core.Data.DatabaseDefaults.ConnectionStringName;
 
     public static IServiceCollection AddNotificationModule(this IServiceCollection services, IConfiguration configuration)
     {

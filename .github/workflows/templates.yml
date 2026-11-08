@@ -1,0 +1,204 @@
+# ==============================================
+# dotnet new templates: pack, generate, verify, publish
+# ==============================================
+# The repository IS the product template (.template.config/) and templates/module is the module template; both ship
+# in the StarterKit.Templates pack (templates/StarterKit.Templates.csproj). This workflow proves that what users
+# generate builds and passes its guardrails, for several switch combinations:
+#   - pack the templates and install the nupkg
+#   - generate products (dotnet new starterkit) with different switches, and modules (dotnet new starterkit-module)
+#     inside them with different options
+#   - each one: no leftover template name or marker, build (warnings are errors), architecture tests, the module
+#     tests, the HTTP E2E suite (incl. PendingModelChangesTests / TenantRowLevelSecurityCoverageTests), docs check
+# A tag templates-v<semver> also publishes the verified pack to GitHub Packages.
+# Docs: wiki/Getting-Started/Templates.md
+# ==============================================
+
+name: Templates
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    tags: ['templates-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: templates-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  pack:
+    name: Pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/templates-v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/templates-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: No file ends on a template end marker
+        # dotnet new leaves an end marker on a file's last line when the file has CRLF endings (*.cs here), so a
+        # conditional block must never close a file. Keep a line of content after it.
+        run: |
+          bad=0
+          while IFS= read -r f; do
+            last=$(grep -v '^[[:space:]]*$' "$f" | tail -n 1 | tr -d '\r')
+            case "$last" in *'#endif'*|*'#else'*) echo "::error file=$f::ends on a template marker: $last"; bad=1;; esac
+          done < <(git ls-files '*.cs' '*.csproj' '*.props' '*.slnx' '*.md' '*.json' '*.yml' '.env*')
+          exit $bad
+
+      - name: Pack
+        run: >
+          dotnet pack templates/StarterKit.Templates.csproj -c Release -o artifacts
+          -p:PackageVersion=${{ steps.version.outputs.version }}
+
+      - name: Files without an extension are packed as files
+        # A full-file PackagePath makes NuGet nest an extensionless file in a folder of its own name
+        # (content/starterkit/LICENSE/LICENSE); the generated products build anyway, so check the package itself.
+        run: |
+          entries=$(unzip -Z1 artifacts/*.nupkg)
+          nested=$(grep -E '^content/(starterkit|module)/(.+)/\2$' <<< "$entries" || true)
+          if [ -n "$nested" ]; then echo "::error::nested package entries:"; echo "$nested"; exit 1; fi
+          for f in LICENSE Makefile src/Api/Dockerfile infra/nginx/Dockerfile .github/CODEOWNERS; do
+            grep -qx "content/starterkit/$f" <<< "$entries" || { echo "::error::content/starterkit/$f missing"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: templates-nupkg
+          path: artifacts/*.nupkg
+          retention-days: 7
+
+  verify:
+    name: Generate ${{ matrix.name }}
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Acme
+            product: ''
+            modules: 'Orders|Billing --data-plane host --outbox|Inventory --example false'
+          - name: Lean
+            product: '--sample false'
+            modules: 'Orders --outbox'
+          - name: Multi
+            product: '--multitenancy shared --transport RabbitMq --storage S3 --github-owner acme-inc'
+            modules: 'Orders --outbox|Payroll --data-plane host'
+          - name: Mini
+            product: '--sample false --ai-tooling false --ci false --deploy false'
+            modules: 'Orders'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: global.json
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: templates-nupkg
+          path: artifacts
+
+      - name: Install the templates
+        run: dotnet new install artifacts/*.nupkg
+
+      - name: Generate the product
+        run: dotnet new starterkit -n ${{ matrix.name }} -o "$RUNNER_TEMP/gen/${{ matrix.name }}" ${{ matrix.product }}
+
+      - name: Generate the modules
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: |
+          IFS='|' read -ra MODULES <<< "${{ matrix.modules }}"
+          for spec in "${MODULES[@]}"; do
+            echo "::group::dotnet new starterkit-module -n $spec"
+            # shellcheck disable=SC2086
+            dotnet new starterkit-module -n $spec
+            echo "::endgroup::"
+          done
+
+      - name: No leftover template name or marker
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: |
+          if grep -rIlE 'StarterKit|starterkit|STARTERKIT|modulename|ModuleName([^s]|$)' . ; then
+            echo "::error::template names left in the generated project (above)"; exit 1
+          fi
+          if grep -rIn -E '^\s*(//|#|<!--)#(if|else|elseif|endif)\b' . ; then
+            echo "::error::template markers left in the generated project (above)"; exit 1
+          fi
+
+      - name: Build (warnings are errors)
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: dotnet build ${{ matrix.name }}.slnx -c Release
+
+      - name: Architecture tests
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: dotnet test src/Api.Tests -c Release --no-build
+
+      - name: Module tests (unit + integration on Testcontainers)
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: |
+          IFS='|' read -ra MODULES <<< "${{ matrix.modules }}"
+          for spec in "${MODULES[@]}"; do
+            m="${spec%% *}"
+            dotnet test "src/Modules/$m/$m.Tests" -c Release --no-build
+            dotnet test "src/Modules/$m/$m.IntegrationTests" -c Release --no-build
+          done
+
+      - name: HTTP E2E (migrations match the model, RLS coverage, boot)
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: dotnet test src/Api.E2ETests -c Release --no-build
+
+      - name: Docs check
+        working-directory: ${{ runner.temp }}/gen/${{ matrix.name }}
+        run: bash scripts/check-docs.sh
+
+  publish:
+    name: Publish to GitHub Packages
+    needs: [pack, verify]
+    if: startsWith(github.ref, 'refs/tags/templates-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: templates-nupkg
+          path: artifacts
+
+      - name: Push
+        run: >
+          dotnet nuget push artifacts/*.nupkg
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --skip-duplicate

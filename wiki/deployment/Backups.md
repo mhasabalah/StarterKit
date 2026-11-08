@@ -9,7 +9,9 @@ commands always use `-f docker-compose.yml --env-file .env.prod`, so dev overrid
   - Placeholders (`{{S3_BACKUP_BUCKET}}`, `{{AWS_*}}`, `{{POSTGRES_USER}}`, `{{POSTGRES_DB}}`) come from `.env.prod`.
   - The Postgres password comes from the `postgres_password` Docker secret via `.pgpass`; it is never in the config
     file.
+<!--#if (deploy)-->
   - See [`deployment/postgres/config/README.md`](../../deployment/postgres/config/README.md).
+<!--#endif-->
 - **Repository:** `repo1-type=s3`, path `/pgbackrest`, TLS verified.
 - **Retention and compression:** set in the template (4 full and 8 differential backups by default, LZ4
   compression).

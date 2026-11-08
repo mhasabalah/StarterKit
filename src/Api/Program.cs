@@ -1,25 +1,14 @@
 using Api.Extensions;
 using Api.Infrastructure;
 using Identity;
-using Attachment;
-using Subscriptions;
-using Catalog;
-using Catalog.Contracts;
 using Tenancy;
 using Tenancy.Services;
-using Shared.Messaging.Extensions;
 using Shared.Core.Extensions;
+using Shared.Messaging.Extensions;
 using Shared.Core.Web;
-using Notification;
-using Notification.Contracts;
-using Webhooks;
-using Webhooks.Contracts;
-using DataTransfer;
-using DataTransfer.Contracts;
 using Aspire.Seq;
 using Hangfire;
 using Hangfire.Dashboard;
-using Attachment.Contracts.Attachments.Dtos;
 using Shared.Core.Data;
 using Shared.Core.MultiTenancy;
 using Shared.Core.MultiTenancy.Web;
@@ -53,39 +42,10 @@ builder.Services.AddConfigurableRateLimiting(configuration);
 // mark the API "not ready" (/health = the API's own dependencies: Postgres, Redis).
 builder.AddSeqEndpoint("seq", seq => seq.DisableHealthChecks = true);
 
-// Register MassTransit once with all module assemblies (transport: Messaging:Transport - InMemory | PostgreSql | RabbitMq)
-builder.Services.AddMassTransitWithAssemblies(
-    configuration,
-    IdentityRoot.AssemblyName,
-    AttachmentRoot.AssemblyName,
-    SubscriptionsRoot.AssemblyName,
-    CatalogRoot.AssemblyName,
-    TenancyRoot.AssemblyName,
-    NotificationRoot.AssemblyName,
-    WebhooksRoot.AssemblyName,
-    DataTransferRoot.AssemblyName);
-
-// Register Generic Enum Lookup Service (using Contracts assemblies where enums are defined)
-builder.Services.AddEnumLookup(
-    typeof(AttachmentType).Assembly, // Attachment.Contracts assembly
-    IdentityRoot.AssemblyName, // Identity assembly (for SmsProvider, etc.)
-    SubscriptionsRoot.AssemblyName, // Subscriptions assembly
-    typeof(Subscriptions.Contracts.Subscriptions.Enums.SubscriptionStatus).Assembly, // Subscriptions.Contracts (SubscriptionStatus)
-    CatalogContractsRoot.AssemblyName, // Catalog.Contracts (ProductStatus, ProductType, Currency, AttributeDataType)
-    NotificationContractsRoot.AssemblyName, // Notification.Contracts (NotificationChannel, NotificationDeliveryStatus, EmailTemplate, ...)
-    NotificationRoot.AssemblyName, // Notification (EmailProvider, delivery-failure kinds)
-    WebhooksContractsRoot.AssemblyName, // Webhooks.Contracts (WebhookDeliveryStatus)
-    DataTransferContractsRoot.AssemblyName, // DataTransfer.Contracts (TransferJobStatus, ImportMode, ...)
-    typeof(Identity.Contracts.Sso.SsoProtocol).Assembly); // Identity.Contracts (SsoProtocol, SsoConnectionStatus)
-
-builder.Services.AddIdentityModule(configuration);
-builder.Services.AddTenancyModule(configuration); // before Subscriptions: overrides its subscriber defaults
-builder.Services.AddAttachmentModule(configuration);
-builder.Services.AddCatalogModule(configuration);
-builder.Services.AddSubscriptionsModule(configuration);
-builder.Services.AddWebhooksModule(configuration); // consumes Catalog/Subscriptions public events
-builder.Services.AddDataTransferModule(configuration); // bulk CSV/Excel jobs; definitions come from the owning modules
-builder.Services.AddNotificationModule(configuration);
+// Modules (ADR-0019): discovered from the module ProjectReferences of Api.csproj, registered in ModuleOrder.
+// Also registers MassTransit once with every module's consumers (Messaging:Transport - InMemory | PostgreSql |
+// RabbitMq) and the enum lookup with every module's enums.
+builder.AddModules();
 
 // Register Hangfire dashboard filter
 builder.Services.AddSingleton<HangfireDashboardAuthorizationFilter>();
@@ -102,7 +62,7 @@ app.UseConfigurableCors();
 app.UseErrorHandling();
 
 // Authentication → tenant resolution → authorization (tenant permissions need the resolved membership).
-app.UseIdentityModule(afterAuthentication: a => a.UseMultiTenancy());
+app.UseIdentityPipeline(afterAuthentication: a => a.UseMultiTenancy());
 
 // Rate limiting runs AFTER authentication so policies can partition per user id (anonymous → per client IP).
 app.UseRateLimiter();
@@ -118,13 +78,9 @@ app.UseHangfireDashboard(
 // Request timeouts AFTER the Hangfire dashboard (it short-circuits above, so it is exempt) and before the endpoints.
 app.UseRequestTimeouts();
 
-app.UseTenancyModule(); // control plane first: the Default tenant must exist before tenant-data seeding
-app.UseAttachmentModule();
-app.UseCatalogModule();
-app.UseSubscriptionsModule();
-app.UseWebhooksModule();
-app.UseDataTransferModule();
-app.UseNotificationModule();
+// Module init in ModuleOrder: Tenancy first among the data modules (the Default tenant must exist before tenant-data
+// seeding), Notification last (maps the realtime hub).
+app.UseModules();
 
 if (migrateOnly)
 {

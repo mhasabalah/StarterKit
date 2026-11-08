@@ -87,4 +87,4 @@ handle `TenantDataPurgeRequestedEvent` idempotently.
 ## Tests
 
 The architecture tests (`Api.Tests/Architecture/TenantIsolationArchitectureTests`) pick the new context up
-automatically once the module is listed in `ModuleBoundaryTests.Modules`.
+automatically: the module list is discovered from the host (ADR-0019).

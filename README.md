@@ -83,7 +83,9 @@ area: [feature catalog](wiki/Reference/Features.md).
 | **Webhooks** | Customer webhook endpoints per tenant, Standard Webhooks signatures, retries with backoff, delivery log, SSRF guard, auto-disable | [wiki/Modules/Webhooks](wiki/Modules/Webhooks.md) |
 | **DataTransfer** | Bulk CSV/Excel import and export as background jobs: definitions plugged in by the owning module, dry run, BestEffort / ValidateFirst, progress, error report, cancel, crash-safe resume (lease + checkpoint), own Hangfire queue that can run on worker replicas | [wiki/Modules/DataTransfer](wiki/Modules/DataTransfer.md) |
 | **Notification** | Every email (Liquid templates on a token-based design system: components, dark mode, branding, plain-text part, en/ar) and WhatsApp delivery with fallback, email or WhatsApp one-time codes, the in-app inbox with real-time SignalR events (Redis backplane), push to session-bound devices through FCM (Android, iOS, Web), user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md), [Realtime and push](wiki/Modules/Notification-Realtime-and-Push.md), [Email design system](wiki/Modules/Notification-Email-Design-System.md) |
+<!--#if (sample)-->
 | **Catalog** (sample) | Products (moderation workflow, gallery, attributes, soft delete), categories, tags, wishlist: the **reference vertical slice** | [wiki/Modules/Catalog](wiki/Modules/Catalog.md) |
+<!--#endif-->
 
 **Tech stack:** .NET 10, ASP.NET Core minimal APIs (Carter), an owned mediator (`Shared.Contracts.Mediation`), FluentValidation, Mapster, EF Core 10 + Npgsql
 (snake_case), PostgreSQL 16, Redis 7, MassTransit, Hangfire, SignalR, Firebase Cloud Messaging, OpenTelemetry, Seq, .NET Aspire, Docker, Nginx, and
@@ -191,6 +193,7 @@ wiki/                         # developer documentation
 
 `make help` lists Docker, database, cache and Nginx shortcuts.
 
+<!--#if (aiTooling)-->
 ## Building with Claude Code
 
 [`CLAUDE.md`](CLAUDE.md) holds the rules. The repo-local **StarterKit plugin**
@@ -209,17 +212,20 @@ wiki/                         # developer documentation
 
 The plugin also contains an `architecture-reviewer` agent and hooks that block agent commits and flag forbidden
 patterns. Other agents should read [`AGENTS.md`](AGENTS.md).
+<!--#endif-->
 
 ## Starting a new project
 
-Follow [wiki/Getting-Started/New-Project.md](wiki/Getting-Started/New-Project.md), or run `/starterkit:new-project`.
-In short:
-1. Copy and rename.
-2. Configure `.env` and `secrets/`.
-3. Choose multi-tenancy, transport and storage.
-4. Optionally remove Catalog.
-5. Regenerate migrations.
-6. Set up the GitHub environment, variables and runner.
+StarterKit is a `dotnet new` template pack ([Templates](wiki/Getting-Started/Templates.md)):
+
+```bash
+dotnet new install StarterKit.Templates          # or: dotnet new install <path-to-this-repo>
+dotnet new starterkit -n Acme --sample false --multitenancy shared --transport RabbitMq
+cd Acme && dotnet new starterkit-module -n Orders # a drop-in module: no host wiring (ADR-0019)
+```
+
+Then follow [wiki/Getting-Started/New-Project.md](wiki/Getting-Started/New-Project.md) from "Configure": `.env`,
+`secrets/` and the GitHub environment, variables and runner. With Claude Code, `/starterkit:new-project` runs it.
 
 ## Deployment
 

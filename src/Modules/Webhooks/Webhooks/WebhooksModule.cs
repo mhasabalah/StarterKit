@@ -41,7 +41,7 @@ public static class WebhooksModule
 
         services.AddMediator(WebhooksRoot.AssemblyName);
         services.AddCarterWithAssemblies(WebhooksRoot.AssemblyName);
-        services.AddCustomDbContext<WebhooksDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<WebhooksDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
 
         // Hangfire jobs
         services.AddTransient<DeliverWebhookJob>();

@@ -159,7 +159,7 @@ public static class MassTransitExtensions
         PostgreSqlTransportOptions options)
     {
         // Same database as the modules: ConnectionStrings:starterkit (Aspire) or PostgresOptions:ConnectionString.
-        var connectionString = configuration.GetConnectionString("starterkit")
+        var connectionString = configuration.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName)
                                ?? configuration[$"{nameof(PostgresOptions)}:{nameof(PostgresOptions.ConnectionString)}"];
         if (string.IsNullOrWhiteSpace(connectionString))
         {

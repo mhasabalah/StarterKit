@@ -23,7 +23,9 @@ public class PendingModelChangesTests(E2ETestFixture fixture)
         "ApplicationIdentityDbContext",
         "TenancyDbContext",
         "AttachmentDbContext",
+#if (SAMPLE)
         "CatalogDbContext",
+#endif
         "SubscriptionsDbContext",
         "NotificationDbContext"
     ];
