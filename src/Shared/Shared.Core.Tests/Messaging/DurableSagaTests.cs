@@ -234,6 +234,9 @@ public abstract class DurableSagaTests : IAsyncLifetime
     {
         var id = Guid.NewGuid();
         await PublishAsync(TenantA, new CounterStarted(id));
+        // Messages are consumed concurrently: an increment that overtakes the start finds no instance and is
+        // discarded (OnMissingInstance). Wait until the instance exists, as every other test does.
+        await WaitForAsync(id, s => s.CurrentState == "Running");
         await PublishAsync(TenantA, new CounterIncremented(id));
         await WaitForAsync(id, s => s.Count == 1);
 
