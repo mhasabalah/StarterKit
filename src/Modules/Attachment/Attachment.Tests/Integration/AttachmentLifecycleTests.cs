@@ -263,9 +263,13 @@ public sealed class AttachmentLifecycleTests : IDisposable
         failed.NextDeletionAttemptAt.Should().BeCloseTo(_host.Clock.GetUtcNow().UtcDateTime.AddMinutes(5), TimeSpan.FromSeconds(30));
         _host.FileExists(path).Should().BeTrue();
 
-        // Not due yet: the sweeper leaves it alone.
-        var notDue = await Sweep(sp => sp.RetryDueDeletionsAsync(_host.Clock.GetUtcNow().UtcDateTime));
-        (await Row(upload.Id))!.DeletionAttempts.Should().Be(1);
+        // Not due yet: the sweeper leaves it alone. Asserted on THIS row: the sweep's counts cover the whole shared
+        // database, where rows of other tests can be due (a global count made the test depend on test order).
+        await Sweep(sp => sp.RetryDueDeletionsAsync(_host.Clock.GetUtcNow().UtcDateTime));
+        var notDue = await Row(upload.Id);
+        notDue.Should().NotBeNull("a delete that is not due yet must not run");
+        notDue!.DeletionAttempts.Should().Be(1);
+        _host.FileExists(path).Should().BeTrue();
 
         // Due, still failing: attempt 2, backoff doubles.
         _host.Clock.Advance(TimeSpan.FromMinutes(6));
@@ -279,7 +283,6 @@ public sealed class AttachmentLifecycleTests : IDisposable
         _host.Clock.Advance(TimeSpan.FromMinutes(11));
         var done = await Sweep(sp => sp.RetryDueDeletionsAsync(_host.Clock.GetUtcNow().UtcDateTime));
 
-        notDue.Deleted.Should().Be(0);
         done.Deleted.Should().BeGreaterThanOrEqualTo(1);
         (await Row(upload.Id)).Should().BeNull();
         _host.FileExists(path).Should().BeFalse();

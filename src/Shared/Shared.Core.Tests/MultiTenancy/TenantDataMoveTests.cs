@@ -22,7 +22,7 @@ public sealed class TenantDataMoveTests : IAsyncLifetime
     private string _source = string.Empty;
     private string _target = string.Empty;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _source = WithDatabase("source_db");
@@ -60,7 +60,7 @@ public sealed class TenantDataMoveTests : IAsyncLifetime
         }
     }
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 
     [Fact]
     public async Task Copies_only_the_tenants_rows_and_replaces_leftovers()

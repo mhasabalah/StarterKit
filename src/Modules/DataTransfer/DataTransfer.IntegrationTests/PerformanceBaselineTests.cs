@@ -1,8 +1,8 @@
+using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using Xunit.Abstractions;
 using A = DataTransfer.IntegrationTests.DataTransferPostgresFixture;
 
 namespace DataTransfer.IntegrationTests;
@@ -12,7 +12,8 @@ public sealed class PerfFactAttribute : FactAttribute
 {
     public const string Variable = "STARTERKIT_PERF_TESTS";
 
-    public PerfFactAttribute()
+    public PerfFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (Environment.GetEnvironmentVariable(Variable) != "1")
             Skip = $"Performance baseline: set {Variable}=1 (Docker required, slow).";
@@ -38,14 +39,14 @@ public sealed class PerformanceBaselineTests(DataTransferPostgresFixture fx, ITe
     private static readonly double MinRowsPerSecond = Threshold("STARTERKIT_PERF_MIN_ROWS_PER_SEC", 10_000);
     private static readonly double MaxHeapGrowthMb = Threshold("STARTERKIT_PERF_MAX_HEAP_MB", 100);
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await fx.ResetAsync();
         fx.Options.BatchSize = 500; // the production default (the fixture runs tiny batches for the functional tests)
         fx.Options.ExportProgressEvery = 5_000;
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [PerfFact]
     public async Task Import_of_100k_rows_meets_the_throughput_and_memory_baseline()

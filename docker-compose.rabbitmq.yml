@@ -5,6 +5,8 @@
 # Requires secrets/rabbitmq_password.txt (created by deployment/secrets-setup.sh).
 #   dev:  docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.rabbitmq.yml up -d
 #   prod: docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml up -d
+# With docker-compose.worker.yml, also add docker-compose.rabbitmq-worker.yml LAST: otherwise the worker stays on the
+# PostgreSql transport and never sees the messages of the API.
 #
 # Password: in production the API reads the Docker secret (rabbitmq_password -> Messaging:RabbitMq:Password),
 # which is added after environment variables and therefore wins. In Development the API skips Docker
@@ -82,3 +84,11 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+
+  # Same transport as the API, so --migrate-only does not create an unused PostgreSql transport schema. It never starts
+  # the bus, so it needs neither the broker nor its password.
+  migrator:
+    environment:
+      Messaging__Transport: RabbitMq
+      Messaging__RabbitMq__Host: rabbitmq
+      Messaging__RabbitMq__Username: ${RABBITMQ_USER:-starterkit}

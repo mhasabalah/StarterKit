@@ -67,6 +67,15 @@ public sealed record SsoConnectionInput
     /// <summary>Accept unsolicited (IdP-initiated) responses. Off by default: they cannot be bound to a request.</summary>
     public bool SamlAllowIdpInitiated { get; init; }
 
+    /// <summary>Refuse a metadata refresh without a valid signature. Null on update = keep the current setting.</summary>
+    public bool? SamlRequireSignedMetadata { get; init; }
+
+    /// <summary>
+    /// Optional certificates that sign the metadata (Base64 DER or PEM), when they differ from the IdP signing
+    /// certificates. Setting any also requires a signature. Null on update = keep, empty = clear.
+    /// </summary>
+    public IReadOnlyList<string>? SamlMetadataSigningCertificates { get; init; }
+
     // ----- mapping & policy -----
 
     /// <summary>Claim / attribute holding the email. Default: <c>email</c> (OIDC) or the standard email attributes.</summary>
@@ -108,6 +117,10 @@ public sealed record SsoConnectionDto(
     DateTime? SamlMetadataRefreshedAt,
     string? SamlMetadataLastError,
     DateTime? SamlCertificatesNotAfter,
+    bool SamlRequireSignedMetadata,
+    IReadOnlyList<SsoCertificateDto> SamlMetadataSigningCertificates,
+    // Effective rule: true when SamlRequireSignedMetadata is set OR a metadata-signing key is pinned. Show this one.
+    bool SamlMetadataSignatureRequired,
     string? EmailClaim,
     string? GivenNameClaim,
     string? FamilyNameClaim,

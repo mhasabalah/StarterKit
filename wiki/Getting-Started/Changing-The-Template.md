@@ -54,6 +54,14 @@ products again, and only when all of them pass, publishes the pack to GitHub Pac
   products or the template options (a renamed or removed switch) is a major.
 - Then update your own machine with `dotnet new update`, run outside a repository ([Templates](Templates.md#install)).
 
+## Test framework of generated modules
+
+The module template references `xunit.v3.mtp-off` (xUnit v3 without Microsoft.Testing.Platform, so VSTest `dotnet test`,
+filters and coverlet work as before). A product generated before the xUnit v3 move still lists `xunit` 2.9.3 in its
+`Directory.Packages.props`, so a module generated into it with a newer pack does not restore. Move the product first:
+replace `xunit` with `xunit.v3.mtp-off` there and in its test projects, add `<OutputType>Exe</OutputType>` to each test
+project, and turn `IAsyncLifetime` members into `ValueTask`. `git log` of the template repository has the full change.
+
 ## Module template migrations
 
 `templates/module/_migrations/<combo>/` holds one `InitialCreate` set per option combination that has a model

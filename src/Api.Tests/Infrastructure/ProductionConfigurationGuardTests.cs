@@ -91,6 +91,17 @@ public sealed class ProductionConfigurationGuardTests
             .And.Contain(k => k.Contains("SecretKey", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void The_Docker_settings_do_not_block_startup_on_the_RabbitMq_password_the_default_transport_never_uses()
+    {
+        var config = new ConfigurationBuilder()
+            .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"))
+            .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.Docker.json"))
+            .Build();
+
+        ProductionConfigurationGuard.FindPlaceholders(config).Should().NotContain("Messaging:RabbitMq:Password");
+    }
+
     [Theory]
     [InlineData("Production", null)]
     [InlineData("Docker", "InMemory")]
@@ -106,8 +117,8 @@ public sealed class ProductionConfigurationGuardTests
 
     [Theory]
     [InlineData("Production", "PostgreSql")]
-    [InlineData("Docker", "RabbitMq")]
     [InlineData("Development", "InMemory")]
+    [InlineData("Development", "RabbitMq")]
     [InlineData("Testing", null)]
     public void Allows_durable_transport_or_relaxed_environment(string environment, string? transport)
     {
@@ -116,6 +127,57 @@ public sealed class ProductionConfigurationGuardTests
         var act = () => ProductionConfigurationGuard.EnsureDurableMessaging(config, environment);
 
         act.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData("rabbitmq", "secret", null)]
+    [InlineData("127.0.0.1", "secret", null)]
+    [InlineData("localhost", null, "amqp://user:pass@broker:5672/")]
+    [InlineData(null, null, "amqp://user:pass@broker:5672/")]
+    public void Allows_RabbitMq_with_a_broker_address_and_password(string? host, string? password, string? connectionString)
+    {
+        var config = Config(
+            ("Messaging:Transport", "RabbitMq"),
+            ("Messaging:RabbitMq:Host", host),
+            ("Messaging:RabbitMq:Password", password),
+            ("ConnectionStrings:rabbitmq", connectionString));
+
+        var act = () => ProductionConfigurationGuard.EnsureDurableMessaging(config, "Production");
+
+        act.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("localhost")]
+    [InlineData("LOCALHOST")]
+    public void Refuses_RabbitMq_outside_dev_without_a_broker_address(string? host)
+    {
+        var config = Config(
+            ("Messaging:Transport", "RabbitMq"),
+            ("Messaging:RabbitMq:Host", host),
+            ("Messaging:RabbitMq:Password", "secret"));
+
+        var act = () => ProductionConfigurationGuard.EnsureDurableMessaging(config, "Production");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Messaging:RabbitMq:Host*");
+    }
+
+    [Fact]
+    public void Refuses_RabbitMq_in_Docker_without_the_overlay_that_supplies_the_password()
+    {
+        // MESSAGING_TRANSPORT=RabbitMq without docker-compose.rabbitmq.yml: the Docker settings name the host, nothing
+        // provides the password.
+        var config = new ConfigurationBuilder()
+            .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"))
+            .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.Docker.json"))
+            .AddInMemoryCollection([new("Messaging:Transport", "RabbitMq")])
+            .Build();
+
+        var act = () => ProductionConfigurationGuard.EnsureDurableMessaging(config, "Docker");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Messaging:RabbitMq:Password*");
     }
 
     [Theory]

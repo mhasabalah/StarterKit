@@ -328,6 +328,7 @@ public partial class Tenant : Aggregate<Guid>
 
         var domain = TenantDomain.Create(normalized);
         _domains.Add(domain);
+        BumpVersionOnSave(); // MaxCustomDomains spans the children
         Changed();
         return domain;
     }
@@ -336,12 +337,14 @@ public partial class Tenant : Aggregate<Guid>
     {
         var domain = FindDomain(host);
         domain.MarkVerified(utcNow);
+        BumpVersionOnSave();
         Changed();
     }
 
     public void RemoveDomain(string host)
     {
         _domains.Remove(FindDomain(host));
+        BumpVersionOnSave();
         Changed();
     }
 

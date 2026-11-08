@@ -38,6 +38,9 @@ public class AuditableEntityInterceptor(IHttpContextService httpContextService, 
 
         foreach (var entry in context.ChangeTracker.Entries<IEntity>())
         {
+            // Consumed in every state, so a request made on a new aggregate cannot bump a later, unrelated save.
+            var bumpRequested = entry.Entity is IAggregate aggregate && aggregate.ConsumeVersionBumpRequest();
+
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.CreatedBy = currentUser;
@@ -48,7 +51,8 @@ public class AuditableEntityInterceptor(IHttpContextService httpContextService, 
             }
 
             var ownedChanged = entry.HasChangedOwnedEntities();
-            if (entry.State != EntityState.Modified && !ownedChanged)
+            var childOnlyChange = bumpRequested && entry.State == EntityState.Unchanged;
+            if (entry.State != EntityState.Modified && !ownedChanged && !childOnlyChange)
             {
                 continue;
             }
@@ -72,6 +76,7 @@ public class AuditableEntityInterceptor(IHttpContextService httpContextService, 
     /// same scope, because EF accepts changes after each save (original == current again).</item>
     /// <item>A change to an owned entity only (the owner is still <c>Unchanged</c>) bumps the version too. That marks
     /// the owner <c>Modified</c>, so the aggregate row is updated and concurrency-checked.</item>
+    /// <item>So does a child-only change whose aggregate asked for it (<c>Aggregate.BumpVersionOnSave</c>).</item>
     /// </list>
     /// </summary>
     private static void BumpVersion(EntityEntry<IEntity> entry)

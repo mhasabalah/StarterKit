@@ -16,9 +16,9 @@ public sealed class OutboxRelayTests : IAsyncLifetime
 
     public OutboxRelayTests(OutboxFixture fx) => _fx = fx;
 
-    public Task InitializeAsync() => _fx.ResetAsync();
+    public async ValueTask InitializeAsync() => await _fx.ResetAsync();
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     // ----- happy path ----------------------------------------------------------------------------------------------
 

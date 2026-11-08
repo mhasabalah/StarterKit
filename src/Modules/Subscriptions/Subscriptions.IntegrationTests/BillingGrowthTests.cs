@@ -131,14 +131,21 @@ public sealed class BillingGrowthTests(SubscriptionsPostgresFixture fx)
         var processor = fx.Services.GetRequiredService<ITrialReminderProcessor>();
         fx.Notifications.Messages.Clear();
 
-        (await processor.ProcessAsync(started.TrialEndsAt.AddDays(-8))).Should().Be(0, "outside the 3 day window");
+        int SentToSubscriber() =>
+            fx.Notifications.Messages.Count(m => m.UserId == subscriberId && m.Email?.Template == EmailTemplate.TrialEnding);
+
+        // The processor's return value counts EVERY trial in the shared database (other tests start trials too), so the
+        // window is asserted on this subscriber's mail only. A global count made the test depend on test order.
+        await processor.ProcessAsync(started.TrialEndsAt.AddDays(-8));
+        SentToSubscriber().Should().Be(0, "outside the 3 day window");
+        (await _scenario.LoadAsync(started.SubscriptionId)).TrialReminderSentAt.Should().BeNull();
+
         (await processor.ProcessAsync(started.TrialEndsAt.AddDays(-2))).Should().BeGreaterThanOrEqualTo(1);
-        var sentAfterFirst = fx.Notifications.Messages.Count(m => m.UserId == subscriberId && m.Email?.Template == EmailTemplate.TrialEnding);
+        var sentAfterFirst = SentToSubscriber();
         await processor.ProcessAsync(started.TrialEndsAt.AddDays(-1));
 
         sentAfterFirst.Should().Be(1);
-        fx.Notifications.Messages.Count(m => m.UserId == subscriberId && m.Email?.Template == EmailTemplate.TrialEnding)
-            .Should().Be(1, "a second run never re-sends");
+        SentToSubscriber().Should().Be(1, "a second run never re-sends");
         (await _scenario.LoadAsync(started.SubscriptionId)).TrialReminderSentAt.Should().NotBeNull();
     }
 

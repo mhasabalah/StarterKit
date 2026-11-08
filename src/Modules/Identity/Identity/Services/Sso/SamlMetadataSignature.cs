@@ -7,7 +7,7 @@ namespace Identity.Services.Sso;
 
 public enum MetadataSignature
 {
-    /// <summary>The metadata carries no XML signature (still accepted, see <see cref="SamlMetadataSignature"/>).</summary>
+    /// <summary>The metadata carries no XML signature (accepted only when the connection does not require one).</summary>
     NotSigned = 0,
 
     /// <summary>Signed, and the signature verifies against one of the pinned certificates.</summary>
@@ -18,13 +18,16 @@ public enum MetadataSignature
 }
 
 /// <summary>
-/// Verifies the (optional) enveloped XML signature of IdP metadata against the certificates ALREADY PINNED on the
-/// connection. This is what lets a rollover through (the old key signs the metadata that announces the new key) while a
-/// hijacked metadata host cannot swap the keys of a federation that publishes SIGNED metadata.
+/// Verifies the enveloped XML signature of IdP metadata against the keys the connection trusts
+/// (<see cref="Domains.Sso.Models.SsoConnection.MetadataTrustAnchors"/>): its pinned metadata-signing certificates, or
+/// else its IdP signing certificates. This lets a rollover through (the old key signs the metadata that announces the
+/// new key) while a hijacked metadata host cannot swap the keys.
 /// <para>
-/// Honest limits: UNSIGNED metadata is accepted, because many IdPs publish none, and then the entity-id check does
-/// NOT protect against a hijacked or compromised metadata host (it can serve the right entity id with attacker keys).
-/// Prefer an IdP that signs its metadata, or leave the metadata URL empty and rotate certificates by hand.
+/// Honest limits: UNSIGNED metadata is accepted unless the connection requires a signature
+/// (<see cref="Domains.Sso.Models.SsoConnection.RequiresSignedMetadata"/>), because many IdPs publish none. Accepted
+/// unsigned, the entity-id check does NOT protect against a hijacked or compromised metadata host (it can serve the
+/// right entity id with attacker keys). For an IdP that publishes no signature, leave the metadata URL empty and rotate
+/// certificates by hand.
 /// </para>
 /// Accepted shape: exactly one <c>ds:Signature</c>, a direct child of the root element, with exactly one reference to
 /// the root (<c>URI=""</c> or <c>#ID</c>) and only enveloped-signature / canonicalization transforms (no XSLT, no

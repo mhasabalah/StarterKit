@@ -32,7 +32,7 @@ public sealed class NotificationDispatchPostgresTests : IAsyncLifetime
     };
     private readonly Guid _userId = Guid.NewGuid();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _options = new DbContextOptionsBuilder<NotificationDbContext>()
@@ -44,7 +44,7 @@ public sealed class NotificationDispatchPostgresTests : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     /// <summary>One job run in its own DbContext - what a Hangfire (re)try gets.</summary>
     private async Task RunAsync(NotificationMessage message, Guid correlationId)

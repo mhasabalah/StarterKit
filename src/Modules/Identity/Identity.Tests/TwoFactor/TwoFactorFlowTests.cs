@@ -22,9 +22,9 @@ public sealed class TwoFactorFlowTests : IAsyncLifetime
     private readonly TwoFactorTestHost _host = new(maxFailedAccessAttempts: 3);
     private ApplicationUser _user = null!;
 
-    public async Task InitializeAsync() => _user = await _host.CreateUserAsync();
+    public async ValueTask InitializeAsync() => _user = await _host.CreateUserAsync();
 
-    public async Task DisposeAsync() => await _host.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _host.DisposeAsync();
 
     private async Task<string> SetupAsync()
     {

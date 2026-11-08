@@ -29,14 +29,14 @@ public sealed class MultiTenantE2EFixture : IAsyncLifetime
 
     public MultiTenantE2ETestFactory Factory { get; private set; } = default!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _postgres.InitializeAsync();
         Factory = new MultiTenantE2ETestFactory(_postgres.ConnectionString);
         _ = Factory.Services; // boot: migrations + Default tenant seed
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (Factory is not null)
             await Factory.DisposeAsync();

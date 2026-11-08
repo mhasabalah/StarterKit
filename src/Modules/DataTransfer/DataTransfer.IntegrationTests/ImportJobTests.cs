@@ -14,9 +14,9 @@ public sealed class ImportJobTests(DataTransferPostgresFixture fx) : IAsyncLifet
 {
     private const string FiveRows = "code,name,qty\nA,Apple,1\nB,Banana,2\nC,Cherry,3\nD,Date,4\nE,Elder,5\n";
 
-    public Task InitializeAsync() => fx.ResetAsync();
+    public async ValueTask InitializeAsync() => await fx.ResetAsync();
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public async Task DryRun_validates_every_row_writes_nothing_and_reports_the_invalid_rows()

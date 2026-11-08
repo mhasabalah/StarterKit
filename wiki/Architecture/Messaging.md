@@ -211,8 +211,11 @@ All transports share the same bus configuration (`Shared.Messaging/Extensions/Ma
 ```
 
 - **PostgreSql** uses `ConnectionStrings:starterkit`. `CreateInfrastructure: true` creates/upgrades the transport
-  schema, role and functions at startup - that needs DDL and `CREATEROLE` rights. In production either give those to
-  `AdminUsername`/`AdminPassword` (migration only) or run once with them and set `CreateInfrastructure: false`.
+  schema, role and functions, which needs DDL and `CREATEROLE` rights. App instances do that at startup only with
+  `Database:MigrateOnStartup=true` (dev, Aspire, tests). In production the one-shot `--migrate-only` run owns it, under
+  `Database:MigrationConnectionString` when one is set, so the runtime role stays DML-only. Set
+  `CreateInfrastructure: false` only when a DBA provisions the transport outside the deploy
+  ([ADR 0022](../Decisions/0022-production-message-transport.md)).
 - **RabbitMq** uses `ConnectionStrings:rabbitmq` (an `amqp://user:pass@host:port/vhost` URI - what Aspire injects) when
   present, otherwise `Messaging:RabbitMq:*`. The password is a secret: Docker secret `rabbitmq_password` or env
   `Messaging__RabbitMq__Password` - never in `appsettings*.json`.
@@ -222,7 +225,7 @@ Running it:
 | Environment | How |
 |---|---|
 | Aspire | AppHost config/env `Messaging__Transport=RabbitMq` adds a RabbitMQ container (+ management UI) and wires `ConnectionStrings:rabbitmq`; `PostgreSql` needs nothing extra |
-| Docker Compose | `MESSAGING_TRANSPORT=PostgreSql` in `.env`, or the RabbitMQ overlay: `docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml up -d` (add `-f docker-compose.override.yml` in development) |
+| Docker Compose | `MESSAGING_TRANSPORT=PostgreSql` in `.env`, or the RabbitMQ overlay: `docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml up -d` (add `-f docker-compose.override.yml` in development). With the worker overlay, also add `-f docker-compose.rabbitmq-worker.yml`, or the worker stays on another transport |
 
 Sagas: none exist yet and the saga repository is in-memory. The first real saga must use a durable (EF Core) saga
 repository.

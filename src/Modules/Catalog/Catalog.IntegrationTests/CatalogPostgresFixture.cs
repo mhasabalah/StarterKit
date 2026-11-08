@@ -30,7 +30,7 @@ public sealed class CatalogPostgresFixture : IAsyncLifetime
     public FakeHttpContextService Http { get; } = new();
     public IServiceProvider Services => _provider;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -62,7 +62,7 @@ public sealed class CatalogPostgresFixture : IAsyncLifetime
             .OfType<CatalogDataSeeder>().Single().SeedAllAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

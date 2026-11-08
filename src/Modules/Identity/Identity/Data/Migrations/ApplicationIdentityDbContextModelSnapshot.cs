@@ -621,6 +621,15 @@ namespace Identity.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("saml_metadata_refreshed_at");
 
+                    b.PrimitiveCollection<List<string>>("SamlMetadataSigningCertificates")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("saml_metadata_signing_certificates");
+
+                    b.Property<bool>("SamlRequireSignedMetadata")
+                        .HasColumnType("boolean")
+                        .HasColumnName("saml_require_signed_metadata");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(16)

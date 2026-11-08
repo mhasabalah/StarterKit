@@ -228,6 +228,148 @@ public sealed class SamlMetadataRefreshTests : IDisposable
         connection.SamlIdpCertificates.Should().Equal(Base64(_next));
     }
 
+    // ----- signature policy -----
+
+    [Fact]
+    public async Task Refresh_refuses_unsigned_metadata_when_a_signature_is_required()
+    {
+        var connection = SecuredConnection(requireSigned: true);
+        var (refresher, repository) = Refresher(Metadata(EntityId, _next));
+
+        var result = await refresher.RefreshAsync(connection, CancellationToken.None);
+
+        result.Outcome.Should().Be(SamlMetadataOutcome.Failed);
+        result.Error.Should().Be(SamlMetadataErrors.SignatureRequired);
+        connection.SamlIdpCertificates.Should().Equal(Base64(_current));
+        repository.Verify(r => r.RecordMetadataRefreshAsync(connection.Id, null, SamlMetadataErrors.SignatureRequired, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_accepts_a_rollover_signed_by_the_idp_key_when_a_signature_is_required()
+    {
+        var connection = SecuredConnection(requireSigned: true);
+        var (refresher, _) = Refresher(Sign(Metadata(EntityId, _next), _current));
+
+        var result = await refresher.RefreshAsync(connection, CancellationToken.None);
+
+        result.Outcome.Should().Be(SamlMetadataOutcome.Updated);
+        connection.SamlIdpCertificates.Should().Equal(Base64(_next));
+    }
+
+    [Fact]
+    public async Task Refresh_accepts_metadata_signed_by_the_pinned_metadata_key()
+    {
+        using var federation = Certificate("CN=federation", TimeSpan.FromDays(400));
+        var connection = SecuredConnection(pinned: federation);
+        var (refresher, _) = Refresher(Sign(Metadata(EntityId, _next), federation));
+
+        var result = await refresher.RefreshAsync(connection, CancellationToken.None);
+
+        result.Outcome.Should().Be(SamlMetadataOutcome.Updated);
+        connection.SamlIdpCertificates.Should().Equal(Base64(_next));
+    }
+
+    [Fact]
+    public async Task A_pinned_metadata_key_is_the_only_key_trusted_for_the_metadata()
+    {
+        using var federation = Certificate("CN=federation", TimeSpan.FromDays(400));
+        var connection = SecuredConnection(pinned: federation);
+        var (refresher, _) = Refresher(Sign(Metadata(EntityId, _next), _current));
+
+        var result = await refresher.RefreshAsync(connection, CancellationToken.None);
+
+        result.Error.Should().Be(SamlMetadataErrors.SignatureInvalid, "the IdP assertion key must not sign the metadata here");
+        connection.SamlIdpCertificates.Should().Equal(Base64(_current));
+    }
+
+    [Fact]
+    public async Task A_pinned_metadata_key_cannot_be_bypassed_by_stripping_the_signature()
+    {
+        using var federation = Certificate("CN=federation", TimeSpan.FromDays(400));
+        var connection = SecuredConnection(pinned: federation);
+        var (refresher, _) = Refresher(Metadata(EntityId, _next));
+
+        var result = await refresher.RefreshAsync(connection, CancellationToken.None);
+
+        result.Error.Should().Be(SamlMetadataErrors.SignatureRequired);
+        connection.SamlIdpCertificates.Should().Equal(Base64(_current));
+    }
+
+    [Fact]
+    public void A_new_connection_accepts_unsigned_metadata_by_default()
+    {
+        var connection = SamlConnection();
+
+        connection.SamlRequireSignedMetadata.Should().BeFalse();
+        connection.SamlMetadataSigningCertificates.Should().BeEmpty();
+        connection.RequiresSignedMetadata.Should().BeFalse();
+    }
+
+    [Fact]
+    public void An_update_that_omits_the_signature_settings_keeps_them()
+    {
+        using var federation = Certificate("CN=federation", TimeSpan.FromDays(400));
+        var connection = SecuredConnection(requireSigned: true, pinned: federation);
+
+        connection.Update(Input(), null);
+
+        connection.SamlRequireSignedMetadata.Should().BeTrue();
+        connection.SamlMetadataSigningCertificates.Should().Equal(Base64(federation));
+    }
+
+    [Fact]
+    public void An_empty_list_clears_the_pinned_metadata_keys()
+    {
+        using var federation = Certificate("CN=federation", TimeSpan.FromDays(400));
+        var connection = SecuredConnection(pinned: federation);
+
+        connection.Update(Input() with { SamlMetadataSigningCertificates = [] }, null);
+
+        connection.SamlMetadataSigningCertificates.Should().BeEmpty();
+        connection.RequiresSignedMetadata.Should().BeFalse();
+    }
+
+    [Fact]
+    public void An_invalid_pinned_metadata_key_is_rejected()
+    {
+        var act = () => SsoConnection.Create(Guid.NewGuid(), Input() with { SamlMetadataSigningCertificates = ["not-a-certificate"] }, null);
+
+        act.Should().Throw<Identity.Domains.Sso.Exceptions.InvalidSsoConnectionException>();
+    }
+
+    [Fact]
+    public void Too_many_pinned_metadata_keys_are_rejected()
+    {
+        var certificates = Enumerable.Range(0, SsoConnection.MaxCertificates + 1)
+            .Select(i => Certificate($"CN=m{i}", TimeSpan.FromDays(30))).ToList();
+        var input = Input() with { SamlMetadataSigningCertificates = certificates.Select(Base64).ToList() };
+        certificates.ForEach(c => c.Dispose());
+
+        var act = () => SsoConnection.Create(Guid.NewGuid(), input, null);
+
+        act.Should().Throw<Identity.Domains.Sso.Exceptions.InvalidSsoConnectionException>();
+    }
+
+    // ----- aggregate version -----
+
+    [Fact]
+    public void Domain_changes_ask_for_a_root_version_bump()
+    {
+        var connection = SamlConnection();
+        connection.ConsumeVersionBumpRequest().Should().BeFalse();
+
+        connection.AddDomain("acme.example");
+        connection.ConsumeVersionBumpRequest().Should().BeTrue("MaxDomains spans the children");
+
+        connection.MarkDomainVerified("acme.example", Now);
+        connection.ConsumeVersionBumpRequest().Should().BeTrue();
+
+        connection.RemoveDomain("acme.example");
+        connection.ConsumeVersionBumpRequest().Should().BeTrue("the last-verified-domain rule spans the children");
+        connection.ConsumeVersionBumpRequest().Should().BeFalse("a request is consumed once");
+    }
+
     // ----- fetcher -----
 
     [Theory]
@@ -398,6 +540,23 @@ public sealed class SamlMetadataRefreshTests : IDisposable
         SamlIdpMetadataUrl = MetadataUrl,
         SamlIdpCertificates = certificates.Length == 0 ? [Base64(_current)] : certificates
     }, null);
+
+    private SsoConnectionInput Input() => new()
+    {
+        Name = "Acme SAML",
+        Protocol = SsoProtocol.Saml,
+        SamlIdpEntityId = EntityId,
+        SamlIdpSsoUrl = SsoUrl,
+        SamlIdpMetadataUrl = MetadataUrl
+    };
+
+    private SsoConnection SecuredConnection(bool? requireSigned = null, X509Certificate2? pinned = null) =>
+        SsoConnection.Create(Guid.NewGuid(), Input() with
+        {
+            SamlIdpCertificates = [Base64(_current)],
+            SamlRequireSignedMetadata = requireSigned,
+            SamlMetadataSigningCertificates = pinned is null ? null : [Base64(pinned)]
+        }, null);
 
     private (SamlMetadataRefresher Refresher, Mock<ISsoConnectionRepository> Repository) Refresher(string metadataXml)
     {

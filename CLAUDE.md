@@ -222,6 +222,8 @@ Notification is the exception: its context is in `Persistence/`.
   - **Never** set or increment `Version`/`OriginalValue` by hand; `AuditableEntityInterceptor` does it, guarded by
     `Shared.Core.Tests/Concurrency`.
   - Deletes never take a version. Reference: `UpdateProductCommand` / `ProductDto`.
+  - The root version covers the children: a behaviour method that changes ONLY child rows calls `BumpVersionOnSave()`;
+    one that also changes a root column needs nothing ([ADR-0021](wiki/Decisions/0021-aggregate-version-covers-child-collections.md)).
 - **Time.** New code injects `TimeProvider` instead of using `DateTime.UtcNow`.
 - **`CreatedAt`.** `Entity<T>.CreatedAt` is `DateTime?`. For a non-nullable one, shadow it with
   `public new DateTime CreatedAt { get; private set; }`.
@@ -374,8 +376,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 - Delivery is at-least-once (`MessageId` = `EventId`). Failed rows are dead-lettered after
   `Messaging:Outbox:MaxAttempts`; inspect/requeue them via `/api/v1/admin/outbox/{context}/dead-letters`
   (`outbox.manage`, SuperAdmin). Gauges `outbox.messages.pending` / `.dead_lettered` feed the Prometheus alerts.
-- `Messaging:Transport` is `InMemory` (dev/tests, NOT durable), `PostgreSql` or `RabbitMq`. Production must not run
-  `InMemory`; `ProductionConfigurationGuard` refuses to boot with it.
+- `Messaging:Transport` is `InMemory` (dev/tests, NOT durable), `PostgreSql` (the production default) or `RabbitMq`.
+  Production must not run `InMemory`; `ProductionConfigurationGuard` refuses to boot with it, and with `RabbitMq` that
+  has no broker address. `--migrate-only` owns the transport schema ([ADR-0022](wiki/Decisions/0022-production-message-transport.md)).
 - Bus behavior is pinned by `Shared.Core.Tests/Messaging/TenantMessagingBusTests`, which runs on InMemory AND
   PostgreSql: tenant propagation, purged-tenant drop, migrating-tenant redelivery, no noisy-neighbor starvation. Never
   remove `WaitUntilStarted` (lost messages at startup) or swap the migrating-tenant delayed redelivery back to an
@@ -400,7 +403,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 
 ## Testing
 
-- **Stack:** xUnit 2 + FluentAssertions 7 + Moq 4, plus Testcontainers (`postgres:16-alpine`) for integration and E2E
+- **Stack:** xUnit v3 + FluentAssertions 7 + Moq 4, plus Testcontainers (`postgres:16-alpine`) for integration and E2E
   tests. Don't introduce other assertion or mocking libraries.
 - **Levels:**
   - domain, handler and validator unit tests (`<M>.Tests`)

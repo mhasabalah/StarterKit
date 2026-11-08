@@ -17,7 +17,7 @@ public sealed class ProvisionMemberTests(TenancyPostgresFixture fx) : IAsyncLife
     private Guid _tenantId;
     private Guid _ownerId;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _ownerId = Guid.NewGuid();
         var created = await fx.SendAs(_ownerId, new CreateTenantCommand("Directory Co", $"d-{Guid.NewGuid():N}"[..20]));
@@ -25,10 +25,10 @@ public sealed class ProvisionMemberTests(TenancyPostgresFixture fx) : IAsyncLife
         fx.PlanLimits.MaxUsers = null;
     }
 
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         fx.PlanLimits.MaxUsers = null;
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
     private Task<ProvisionMemberResult> Provision(Guid userId, IReadOnlyList<Guid>? roles = null, bool? active = null) =>

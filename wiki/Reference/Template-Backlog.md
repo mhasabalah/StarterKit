@@ -140,9 +140,8 @@ Six workstreams were each implemented and then reviewed by an architecture audit
 - [x] **Flaky E2E.** `PendingAttachmentFlowE2ETests.Anonymous_upload_then_sign_in_associate_and_download` failed once
   in CI with 409 "modified by another request". Fixed in PR #25: associate re-reads once when only a thumbnail
   appeared (`Integration/PendingAssociateRaceTests`).
-- [ ] **Unsigned SAML metadata.** It is still accepted, and entity-id pinning does not protect against a hijacked
-  metadata host. Consider an optional pinned metadata-signing certificate, or a per-connection "require signed metadata"
-  switch.
+- [x] **Unsigned SAML metadata.** Done (2026-11-08): per-connection `samlRequireSignedMetadata` and pinned
+  `samlMetadataSigningCertificates`, default off ([Enterprise SSO](../Identity/Enterprise-SSO.md)).
 - [ ] **Hub fan-out.** Closing sockets across replicas is tested with a Redis round trip, not a live two-replica
   deployment. Verify on the first multi-replica environment.
 - [ ] **Member import at scale.** Invitations save one row at a time, and a crash between the save and the email
@@ -485,11 +484,11 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 
 ## P1 — Deferred major upgrades (breaking API, do one at a time with tests)
 
-3. **Mapster 7.4 → 10.x** and **SixLabors.ImageSharp 3.2 → 4.x**.
-4. **xUnit v2 → xUnit v3** (`xunit.v3` packages, `IAsyncLifetime` returns `ValueTask`, test projects become executables).
-   `xunit.runner.visualstudio` stays on 3.1.x until then.
-5. **AspNetCore.HealthChecks.* 9.0.0** is still the latest; move to 10.x when released. Transitive pinning
-   currently forces its EF dependency to 10.x.
+3. ~~**Mapster 7.4 → 10.x**~~ **Done** (2026-11-08, 10.0.14, no code changes needed). ImageSharp is gone (2b).
+4. ~~**xUnit v2 → xUnit v3**~~ **Done** (2026-11-08, `xunit.v3` 4.x; test projects are executables, `IAsyncLifetime`
+   returns `ValueTask`).
+5. **AspNetCore.HealthChecks.* 9.0.0** is still the latest on NuGet (checked 2026-11-08); blocked upstream. Dependabot
+   proposes 10.x when it is released. Transitive pinning currently forces its EF dependency to 10.x.
 
 ## P1 — Platform / correctness
 
@@ -504,16 +503,18 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
    [CodingStandards](../Architecture/CodingStandards.md#analyzers)). The remaining nullable warnings were fixed
    (`IQuery<T>` no longer requires `notnull`, so lookups can return `T?`), and the vulnerable transitive
    `System.Security.Cryptography.Xml/Pkcs` 8.0.x are pinned to 10.0.14.
-9. **Aggregate-level concurrency for child collections.** Adding or removing child entities (e.g. product images) does not
-   bump the aggregate root's version. Decide per aggregate whether the root should be touched.
+9. ~~**Aggregate-level concurrency for child collections.**~~ **Done** (2026-11-08,
+   [ADR 0021](../Decisions/0021-aggregate-version-covers-child-collections.md)): decided per aggregate;
+   `BumpVersionOnSave()` for those whose child changes left the root untouched (SSO connection, tenant, feature flag).
 
 ## P1 — Tests
 
 10. **Identity and Attachment have no module tests.** Add unit tests (register/login/OTP/refresh token, attachment
     authorization) and E2E flows (register → verify → login; upload → confirm → download).
 11. ~~CI should run the Testcontainers suites~~ Already covered: `hybrid-ci-cd.yml` runs `dotnet test StarterKit.slnx` on
-    `ubuntu-latest` (Docker available), and `setup-dotnet` now reads `global.json`. Remaining: the self-hosted jobs in
-    `test-runner.yml` need Docker on the runner.
+    `ubuntu-latest` (Docker available), and `setup-dotnet` now reads `global.json`. Self-hosted jobs: the deploy job and
+    `test-runner.yml` now run `deployment/scripts/verify-runner.sh` and fail with what is missing. Per server: install
+    Docker on the runner ([guide](../deployment/Self-Hosted-Runner.md)) and run the workflow once.
 
 ## P2 — Template ergonomics
 
@@ -557,8 +558,8 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
     the EF Core saga repository.
 28. ✅ **Outbox admin tooling** (2026-11-04: endpoint, metrics, alerts). Dead letters are inspected/requeued with SQL (`wiki/Architecture/Messaging.md`). Add a
     platform-admin endpoint + metric (pending / dead-lettered per context) and alert on dead letters.
-29. **Production transport.** `Messaging:Transport` defaults to `InMemory` (not durable). Choose `PostgreSql` or
-    `RabbitMq` per deployment and decide who runs the SQL-transport migration (`Messaging:PostgreSql:CreateInfrastructure`).
+29. ~~**Production transport.**~~ **Done** (2026-11-08, [ADR 0022](../Decisions/0022-production-message-transport.md)):
+    PostgreSql by default, RabbitMq by choice, `--migrate-only` owns the SQL-transport schema.
 
 ## P2 — Ops
 

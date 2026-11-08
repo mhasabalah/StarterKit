@@ -157,7 +157,7 @@ public sealed class DomainEventFixture : IAsyncLifetime
     public IServiceProvider Services => _provider;
     public PublishedEvents Published { get; } = new();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -185,7 +185,7 @@ public sealed class DomainEventFixture : IAsyncLifetime
         await scope.ServiceProvider.GetRequiredService<DomainEventTestDbContext>().Database.EnsureCreatedAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

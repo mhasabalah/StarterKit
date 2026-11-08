@@ -49,6 +49,25 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
 
     public bool SamlAllowIdpInitiated { get; private set; }
 
+    /// <summary>
+    /// Refuse a metadata refresh whose XML carries no valid signature. Off by default because many IdPs publish
+    /// unsigned metadata; <c>SamlMetadataSignature</c> describes what unsigned metadata does not protect against.
+    /// </summary>
+    public bool SamlRequireSignedMetadata { get; private set; }
+
+    /// <summary>
+    /// Optional Base64 DER certificates that sign the METADATA (public keys only), for federations whose metadata key
+    /// differs from the assertion keys. When set they are the only keys trusted for it, and a signature is required.
+    /// </summary>
+    public List<string> SamlMetadataSigningCertificates { get; private set; } = [];
+
+    /// <summary>A pinned metadata key implies a signature: otherwise stripping it would bypass the pin.</summary>
+    public bool RequiresSignedMetadata => SamlRequireSignedMetadata || SamlMetadataSigningCertificates.Count > 0;
+
+    /// <summary>The keys a metadata signature must verify against.</summary>
+    public IReadOnlyList<string> MetadataTrustAnchors =>
+        SamlMetadataSigningCertificates.Count > 0 ? SamlMetadataSigningCertificates : SamlIdpCertificates;
+
     /// <summary>Last time the IdP metadata URL was fetched successfully (changed or not).</summary>
     [AuditIgnore]
     public DateTime? SamlMetadataRefreshedAt { get; private set; }
@@ -152,6 +171,7 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var added = SsoDomain.Create(Id, normalized, token);
         _domains.Add(added);
+        BumpVersionOnSave(); // MaxDomains spans the children
         return added;
     }
 
@@ -164,6 +184,7 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
     public void MarkDomainVerified(string domain, DateTime now)
     {
         GetDomain(domain).MarkVerified(now);
+        BumpVersionOnSave();
         RaiseChanged();
     }
 
@@ -174,6 +195,8 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
             throw new InvalidSsoConnectionException("Sso.Connection.LastVerifiedDomain");
 
         _domains.Remove(existing);
+        // "An active connection keeps a verified domain" spans the children: two concurrent removals must not both pass.
+        BumpVersionOnSave();
         RaiseChanged();
     }
 
@@ -312,6 +335,10 @@ public class SsoConnection : Aggregate<Guid>, IAuditable
             SamlIdpSsoUrl = Optional(input.SamlIdpSsoUrl, UrlMaxLength);
             SamlIdpMetadataUrl = Optional(input.SamlIdpMetadataUrl, UrlMaxLength);
             SamlAllowIdpInitiated = input.SamlAllowIdpInitiated;
+            SamlRequireSignedMetadata = input.SamlRequireSignedMetadata ?? SamlRequireSignedMetadata;
+            if (input.SamlMetadataSigningCertificates is not null)
+                SamlMetadataSigningCertificates = NormalizeCertificates(input.SamlMetadataSigningCertificates);
+
             if (input.SamlIdpCertificates is not null)
             {
                 SamlIdpCertificates = NormalizeCertificates(input.SamlIdpCertificates);
@@ -382,6 +409,7 @@ public static class SamlMetadataErrors
     public const string NoCertificates = "metadata_no_certificates";
     public const string InvalidCertificates = "metadata_invalid_certificates";
     public const string SignatureInvalid = "metadata_signature_invalid";
+    public const string SignatureRequired = "metadata_signature_required";
 }
 
 /// <summary>An SAML certificate expiry alert that is due (see <see cref="SsoConnection.ExpiryAlertDue"/>).</summary>

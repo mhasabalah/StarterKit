@@ -43,7 +43,7 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
     // DefaultValue.Mock: senders that chain the builder (invitation mailer, membership notifications) get mock builders.
     public Mock<Notification.Contracts.INotificationSender> Notifications { get; } = new() { DefaultValue = DefaultValue.Mock };
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -88,7 +88,7 @@ public sealed class TenancyPostgresFixture : IAsyncLifetime
         }
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();
