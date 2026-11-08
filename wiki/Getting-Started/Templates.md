@@ -9,17 +9,43 @@ StarterKit ships as a template pack, `StarterKit.Templates`, with two templates:
 
 ## Install
 
-```bash
-# From GitHub Packages (published on every templates-v* tag; needs a PAT with read:packages)
-dotnet nuget add source https://nuget.pkg.github.com/<owner>/index.json --name starterkit --username <you> --password <PAT>
-dotnet new install StarterKit.Templates
+The pack is published to GitHub Packages on every `templates-v*` tag. GitHub Packages needs a login even to read, so
+you need a GitHub token with the `read:packages` scope:
+- With the GitHub CLI: `gh auth refresh -h github.com -s read:packages`, then pass `$(gh auth token)` as the password.
+- Or a personal access token (classic) with `read:packages`.
 
-# Or straight from a clone (always the checked-out version)
-dotnet new install ./StarterKit          # the repository root
-dotnet new install ./StarterKit/templates/module
+Run these **outside** any repository: the template repository and every generated product have a `nuget.config` that
+clears the machine's feeds, so inside them NuGet sees only nuget.org.
+
+```bash
+cd ~                                       # not inside a repository (see above)
+dotnet nuget add source https://nuget.pkg.github.com/<owner>/index.json --name starterkit \
+  --username <you> --password <token> --configfile "<your user NuGet.Config>"
+dotnet new install StarterKit.Templates@1.0.0       # or StarterKit.Templates for the latest
 ```
 
-`dotnet new uninstall StarterKit.Templates` (or the folder path) removes it.
+- `--configfile` keeps the source in your user config. Without it, `dotnet nuget add source` writes to the nearest
+  `nuget.config`, which could be a repository file you'd then commit by mistake. The user config is
+  `%APPDATA%\NuGet\NuGet.Config` on Windows (the password is stored encrypted) and `~/.nuget/NuGet/NuGet.Config` on
+  Linux and macOS (add `--store-password-in-clear-text`; there is no encryption there).
+- Use `dotnet new install`, not `dotnet add package`: the "install" snippet on the package page is for libraries.
+- `dotnet new install` reports "the package does not exist" when it can't see the feed: check that you are outside a
+  repository and that the token has `read:packages`.
+
+Or install straight from a clone, which always gives the checked-out version (for working on the template itself):
+
+```bash
+dotnet new install ./StarterKit          # both templates: the repository root holds them
+```
+
+| Task | Command |
+|---|---|
+| See what is installed and from where | `dotnet new uninstall` (lists every installed pack) |
+| Update to the latest published version | `dotnet new update` (outside a repository) |
+| Remove the published pack | `dotnet new uninstall StarterKit.Templates` |
+| Switch from a clone to the package | `dotnet new uninstall <clone path>`, then install the package |
+
+Install the templates from one place only: the clone and the package provide the same templates and conflict.
 
 ## New product
 
@@ -87,5 +113,8 @@ CI proves every generated product and module.
 ## Versioning
 
 The pack version comes from the tag: pushing `templates-v1.4.0` builds, tests and publishes `StarterKit.Templates
-1.4.0`. A generated product doesn't track the template after it is created. Port later template fixes by hand, using
-the template's changelog in the PR descriptions.
+1.4.0`. A published version is never replaced, so every release gets a new number. `dotnet new update` moves your
+machine to the latest one; new products then use it.
+
+A generated product doesn't track the template after it is created. Port later template fixes by hand, using the
+template's changelog in the PR descriptions.

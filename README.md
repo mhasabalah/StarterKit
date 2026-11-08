@@ -219,10 +219,14 @@ patterns. Other agents should read [`AGENTS.md`](AGENTS.md).
 StarterKit is a `dotnet new` template pack ([Templates](wiki/Getting-Started/Templates.md)):
 
 ```bash
-dotnet new install StarterKit.Templates          # or: dotnet new install <path-to-this-repo>
+dotnet new install StarterKit.Templates          # from GitHub Packages, or: dotnet new install <path-to-this-repo>
 dotnet new starterkit -n Acme --sample false --multitenancy shared --transport RabbitMq
 cd Acme && dotnet new starterkit-module -n Orders # a drop-in module: no host wiring (ADR-0019)
 ```
+
+The pack is on GitHub Packages, which needs a one-time NuGet source with a `read:packages` token, added outside any
+repository. [Templates → Install](wiki/Getting-Started/Templates.md#install) has the exact commands, updating and
+troubleshooting.
 
 Then follow [wiki/Getting-Started/New-Project.md](wiki/Getting-Started/New-Project.md) from "Configure": `.env`,
 `secrets/` and the GitHub environment, variables and runner. With Claude Code, `/starterkit:new-project` runs it.

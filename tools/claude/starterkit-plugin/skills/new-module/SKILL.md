@@ -28,8 +28,9 @@ From the product root (the folder with the `.slnx`):
 dotnet new starterkit-module -n <Module> [--data-plane host] [--outbox] [--example false]
 ```
 
-If the template is not installed: `dotnet new install StarterKit.Templates` (or `dotnet new install
-<template-repo>/templates/module`). See `wiki/Getting-Started/Templates.md`.
+If the template is not installed: `dotnet new install StarterKit.Templates`, run outside the repository (its
+`nuget.config` hides the GitHub Packages feed), or `dotnet new install <template-repo>`. Source setup:
+`wiki/Getting-Started/Templates.md#install`.
 
 Then:
 1. Check the four projects were added to the `.slnx` (the template's post-action does it; otherwise `dotnet sln add`).
