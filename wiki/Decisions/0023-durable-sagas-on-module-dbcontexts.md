@@ -41,8 +41,10 @@ MassTransit's EF Core repository needs one DbContext per saga, and this solution
 - A saga costs a table and a migration in its module, like any other aggregate, and is backed up with it.
 - Pessimistic locking serializes the events of one instance. That is right for workflow sagas. A saga that one hot
   instance receives thousands of events per second for is a sign to redesign it, not to switch modes.
-- Saga timeouts (`Schedule`) need a message scheduler, and none is registered yet. The first saga that needs one adds
-  it: `AddSqlMessageScheduler` on PostgreSql, the delayed exchange on RabbitMQ.
+- Saga timeouts (`Schedule`) use the bus's message scheduler, registered on every transport since 2026-11-08:
+  `AddSqlMessageScheduler` on PostgreSql (durable, in the transport tables), the delayed message scheduler on InMemory,
+  and on RabbitMQ only with the delayed exchange (`Messaging:RabbitMq:UseDelayedExchange`). Without it, a saga that
+  schedules faults to `<endpoint>_error`.
 - Courier activities are still discovered from the consumer assemblies. Routing slips carry their state in the message.
 
 ## Alternatives considered
