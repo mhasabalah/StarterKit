@@ -329,6 +329,23 @@ dotnet run
 | **Compliance** | None | HIPAA, SOC 2 | HIPAA, PCI-DSS, SOC 2 |
 | **DDoS Protection** | ❌ | ✅ | ✅ (Shield) |
 
+### Tenant isolation: one container, a prefix per tenant
+
+Every provider uses ONE container or bucket (`AzureBlob:ContainerName`, `S3:BucketName`, the local `UploadPath`).
+Each tenant's blobs live under `StoragePaths.TenantRoot(tenantId)` = `t/{tenantId:N}/`. What isolates them:
+
+- Blob keys are never taken from the client. The server builds them, and every read or delete goes through an
+  `attachments` row that the tenant filter and RLS scope.
+- The reconciler and the tenant purge (`TenantDataPurgeRequestedEventHandler`) work by prefix, so deleting a tenant
+  deletes exactly its blobs.
+
+**Decided (2026-11-08): no per-tenant containers or buckets by default.** One per tenant would mean provisioning and
+deprovisioning on every tenant lifecycle change, IAM or SAS policy per tenant, and account limits (S3 allows 100
+buckets per account by default, and asks for a quota increase above that). It would buy little that the prefix and the
+server-side checks don't already give. A product that needs it, for data residency or a per-customer KMS key, should
+implement it inside its storage adapter: resolve the container from the tenant (for example, from its `Region`) and
+keep the `t/{tenantId:N}/` prefix, so the purge and the reconciler keep working.
+
 ---
 
 ### Switching Example
