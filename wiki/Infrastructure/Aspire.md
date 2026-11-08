@@ -22,6 +22,7 @@ Requires Docker. The first run pulls the images.
 | `api` | `src/Api` | Per session |
 | `rabbitmq` | Only with `Messaging:Transport=RabbitMq` | Persistent + data volume |
 | `clamav` | Only with `Attachment:ClamAv=true`: clamd for upload malware scanning | Persistent + signature volume |
+| `postgres` → database `tenant-demo` | Only with `MultiTenancy:DedicatedSample=true`: database `starterkit_tenant_demo` for a dedicated tenant (`ConnectionStrings:tenant-demo`) | Persistent (same server) |
 
 Persistent containers survive AppHost restarts. Their generated passwords are stored in the AppHost user secrets
 (`dotnet user-secrets list --project src/Aspire/AppHost`). To start from scratch, remove the containers and volumes
@@ -38,6 +39,7 @@ unhealthy.
 | `Observability:FullStack` | `false` | Adds the Grafana stack (below) |
 | `Messaging:Transport` | `InMemory` | `InMemory` \| `PostgreSql` \| `RabbitMq` - passed to the API; `RabbitMq` adds the broker |
 | `Postgres:HostPort` | *(random)* | Fixed host port for a desktop SQL client, e.g. `55432` |
+| `MultiTenancy:DedicatedSample` | `false` | Turns multi-tenancy on in the API and adds a second database for a dedicated tenant. Create the tenant with `isolation: "Dedicated"` and `connectionSecretRef: "tenant-demo"` (`POST /api/v1/tenants` as a platform admin); provisioning migrates it ([Dedicated databases](../MultiTenancy/Isolation-and-Dedicated-Databases.md#connection-resolution-tenantconnectionstringresolver)) |
 | `Attachment:ClamAv` | `false` | Adds clamd and turns upload scanning on in the API (`Scanner:Provider=ClamAv`). The API does not wait for it: uploads get 503 `malware_scanner_unavailable` until signatures are loaded (1-2 min) |
 
 ```bash

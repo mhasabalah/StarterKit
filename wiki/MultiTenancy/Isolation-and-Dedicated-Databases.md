@@ -113,6 +113,10 @@ Choose per tenant at creation (platform admins: `isolation`, `connectionSecretRe
 * `Maximum Pool Size` is capped at `MaxDedicatedPoolSize`.
 * A dedicated tenant whose connection cannot be resolved **fails** (never falls back to the shared database).
 
+Try it locally: `cd src/Aspire/AppHost && dotnet run -- MultiTenancy:DedicatedSample=true` adds the database
+`starterkit_tenant_demo` and passes it to the API as `ConnectionStrings:tenant-demo`. A tenant created with
+`connectionSecretRef: "tenant-demo"` lands there ([Aspire](../Infrastructure/Aspire.md)).
+
 ### Migrations
 
 * Shared DB: `UseMigration<TContext>()` at startup (host scope).
