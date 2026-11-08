@@ -1,0 +1,15 @@
+# Grafana datasources for the observability-lite overlay: Prometheus only (logs and traces are in Seq).
+# Same uid as the full stack's datasource, so dashboards work in both profiles.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus-uid
+    access: proxy
+    orgId: 1
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: GET

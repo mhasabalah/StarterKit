@@ -70,6 +70,7 @@ wiki/
 <!--#endif-->
 - [0021](Decisions/0021-aggregate-version-covers-child-collections.md): the aggregate version covers its child collections
 - [0022](Decisions/0022-production-message-transport.md): PostgreSQL is the default production message transport
+- [0023](Decisions/0023-durable-sagas-on-module-dbcontexts.md): saga state is durable, in the owning module's DbContext
 
 ## Modules
 

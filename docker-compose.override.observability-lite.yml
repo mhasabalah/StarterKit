@@ -1,0 +1,22 @@
+# ==============================================
+# Observability-lite Overlay - Development Override
+# ==============================================
+# docker compose -f docker-compose.yml -f docker-compose.override.yml \
+#   -f docker-compose.observability-lite.yml -f docker-compose.override.observability-lite.yml up -d
+# (or: make obs-lite-up)
+# ==============================================
+
+services:
+
+  prometheus:
+    ports: !override
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    ports: !override
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_LOG_LEVEL: "debug"

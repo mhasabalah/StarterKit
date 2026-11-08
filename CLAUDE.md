@@ -373,6 +373,10 @@ The full guide is `wiki/Architecture/Messaging.md`.
   type.
 - Consumers are idempotent and order-independent: they re-read the current state through `ISender`. Throw to retry;
   return for "nothing to do".
+- Sagas are durable and explicit ([ADR-0023](wiki/Decisions/0023-durable-sagas-on-module-dbcontexts.md)): state in the
+  owning module's DbContext (`SagaStateConfiguration<T>` + a migration, RLS for tenant data), registered in the
+  manifest's `ConfigureMessaging` with `bus.AddDurableSagaStateMachine<TMachine, TState, TDbContext>()`. Never
+  `AddSagaStateMachine`/`AddSaga` or an in-memory saga repository; the bus does not scan for sagas.
 - Delivery is at-least-once (`MessageId` = `EventId`). Failed rows are dead-lettered after
   `Messaging:Outbox:MaxAttempts`; inspect/requeue them via `/api/v1/admin/outbox/{context}/dead-letters`
   (`outbox.manage`, SuperAdmin). Gauges `outbox.messages.pending` / `.dead_lettered` feed the Prometheus alerts.
@@ -394,6 +398,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
 | `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
+| `SagaArchitectureTests` | A saga is registered through MassTransit directly (in-memory repository) instead of `AddDurableSagaStateMachine`, or its state is not mapped in a module DbContext |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
 | `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id`; parameterless `IgnoreQueryFilters()` appears |
 | `AdminEndpointAuthorizationTests` | An `/admin` or `/superadmin` route has no admin or permission policy; a used permission policy is unregistered; **any endpoint declares no authorization at all** |

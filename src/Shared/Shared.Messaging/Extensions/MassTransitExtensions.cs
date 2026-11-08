@@ -15,13 +15,24 @@ namespace Shared.Messaging.Extensions;
 public static class MassTransitExtensions
 {
     /// <summary>
-    /// Registers MassTransit ONCE for the whole host: consumers/sagas of <paramref name="assemblies"/>, the transport
-    /// chosen by <c>Messaging:Transport</c> (<see cref="MessagingOptions"/>), tenant propagation filters and the shared
-    /// retry policy. Publishing of integration events goes through the transactional outbox
-    /// (<c>Shared.Core.Messaging.Outbox</c>), never directly from feature code.
+    /// Registers MassTransit ONCE for the whole host:
+    /// <list type="bullet">
+    /// <item>the consumers and activities of <paramref name="assemblies"/>;</item>
+    /// <item>the explicit registrations of <c>configureBus</c> (the modules' <c>ConfigureMessaging</c>: sagas);</item>
+    /// <item>the transport chosen by <c>Messaging:Transport</c> (<see cref="MessagingOptions"/>);</item>
+    /// <item>the tenant propagation filters and the shared retry policy.</item>
+    /// </list>
+    /// Integration events are published through the transactional outbox (<c>Shared.Core.Messaging.Outbox</c>), never
+    /// directly from feature code.
     /// </summary>
     public static IServiceCollection AddMassTransitWithAssemblies(
-        this IServiceCollection services, IConfiguration configuration, params Assembly[] assemblies)
+        this IServiceCollection services, IConfiguration configuration, params Assembly[] assemblies) =>
+        services.AddMassTransitWithAssemblies(configuration, configureBus: null, assemblies);
+
+    /// <inheritdoc cref="AddMassTransitWithAssemblies(IServiceCollection, IConfiguration, Assembly[])"/>
+    public static IServiceCollection AddMassTransitWithAssemblies(
+        this IServiceCollection services, IConfiguration configuration,
+        Action<IBusRegistrationConfigurator>? configureBus, params Assembly[] assemblies)
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
@@ -53,13 +64,12 @@ public static class MassTransitExtensions
         services.AddMassTransit(config =>
         {
             config.SetKebabCaseEndpointNameFormatter();
-            // No saga exists yet. The first real saga needs a durable repository (EF Core saga repository).
-            config.SetInMemorySagaRepositoryProvider();
-
             config.AddConsumers(assemblies);
-            config.AddSagaStateMachines(assemblies);
-            config.AddSagas(assemblies);
             config.AddActivities(assemblies);
+
+            // Sagas are NOT discovered: a scanned saga would get the in-memory repository and lose its state on every
+            // restart. Each module registers its sagas here, durably (AddDurableSagaStateMachine, ADR-0023).
+            configureBus?.Invoke(config);
 
             switch (messaging.Transport)
             {

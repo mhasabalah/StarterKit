@@ -47,10 +47,10 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 | G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
-| G21 | Durable saga repository (= #27) | ⬜ |
+| G21 | Durable saga repository (= #27) ([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)) | ✅ |
 | G22 | Load/performance tests (k6) with a CI baseline (HTTP scenarios: `tests/load`, `load-test.yml`; DataTransfer engine baseline: `datatransfer-perf.yml`) | ✅ |
 | G23 | `dotnet new` project + module templates (= #12, #13) ([Templates](../Getting-Started/Templates.md), ADRs [0019](../Decisions/0019-module-manifests-and-discovery.md) / [0020](../Decisions/0020-dotnet-new-templates.md)) | ✅ |
-| G24 | Observability-lite compose profile (= #21) | ⬜ |
+| G24 | Observability-lite compose profile (= #21) ([Lite profile](../deployment/Observability.md#lite-profile-prometheus--grafana-only)) | ✅ |
 
 **High priority — documentation and brand**
 
@@ -71,6 +71,24 @@ G25 scope (requested 2026-11-08, not started):
 - **Decide when it starts:** the static-site generator; public or private (GitHub Pages on a private repository needs a
   paid plan), which goes with the public-or-private decision for the package feed; the custom domain, if any; whether
   the site ships in generated products or stays template-only (it must not break `dotnet new` or `check-docs.sh`).
+
+Wave 13 (2026-11-08): **G21 durable sagas + G24 observability-lite.**
+- **G21** ([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)):
+  - Sagas are no longer scanned onto the in-memory repository.
+  - A module registers each saga in its new `ConfigureMessaging` with `AddDurableSagaStateMachine<TMachine, TState,
+    TDbContext>()`: MassTransit's EF Core repository on the module's DbContext, pessimistic locking, and the in-memory
+    outbox on the saga endpoint.
+  - The state is mapped with `SagaStateConfiguration<T>`.
+  - Guarded by `SagaArchitectureTests`.
+  - Pinned by `DurableSagaTests` on both transports: restart, 25 concurrent events, tenant isolation, no publish on a
+    failed save. Each was mutation-checked: an in-memory repository, a removed outbox and optimistic mode each fail them.
+  - Follow-up: a message scheduler for saga timeouts, added with the first saga that schedules.
+- **G24** ([Lite profile](../deployment/Observability.md#lite-profile-prometheus--grafana-only)):
+  - `docker-compose.observability-lite.yml` (+ the dev override and the worker companion): Prometheus scrapes the API
+    and worker `/metrics` through Docker DNS, and Grafana gets the Prometheus datasource only.
+  - The alert rules are the same as the full stack's.
+  - The OTLP endpoint is cleared, since there is no collector. Logs and traces stay in Seq.
+  - About 0.75 GB versus about 5 GB. `make obs-lite-up` / `obs-lite-down`.
 
 Wave 12 (2026-11-08): **G23 `dotnet new` templates**
 ([Templates](../Getting-Started/Templates.md), [ADR 0019](../Decisions/0019-module-manifests-and-discovery.md),
@@ -554,8 +572,9 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
     invalidation reaches only the instance that made the change, the others wait `MultiTenancy:Cache:LocalSeconds`
     (e.g. a suspended tenant keeps working there until then). Broadcast invalidations (Redis pub/sub or a per-instance
     bus endpoint) once the app runs multiple replicas.
-27. **Durable saga repository.** The bus uses the in-memory saga repository (no sagas yet). The first real saga needs
-    the EF Core saga repository.
+27. ~~**Durable saga repository.**~~ **Done** (2026-11-08, G21,
+    [ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)): no saga scanning, no in-memory provider;
+    `AddDurableSagaStateMachine` in the module's `ConfigureMessaging` (EF Core repository on the module DbContext).
 28. ✅ **Outbox admin tooling** (2026-11-04: endpoint, metrics, alerts). Dead letters are inspected/requeued with SQL (`wiki/Architecture/Messaging.md`). Add a
     platform-admin endpoint + metric (pending / dead-lettered per context) and alert on dead letters.
 29. ~~**Production transport.**~~ **Done** (2026-11-08, [ADR 0022](../Decisions/0022-production-message-transport.md)):
@@ -567,8 +586,8 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
     They are documented in `wiki/deployment/CI-CD.md#github-setup` and the deploy job fails immediately when one is missing.
 19. ✅ **Health / readiness** (2026-11-04). Split `/health/live` and `/health/ready` (DB, Redis, Seq) for compose and K8s, and wire them into the deploy health check.
 20. **Nginx admin allow-list.** `deployment/nginx/conf.d/app-production.conf` allows only `127.0.0.1` for admin paths. Set it per deployment.
-21. **Observability stack** is heavy (otel-collector, prometheus, grafana, tempo, loki, jaeger, exporters). Consider an
-    "observability-lite" compose profile.
+21. ~~**Observability stack** is heavy.~~ **Done** (2026-11-08, G24): `docker-compose.observability-lite.yml`
+    (Prometheus scraping the API `/metrics` + Grafana, the same alerts; logs and traces stay in Seq).
 
 ## P2 — Found during the docs/tooling overhaul (2026-11-04)
 
