@@ -50,7 +50,7 @@ This repository is also the `dotnet new` template ([ADR-0020](wiki/Decisions/002
 `wiki/Getting-Started/Changing-The-Template.md`):
 
 ```bash
-dotnet new install . && dotnet new install templates/module   # install both templates from this clone
+dotnet new install .                                           # both templates from this clone (uninstall the published pack first)
 dotnet new starterkit -n Probe -o ../probe --sample false      # generate a product to check a template change
 dotnet pack templates/StarterKit.Templates.csproj -o artifacts # the StarterKit.Templates pack (CI: templates.yml)
 bash scripts/regenerate-module-migrations.sh                   # after changing the module template's model

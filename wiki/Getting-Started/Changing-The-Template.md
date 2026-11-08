@@ -23,10 +23,36 @@ modules inside them. Each one must build, pass its tests and the docs check, and
 Run the same check locally:
 
 ```bash
-dotnet new install .            # from the repository root
+dotnet new uninstall StarterKit.Templates   # if the published pack is installed: it provides the same templates
+dotnet new install .            # from the repository root (both templates)
 dotnet new starterkit -n Probe -o ../probe --sample false
 cd ../probe && dotnet build Probe.slnx && dotnet test src/Api.Tests && bash scripts/check-docs.sh
 ```
+
+## Releasing the templates
+
+A release is a `templates-v<version>` tag on `master`. The tag starts the `Templates` workflow, which packs
+`StarterKit.Templates` with the tag's version (`templates-v1.1.0` gives `1.1.0`), generates and tests the four
+products again, and only when all of them pass, publishes the pack to GitHub Packages.
+
+1. Merge the template change through a PR as usual; `templates.yml` must be green.
+2. Create the tag on `master`, either way:
+   - **GitHub website:** Releases → *Draft a new release* → *Choose a tag* → type `templates-v1.1.0` → *Create new tag
+     on publish*, target `master` → *Publish release*. The release also gives you a place for the notes.
+   - **Terminal:**
+     ```bash
+     git checkout master && git pull --ff-only origin master
+     git tag -a templates-v1.1.0 -m "StarterKit.Templates 1.1.0"
+     git push origin templates-v1.1.0
+     ```
+3. Watch the `Templates` run in the Actions tab. The release is out when *Publish to GitHub Packages* is green.
+
+- *Run workflow* in the Actions tab tests the templates but never publishes: publishing needs the tag.
+- A published version can't be replaced (the push skips duplicates). A broken release is fixed by a new version
+  (`templates-v1.1.1`), never by moving the tag.
+- Semantic versions: a fix is a patch, a new switch or module option is a minor, and a change that breaks generated
+  products or the template options (a renamed or removed switch) is a major.
+- Then update your own machine with `dotnet new update`, run outside a repository ([Templates](Templates.md#install)).
 
 ## Module template migrations
 
