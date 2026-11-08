@@ -227,8 +227,37 @@ Running it:
 | Aspire | AppHost config/env `Messaging__Transport=RabbitMq` adds a RabbitMQ container (+ management UI) and wires `ConnectionStrings:rabbitmq`; `PostgreSql` needs nothing extra |
 | Docker Compose | `MESSAGING_TRANSPORT=PostgreSql` in `.env`, or the RabbitMQ overlay: `docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml up -d` (add `-f docker-compose.override.yml` in development). With the worker overlay, also add `-f docker-compose.rabbitmq-worker.yml`, or the worker stays on another transport |
 
-Sagas: none exist yet and the saga repository is in-memory. The first real saga must use a durable (EF Core) saga
-repository.
+### Sagas
+
+No saga exists yet. When the first one is needed, it is durable from the start
+([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)). The bus never discovers sagas and never uses
+the in-memory repository.
+
+1. **State** in the owning module: a class implementing `SagaStateMachineInstance` (plus `IMustHaveTenant` in a
+   tenant-data context). Use a plain class, not `Entity<T>`.
+2. **Mapping:** a `SagaStateConfiguration<TState>` (`Shared.Core.Messaging.Sagas`), applied in the module's DbContext
+   before `ToSnakeCaseTables()`. Then a migration in that module (`/starterkit:add-migration`); a tenant-data table also
+   gets `EnableTenantRowLevelSecurity`.
+3. **Registration** in the module manifest:
+
+   ```csharp
+   public override void ConfigureMessaging(IBusRegistrationConfigurator bus) =>
+       bus.AddDurableSagaStateMachine<OrderFulfilmentStateMachine, OrderFulfilmentState, OrdersDbContext>();
+   ```
+
+What the helper gives:
+- **EF Core repository** on that DbContext.
+- **Pessimistic locking** (`FOR UPDATE`): events of one instance never lose an update.
+- **In-memory outbox:** messages the saga publishes leave only after its state is committed.
+
+Tenancy: the bus restores the message's tenant, `TenantEntityInterceptor` stamps it on the new row, and the tenant
+filter scopes the lookup. Mark events with `OnMissingInstance(m => m.Discard())` when a message may legitimately find no
+instance, for example another tenant's.
+
+Not there yet: saga timeouts (`Schedule`) need a message scheduler (`AddSqlMessageScheduler` on PostgreSql, the delayed
+exchange on RabbitMQ), which the first saga that schedules adds.
+
+Guarded by `SagaArchitectureTests` (Api.Tests) and pinned by `Shared.Core.Tests/Messaging/DurableSagaTests`.
 
 ---
 

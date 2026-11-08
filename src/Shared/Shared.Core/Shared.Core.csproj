@@ -10,6 +10,8 @@
         <PackageReference Include="Figgle" />
         <PackageReference Include="Figgle.Fonts" />
         <PackageReference Include="MassTransit" />
+        <!-- Durable saga repository (EF Core, the owning module's DbContext; ADR-0023). -->
+        <PackageReference Include="MassTransit.EntityFrameworkCore" />
 
     </ItemGroup>
 
