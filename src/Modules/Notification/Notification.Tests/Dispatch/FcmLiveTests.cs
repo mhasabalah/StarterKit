@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using MsOptions = Microsoft.Extensions.Options.Options;
 
@@ -9,7 +10,8 @@ public sealed class FcmLiveFactAttribute : FactAttribute
     public const string CredentialsVariable = "FCM_CREDENTIALS_FILE";
     public const string TokenVariable = "FCM_TEST_TOKEN";
 
-    public FcmLiveFactAttribute()
+    public FcmLiveFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(CredentialsVariable)) ||
             string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(TokenVariable)))

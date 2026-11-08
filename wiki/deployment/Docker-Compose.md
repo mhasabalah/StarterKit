@@ -10,7 +10,8 @@ them with repeated `-f` flags. Without `-f`, `docker compose` merges `docker-com
 | `docker-compose.override.yml` | **Dev** (merged automatically) | Dev ports and settings for postgres/redis/seq/api (builds `src/Api/Dockerfile`), `pgadmin`, `redis-commander`, `mailhog` |
 | `docker-compose.observability.yml` | Observability overlay | `otel-collector`, `prometheus`, `grafana`, `tempo`, `loki`, exporters (`node`, `cadvisor`, `postgres`, `redis`), `jaeger` (`--profile jaeger`) |
 | `docker-compose.override.observability.yml` | Dev tweaks for the overlay | Dev ports; enables Jaeger without the profile |
-| `docker-compose.rabbitmq.yml` | Messaging overlay | `rabbitmq` + switches the API to `Messaging:Transport=RabbitMq` (needs `secrets/rabbitmq_password.txt`) |
+| `docker-compose.rabbitmq.yml` | Messaging overlay | `rabbitmq` + switches the API and the migrator to `Messaging:Transport=RabbitMq` (needs `secrets/rabbitmq_password.txt`) |
+| `docker-compose.rabbitmq-worker.yml` | Combination overlay | Required when `docker-compose.rabbitmq.yml` and `docker-compose.worker.yml` are both on: switches the worker to RabbitMQ too |
 | `docker-compose.clamav.yml` | Malware-scanning overlay | `clamav` (clamd, ~1.5 GB RAM, healthy after 1-2 min) + turns on upload scanning with `RequireVirusScanning=true` ([details](../Attachment/Security.md#malware-scanning)) |
 | `docker-compose.dataprotection.yml` | Security overlay (**recommended in production**) | Encrypts the Data Protection key ring with `secrets/dataprotection_cert.pfx`; the API refuses to start without it |
 | `docker-compose.push.yml` | Push overlay (optional) | Real push notifications through FCM with `secrets/fcm_service_account.json` (read by path); without it pushes are logged by the NoOp provider ([guide](../Modules/Notification-Realtime-and-Push.md#fcm--apns-setup)) |

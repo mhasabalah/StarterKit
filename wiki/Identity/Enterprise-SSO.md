@@ -141,10 +141,20 @@ rollover never locks a company out.
   recorded (`samlMetadataLastError = metadata_entity_id_mismatch`); keys and URL stay. If the metadata is
   **signed** (enveloped XML signature over the whole document, no XSLT/XPath transforms), the signature must verify
   against the certificates ALREADY pinned on the connection, otherwise `metadata_signature_invalid`; a rollover works
-  because the old key signs the metadata that announces the new one. **Unsigned metadata is accepted** (many IdPs publish
-  none), and then the entity-id check does NOT protect against a hijacked or compromised metadata host: it can serve the
-  right entity id with attacker keys. Prefer an IdP that signs its metadata, or leave the metadata URL empty and rotate
-  certificates by hand. Other codes: `metadata_fetch_failed`, `metadata_url_not_allowed`, `metadata_too_large`,
+  because the old key signs the metadata that announces the new one.
+- **Signature policy, per connection.** By default unsigned metadata is accepted (many IdPs publish none), and then the
+  entity-id check does NOT protect against a hijacked or compromised metadata host: it can serve the right entity id
+  with attacker keys.
+  - `samlRequireSignedMetadata: true` refuses unsigned metadata with `metadata_signature_required`. The keys stay and
+    sign-in keeps working, so turning it on can never lock anyone out.
+  - `samlMetadataSigningCertificates` pins the keys that sign the METADATA, for federations whose metadata key differs
+    from the assertion keys. When set, they are the ONLY keys trusted for it, and a signature is required, so stripping
+    the signature cannot bypass the pin. Rotate them by hand (up to 4 side by side); the expiry alerts cover the
+    assertion certificates only, and a signature is verified by key, not by the certificate's validity dates.
+  - On update, null keeps either setting and an empty list clears the pins.
+  - The read model's `samlMetadataSignatureRequired` is the effective rule (either setting); show that one in a UI.
+  - For an IdP that publishes no signature, leave the metadata URL empty and rotate certificates by hand.
+- **Other error codes:** `metadata_fetch_failed`, `metadata_url_not_allowed`, `metadata_too_large`,
   `metadata_invalid`, `metadata_no_certificates`, `metadata_invalid_certificates`. They are codes, not text, so
   clients localize them. The same certificates in another order are not a change.
 - **Outcomes.** *Updated*: certificates and/or SSO URL replaced (version bump, change event). *Unchanged*: only

@@ -46,7 +46,7 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
     public FakeSubscriberInfoProvider Subscribers { get; } = new();
     public IServiceProvider Services => _provider;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -107,7 +107,7 @@ public sealed class SubscriptionsPostgresFixture : IAsyncLifetime
     /// <summary>The configured admin notification recipient (Subscriptions:AdminNotifications:Emails).</summary>
     public const string BillingTeamEmail = "billing-team@example.com";
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

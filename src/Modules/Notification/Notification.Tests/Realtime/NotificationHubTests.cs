@@ -29,9 +29,9 @@ public sealed class NotificationHubTests : IAsyncLifetime
     private WebApplication _app = null!;
     private TestServer _server = null!;
 
-    public async Task InitializeAsync() => (_app, _server) = await StartHostAsync(redisConnection: null);
+    public async ValueTask InitializeAsync() => (_app, _server) = await StartHostAsync(redisConnection: null);
 
-    public async Task DisposeAsync() => await _app.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _app.DisposeAsync();
 
     internal static async Task<(WebApplication App, TestServer Server)> StartHostAsync(string? redisConnection,
         ILoggerProvider? logs = null, Action<IServiceCollection>? extraServices = null)
@@ -256,21 +256,21 @@ public sealed class NotificationHubTests : IAsyncLifetime
 /// Scale-out: two API replicas share a Redis backplane; a send on replica A (where the Hangfire job ran) reaches a
 /// socket held by replica B.
 /// </summary>
-public sealed class NotificationHubRedisBackplaneTests(Xunit.Abstractions.ITestOutputHelper output) : IAsyncLifetime
+public sealed class NotificationHubRedisBackplaneTests(ITestOutputHelper output) : IAsyncLifetime
 {
     private readonly RedisContainer _redis = new RedisBuilder("redis:7-alpine").Build();
     private readonly ListLoggerProvider _logs = new();
     private WebApplication _replicaA = null!;
     private WebApplication _replicaB = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _redis.StartAsync();
         (_replicaA, _) = await NotificationHubTests.StartHostAsync(_redis.GetConnectionString(), _logs);
         (_replicaB, _) = await NotificationHubTests.StartHostAsync(_redis.GetConnectionString(), _logs);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _replicaA.DisposeAsync();
         await _replicaB.DisposeAsync();

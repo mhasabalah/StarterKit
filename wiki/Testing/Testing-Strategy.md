@@ -20,7 +20,7 @@ test, and the architecture tests keep the design honest. Copy-ready templates: `
 | **HTTP load** | `tests/load` (k6, JS) | min, Docker | Throughput/latency budgets of the hot paths against a real container: [Load testing](Load-Testing.md) (`make loadtest`, nightly `load-test.yml`) |
 | **Opt-in live** | `FcmLiveTests` (`FCM_CREDENTIALS_FILE` + `FCM_TEST_TOKEN`), `ClamAvContainerTests` (`STARTERKIT_CLAMAV_TESTS=1`) | min, real service / heavy image | Real external engines: skipped unless the variable is set, so the main CI build stays fast. ClamAV runs in its own workflow (`clamav-live.yml`: nightly + PRs touching the scanner) |
 
-Stack: **xUnit 2, FluentAssertions 7, Moq 4, Testcontainers, Microsoft.AspNetCore.Mvc.Testing**. Don't introduce
+Stack: **xUnit v3, FluentAssertions 7, Moq 4, Testcontainers, Microsoft.AspNetCore.Mvc.Testing**. Don't introduce
 other assertion or mocking libraries.
 
 ## What every feature needs

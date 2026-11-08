@@ -17,14 +17,14 @@ public sealed class AttachmentPostgresFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         await using var db = CreateContext(Caller.Anonymous());
         await db.Database.EnsureCreatedAsync();
     }
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 
     /// <summary>A new context models a new HTTP request.</summary>
     public AttachmentDbContext CreateContext(Caller caller)

@@ -220,9 +220,8 @@ jobs:
           test -f ${{ env.DEPLOY_DIR }}/.env.prod || { echo "❌ .env.prod missing"; exit 1; }
           test -d ${{ env.DEPLOY_DIR }}/secrets || { echo "❌ secrets/ missing"; exit 1; }
 
-          # Verify Docker
-          docker --version
-          docker compose version
+          # Docker, Compose, disk and the deploy directory; names what is missing before anything changes.
+          bash deployment/scripts/verify-runner.sh "${{ env.DEPLOY_DIR }}"
 
           echo "✅ Prerequisites verified"
 

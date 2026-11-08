@@ -43,7 +43,7 @@ public sealed class AttachmentHostFixture : IAsyncLifetime
 
     public IServiceProvider Services => _provider ?? throw new InvalidOperationException("Not initialized");
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -86,7 +86,7 @@ public sealed class AttachmentHostFixture : IAsyncLifetime
         await scope.ServiceProvider.GetRequiredService<AttachmentDbContext>().Database.EnsureCreatedAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

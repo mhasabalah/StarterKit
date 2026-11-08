@@ -41,7 +41,7 @@ public sealed class AttachmentMultiTenantFixture : IAsyncLifetime
     public IServiceProvider Services => _provider ?? throw new InvalidOperationException("Not initialized");
     public string AdminConnectionString => _container.GetConnectionString();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
 
@@ -107,7 +107,7 @@ public sealed class AttachmentMultiTenantFixture : IAsyncLifetime
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
             await _provider.DisposeAsync();

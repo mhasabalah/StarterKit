@@ -1,0 +1,23 @@
+# ==============================================
+# StarterKit RabbitMQ + Worker combination
+# ==============================================
+# The worker `extends` the base api service, so docker-compose.rabbitmq.yml does not reach it. Use this file whenever
+# both overlays are on, otherwise the API and the worker run on different transports:
+#   docker compose -f docker-compose.yml -f docker-compose.worker.yml \
+#     -f docker-compose.rabbitmq.yml -f docker-compose.rabbitmq-worker.yml up -d
+# ==============================================
+
+services:
+
+  worker:
+    secrets:
+      - rabbitmq_password
+    environment:
+      Messaging__Transport: RabbitMq
+      Messaging__RabbitMq__Host: rabbitmq
+      Messaging__RabbitMq__Username: ${RABBITMQ_USER:-starterkit}
+      # Dev only: in Docker env the secret file overrides this value.
+      Messaging__RabbitMq__Password: ${RABBITMQ_PASSWORD:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

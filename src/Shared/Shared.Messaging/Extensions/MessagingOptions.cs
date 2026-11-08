@@ -34,8 +34,10 @@ public sealed class PostgreSqlTransportOptions
     public string Role { get; set; } = "transport";
 
     /// <summary>
-    /// Create/upgrade the transport schema, role and functions at startup. Needs DDL + CREATEROLE rights: keep it on in
-    /// development; in production either grant those to <see cref="AdminUsername"/> or run once with them and set false.
+    /// Create/upgrade the transport schema, role and functions. Needs DDL + CREATEROLE rights. App instances do it at
+    /// startup only with <c>Database:MigrateOnStartup=true</c> (dev, Aspire, tests); in production the one-shot
+    /// <c>--migrate-only</c> run owns it, under <c>Database:MigrationConnectionString</c>. Set false only when a DBA
+    /// provisions the transport outside the deploy. ADR 0022.
     /// </summary>
     public bool CreateInfrastructure { get; set; } = true;
 

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -22,7 +23,8 @@ namespace Api.E2ETests.Notification;
 /// <summary>Runs only against a real Firebase project (set before the test run, so the host picks FCM up).</summary>
 public sealed class FcmLiveE2EFactAttribute : FactAttribute
 {
-    public FcmLiveE2EFactAttribute()
+    public FcmLiveE2EFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("Push__Provider"), "Fcm", StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("Push__CredentialsFile")) ||

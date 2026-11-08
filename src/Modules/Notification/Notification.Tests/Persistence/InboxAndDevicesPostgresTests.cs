@@ -32,7 +32,7 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
     private readonly Guid _me = Guid.NewGuid();
     private readonly Guid _other = Guid.NewGuid();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
         _options = new DbContextOptionsBuilder<NotificationDbContext>()
@@ -43,7 +43,7 @@ public sealed class InboxAndDevicesPostgresTests : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public async Task DisposeAsync() => await _container.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     private NotificationDbContext Db() => new(_options);
 
