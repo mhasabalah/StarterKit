@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json.schemastore.org/dotnetcli.host",
+  "symbolInfo": {
+    "sample": { "longName": "sample", "shortName": "" },
+    "multitenancy": { "longName": "multitenancy", "shortName": "" },
+    "transport": { "longName": "transport", "shortName": "" },
+    "storage": { "longName": "storage", "shortName": "" },
+    "aiTooling": { "longName": "ai-tooling", "shortName": "" },
+    "ci": { "longName": "ci", "shortName": "" },
+    "deploy": { "longName": "deploy", "shortName": "" },
+    "githubOwner": { "longName": "github-owner", "shortName": "" }
+  }
+}

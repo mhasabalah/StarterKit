@@ -10,7 +10,7 @@ public static class HangfireConfiguration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("starterkit")
+        var connectionString = configuration.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName)
             ?? throw new InvalidOperationException("Database connection string 'starterkit' not found");
 
         // Hangfire installs/upgrades its schema (DDL) on first use. With Database:MigrateOnStartup=false only the

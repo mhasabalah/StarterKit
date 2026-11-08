@@ -45,7 +45,7 @@ public static class IdentityModule
         services.TryAddSingleton(TimeProvider.System);
 
         services.ConfigureOptions(configuration);
-        services.AddCustomDbContext<ApplicationIdentityDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<ApplicationIdentityDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
         services.AddOutbox<ApplicationIdentityDbContext>(); // delivers UserDeletedIntegrationEvent, UserSessionsRevokedIntegrationEvent
         services.ConfigureIdentity();
         // Data Protection key ring (encrypts authenticator keys, signs reset tokens): database-backed, shared
@@ -370,23 +370,31 @@ public static class IdentityModule
         }
     }
 
+    /// <summary>
+    /// The Identity middleware: authentication → <paramref name="afterAuthentication"/> → authorization. Its position
+    /// in the pipeline belongs to <c>Program.cs</c>; the module's init step is <see cref="UseIdentityModule"/>.
+    /// </summary>
     /// <param name="app">The application.</param>
     /// <param name="afterAuthentication">
     /// Middleware that must run between authentication and authorization - the tenant resolution middleware
     /// (needs the authenticated user; tenant permission policies need the resolved membership).
     /// </param>
-    public static IApplicationBuilder UseIdentityModule(this IApplicationBuilder app,
+    public static IApplicationBuilder UseIdentityPipeline(this IApplicationBuilder app,
         Action<IApplicationBuilder>? afterAuthentication = null)
     {
         app.UseAuthentication();
         app.UseMiddleware<ApiKeyRestrictionMiddleware>(); // DisallowApiKey() endpoints: 403 for API-key callers
         afterAuthentication?.Invoke(app);
         app.UseAuthorization();
-
-        // Migrations first, then seeding (inside UseMigration).
-        app.UseMigration<ApplicationIdentityDbContext>();
         app.UseMiddleware<MustChangePasswordMiddleware>();
 
+        return app;
+    }
+
+    /// <summary>Initializes the module: migrations first, then seeding (inside UseMigration).</summary>
+    public static IApplicationBuilder UseIdentityModule(this IApplicationBuilder app)
+    {
+        app.UseMigration<ApplicationIdentityDbContext>();
         return app;
     }
 }

@@ -64,10 +64,10 @@ public class WebhookEndpointTests
     }
 
     [Theory]
-    [InlineData("catalog.product-published.v1", true)]
-    [InlineData("subscriptions.subscription-expired.v1", false)]
+    [InlineData("subscriptions.subscription-expired.v1", true)]
+    [InlineData("subscriptions.subscription-activated.v1", false)]
     public void IsSubscribedTo_MatchesExactTypes(string type, bool expected) =>
-        TestSupport.NewEndpoint(events: ["catalog.product-published.v1"]).IsSubscribedTo(type).Should().Be(expected);
+        TestSupport.NewEndpoint(events: ["subscriptions.subscription-expired.v1"]).IsSubscribedTo(type).Should().Be(expected);
 
     [Fact]
     public void IsSubscribedTo_Wildcard_MatchesEverything() =>

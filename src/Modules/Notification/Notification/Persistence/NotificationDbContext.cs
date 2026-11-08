@@ -31,7 +31,7 @@ public sealed class NotificationDbContextFactory : IDesignTimeDbContextFactory<N
             .AddJsonFile("appsettings.json", optional: false)
             .Build();
 
-        var connectionString = config.GetConnectionString("starterkit")
+        var connectionString = config.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName)
             ?? throw new InvalidOperationException("Connection string 'starterkit' not found.");
 
         var optionsBuilder = new DbContextOptionsBuilder<NotificationDbContext>();

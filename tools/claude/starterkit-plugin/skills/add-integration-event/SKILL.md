@@ -47,7 +47,8 @@ Templates: [references/templates.md](references/templates.md).
    - **Errors:** throw to retry a transient failure. Return normally for "nothing to do".
    - **Tenancy:** the message's tenant is restored as the ambient scope, so use `TenantScope.BeginHostScope()`
      only for deliberate cross-tenant work.
-   - The reacting module's assembly must be in `AddMassTransitWithAssemblies(...)` in `src/Api/Program.cs`.
+   - The reacting module's assembly is registered automatically through its manifest's `ConsumerAssemblies`
+     (default: the module assembly).
      Every module is in it already; a brand-new module needs adding.
 5. **Architecture test list.** Add the event name to
    `MessagingArchitectureTests.Integration_events_exist_and_are_found_by_the_scan` (around line 54).

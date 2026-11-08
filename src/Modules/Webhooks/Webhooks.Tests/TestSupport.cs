@@ -15,7 +15,7 @@ public static class TestSupport
     public static readonly DateTime Now = new(2026, 11, 4, 12, 0, 0, DateTimeKind.Utc);
 
     public static WebhookEndpoint NewEndpoint(string url = "https://hooks.example.com/in", string[]? events = null) =>
-        WebhookEndpoint.Create(url, "test", events ?? ["catalog.product-published.v1"], "protected-secret");
+        WebhookEndpoint.Create(url, "test", events ?? ["subscriptions.subscription-expired.v1"], "protected-secret");
 
     public static IOptions<WebhooksOptions> Options(Action<WebhooksOptions>? configure = null)
     {

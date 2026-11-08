@@ -68,8 +68,9 @@ Look at each changed file and confirm each finding by reading the code.
    - Queries have no N+1 (`Include` or projection).
 9. **Localization:** every new `localizer["Key"]` exists in both `<M>Resource.resx` and `<M>Resource.ar.resx`.
 10. **Registration and wiring:**
-    - A new module is in `StarterKit.slnx`, `Api.csproj`, `Program.cs` (`Add`, `Use`, `AddMassTransitWithAssemblies`,
-      `AddEnumLookup` if it has enums) and `ModuleBoundaryTests.Modules`.
+    - A new module is in `StarterKit.slnx` and has exactly one `<M>ModuleManifest` (`[assembly: ModuleManifest]`,
+      `Order`, `EnumAssemblies` if it has enums). No module calls were added to `Program.cs` or `Api.csproj`
+      (ADR-0019).
     - A new event is in the `MessagingArchitectureTests` list.
 11. **Tests:**
     - New behaviour has unit tests.

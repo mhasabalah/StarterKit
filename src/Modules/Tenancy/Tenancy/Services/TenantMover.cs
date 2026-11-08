@@ -44,7 +44,7 @@ public sealed class TenantMover(
         }
 
         var (source, target) = state.Value;
-        var shared = configuration.GetConnectionString("starterkit")
+        var shared = configuration.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName)
                      ?? throw new InvalidOperationException("ConnectionStrings:starterkit is not configured.");
         logger.LogWarning("Moving tenant {Tenant} from {From} to {To}", source.Identifier, Describe(source), Describe(target));
 

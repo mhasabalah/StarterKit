@@ -15,6 +15,8 @@ public class ForwardingAndDeliveryTests(WebhooksPostgresFixture fx)
 {
     // ----- fan-out --------------------------------------------------------------------------------------------------
 
+#if (SAMPLE)
+    // The tenant comes from the message header here (no TenantOverride): the default forwarding path.
     [Fact]
     public async Task A_public_event_creates_one_delivery_per_subscribed_enabled_endpoint_of_that_tenant_only()
     {
@@ -41,12 +43,13 @@ public class ForwardingAndDeliveryTests(WebhooksPostgresFixture fx)
         payload.RootElement.GetProperty("tenantId").GetGuid().Should().Be(TenantA.Id);
         payload.RootElement.GetProperty("data").GetProperty("sku").GetString().Should().Be(evt.Sku);
     }
+#endif
 
     [Fact]
     public async Task The_same_event_delivered_twice_by_the_bus_creates_no_second_delivery_and_no_second_job()
     {
-        var (endpoint, _) = await Arrange.Endpoint(fx, TenantA, null, Arrange.ProductPublished);
-        var evt = Arrange.NewProductEvent();
+        var (endpoint, _) = await Arrange.Endpoint(fx, TenantA, null, Arrange.SubscriptionExpired);
+        var evt = Arrange.NewSubscriptionEvent(TenantA);
 
         await Arrange.Consume(fx, TenantA, evt);
         await Arrange.Consume(fx, TenantA, evt);

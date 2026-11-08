@@ -132,7 +132,7 @@ public class MoveTenantHandler(
         if (registry.ContextTypes.Count == 0)
             throw new InvalidTenantException("There is no tenant data to move.");
 
-        var shared = configuration.GetConnectionString("starterkit")
+        var shared = configuration.GetConnectionString(Shared.Core.Data.DatabaseDefaults.ConnectionStringName)
                      ?? throw new InvalidOperationException("ConnectionStrings:starterkit is not configured.");
 
         var result = await HostTenantAction.RunAsync(dbContext, audit, command.TenantId,

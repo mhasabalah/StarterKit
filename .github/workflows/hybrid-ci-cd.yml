@@ -82,6 +82,7 @@ jobs:
           path: '**/TestResults/**'
           retention-days: 7
 
+  #if (deploy)
   # ==============================================
   # Docker Build & Push (GitHub-hosted runner)
   # ==============================================
@@ -665,4 +666,5 @@ jobs:
 
             send_telegram "$MSG" "false"
           fi
-
+  #endif
+# End of the pipeline (keep a line after the deploy block: `dotnet new` needs one after an end marker).

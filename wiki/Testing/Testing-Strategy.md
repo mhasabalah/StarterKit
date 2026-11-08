@@ -35,7 +35,7 @@ other assertion or mocking libraries.
 | Integration event | Aggregate raises it; outbox row written after commit; consumer is idempotent (duplicate = no-op) |
 | Background job | Integration: only eligible rows processed; one failure doesn't stop the batch; events published |
 | Tenant data | Multi-tenant E2E or integration: cross-tenant read and write impossible |
-| New module, event or permission | Architecture test registries updated (`ModuleBoundaryTests.Modules`, event list, outbox list) |
+| New module, event or permission | Architecture test registries updated (event list, outbox list); modules are discovered (`ModuleDiscoveryTests`) |
 
 ## Conventions
 

@@ -45,12 +45,14 @@ public class TenantRowLevelSecurityCoverageTests(E2ETestFixture fixture)
             var tenantContexts = sp.GetServices<IDbContext>().OfType<DbContext>().Where(c => c is ITenantDataContext).ToList();
             var schemas = tenantContexts.Select(c => c.Model.GetDefaultSchema()).OfType<string>().Distinct().ToArray();
 
-            schemas.Should().Contain(["catalog", "attachment"], "the scan must find the tenant-data modules");
+            schemas.Should().Contain(["attachment", "webhooks"], "the scan must find the tenant-data modules");
 
             var tables = await QueryAsync(tenantContexts[0], schemas);
 
             tables.Should().NotBeEmpty();
-            foreach (var schema in schemas)
+            // The scan must see the reference modules' tables. A new module may have no tables yet (an empty
+            // dotnet new starterkit-module skeleton); once it has some, the check below covers them.
+            foreach (var schema in new[] { "attachment", "webhooks" })
             {
                 tables.Should().Contain(t => t.Schema == schema, $"schema '{schema}' must have tenant tables to check");
             }

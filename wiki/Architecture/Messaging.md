@@ -66,7 +66,7 @@ notification (a `.Contracts` `IDomainEvent` handled inside the same unit of work
    - migration: `dotnet ef migrations add AddOutbox --context <Ctx> --project src/Modules/<M>/<M> --startup-project src/Api --output-dir Data/Migrations`;
      tenant-data contexts add `migrationBuilder.EnableTenantRowLevelSecurity("<schema>", "outbox_messages");`.
    - registration in `<Module>Module.cs`: `services.AddOutbox<TContext>();` (after `AddCustomDbContext`).
-4. **Consumer** in the reacting module (its assembly must be passed to `AddMassTransitWithAssemblies(...)`):
+4. **Consumer** in the reacting module (registered automatically: the module manifest's `ConsumerAssemblies`, ADR-0019):
    ```csharp
    public sealed class XConsumer(...) : IConsumer<ProductPublishedIntegrationEvent> { ... }
    ```

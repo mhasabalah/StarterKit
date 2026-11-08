@@ -46,6 +46,14 @@ public sealed class HubSessionRevocationTests : IAsyncLifetime
 
     public async Task DisposeAsync() => await _app.DisposeAsync();
 
+    /// <summary>
+    /// The client's StartAsync completes before the server's OnConnectedAsync has registered the connection (it is
+    /// visible on slow CI runners): wait for the registry before revoking, or the closer finds nothing to close.
+    /// </summary>
+    private Task RegisteredAsync(Guid userId, int connections) =>
+        Poll.UntilAsync(() =>
+            _app.Services.GetRequiredService<HubConnectionRegistry>().Find(userId, null, allSessions: true).Count == connections);
+
     internal static TaskCompletionSource ClosedSignal(HubConnection connection)
     {
         var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -67,6 +75,7 @@ public sealed class HubSessionRevocationTests : IAsyncLifetime
         first.On<ForceDisconnectEvent>(NotificationHubContract.ForceDisconnect, e => forced.TrySetResult(e));
         var firstClosed = ClosedSignal(first);
         await Task.WhenAll(first.StartAsync(), second.StartAsync());
+        await RegisteredAsync(alice, 2);
 
         var closer = _app.Services.GetRequiredService<HubSessionCloser>();
         var closedCount = await closer.CloseAsync(new HubRevocation(alice, [sid1], AllSessions: false));
@@ -88,6 +97,8 @@ public sealed class HubSessionRevocationTests : IAsyncLifetime
         var c1 = ClosedSignal(a1);
         var c2 = ClosedSignal(a2);
         await Task.WhenAll(a1.StartAsync(), a2.StartAsync(), b1.StartAsync());
+        await RegisteredAsync(alice, 2);
+        await RegisteredAsync(bob, 1);
 
         await _app.Services.GetRequiredService<HubSessionCloser>().CloseAsync(new HubRevocation(alice, null, AllSessions: true));
 
@@ -101,7 +112,7 @@ public sealed class HubSessionRevocationTests : IAsyncLifetime
         var registry = _app.Services.GetRequiredService<HubConnectionRegistry>();
         var connection = NotificationHubTests.Connect(_server, Guid.NewGuid(), sessionId: Guid.NewGuid());
         await connection.StartAsync();
-        registry.Count.Should().Be(1);
+        await Poll.UntilAsync(() => registry.Count == 1);
 
         await connection.StopAsync();
         await connection.DisposeAsync();

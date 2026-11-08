@@ -46,7 +46,7 @@ public static class DataTransferModule
 
         services.AddMediator(DataTransferRoot.AssemblyName);
         services.AddCarterWithAssemblies(DataTransferRoot.AssemblyName);
-        services.AddCustomDbContext<DataTransferDbContext>(configuration, "starterkit");
+        services.AddCustomDbContext<DataTransferDbContext>(configuration, Shared.Core.Data.DatabaseDefaults.ConnectionStringName);
         services.AddOutbox<DataTransferDbContext>(); // DataImportCompletedIntegrationEvent
 
         // Degraded (never unready) when no live server processes the data-transfer queue.
