@@ -43,49 +43,59 @@ export const sections = [
             "order": 1
           },
           {
+            "source": "Architecture/Request-Lifecycle.md",
+            "label": "Request lifecycle",
+            "order": 2
+          },
+          {
+            "source": "Architecture/Errors-and-Responses.md",
+            "label": "Errors and responses",
+            "order": 3
+          },
+          {
             "source": "Architecture/ProjectStructure.md",
             "label": "Project Structure",
-            "order": 2
+            "order": 4
           },
           {
             "source": "Architecture/DesignPatterns.md",
             "label": "Design Patterns",
-            "order": 3
+            "order": 5
           },
           {
             "source": "Architecture/Messaging.md",
             "label": "Messaging",
-            "order": 4
+            "order": 6
           },
           {
             "source": "Architecture/DatabaseConventions.md",
             "label": "Database Conventions",
-            "order": 5
+            "order": 7
           },
           {
             "source": "Architecture/ApiGuidelines.md",
             "label": "API guidelines",
-            "order": 6
+            "order": 8
           },
           {
             "source": "Architecture/CodingStandards.md",
             "label": "Coding Standards",
-            "order": 7
+            "order": 9
           },
           {
             "source": "Architecture/Observability.md",
             "label": "Observability",
-            "order": 8
+            "order": 10
           },
           {
             "source": "Architecture/Feature-Flags.md",
             "label": "Feature Flags",
-            "order": 9
+            "order": 11
           },
           {
             "source": "Architecture/TechnologyStack.md",
             "label": "Technology Stack",
-            "order": 10
+            "order": 12
           }
         ]
       },
