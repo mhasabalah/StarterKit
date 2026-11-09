@@ -88,7 +88,7 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml --env-f
 
 ### Directory Structure
 
-```
+```text
 infra/observability/
 ├── configs/
 │   ├── otel-collector-config.yaml    # OpenTelemetry Collector
@@ -109,29 +109,19 @@ infra/observability/
 
 The OTEL Collector is the **central hub** that receives, processes, and exports all telemetry:
 
+```mermaid
+flowchart TB
+  A[API] -->|OTLP 4317 / 4318| R
+  subgraph Collector[OpenTelemetry Collector]
+    R[Receivers] --> P[Processors and batching] --> E[Exporters]
+  end
+  E --> T[Traces: Tempo / Jaeger / Zipkin]
+  E --> M[Metrics: Prometheus]
+  E --> L[Logs: Loki]
+  T ~~~ M
+  M ~~~ L
 ```
-┌─────────────┐
-│ StarterKit API │
-└──────┬──────┘
-       │ OTLP (4317/4318)
-       v
-┌──────────────────────┐
-│  OTEL Collector      │
-│  ┌─────────────────┐ │
-│  │   Receivers     │ │ ← Receive telemetry
-│  ├─────────────────┤ │
-│  │   Processors    │ │ ← Process & batch
-│  ├─────────────────┤ │
-│  │   Exporters     │ │ ← Send to backends
-│  └─────────────────┘ │
-└──────────────────────┘
-       │
-       ├──→ Tempo (Traces)
-       ├──→ Jaeger (Traces)
-       ├──→ Zipkin (Traces)
-       ├──→ Prometheus (Metrics)
-       └──→ Loki (Logs)
-```
+*Figure: The collector batches telemetry and exports each signal to configured backends.*
 
 ### Key Features
 

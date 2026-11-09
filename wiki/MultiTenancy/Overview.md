@@ -58,26 +58,25 @@ invitations and the audit trail.
 
 ## 3. Architecture
 
+```mermaid
+flowchart TB
+  subgraph Control[Control plane: host database]
+    A[Authentication] --> R[TenantResolutionMiddleware]
+    R --> S[ITenantStore]
+    S --> M[ITenantMembershipResolver]
+    M --> T[TenantScope / ITenantContext]
+    T --> Z[Authorization and endpoint]
+  end
+  subgraph Data[Data plane: shared or dedicated]
+    T --> F[EF filters / TenantEntityInterceptor]
+    F --> I[TenantSessionConnectionInterceptor]
+    I --> V[app.tenant_id]
+    V --> P[PostgreSQL RLS]
+  end
 ```
-                         ┌──────────────── CONTROL PLANE (host database) ────────────────┐
- request ──► Auth ──► TenantResolutionMiddleware ──► Authorization ──► endpoint
-                │        │  claim tid / host / X-Tenant                   │
-                │        │  ITenantStore (L1+L2 cache)                    │  tperm:* policies
-                │        │  ITenantMembershipResolver (L1+L2 cache)      │  (membership permissions)
-                │        ▼                                                ▼
-                │   TenantScope (AsyncLocal) ───────────────► ITenantContext
-                │                                                         │
-                │        identity.*  tenancy.*  subscriptions.*  hangfire │ (always host DB)
-                └─────────────────────────────────────────────────────────┘
-                                         │
-                ┌──────────── DATA PLANE (shared DB or tenant DB) ───────────────┐
-                │  ITenantDataContext: CatalogDbContext, AttachmentDbContext, …  │
-                │  connection = ITenantConnectionStringResolver(tenant)          │
-                │  EF named filters: Tenant ∧ Branch ∧ SoftDelete ∧ …            │
-                │  TenantEntityInterceptor (stamp / block cross-tenant writes)   │
-                │  TenantSessionConnectionInterceptor → Postgres RLS             │
-                └────────────────────────────────────────────────────────────────┘
-```
+*Figure: Tenant resolution establishes the context used by application and database isolation.*
+
+Resolution uses `tid`, host or `X-Tenant`, with cached store and membership lookups. Named Tenant and Branch filters restrict reads; `TenantEntityInterceptor` checks writes. Both use the ambient `ITenantContext`.
 
 ### Building blocks (`src/Shared/Shared.Core/MultiTenancy`)
 
@@ -161,3 +160,60 @@ invitations and the audit trail.
 | Support staff abuses impersonation | Permission + 2FA, mandatory reason, ≤ 60 min access-only token, staff accounts not impersonable, no credential/session/owner actions, audited in BOTH the admin audit and the tenant's own trail. |
 | Malicious site calls the API from a browser | CORS allows only configured origins, tenant subdomains of existing tenants and VERIFIED custom domains. |
 | Writes lost during a tenant move | `Migrating` blocks HTTP writes (503) and defers jobs/messages; copy verified by row counts in one transaction before the switch. |
+
+
+## Shared and dedicated topology
+
+```mermaid
+flowchart TB
+  C[ITenantContext] --> R[ITenantConnectionStringResolver]
+  subgraph Host[Host database]
+    H[Identity, Tenancy, Subscriptions and Hangfire]
+    S[Shared tenant-data schemas]
+  end
+  R -->|Shared| S
+  R -->|Dedicated: ConnectionSecretRef| D[Dedicated tenant database]
+  S --> F[Tenant filters and RLS]
+  D --> F
+```
+*Figure: Tenant-data connections vary by isolation mode while control-plane data stays in the host database.*
+
+
+## Tenant status lifecycle
+
+During a move, suspension/reactivation updates the status to restore when the move ends; it does not exit `Migrating`. Suspension may block all requests or permit reads according to `SuspendedTenantMode`.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Active: shared creation
+  [*] --> Provisioning: dedicated creation
+  Provisioning --> Active: provisioned
+  Provisioning --> ProvisioningFailed: failure
+  ProvisioningFailed --> Active: reprovisioned
+```
+*Figure: Tenant creation activates shared tenants or provisions a dedicated database.*
+
+```mermaid
+stateDiagram-v2
+  Active --> Suspended: suspend
+  Suspended --> Active: reactivate
+  Active --> Migrating: move
+  Suspended --> Migrating: move
+  Migrating --> Active: restore
+  Migrating --> Suspended: restore
+```
+*Figure: A completed or failed move restores the tenant's effective access status.*
+
+While `Migrating`, reads continue, writes return 503, and jobs and messages defer. Suspension or reactivation
+during the move changes the status that will be restored.
+
+```mermaid
+stateDiagram-v2
+  Active --> PendingDeletion: request deletion
+  Suspended --> PendingDeletion: request deletion
+  PendingDeletion --> Suspended: cancel
+  PendingDeletion --> Deleted: purge
+```
+*Figure: Pending deletion can be cancelled to a suspended state before purge.*
+
+Deletion can also be requested from `Provisioning` or `ProvisioningFailed`, but not during `Migrating`.

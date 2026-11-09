@@ -252,13 +252,12 @@ With Intelligent Tiering + CloudFront: **$1.90/month** (30% savings)
 
 #### Development → Staging → Production
 
+```mermaid
+flowchart LR
+  D[Development: Local] --> S[Staging: Azure or S3]
+  S --> P[Production: Azure or S3 with CDN]
 ```
-Development:   Local Storage
-                 ↓
-Staging:       Azure/S3 (test configuration)
-                 ↓
-Production:    Azure/S3 + CDN
-```
+*Figure: Storage configuration can progress from local development to cloud storage with a CDN.*
 
 #### Switching Providers
 
@@ -586,7 +585,7 @@ Full list: https://docs.aws.amazon.com/general/latest/gr/s3.html
 
 ### 📂 File Structure in S3
 
-```
+```text
 starterkit-attachments/
 ├── 2026/01/15/
 │   ├── {guid}_house1.jpg

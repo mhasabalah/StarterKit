@@ -1,3 +1,57 @@
+/* Mermaid scales down to the content width (useMaxWidth); the figure still scrolls if a diagram cannot shrink. */
+:root .sl-markdown-content pre.mermaid[data-processed],
+:root .sl-markdown-content pre.mermaid {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--brand-border);
+  border-radius: .75rem;
+  background: var(--brand-surface);
+  white-space: normal;
+}
+.sl-markdown-content pre.mermaid svg {
+  display: block;
+  height: auto;
+  margin-inline: auto;
+}
+.sl-markdown-content pre.mermaid + p:has(> em:only-child) {
+  margin-top: -.75rem;
+  color: var(--brand-muted);
+  font-size: .875rem;
+  text-align: center;
+}
+.diagram-expand, .diagram-close {
+  display: block;
+  margin: 0 0 .75rem auto;
+  padding: .4rem .75rem;
+  border: 1px solid var(--brand-border);
+  border-radius: .4rem;
+  background: var(--brand-primary-low);
+  color: var(--brand-primary-high);
+  font: 500 .875rem Inter, sans-serif;
+  cursor: pointer;
+}
+.diagram-dialog {
+  width: calc(100vw - 1rem);
+  height: calc(100dvh - 1rem);
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 1rem;
+  border: 1px solid var(--brand-border);
+  border-radius: .75rem;
+  background: var(--brand-bg);
+  color: var(--brand-text);
+}
+.diagram-dialog[open] { display: flex; flex-direction: column; }
+.diagram-dialog::backdrop { background: rgb(0 0 0 / .65); }
+.diagram-viewport { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.diagram-viewport svg { display: block; margin: auto; max-width: none; }
+.diagram-expanded { overflow: hidden; }
 /* Color source of truth; exported SVG colors are checked by npm run brand. */
 :root {
   --brand-primary: #b4a6ff;

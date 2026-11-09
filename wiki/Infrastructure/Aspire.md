@@ -58,9 +58,17 @@ The API always exports logs, traces and metrics to the **Aspire dashboard**. Asp
 `Observability:FullStack=true` adds the same topology as `docker-compose.observability.yml`, using the config files
 in `infra/observability/configs`:
 
+```mermaid
+flowchart TB
+  A[api] -->|OTLP| O[otel-collector]
+  O --> T[tempo and jaeger traces]
+  O --> P[prometheus metrics]
+  O --> L[loki logs]
+  T --> G[grafana]
+  P --> G
+  L --> G
 ```
-api ──OTLP──▶ otel-collector ──▶ tempo + jaeger (traces) · prometheus (metrics) · loki (logs) ──▶ grafana
-```
+*Figure: The optional Aspire observability stack routes telemetry through the collector.*
 
 The API then exports to the dashboard **and** the collector (`ObservabilityOptions:UseOTLPExporter`, endpoint wired
 from the collector resource). Grafana's admin password is generated on first use and stored in the AppHost user

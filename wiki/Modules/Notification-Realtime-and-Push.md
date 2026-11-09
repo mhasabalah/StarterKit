@@ -43,37 +43,56 @@ await notifications
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant M as Any module (handler / consumer)
-    participant S as INotificationSender
-    participant H as Hangfire (queue notification)
-    participant DB as Postgres (notification schema)
-    participant HUB as NotificationHub (+ Redis backplane)
-    participant ID as Identity (UserDirectory.Contracts)
-    participant FCM as FCM (→ APNs / Web Push)
-    participant C as User's tabs / apps / devices
-
-    M->>S: For(user).WithEmail(..).WithInApp(..).WithPush().SendAsync()
-    S->>H: enqueue chain job, InAppDeliveryJob, PushDeliveryJob (one correlation id)
-    par in-app
-        H->>DB: INSERT inbox_notification ON CONFLICT DO NOTHING
-        H->>HUB: NotificationReceived + UnreadCountChanged (best effort)
-        HUB-->>C: event on every open session of the user
-        H->>DB: notification_log (InApp, Sent)
-    and push
-        H->>DB: push enabled? load devices
-        H->>ID: GetActiveSessionIdsQuery(user)
-        H->>DB: delete devices of ended sessions
-        H->>FCM: multicast (collapse key = correlation id)
-        FCM-->>C: OS notification
-        H->>DB: delete dead tokens, notification_log (Push, Sent/Failed)
-        H-->>H: schedule follow-up for transient failures only
-    and email / WhatsApp
-        H->>DB: NotificationDispatchJob (fallback chain, own rows only)
-    end
-    C->>HUB: reconnect (token expired / network)
-    C->>DB: GET /inbox/unread-count (resync)
+  autonumber
+  participant M as Calling module
+  participant S as INotificationSender
+  participant H as Hangfire
+  M->>S: For(user) and channel content
+  S->>H: Enqueue channel jobs
+  Note over S,H: One correlation id, separate jobs
+  H->>H: Run email / WhatsApp fallback chain
 ```
+*Figure: Channel jobs are independent and share a correlation id.*
+
+`WithEmail`, `WithInApp` and `WithPush` select the channels before `SendAsync`. `NotificationDispatchJob` handles the fallback chain, while `InAppDeliveryJob` and `PushDeliveryJob` handle the additive channels.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant J as InAppDeliveryJob
+  participant DB as PostgreSQL
+  participant H as NotificationHub
+  participant C as Client
+  J->>DB: Insert inbox entry idempotently
+  J->>H: NotificationReceived and UnreadCountChanged
+  H-->>C: Best-effort hint to all sessions
+  J->>DB: Log InApp Sent
+  C->>H: Reconnect
+  C->>C: REST unread-count resync
+```
+*Figure: The inbox persists independently of best-effort real-time hints.*
+
+The hub uses the Redis backplane across replicas. Clients call `GET /inbox/unread-count` after reconnecting; the insert uses `ON CONFLICT DO NOTHING`.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant J as PushDeliveryJob
+  participant U as UserDirectory.Contracts
+  participant F as FCM
+  participant C as Device
+  J->>J: Load push-enabled devices
+  J->>U: GetActiveSessionIdsQuery
+  U-->>J: Active sessions
+  J->>J: Remove ended-session devices
+  J->>F: Multicast, collapse by correlation id
+  F-->>C: OS notification
+  J->>J: Remove dead tokens and log result
+  J->>J: Retry transient failures only
+```
+*Figure: Push delivery validates device sessions before calling FCM.*
+
+FCM forwards to Android, APNs and Web Push. Outcomes are stored in `notification_log`; all three channel groups use the `notification` queue.
 
 `NotificationJobEnqueuer` turns one notification into up to three Hangfire jobs (queue `notification`) that share ONE
 correlation id: the chain (`NotificationDispatchJob`), `InAppDeliveryJob` and `PushDeliveryJob`. Separate jobs keep

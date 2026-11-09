@@ -4,7 +4,7 @@ This page links every page of the wiki. Keep it complete; `bash scripts/check-do
 it. Conventions: `Title-Kebab.md` files, one canonical page per topic, placeholders only (`api.example.com`,
 `YOUR_SERVER_IP`, `CHANGE_ME`).
 
-```
+```text
 wiki/
 ├── README.md                     landing page (start here)
 ├── Getting-Started/              new project from the template
@@ -130,6 +130,7 @@ wiki/
 
 ## Reference
 
+- [Diagram style](Reference/Diagram-Style.md): Mermaid conventions and examples
 - [Feature catalog](Reference/Features.md): everything the template ships, by area
 <!--#if (templateSource)-->
 - [Brand](Reference/Brand.md): logos, palette, typography and voice

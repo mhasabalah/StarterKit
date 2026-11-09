@@ -36,25 +36,18 @@
 
 ### 1. Dual Token Strategy
 
+```mermaid
+flowchart TB
+  subgraph Access[Access token]
+    A[JWT: short lifetime] --> V[Signature and expiry validation]
+    V --> R[Revocation checks]
+  end
+  subgraph Refresh[Refresh token]
+    T[Random Base64 token] --> H[SHA256 hash]
+    H --> D[RefreshToken in PostgreSQL]
+  end
 ```
-┌─────────────────┐
-│  Access Token   │
-├─────────────────┤
-│ • 15 minutes    │
-│ • Stateless     │
-│ • JWT format    │
-│ • In memory     │
-└─────────────────┘
-
-┌─────────────────┐
-│ Refresh Token   │
-├─────────────────┤
-│ • 7 days        │
-│ • Stateful      │
-│ • Base64 random │
-│ • In database   │
-└─────────────────┘
-```
+*Figure: Access tokens authorize requests while persisted refresh-token hashes support session rotation.*
 
 **Why this approach?**
 - ✅ Access tokens are short-lived (limits damage if stolen)
@@ -77,15 +70,18 @@ Every time a refresh token is used:
 
 ### 3. Dual Storage Pattern
 
+```mermaid
+flowchart LR
+  subgraph PostgreSQL
+    T[RefreshToken] --> A[User, session family and audit fields]
+  end
+  subgraph Redis
+    B[Token blacklist] --- U[User security stamp]
+    U --- S[Session revocations]
+    S --- X[TTL expiry]
+  end
 ```
-Database (PostgreSQL)              Redis Cache
-┌──────────────────┐              ┌──────────────────┐
-│ RefreshToken     │              │ Blacklist:       │
-│ • Full audit     │              │ • access:{token} │
-│ • User tracking  │              │ • refresh:{token}│
-│ • IP addresses   │              │ • TTL-based      │
-└──────────────────┘              └──────────────────┘
-```
+*Figure: PostgreSQL records refresh sessions while Redis accelerates access-token revocation checks.*
 
 **Why dual storage?**
 - ✅ Database: Persistent, survives restarts, full audit trail
@@ -130,7 +126,7 @@ return refreshTokenString; // Client stores this
 ### 3. Token Blacklisting ✅
 - **Storage**: Redis with TTL
 - **Speed**: < 1ms lookup time
-- **Coverage**: Both access and refresh tokens
+- **Coverage**: Access-token hashes, user stamps and session revocations; refresh-token validity is checked in PostgreSQL
 - **Use cases**: Logout, logout all devices, token revocation
 
 ### 4. Secure Token Generation ✅
@@ -172,48 +168,23 @@ public class RefreshToken
 
 ### Flow 1: Login
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Client
+  participant API
+  participant AuthSessionService
+  participant DB as PostgreSQL
+  Client->>API: POST /api/auth/login with email and password
+  API->>DB: Validate user credentials and sign-in requirements
+  Note over Client,API: MFA or other checks can require additional steps
+  API->>AuthSessionService: IssueAsync after successful sign-in
+  AuthSessionService->>AuthSessionService: Generate JWT and random refresh token
+  AuthSessionService->>DB: Save RefreshToken hash, family, user, expiry and IP
+  API-->>Client: Access token, refresh token, expiry and user
+  Client->>Client: Store tokens according to client policy
 ```
-┌─────────┐                    ┌─────────┐                    ┌──────────┐
-│ Client  │                    │  API    │                    │ Database │
-└────┬────┘                    └────┬────┘                    └────┬─────┘
-     │                              │                              │
-     │ POST /api/auth/login         │                              │
-     │ { email, password }          │                              │
-     ├─────────────────────────────>│                              │
-     │                              │                              │
-     │                              │ Validate credentials         │
-     │                              ├─────────────────────────────>│
-     │                              │<─────────────────────────────┤
-     │                              │ User found                   │
-     │                              │                              │
-     │                              │ Generate tokens:             │
-     │                              │ • Access: 15-min JWT         │
-     │                              │ • Refresh: Random 64 bytes   │
-     │                              │                              │
-     │                              │ Hash refresh token (SHA256)  │
-     │                              │                              │
-     │                              │ Store in database            │
-     │                              ├─────────────────────────────>│
-     │                              │ • user_id                    │
-     │                              │ • token_hash                 │
-     │                              │ • expires_at (7 days)        │
-     │                              │ • created_by_ip              │
-     │                              │<─────────────────────────────┤
-     │                              │ Saved                        │
-     │                              │                              │
-     │ 200 OK                       │                              │
-     │ {                            │                              │
-     │   accessToken,               │                              │
-     │   refreshToken,              │                              │
-     │   expiresAt,                 │                              │
-     │   user: { ... }              │                              │
-     │ }                            │                              │
-     │<─────────────────────────────┤                              │
-     │                              │                              │
-     │ Store tokens locally         │                              │
-     │ (localStorage/memory)        │                              │
-     │                              │                              │
-```
+*Figure: Successful sign-in creates a refresh-token family and returns tokens to the client.*
 
 **Key Points:**
 - ✅ Refresh token hashed before storage (SHA256)
@@ -225,59 +196,30 @@ public class RefreshToken
 
 ### Flow 2: Refresh Token
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Client
+  participant API as RefreshTokenHandler
+  participant S as AuthSessionService
+  participant DB as IRefreshTokenRepository
+  Client->>API: POST /api/auth/refresh
+  API->>S: RefreshAsync
+  S->>DB: FindByHashAsync
+  DB-->>S: RefreshToken
+  S->>S: Check expiry, user state, stamp and tenant membership
+  alt Revoked token or concurrent rotation
+    S->>DB: RevokeFamilyAsync
+    S-->>Client: Unauthorized, session reuse detected
+  else Valid token
+    S->>S: Create replacement tokens in same family
+    S->>DB: TryRotateAsync atomically
+    DB-->>S: Old token revoked, replacement stored
+    S-->>Client: New access token, refresh token and expiry
+    Client->>Client: Replace stored tokens
+  end
 ```
-┌─────────┐                    ┌─────────┐                    ┌──────────┐          ┌───────┐
-│ Client  │                    │  API    │                    │ Database │          │ Redis │
-└────┬────┘                    └────┬────┘                    └────┬─────┘          └───┬───┘
-     │                              │                              │                    │
-     │ POST /api/auth/refresh       │                              │                    │
-     │ { refreshToken }             │                              │                    │
-     ├─────────────────────────────>│                              │                    │
-     │                              │                              │                    │
-     │                              │ Hash received token          │                    │
-     │                              │                              │                    │
-     │                              │ Check Redis blacklist        │                    │
-     │                              ├────────────────────────────────────────────────────>│
-     │                              │<────────────────────────────────────────────────────┤
-     │                              │ Not blacklisted              │                    │
-     │                              │                              │                    │
-     │                              │ Find token in database       │                    │
-     │                              ├─────────────────────────────>│                    │
-     │                              │<─────────────────────────────┤                    │
-     │                              │ Token found & valid          │                    │
-     │                              │                              │                    │
-     │                              │ Revoke old token             │                    │
-     │                              ├─────────────────────────────>│                    │
-     │                              │ SET revoked_at = NOW()       │                    │
-     │                              │     revoked_reason =         │                    │
-     │                              │     "Token rotated"          │                    │
-     │                              │<─────────────────────────────┤                    │
-     │                              │                              │                    │
-     │                              │ Blacklist old token in Redis │                    │
-     │                              ├────────────────────────────────────────────────────>│
-     │                              │ SET refresh:{token} = 1      │                    │
-     │                              │ TTL = 7 days                 │                    │
-     │                              │<────────────────────────────────────────────────────┤
-     │                              │                              │                    │
-     │                              │ Generate NEW tokens:         │                    │
-     │                              │ • New access token (15 min)  │                    │
-     │                              │ • New refresh token (7 days) │                    │
-     │                              │                              │                    │
-     │                              │ Store new refresh token      │                    │
-     │                              ├─────────────────────────────>│                    │
-     │                              │<─────────────────────────────┤                    │
-     │                              │                              │                    │
-     │ 200 OK                       │                              │                    │
-     │ {                            │                              │                    │
-     │   accessToken,   (NEW)       │                              │                    │
-     │   refreshToken,  (NEW)       │                              │                    │
-     │   expiresAt                  │                              │                    │
-     │ }                            │                              │                    │
-     │<─────────────────────────────┤                              │                    │
-     │                              │                              │                    │
-     │ Update stored tokens         │                              │                    │
-     │                              │                              │                    │
-```
+*Figure: Refresh rotates the persisted session atomically and revokes the family on detected reuse.*
 
 **Key Points:**
 - ✅ Old token is immediately revoked (one-time use)
@@ -295,48 +237,24 @@ public class RefreshToken
 
 ### Flow 3: Logout (Single Device)
 
+```mermaid
+sequenceDiagram
+  autonumber
+  participant L as LogoutHandler
+  participant B as ITokenBlacklistService
+  participant S as ISessionManager
+  participant R as Refresh tokens
+  Note over L: POST /api/auth/logout with both tokens
+  L->>B: Blacklist access token until its expiry
+  L->>S: RevokeAsync current session family
+  Note over S: Revoke persisted family and record session revocation
+  L->>R: RevokeAsync presented refresh-token hash
+  L->>L: Return LogoutResult
 ```
-┌─────────┐                    ┌─────────┐                    ┌──────────┐          ┌───────┐
-│ Client  │                    │  API    │                    │ Database │          │ Redis │
-└────┬────┘                    └────┬────┘                    └────┬─────┘          └───┬───┘
-     │                              │                              │                    │
-     │ POST /api/auth/logout        │                              │                    │
-     │ Authorization: Bearer {token}│                              │                    │
-     │ { refreshToken }             │                              │                    │
-     ├─────────────────────────────>│                              │                    │
-     │                              │                              │                    │
-     │                              │ Extract access token from    │                    │
-     │                              │ Authorization header         │                    │
-     │                              │                              │                    │
-     │                              │ Blacklist access token       │                    │
-     │                              ├────────────────────────────────────────────────────>│
-     │                              │ SET access:{token} = 1       │                    │
-     │                              │ TTL = 15 minutes             │                    │
-     │                              │<────────────────────────────────────────────────────┤
-     │                              │                              │                    │
-     │                              │ Hash refresh token           │                    │
-     │                              │                              │                    │
-     │                              │ Revoke refresh token in DB   │                    │
-     │                              ├─────────────────────────────>│                    │
-     │                              │ SET revoked_at = NOW()       │                    │
-     │                              │     revoked_by_ip = IP       │                    │
-     │                              │     revoked_reason = "Logout"│                    │
-     │                              │<─────────────────────────────┤                    │
-     │                              │                              │                    │
-     │                              │ Blacklist refresh token      │                    │
-     │                              ├────────────────────────────────────────────────────>│
-     │                              │ SET refresh:{token} = 1      │                    │
-     │                              │ TTL = 7 days                 │                    │
-     │                              │<────────────────────────────────────────────────────┤
-     │                              │                              │                    │
-     │ 200 OK                       │                              │                    │
-     │ { message: "Logged out" }    │                              │                    │
-     │<─────────────────────────────┤                              │                    │
-     │                              │                              │                    │
-     │ Clear local tokens           │                              │                    │
-     │ Redirect to login            │                              │                    │
-     │                              │                              │                    │
-```
+*Figure: Logout revokes the current session as well as the presented tokens.*
+
+The refresh-token participant is `IRefreshTokenRepository`. The client supplies the Bearer and refresh tokens,
+then clears its local tokens and redirects to login after the response.
 
 **Key Points:**
 - ✅ Both access and refresh tokens invalidated
@@ -349,55 +267,21 @@ public class RefreshToken
 
 ### Flow 4: Logout All Devices
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Client
+  participant L as LogoutHandler
+  participant B as ITokenBlacklistService
+  participant S as ISessionRevoker
+  Client->>L: POST /api/auth/logout with logoutAllDevices true
+  L->>B: Blacklist presented access token
+  L->>S: RevokeAllAsync for current user
+  Note over S: Revoke all refresh sessions and record revocations
+  S-->>L: Completed
+  L-->>Client: LogoutResult for all devices
 ```
-┌─────────┐                    ┌─────────┐                    ┌──────────┐          ┌───────┐
-│ Client  │                    │  API    │                    │ Database │          │ Redis │
-└────┬────┘                    └────┬────┘                    └────┬─────┘          └───┬───┘
-     │                              │                              │                    │
-     │ POST /api/auth/logout        │                              │                    │
-     │ Authorization: Bearer {token}│                              │                    │
-     │ {                            │                              │                    │
-     │   refreshToken,              │                              │                    │
-     │   logoutAllDevices: true     │                              │                    │
-     │ }                            │                              │                    │
-     ├─────────────────────────────>│                              │                    │
-     │                              │                              │                    │
-     │                              │ Extract user ID from JWT     │                    │
-     │                              │                              │                    │
-     │                              │ Blacklist current access     │                    │
-     │                              │ token                        │                    │
-     │                              ├────────────────────────────────────────────────────>│
-     │                              │<────────────────────────────────────────────────────┤
-     │                              │                              │                    │
-     │                              │ Get ALL user's refresh tokens│                    │
-     │                              ├─────────────────────────────>│                    │
-     │                              │ WHERE user_id = {id}         │                    │
-     │                              │   AND revoked_at IS NULL     │                    │
-     │                              │<─────────────────────────────┤                    │
-     │                              │ [token1, token2, token3...]  │                    │
-     │                              │                              │                    │
-     │                              │ Revoke ALL tokens            │                    │
-     │                              ├─────────────────────────────>│                    │
-     │                              │ UPDATE refresh_tokens        │                    │
-     │                              │ SET revoked_at = NOW()       │                    │
-     │                              │     revoked_reason =         │                    │
-     │                              │     "Logout all devices"     │                    │
-     │                              │ WHERE user_id = {id}         │                    │
-     │                              │<─────────────────────────────┤                    │
-     │                              │                              │                    │
-     │                              │ Blacklist ALL in Redis       │                    │
-     │                              │ (for each token)             │                    │
-     │                              ├────────────────────────────────────────────────────>│
-     │                              │<────────────────────────────────────────────────────┤
-     │                              │                              │                    │
-     │ 200 OK                       │                              │                    │
-     │ {                            │                              │                    │
-     │   message: "Logged out       │                              │                    │
-     │   from all devices"          │                              │                    │
-     │ }                            │                              │                    │
-     │<─────────────────────────────┤                              │                    │
-     │                              │                              │                    │
-```
+*Figure: Logout-all ends every session belonging to the authenticated user.*
 
 **Use Cases:**
 - User suspects account compromise

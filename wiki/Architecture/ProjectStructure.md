@@ -2,7 +2,7 @@
 
 ## Solution Organization
 
-```
+```text
 StarterKit/
 ├── src/
 │   ├── Api/                                 # ASP.NET Core host (Program.cs, appsettings, Dockerfile)
@@ -26,11 +26,14 @@ StarterKit/
 ├── tests/e2e/                               # Playwright browser smoke tests (TypeScript)
 ├── tools/claude/starterkit-plugin/          # Claude Code plugin: skills, reviewer agent, hooks
 ├── infra/                                   # Nginx, observability, pgAdmin configs
-├── deployment/                              # VPS deploy/rollback/backup scr## Module Structure Template
-
-Every module follows the Catalog layout. To create one, use `/starterkit:new-module`.
-
+└── deployment/                              # VPS deploy, rollback and backup scripts
 ```
+
+## Module Structure Template
+
+Every module follows the feature-slice layout. To create one, use `/starterkit:new-module`.
+
+```text
 src/Modules/<Module>/
 ├── <Module>.Contracts/                      # Public surface: Shared.Contracts only
 │   ├── <Area>s/Commands/  Queries/  Dtos/  Enums/  IntegrationEvents/
@@ -95,11 +98,15 @@ HTTP route
 
 ## Dependency Flow
 
+```mermaid
+flowchart TB
+  A[API] --> F[Features]
+  F --> D[Domain]
+  F --> C[Contracts]
+  F --> P[Data]
+  P --> D
 ```
-API → Application (Features) → Domain ← Data
-                ↓
-            Contracts
-```
+*Figure: Feature slices use domain behavior and data access while exposing contracts.*
 
 **Rules**:
 - Domain has no dependencies on other layers

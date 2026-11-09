@@ -40,75 +40,37 @@ We use Redis for:
 
 ### Redis in StarterKit Stack
 
+```mermaid
+flowchart TB
+  subgraph API[API / Identity]
+    T[TokenBlacklistService] -->|BlacklistTokenAsync / IsTokenBlacklistedAsync| C[IDistributedCache]
+  end
+  C -->|StackExchange.Redis TCP 6379| R[Redis]
+  R --- K[Token hashes, user stamps, session revocations]
+  R --- D["/data volume"]
+  K --- X[Expiry follows token or session lifetime]
 ```
-┌──────────────────────────────────────────────────────┐
-│                     StarterKit API                       │
-│  ┌────────────────────────────────────────────────┐  │
-│  │         JWT Authentication Module              │  │
-│  │  ┌──────────────────────────────────────────┐  │  │
-│  │  │    TokenBlacklistService                 │  │  │
-│  │  │    • BlacklistTokenAsync()               │  │  │
-│  │  │    • IsTokenBlacklistedAsync()           │  │  │
-│  │  └──────────────────────────────────────────┘  │  │
-│  │                    ↓ ↑                         │  │
-│  │  ┌──────────────────────────────────────────┐  │  │
-│  │  │    IDistributedCache                     │  │  │
-│  │  │    (StackExchange.Redis)                 │  │  │
-│  │  └──────────────────────────────────────────┘  │  │
-│  └────────────────────────────────────────────────┘  │
-└────────────────────┬─────────────────────────────────┘
-                     │ TCP 6379
-                     ↓
-┌─────────────────────────────────────────────────────┐
-│               Redis Server (Docker)                  │
-│  ┌──────────────────────────────────────────────┐   │
-│  │  Key Pattern: StarterKit:*                      │   │
-│  │                                               │   │
-│  │  • StarterKit:access:{token_hash} = 1 (TTL 15m) │   │
-│  │  • StarterKit:refresh:{token_hash} = 1 (TTL 7d) │   │
-│  │  • StarterKit:cache:* (future)                  │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
-│  Data: /data (Docker volume: redis-data)            │
-└─────────────────────────────────────────────────────┘
-```
+*Figure: Redis stores revocation keys behind the distributed cache abstraction.*
 
 ### Data Flow: Token Blacklisting
 
+```mermaid
+sequenceDiagram
+  autonumber
+  participant LogoutHandler
+  participant TokenBlacklistService
+  participant IDistributedCache
+  participant TokenBlacklistJwtBearerEvents
+  LogoutHandler->>TokenBlacklistService: BlacklistTokenAsync(token, expiresAt)
+  TokenBlacklistService->>IDistributedCache: Set token:blacklist:{hash} to revoked with expiry
+  Note over IDistributedCache: StackExchange.Redis stores the key in Redis
+  TokenBlacklistJwtBearerEvents->>TokenBlacklistService: IsTokenBlacklistedAsync after JWT validation
+  TokenBlacklistService->>IDistributedCache: Get token:blacklist:{hash}
+  IDistributedCache-->>TokenBlacklistService: Present or absent
+  TokenBlacklistService-->>TokenBlacklistJwtBearerEvents: Reject revoked token, otherwise continue
+  Note over TokenBlacklistJwtBearerEvents: Also checks session and user revocation
 ```
-User Logout
-    ↓
-LogoutHandler
-    ↓
-TokenBlacklistService.BlacklistTokenAsync()
-    ↓
-IDistributedCache.SetStringAsync()
-    ↓
-StackExchange.Redis Client
-    ↓
-Redis Server: SET StarterKit:access:{hash} "1" EX 900
-    ↓
-✅ Token blacklisted (expires in 15 minutes)
-
----
-
-API Request with Token
-    ↓
-JWT Middleware validates signature
-    ↓
-TokenBlacklistJwtBearerEvents.TokenValidated()
-    ↓
-TokenBlacklistService.IsTokenBlacklistedAsync()
-    ↓
-IDistributedCache.GetStringAsync()
-    ↓
-StackExchange.Redis Client
-    ↓
-Redis Server: GET StarterKit:access:{hash}
-    ↓
-If exists → ❌ 401 Unauthorized
-If not exists → ✅ Request continues
-```
+*Figure: Logout blacklists the presented token and later authenticated requests check revocation.*
 
 ---
 
@@ -116,7 +78,7 @@ If not exists → ✅ Request continues
 
 ### Configuration Files Structure
 
-```
+```text
 StarterKit/
 ├── src/
 │   ├── Api/

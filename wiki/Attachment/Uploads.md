@@ -755,7 +755,7 @@ async function createProductWithPhotos(productData) {
 ### Limits and Constraints
 
 - **Max files per session:** 20
-- **Max uploads per minute (per IP):** 5
+- **Upload rate limit:** the `upload` policy (20 per minute in the shipped configuration)
 - **File expiration:** 48 hours
 - **Max file size:** 500MB (hard limit in endpoint)
 - **Supported file types:** Images, Documents, Videos, Audio
@@ -765,50 +765,28 @@ async function createProductWithPhotos(productData) {
 
 ### Workflow Diagram
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Client
+  participant API
+  participant Storage
+  participant Hangfire
+  Client->>API: POST /pending/sessions (anonymous)
+  API-->>Client: Server-issued sessionId bound to caller
+  Client->>API: POST /pending/upload (up to 20 live files per session)
+  Note over Client,API: Routes below /api/v1/attachments, upload rate policy applies
+  API->>Storage: Store temporary files under sessionId
+  API->>Hangfire: Generate thumbnails asynchronously
+  Client->>API: GET /pending/session/{id}
+  API-->>Client: Uploaded files
+  Client->>API: Authenticate and create owning entity
+  Client->>API: POST /pending/associate (authenticated)
+  API->>Storage: Move files to permanent path
+  API->>API: Mark PendingAttachment associated
+  Hangfire->>API: Clean pending records after 48 hours
 ```
-┌─────────────┐
-│   Client    │
-│ (Anonymous) │
-└──────┬──────┘
-       │
-       │ 1. Generate sessionId (UUID)
-       │
-       ▼
-┌─────────────────────────────────┐
-│  Upload files (1-20 max)        │
-│  POST /pending/upload           │
-│  Rate limit: 5/min per IP       │
-└────────┬────────────────────────┘
-         │
-         │ 2. Files stored in temp/{sessionId}/
-         │    Thumbnails generated async
-         │
-         ▼
-┌─────────────────────────────────┐
-│  View uploaded files            │
-│  GET /pending/session/{id}      │
-└────────┬────────────────────────┘
-         │
-         │ 3. User authenticates
-         │    Creates product
-         │
-         ▼
-┌─────────────────────────────────┐
-│  Associate files to product    │
-│  POST /pending/associate        │
-│  (Requires auth)                │
-└────────┬────────────────────────┘
-         │
-         │ 4. Files moved from temp/ to the permanent path
-         │    PendingAttachment marked as associated
-         │
-         ▼
-┌─────────────────────────────────┐
-│  Product has photos attached   │
-│  PendingAttachments cleaned up  │
-│  after 48h by Hangfire job      │
-└─────────────────────────────────┘
-```
+*Figure: Pending uploads are associated with an authenticated entity before cleanup.*
 
 ### Hangfire Dashboard
 

@@ -50,3 +50,65 @@ commit together.
 - **Service or entity method?** If it needs only the aggregate's own state, make it an entity method. If it needs
   other aggregates, I/O or the current user, make it a domain service in `Domains/<X>/Services/`.
 - **New abstraction?** Only when a second real implementation exists or is planned. Explicit beats clever.
+
+
+## HTTP middleware order
+
+`Program.cs` also calls `UseModules()` after timeout registration, then `UseOutboxSweep()`, before `UseSharedInfrastructure()`. These initialize modules and schedule outbox work; they are not per-request middleware. Migrate-only mode exits before the sweep and endpoint setup.
+
+```mermaid
+flowchart TB
+  F[UseTrustedForwardedHeaders] --> C[UseConfigurableCors]
+  C --> E[UseErrorHandling]
+  E --> A[Authentication]
+  A --> K[ApiKeyRestrictionMiddleware]
+  K --> T[UseMultiTenancy]
+  T --> Z[Authorization]
+  Z --> M[MustChangePasswordMiddleware]
+  M --> R[UseRateLimiter]
+  R --> H[Hangfire dashboard]
+  H --> Q[UseRequestTimeouts]
+  Q --> S[UseSharedInfrastructure]
+  S --> I[UseIdempotency]
+  I --> O[UseAppLocalization]
+  O --> P[Carter endpoints]
+```
+*Figure: The HTTP pipeline resolves identity and tenant before rate limiting and endpoint execution.*
+
+
+## Request and unit-of-work lifecycle
+
+```mermaid
+flowchart TB
+  A[HTTP / Carter endpoint] --> S[ISender]
+  S --> T[RequestTelemetryBehavior]
+  T --> V[ValidationBehavior]
+  V --> C[ConcurrencyHandlingBehavior]
+  C --> L[LoggingBehavior]
+  L --> D[DispatchDomainEventsBehavior]
+  D --> H[Handler]
+  H --> DB[Repository / DbContext]
+```
+*Figure: The request passes through mediator behaviors before reaching the handler.*
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant H as Handler
+  participant DB as DbContext
+  participant D as Event dispatch
+  H->>DB: SaveChanges
+  Note over DB: Audit, tenant checks, outbox and event collection
+  DB-->>H: Committed save
+  H->>D: Outermost handler completes
+  D->>D: DispatchPendingAsync
+  D-->>H: Complete response
+```
+*Figure: Committed domain events dispatch after the outermost successful handler completes.*
+
+`DispatchDomainEventsBehavior` invokes `IDomainEventDispatcher`. Nested requests pass through the same pipeline but defer dispatch to the outermost boundary.
+
+The interceptors include `AuditableEntityInterceptor`, `TenantEntityInterceptor`, `OutboxInterceptor` and
+`DispatchDomainEventsInterceptor` where registered by the context. Queries need not save; failed saves and rolled-back
+transactions do not contribute dispatchable events. The outermost boundary is not a transaction spanning every
+nested save: it delays dispatch until the handler tree completes successfully.
