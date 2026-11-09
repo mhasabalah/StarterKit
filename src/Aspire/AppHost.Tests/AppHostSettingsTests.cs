@@ -59,6 +59,13 @@ public class AppHostSettingsTests
     }
 
     [Fact]
+    public void Dedicated_tenant_sample_switch_is_read_and_off_by_default()
+    {
+        From().DedicatedTenantSample.Should().BeFalse();
+        From((AppHostSettings.DedicatedTenantSampleKey, "true")).DedicatedTenantSample.Should().BeTrue();
+    }
+
+    [Fact]
     public void ClamAv_switch_is_read_and_off_by_default()
     {
         From().ClamAv.Should().BeFalse();

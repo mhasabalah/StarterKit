@@ -182,6 +182,29 @@ public class AppHostModelTests
     }
 
     [Fact]
+    public async Task Dedicated_tenant_sample_adds_a_second_database_and_enables_multi_tenancy()
+    {
+        await using (var lean = await Model())
+        {
+            lean.Resources.Select(r => r.Name).Should().NotContain(AppHostSettings.DedicatedTenantConnectionName);
+            (await ApiEnvironment(lean)).Should().NotContainKey("MultiTenancy__Enabled");
+        }
+
+        await using var builder = await Model($"{AppHostSettings.DedicatedTenantSampleKey}=true");
+
+        var database = Resource(builder, AppHostSettings.DedicatedTenantConnectionName);
+        database.Should().BeOfType<PostgresDatabaseResource>()
+            .Which.DatabaseName.Should().Be("starterkit_tenant_demo");
+        ((PostgresDatabaseResource)database).Parent.Name.Should().Be("postgres", "same server as the shared database");
+
+        var env = await ApiEnvironment(builder);
+        env.Should().ContainKey("ConnectionStrings__tenant-demo", "the tenant's connectionSecretRef resolves through ConnectionStrings");
+        env.Should().Contain("MultiTenancy__Enabled", "true");
+        Resource(builder, "api").Annotations.OfType<WaitAnnotation>().Select(w => w.Resource.Name)
+            .Should().Contain(AppHostSettings.DedicatedTenantConnectionName);
+    }
+
+    [Fact]
     public async Task Postgres_host_port_is_random_unless_configured()
     {
         await using (var random = await Model())

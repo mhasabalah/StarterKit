@@ -19,7 +19,8 @@ is `/starterkit:add-migration` (`tools/claude/starterkit-plugin/skills/add-migra
 ## Prerequisites
 
 - PostgreSQL running (Aspire `dotnet run` in `src/Aspire/AppHost`, or `docker compose up -d postgres`)
-- `dotnet tool install --global dotnet-ef`
+- `dotnet tool restore` (once per clone): `dotnet ef` is a local tool pinned in `.config/dotnet-tools.json` to the EF Core
+  version of `Directory.Packages.props` (guarded by `ToolManifestTests`)
 
 ## Add a migration
 

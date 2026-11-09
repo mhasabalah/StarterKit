@@ -136,10 +136,11 @@ Why attachments are cleaned up on **purge**, not on soft delete: a restored prod
 | GET | `/products/{id}` | public (owners also see their unpublished products) |
 | GET | `/products/my`, `/products/wishlist` | authenticated |
 | POST | `/products/{id}/submit-for-review`, `/archive`, `/unarchive` | owner or admin |
-| POST | `/products/{id}/approve`, `/reject`, `/request-changes`, `/publish` | admin |
+| POST | `/products/{id}/approve`, `/reject`, `/request-changes`, `/publish` | `catalog.moderate` (platform permission; Admin and SuperAdmin hold it) |
 | POST / PUT / DELETE | `/products/{id}/images/upload`, `/images/{imageId}/set-primary`, `/images/reorder`, `/images/{imageId}` | owner (editable status) or admin |
 | POST / DELETE | `/products/{id}/wishlist` | authenticated |
-| GET | `/admin/products`, `/admin/products/{id}`, `/admin/products/pending` | admin |
+| GET | `/admin/products`, `/admin/products/{id}` | admin |
+| GET | `/admin/products/pending` | `catalog.moderate` |
 | POST / PATCH | `/admin/products/{id}/restore`, `/admin/products/{id}/featured` | admin |
 | GET | `/categories/tree` | public (cached) |
 | GET / POST / PUT / DELETE | `/categories` | `catalog.categories.manage` (tenant permission; Owner and Administrator hold it) |
@@ -149,6 +150,11 @@ Why attachments are cleaned up on **purge**, not on soft delete: a restored prod
 > permission `catalog.categories.manage` (held by the owner and the Administrator role; grant it to custom roles). In
 > multi-tenant mode a platform Admin without a membership is now refused (403). In single-tenant mode platform
 > Admin/SuperAdmin still pass: they hold every tenant permission as a platform claim. API keys need the scope.
+
+> **Moderation permission.** The moderation endpoints (approve, reject, request changes, publish, the pending queue)
+> need the platform permission `catalog.moderate` instead of the `AdminOnly` role gate. The same people pass (Admin and
+> SuperAdmin hold it), but an API key now needs the `catalog.moderate` scope, and a product can grant it to another
+> platform role in `RolePermissionMap`.
 
 Bulk: `catalog.categories` import/export definitions (`Domains/Categories/DataTransfer`), see [DataTransfer](DataTransfer.md).
 
