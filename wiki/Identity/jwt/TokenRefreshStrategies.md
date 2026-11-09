@@ -8,7 +8,7 @@
 3. [Strategy 2: Proactive Refresh (Before Expiration)](#strategy-2-proactive-refresh-before-expiration)
 4. [Strategy 3: Silent Refresh with Hidden Iframe](#strategy-3-silent-refresh-with-hidden-iframe)
 5. [Strategy 4: Refresh on User Activity](#strategy-4-refresh-on-user-activity)
-6. [Strategy 5: Hybrid Approach](#strategy-5-hybrid-approach)
+6. [Strategy 5: Hybrid Approach](#strategy-5-hybrid-approach-recommended)
 7. [Comparison & Recommendations](#comparison--recommendations)
 8. [Production Implementation](#production-implementation)
 

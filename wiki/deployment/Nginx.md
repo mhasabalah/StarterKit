@@ -4,15 +4,15 @@
 
 ## 📋 Table of Contents
 - [Quick Start](#-quick-start-5-minutes)
-- [Overview](#overview)
+- [Overview](#-overview)
 - [Architecture](#architecture)
-- [Configuration Files](#configuration-files)
-- [Usage](#usage)
-- [Security](#security)
-- [SSL Setup](#ssl-setup-lets-encrypt)
-- [Performance Tuning](#performance-tuning)
-- [Monitoring](#monitoring)
-- [Troubleshooting](#troubleshooting)
+- [Configuration Files](#-configuration-files)
+- [Usage](#-usage)
+- [Security](#-security)
+- [SSL Setup](#ssltls-configuration)
+- [Performance Tuning](#-performance-tuning)
+- [Monitoring](#-monitoring)
+- [Troubleshooting](#-troubleshooting)
 - [Command Reference](#-command-reference)
 
 ---
@@ -106,7 +106,7 @@ This Nginx setup provides enterprise-grade reverse proxy capabilities for the St
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Client Request
@@ -928,4 +928,4 @@ docker exec starterkit-nginx cat /proc/net/sockstat
 
 ---
 
-**Need help?** Check the [Troubleshooting](#troubleshooting) section or contact the DevOps team.
+**Need help?** Check the [Troubleshooting](#-troubleshooting) section or contact the DevOps team.

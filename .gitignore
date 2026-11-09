@@ -409,3 +409,10 @@ sixlabors.lic
 
 # k6 load-test output (tests/load/run.sh)
 tests/load/results/
+
+# Documentation site (wiki content is generated)
+/docs-site/node_modules/
+/docs-site/dist/
+/docs-site/.astro/
+/docs-site/src/content/docs/*
+!/docs-site/src/content/docs/index.mdx

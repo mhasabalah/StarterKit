@@ -261,6 +261,8 @@
         "tests/e2e/playwright-report/**",
         "tests/load/results/**",
         "templates/**",
+        "docs-site/**",
+        ".github/workflows/docs.yml",
         ".template.config/**",
         "wiki/Reference/Template-Backlog.md",
         ".claude/settings.local.json",
