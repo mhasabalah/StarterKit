@@ -1,146 +1,216 @@
-# Isolation and Dedicated Databases
+# Isolation and dedicated databases
 
-## Control plane vs data plane
+Tenant-data contexts enforce application checks and PostgreSQL row-level security in shared or dedicated databases while platform state remains in the host database.
+
+## At a glance
+
+| Responsibility | Source |
+|---|---|
+| Connection routing | `src/Shared/Shared.Core/MultiTenancy/TenantConnectionStringResolver.cs` |
+| EF writes and PostgreSQL session/policy setup | `src/Shared/Shared.Core/MultiTenancy/Data/` |
+| Provision, migrate and move | `src/Modules/Tenancy/Tenancy/Services/` |
+| Erasure | `src/Modules/Tenancy/Tenancy/Jobs/PurgeDeletedTenantsJob.cs` |
+
+## How it works
+
+### Control plane vs data plane
 
 | Plane | Contexts | Database |
 |---|---|---|
-| **Control plane** | `ApplicationIdentityDbContext`, `TenancyDbContext`, `SubscriptionsDbContext`, `NotificationDbContext`, Hangfire | Always the **host** (shared) database |
-| **Data plane** | Every `ITenantDataContext` - `CatalogDbContext`, `AttachmentDbContext`, and new business modules | The shared database **or** the tenant's dedicated database |
+| Control | `ApplicationIdentityDbContext`, `TenancyDbContext`, `SubscriptionsDbContext`, `NotificationDbContext`; Hangfire storage | Host database. |
+| Data | Every `ITenantDataContext`, including `AttachmentDbContext`, `WebhooksDbContext` and `DataTransferDbContext` | Shared or dedicated tenant database. |
 
-Users are global (identity in the host DB), billing is platform-level (the tenant is the subscriber), so only business
-data moves into a dedicated database.
+Users are global; the tenant is the billing subscriber. Only tenant-data contexts move into a dedicated database.
+The [architecture overview](../Architecture/Overview.md) defines module boundaries.
 
-## The three isolation layers
+```mermaid
+flowchart TB
+  C[ITenantDataContext] --> R[TenantConnectionStringResolver]
+  R -->|Shared| S[Host database: tenant schemas]
+  R -->|Dedicated| D[Tenant database]
+  S --> I[Filters, write checks and RLS]
+  D --> I
+  H[Control-plane contexts] --> P[Host database: platform schemas]
+```
+*Figure: Dedicated isolation changes the data-plane location while control-plane contexts remain in the host database.*
 
-1. **Resolution** - the tenant of a request comes from the token (`tid`), or from host/header validated against it.
-2. **EF Core** - every `IMustHaveTenant` entity gets the **named** query filter `Tenant`
-   (`TenantFilterDisabled || e.TenantId == CurrentTenantId`). Filters are named (EF Core 10), so
-   `IgnoreQueryFilters([QueryFilterNames.SoftDelete])` / `IgnoreNonIsolationFilters()` never drop tenant isolation.
-   `TenantEntityInterceptor` stamps `TenantId` on insert and blocks inserting into, updating, deleting or re-parenting
-   another tenant's rows (`CrossTenantAccessException` → 404, logged as a security event).
-3. **PostgreSQL Row-Level Security** - see below.
+### The three isolation layers
 
-**Fail closed**: an unresolved tenant (`CurrentTenantId = null`) matches no rows, RLS returns nothing, inserts throw
-`TenantNotResolvedException` (400).
+1. Resolution validates tenant claims, host and header before authorization; see [Overview](Overview.md).
+2. EF applies the named `Tenant` filter. `TenantEntityInterceptor` stamps inserts and rejects cross-tenant
+   insert/update/delete and ownership changes with `CrossTenantAccessException` (404, logged as a security event).
+3. PostgreSQL RLS constrains SQL reads and writes independently of EF filters, subject to database-role privileges.
 
-**Host scope** (`TenantScope.BeginHostScope()`): the only way to bypass layers 2-3 - used by migrations, seeding,
-the tenant store/membership resolver, platform admin queries and the purge. Keep such blocks small and explicit.
+An unresolved tenant matches no tenant rows; inserts raise `TenantNotResolvedException` (400).
+`IgnoreNonIsolationFilters()` preserves tenant and branch filters; `IgnoreBranchScope()` preserves tenant
+isolation. See [Database conventions](../Architecture/DatabaseConventions.md#query-filters).
+
+`TenantScope.BeginHostScope()` explicitly bypasses application tenant isolation for migrations, seed, stores,
+membership resolution, platform queries and purge. Keep the scope narrow and authorized. The optional tenant
+argument selects a dedicated database for maintenance. `.HostOnly()` alone does not enter this privileged scope.
 
 ## Row-Level Security
 
-Migrations that add `tenant_id` also call `migrationBuilder.EnableTenantRowLevelSecurity(schema, table)`:
+Every migration adding a tenant table calls `EnableTenantRowLevelSecurity(schema, table)`.
+The helper enables and forces RLS, then installs `tenant_isolation` with the same predicate for `USING` and
+`WITH CHECK`: the schema-local `tenant_rls_bypass()` must permit bypass, or `tenant_id` must match
+`NULLIF(current_setting('app.tenant_id', true), '')::uuid`.
+Source: `src/Shared/Shared.Core/MultiTenancy/Data/TenantRlsMigrationExtensions.cs`.
 
-```sql
-ALTER TABLE "catalog"."products" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "catalog"."products" FORCE ROW LEVEL SECURITY;      -- applies to the table owner too
-CREATE POLICY tenant_isolation ON "catalog"."products"
-  USING      (current_setting('app.bypass_rls', true) = 'on'
-              OR tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-  WITH CHECK (same);
-```
+`TenantSessionConnectionInterceptor` sets `app.tenant_id` and `app.bypass_rls` on every tenant-data connection open,
+including reused Npgsql connections. Forced RLS applies to table owners, but superusers and BYPASSRLS roles bypass it.
+The default Docker/Aspire superuser connection therefore does not exercise RLS; application filters still apply.
 
-`TenantSessionConnectionInterceptor` sets `app.tenant_id` and `app.bypass_rls` on **every** connection open of a
-tenant-data context (pooled connections can never carry a previous tenant).
-
-> **Superusers bypass RLS.** The default Docker/Aspire setup connects as the `postgres` superuser, where RLS is inert
-> (layers 1-2 still protect you). For production create a dedicated role:
->
-> ```sql
-> CREATE ROLE app LOGIN PASSWORD 'CHANGE_ME' NOSUPERUSER NOBYPASSRLS CREATEDB;  -- CREATEDB only for dedicated provisioning
-> ALTER DATABASE starterkit OWNER TO app;  -- or GRANT the needed privileges per schema
-> ```
->
-> and use it in `ConnectionStrings:starterkit`. `MultiTenancy:Database:EnableRowLevelSecurity=false` keeps the
-> policies installed but sets `app.bypass_rls=on` (inert).
+For production use a non-superuser runtime login without BYPASSRLS. Grant schema privileges rather than making
+the runtime login an unrestricted owner. Database creation privileges are needed only for provisioning generated
+dedicated databases. The role setup script is `deployment/postgres/scripts/init-rls-roles.sql`; use placeholder
+secrets such as `CHANGE_ME` only in configuration examples, never deployed credentials.
 
 ### Hardened bypass: role instead of session variable
 
-By default (`MultiTenancy:Database:RlsBypass=SessionVariable`) host scope sets `app.bypass_rls=on`. Since the runtime
-role can set that variable itself, any raw SQL executed in a session could switch RLS off. The opt-in hardened mode
-removes that:
+| Mode | Host-scope behavior | Limit |
+|---|---|---|
+| `SessionVariable` (default) | Sets `app.bypass_rls=on` on the runtime connection. | Without the bypass group role, arbitrary SQL under that login can set the same variable. |
+| `Role` | Replaces username/password with credentials from `HostConnectionString`; never requests session-variable bypass. | Requires RLS enabled and a privileged host login on each target server. |
 
-* The policies call a per-schema helper `<schema>.tenant_rls_bypass()` (created by `EnableTenantRowLevelSecurity`;
-  migrations `RlsBypassRoleHardening` in Catalog and Attachment upgraded existing tables). It returns true only when
-  `app.bypass_rls='on'` **and** (the group role `tenant_rls_bypass` does not exist **or** `current_user` is a member).
-  With no such role (default) behavior is unchanged; creating the role turns the hardening on cluster-wide for the
-  databases that carry the helper. Justification: a policy cannot read app configuration, and role membership cannot be
-  forged by a session, so the role's existence is the single DB-side switch and no session setting can lift RLS.
-* `RlsBypass=Role` + `HostConnectionString` (a `BYPASSRLS` login role): `TenantSessionConnectionInterceptor` swaps the
-  username/password to the host role in `ConnectionOpening` when the scope is host scope (server and database stay those
-  of the context, so dedicated databases on the same server work; the host role must exist there too). The variable is
-  never set to `on` by the app. `TenantDataMover` benefits automatically (it runs in host scope). Options validation
-  requires RLS enabled and a `HostConnectionString`.
-* Setup: `deployment/postgres/scripts/init-rls-roles.sql` creates `starterkit_app` (NOBYPASSRLS, not owner),
-  `starterkit_host` (BYPASSRLS) and the `tenant_rls_bypass` group role (do not make the runtime role a member). Run
-  migrations and seeding with an owner/migration role that is a member of `tenant_rls_bypass` or the host role.
-* **Cluster-wide switch.** The hardened mode turns on whenever the `tenant_rls_bypass` role exists anywhere in the
-  Postgres **cluster** (roles are cluster-level, not per database). Do not share one cluster between a hardened
-  (`RlsBypass=Role`) deployment and a `SessionVariable` deployment: the latter would lose host scope everywhere (it
-  fails closed). Give each mode its own cluster.
-* **Startup check.** With `RlsBypass=Role` the app also verifies at startup that the runtime role is not a superuser, does
-  not have `BYPASSRLS` and is not a member of `tenant_rls_bypass`, and refuses to start otherwise.
-* Caveat: if config says `Role` but the `tenant_rls_bypass` role was never created, the runtime role can still bypass;
-  verify with `SELECT 1 FROM pg_roles WHERE rolname='tenant_rls_bypass'`. The reverse (role exists, config
-  `SessionVariable`) fails closed: host scope sees nothing.
+The schema helper accepts `app.bypass_rls=on` only if the cluster has no `tenant_rls_bypass` group role or
+`current_user` belongs to that role. Creating the role therefore hardens every database carrying the helper.
+The Attachment `RlsBypassRoleHardening` migration upgrades existing policies.
+
+The setup script creates `starterkit_app` (NOBYPASSRLS, not owner), `starterkit_host` (BYPASSRLS), and
+`tenant_rls_bypass`. Do not make the runtime login a member of the bypass group. Run migration/seed with an
+appropriately privileged owner/migration role in that group or the host role.
+
+Role mode swaps credentials during `ConnectionOpening`, preserving the context's server and database.
+Dedicated databases on another server need the host role there too; `TenantDataMover` uses this through host scope.
+
+Roles are cluster-wide. Do not mix deployments expecting unrestricted SessionVariable bypass with hardened Role
+deployments in the same cluster: a SessionVariable runtime login outside the group loses host bypass and fails
+closed. `EnableRowLevelSecurity=false` leaves policies installed and requests session bypass; it cannot override
+the group-membership restriction, and Role-mode options require RLS enabled.
+
+`RlsBypassRoleCheck` refuses startup if the reachable host database lacks the group, or the checked runtime login
+is superuser, BYPASSRLS, or a bypass-group member. Connection/timeout failures are logged rather than fatal in this
+guard. It is not an audit of every remote dedicated server; verify those roles before routing traffic there.
 
 ### Connection pooling (PgBouncer)
 
-RLS relies on **session-level** `set_config` values applied on every connection open. Behind a **transaction-pooling**
-proxy (PgBouncer `pool_mode=transaction`) the value and the query can run on different server connections, so tenant
-data could be seen or hidden wrongly. Use direct connections or **session** pooling for every tenant-data connection
-string (also dedicated tenants and the host connection string). At startup `PoolingSafetyCheck` logs a warning for
-connection strings using port 6432 or a host containing `pgbouncer` (heuristic only; the pool mode is invisible to the
-client). Npgsql's own client-side pool is fine.
+Tenant RLS uses session-level settings. PgBouncer transaction pooling can execute session setup and the query on
+different server connections. Use direct connections or session pooling for all tenant-data connections, including
+dedicated databases and host credentials. Npgsql client-side pooling is supported.
+
+`PoolingSafetyCheck` warns for port 6432 or a host containing `pgbouncer`. This is a heuristic, not detection of
+the actual pool mode.
 
 ## Shared vs dedicated
 
-| | Shared (default) | Dedicated |
+| Concern | Shared | Dedicated |
 |---|---|---|
-| Where | `tenant_id` rows in the shared DB | Own database (`{database}_t_{identifier}` on the shared server, or any server via `ConnectionSecretRef`) |
-| Isolation | Filters + interceptor + RLS | Physical (filters/RLS still apply inside) |
-| Provisioning | Instant (seeding in background) | `Provisioning` → DB created + migrated + seeded by `ProvisionTenantJob` → `Active` |
-| Cost / ops | Lowest | One pool + one migration target per tenant |
-| Typical use | SMB / self-service tenants | Enterprise, data residency, noisy tenants |
+| Location | Tenant rows in shared schemas. | Generated database on the shared server or a configured external database. |
+| Isolation | Filters, write interceptor and RLS. | Physical database separation plus the same filters/RLS. |
+| Provisioning | Active immediately; tenant seed work runs in background. | `Provisioning` until `ProvisionTenantJob` creates/migrates/seeds the database. |
+| Operational cost | Shared connection pools and migration targets. | One pool and migration target per tenant. |
+| Selection | Default for self-service deployments. | Useful for residency routing or separate workload capacity. |
 
-Choose per tenant at creation (platform admins: `isolation`, `connectionSecretRef`, `region` in `POST /tenants`).
+Platform creation accepts `isolation`, `connectionSecretRef` and `region`; see [Operations](Operations.md).
 
 ### Connection resolution (`TenantConnectionStringResolver`)
 
-* Shared tenant, host scope, unresolved tenant, or multi-tenancy disabled → the shared `ConnectionStrings:starterkit`.
-* Dedicated with `ConnectionSecretRef = "acme-eu"` → `MultiTenancy:Connections:acme-eu` or `ConnectionStrings:acme-eu`
-  (put it in a Docker secret / env var: `MultiTenancy__Connections__acme-eu`). **Never stored in the database.**
-* Dedicated without a ref → shared server, database `MultiTenancy:Database:DedicatedDatabaseNameFormat`.
-* `Maximum Pool Size` is capped at `MaxDedicatedPoolSize`.
-* A dedicated tenant whose connection cannot be resolved **fails** (never falls back to the shared database).
+- Shared tenant, unresolved tenant, host scope without a target, or disabled multi-tenancy uses
+  `ConnectionStrings:starterkit`.
+- Dedicated tenants with a `ConnectionSecretRef` resolve `MultiTenancy:Connections:{ref}`, then
+  `ConnectionStrings:{ref}`. The first section is configurable. Connection strings are secrets in configuration,
+  not database rows; environment-variable keys use double underscores.
+- Without a reference, the resolver uses the shared server with `DedicatedDatabaseNameFormat`.
+  Names are lowercased, non-alphanumeric characters become underscores, and length is capped at 63 characters.
+- `TenantScope.BeginHostScope(tenant)` can select the dedicated database for maintenance.
+- A positive `MaxDedicatedPoolSize` caps the Npgsql pool. An unresolved dedicated reference throws; it never
+  falls back to shared data.
 
-Try it locally: `cd src/Aspire/AppHost && dotnet run -- MultiTenancy:DedicatedSample=true` adds the database
-`starterkit_tenant_demo` and passes it to the API as `ConnectionStrings:tenant-demo`. A tenant created with
-`connectionSecretRef: "tenant-demo"` lands there ([Aspire](../Infrastructure/Aspire.md)).
+For the existing Aspire demonstration, run
+`dotnet run --project src/Aspire/AppHost -- MultiTenancy:DedicatedSample=true`.
+It supplies `ConnectionStrings:tenant-demo` for `starterkit_tenant_demo`; create a tenant with
+`connectionSecretRef: "tenant-demo"`. See [Aspire](../Infrastructure/Aspire.md).
 
 ### Migrations
 
-* Shared DB: `UseMigration<TContext>()` at startup (host scope).
-* Dedicated DBs: `DedicatedTenantDatabaseMigrator` (hosted service) migrates every active dedicated tenant in the
-  background with `MigrationParallelism`; failures are logged per tenant. Disable with
-  `MultiTenancy:Database:MigrateDedicatedOnStartup=false` and run `POST /host/tenants/{id}/provision` instead.
+Shared migration uses `UseMigration<TContext>()` when enabled.
+`DedicatedTenantDatabaseMigrator` migrates and seeds **active and suspended** dedicated tenants with bounded
+parallelism. Boot execution requires both migration switches below; production uses `--migrate-only`.
+That command invokes dedicated migration directly and fails the run if any selected tenant fails.
+See [Operations](Operations.md) and [Database conventions](../Architecture/DatabaseConventions.md#migrations-at-deploy).
 
-## Storage (attachments)
+### Storage (attachments)
 
-Every blob key is prefixed `t/{tenantId:N}/…` (`StoragePaths.TenantRoot`). Pre-multi-tenancy keys without the prefix
-belong to the Default tenant. The orphan sweeper lists only the current tenant's prefix, and the tenant purge deletes
-the whole prefix.
+`StoragePaths.TenantRoot` prefixes blob keys with `t/{tenantId:N}/`.
+Legacy unprefixed keys belong to the Default tenant. The orphan sweeper lists the current tenant's prefix;
+purge deletes the tenant's storage. Database moves do not relocate blobs.
 
-## Caches
+### Caches
 
-Tenant data in caches must use `ITenantCacheKeys.For(key)` → `t:{tenantId}:{key}` (example: `CategoryTreeCache`).
-Platform/user-keyed entries (token blacklist, plan catalog, subscription-by-subscriber) keep plain keys.
+Tenant-derived entries use `ITenantCacheKeys.For(key)` (`t:{tenantId:N}:{key}`).
+Platform/user-keyed entries retain their own keys. Tenant and membership L1 caches broadcast evictions over Redis;
+see [Overview](Overview.md#caches-and-storage) for generation invalidation and failure limits.
 
-### In-process (L1) tenant caches across instances
+## Configuration
 
-`TenantStore` and `TenantMembershipResolver` keep an `IMemoryCache` L1 over Redis (L2). An invalidation evicts L1+L2 on
-the instance that made the change and **broadcasts the evicted L1 keys** over Redis pub/sub
-(`MultiTenancy:Cache:InvalidationChannel`, default `starterkit:tenancy:invalidate`; `BroadcastInvalidation=false`
-disables). Every instance (including the sender) evicts the keys on receipt, which is idempotent. A suspended tenant is
-therefore refused on all replicas immediately instead of after `Cache:LocalSeconds`. Without Redis the bus is a no-op;
-a publish/subscribe failure is logged and never fails a request, and the L1 TTL stays the upper bound. Other modules
-with L1 caches can inject `ILocalCacheInvalidationBus`.
+Defaults come from `MultiTenancyOptions.cs` and `src/Api/appsettings.json`.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `MultiTenancy:DefaultIsolation` | `Shared` | New tenant default. |
+| `MultiTenancy:Database:EnableRowLevelSecurity` | `true` | Apply tenant session state; disabling requests session bypass. |
+| `MultiTenancy:Database:RlsBypass` | `SessionVariable` | Host bypass mode: `SessionVariable` or `Role`. |
+| `MultiTenancy:Database:HostConnectionString` | `null` | Credentials for host scope in Role mode. |
+| `MultiTenancy:Database:ConnectionsSection` | `MultiTenancy:Connections` | Dedicated secret lookup section. |
+| `MultiTenancy:Database:DedicatedDatabaseNameFormat` | `{database}_t_{identifier}` | Generated database name. |
+| `MultiTenancy:Database:MaxDedicatedPoolSize` | `20` | Dedicated pool cap when positive. |
+| `MultiTenancy:Database:MigrationParallelism` | `4` | Concurrent dedicated tenant migrations. |
+| `MultiTenancy:Database:MigrateDedicatedOnStartup` | `true` | Boot migrator switch; also requires `Database:MigrateOnStartup`. |
+
+## Usage
+
+The Webhooks initial migration enables RLS on both tables. From
+`src/Modules/Webhooks/Webhooks/Data/Migrations/20261104210646_InitialCreate.cs`:
+
+```csharp
+migrationBuilder.EnableTenantRowLevelSecurity("webhooks", "webhook_endpoints");
+migrationBuilder.EnableTenantRowLevelSecurity("webhooks", "webhook_deliveries");
+```
+
+Apply the helper to every new tenant table, including child, audit and outbox tables.
+[Adding a tenant-aware module](Adding-a-Tenant-Aware-Module.md) provides the implementation procedure.
+
+## Failure modes and guarantees
+
+### Data moves between databases
+
+`TenantMover` validates distinct source/target databases, waits for propagation of `Migrating`, prepares the target
+without seed data, and copies each registered context. `TenantDataMover` streams binary COPY from a repeatable-read
+source snapshot into one target transaction per context, clears earlier attempt rows and verifies per-table counts.
+There is no transaction spanning all contexts and the control-plane cutover.
+
+After every copy succeeds, the tenant mapping switches and the effective status returns. Source cleanup follows
+another propagation wait. Failure before cutover keeps the original location and attempts partial-target cleanup.
+Cleanup after cutover is best effort and does not undo the switch.
+Use the [move runbook](Operations.md#moving-a-tenant-between-shared-and-dedicated-automated).
+
+### Purge
+
+`PurgeDeletedTenantsJob` dispatches `TenantDataPurgeRequestedEvent` for external resources, deletes tenant data and
+control-plane rows, then leaves a `Deleted` tombstone reserving the identifier.
+A generated dedicated database (no secret reference) is dropped; shared or externally configured databases have
+only that tenant's rows purged. Failures are logged and retried on the next daily run.
+External erasure handlers must be idempotent: purge spans several units of work and is not globally atomic.
+
+## Guardrails
+
+`TenantIsolationArchitectureTests` checks model conventions.
+`TenantRowLevelSecurityCoverageTests` checks forced RLS and `tenant_isolation` on migrated tables.
+`RowLevelSecurityTests`, `RlsBypassRoleTests`, `TenantConnectionStringResolverTests` and `TenantDataMoveTests`
+cover isolation, hardening, routing and copy behavior; `TenantMoveTests` covers lifecycle transitions.
+
+## Related
+
+[Overview](Overview.md), [Operations](Operations.md), [Database conventions](../Architecture/DatabaseConventions.md),
+[ADR-0005](../Decisions/0005-tenant-isolation-model.md), and `/starterkit:add-migration`.
