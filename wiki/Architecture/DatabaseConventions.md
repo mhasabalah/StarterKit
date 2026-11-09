@@ -1,149 +1,143 @@
 # Database conventions
 
-These are the EF Core 10 and PostgreSQL 16 conventions. For migrations, see [../Reference/Migrations.md](../Reference/Migrations.md)
-and `/starterkit:add-migration`. For new entities, see `/starterkit:add-aggregate`. For tenant data, see
-[../MultiTenancy/Adding-a-Tenant-Aware-Module.md](../MultiTenancy/Adding-a-Tenant-Aware-Module.md).
+Module-owned PostgreSQL schemas and shared EF Core conventions keep persistence boundaries explicit while enforcing tenant isolation and concurrency at the database boundary.
 
-## One database, one schema per module
+## At a glance
 
-- **One database.** All modules share one database (`ConnectionStrings:starterkit`), and each module owns **its
-  own schema and DbContext**: `identity`, `tenancy`, `attachment`, `catalog`, `subscriptions`, `notification`.
-  - Each module keeps its own migrations history table (`UseModuleMigrationsHistory<TContext>()`).
-  - Each module auto-migrates on startup (`UseMigration<TContext>()`).
-- **No cross-schema foreign keys and no cross-module joins.** A module stores another module's id as a plain `Guid`
-  (for example `OwnerId`) and reads its data through `ISender` + `.Contracts`. That keeps modules extractable.
-  [ADR-0001](../Decisions/0001-modular-monolith-schema-per-module.md) explains why.
+| Concern | Main types / source |
+|---|---|
+| Context setup | `AddCustomDbContext`, `src/Shared/Shared.Core/Data/Extentions.cs` |
+| Model conventions | `AppDbContextBase`, `ToSnakeCaseTables`, `ConfigureVersionConcurrencyTokens` |
+| Save interception | `src/Shared/Shared.Core/Data/Interceptors/`; [Request lifecycle](Request-Lifecycle.md#save-commit-and-dispatch) |
+| Tenant isolation | `ITenantDataContext`, `TenantEntityInterceptor`, `TenantSessionConnectionInterceptor` |
+| Deploy migrations | `DatabaseMigrationOptions`, `MigrationLock`, `src/Api/Program.cs` |
 
-```csharp
-protected override void OnModelCreating(ModelBuilder builder)
-{
-    base.OnModelCreating(builder);
-    builder.HasDefaultSchema("catalog");
-    builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
-    builder.FilterSoftDeletedProperties();       // only if the module soft-deletes
-    builder.AddTenantOutbox();                   // only if it publishes integration events (AddOutbox() for host contexts)
-    builder.ToSnakeCaseTables();
-    builder.ConfigureVersionConcurrencyTokens();
-    ApplyTenantFilters(builder);                 // tenant-data contexts: LAST
-}
+## How it works
+
+### One database, one schema per module
+
+The shared database is selected by `ConnectionStrings:starterkit`. Each module owns its DbContext, schema and migrations history (`UseModuleMigrationsHistory<TContext>()`). Platform schemas include `identity`, `tenancy`, `attachment`, `subscriptions`, `notification`, `webhooks` and `datatransfer`; the optional sample owns its own schema. Tenant-data contexts can instead use a tenant's dedicated database. Control-plane contexts remain in the host database.
+
+No cross-module joins or foreign keys cross schema boundaries. Store another module's identity as a scalar id and read through `ISender` plus its contracts. See [Overview](Overview.md) and [ADR-0001](../Decisions/0001-modular-monolith-schema-per-module.md).
+
+```mermaid
+flowchart TB
+  M[Module DbContext] --> C[Schema and entity configurations]
+  C --> O[Optional soft delete, audit and outbox mappings]
+  O --> N[Snake case and version tokens]
+  N --> T[Tenant filters last]
+  T --> S[Save interceptors]
+  S --> D[PostgreSQL transaction]
+  D --> R[Tenant tables also enforce RLS]
 ```
+*Figure: Model conventions and save interception complement database constraints and tenant row-level security.*
 
-The context is registered with `services.AddCustomDbContext<TContext>(configuration, "starterkit")`. That call
-configures Npgsql, snake_case naming and the interceptors: auditing and versioning, domain-event collection, tenant
-stamping and the RLS session.
+### Naming
 
-## Naming
+Use snake_case for tables, columns and indexes through `EFCore.NamingConventions` and `ToSnakeCaseTables()`. Owned `LocalizedText` uses `name_en` / `name_ar`. Name unique indexes explicitly and keep the name in a configuration constant so `IsUniqueViolation` can translate a particular constraint into a domain conflict.
 
-- snake_case everywhere, through `EFCore.NamingConventions`: table `product_images`, column `published_at`, index
-  `ix_products_tenant_id_branch_id`.
-- Name unique indexes explicitly and keep the name in a constant, so the repository can translate violations:
-  `HasDatabaseName(ProductConfiguration.SkuIndexName)` then `ex.IsUniqueViolation(ProductConfiguration.SkuIndexName)`.
-- Owned `LocalizedText` maps to `name_en` / `name_ar` columns.
-
-## Keys, types and columns
+### Keys, types and columns
 
 | Concern | Rule |
 |---|---|
-| Primary key | `Guid Id`, generated in the factory (`Guid.NewGuid()`) |
-| Enums | `.HasConversion<string>().HasMaxLength(n)`: readable and safe to reorder |
-| Strings | Always `HasMaxLength` (backed by a `const` on the entity) |
-| Money | `decimal` with an explicit precision + currency column |
-| Booleans | `IsRequired()`; no `HasDefaultValue` (EF sentinel problems) |
-| Concurrency | `long Version` from `Entity<T>`; configured by `ConfigureVersionConcurrencyTokens()`; never set it by hand |
-| Audit columns | `CreatedAt`/`CreatedBy`/`LastModified`/`LastModifiedBy`, set by `AuditableEntityInterceptor` |
-| Tenant | `tenant_id` on every tenant-data table; stamped by `TenantEntityInterceptor` |
+| Primary key | Generate `Guid` ids in factories; both `Guid.NewGuid()` and `Guid.CreateVersion7()` exist. Client-generated child keys require `ValueGeneratedNever()`. |
+| Enums | Prefer `.HasConversion<string>().HasMaxLength(...)` for readable, reorder-safe values. This is the convention, not a claim that every existing enum is string-backed. |
+| Strings | Bound persisted strings with `HasMaxLength`, using entity constants. |
+| Money | Explicit decimal precision and currency; shared money precision is `numeric(19,4)`. |
+| Booleans | Use `IsRequired()`; avoid `HasDefaultValue` sentinel surprises. |
+| Concurrency | `long Version`, mapped by `ConfigureVersionConcurrencyTokens()`; never assign it manually. |
+| Audit columns | `CreatedAt`, `CreatedBy`, `LastModified`, `LastModifiedBy`, stamped by `AuditableEntityInterceptor`. |
+| Tenant ownership | `tenant_id` on every tenant-data entity; `TenantEntityInterceptor` stamps it. Never set `TenantId` yourself. |
 
-### Timestamps (UTC only)
+#### Timestamps (UTC only)
 
-Npgsql runs in its default (non-legacy) mode, so `DateTime` and `DateTimeOffset` map to `timestamptz`.
-- Write `DateTime` values with `Kind=Utc` (`TimeProvider.GetUtcNow().UtcDateTime`, `DateTime.UtcNow`). `Kind=Local`
-  or `Unspecified` throws on save.
-- Normalize client `DateTimeOffset` input with `ToUniversalTime()`.
-- Never turn on `Npgsql.EnableLegacyTimestampBehavior`.
+Npgsql uses non-legacy timestamp behavior. For `timestamptz`, supply UTC `DateTime` values, normally `TimeProvider.GetUtcNow().UtcDateTime`; local or unspecified values are rejected. Normalize client `DateTimeOffset` input with `ToUniversalTime()`. Do not enable `Npgsql.EnableLegacyTimestampBehavior`.
 
-## Relationships
+### Relationships
 
-Relationships exist **inside an aggregate** (root → children), with an explicit delete behaviour:
+Map aggregate children with an explicit delete behavior and field access for private backing collections. Between aggregates in a module, reference by id and add a foreign key where integrity requires it, with a deliberate cascade or restrict policy. Never add a cross-module foreign key. Repositories load aggregates and children with `Include`, using `AsSplitQuery()` for multiple collections; do not rely on lazy loading.
+
+### Indexes
+
+Index filter and sort columns, foreign keys, statuses and purge predicates such as `(is_deleted, deleted_at)`. Unique indexes in tenant-data contexts start with `tenant_id`. For unique indexes spanning an owned property and the owner's tenant column, create the composite index in migration SQL, keeping its name aligned with the configuration constant. Filtered unique indexes allow soft-deleted values to be reused where the domain permits that.
+
+### Query filters
+
+Use named filters (`QueryFilterNames`): `SoftDelete` from `FilterSoftDeletedProperties()`, `Tenant` and `Branch` from `ApplyTenantFilters`, and module-specific filters such as `Lifecycle`. Add soft-delete mapping only for entities that actually soft-delete.
+
+Admin, restore and purge queries use `IgnoreNonIsolationFilters()` to remove soft-delete/lifecycle restrictions while keeping tenant and branch isolation. `IgnoreBranchScope()` removes branch scoping for explicitly authorized tenant-wide access. Parameterless `IgnoreQueryFilters()` is forbidden in production code. Neither helper is a substitute for endpoint authorization.
+
+### Reading data
+
+Queries use `AsNoTracking()` and SQL projection, then `.PagedResult(pageNumber, pageSize, ct)` from `src/Shared/Shared.Core/Extensions/QueryExtensions.cs`. Small bounded lookups can return a list. Avoid per-row database calls: batch ids into a single query. Escape user-supplied wildcard characters before an `EF.Functions.ILike` search; parameterization alone does not make `%` or `_` literal.
+
+### Writing data and transactions
+
+Prefer one `SaveChangesAsync` per command. A save is transactional; use an explicit transaction if several saves must commit together. Event staging, commit and post-commit dispatch are distinct stages; [Request lifecycle](Request-Lifecycle.md#save-commit-and-dispatch) defines them. Integration facts use the [transactional outbox](Messaging.md#outbox).
+
+Critical updates use `ExpectVersion`; [Concurrency and versions](Concurrency-and-Versions.md) covers the full request/DTO contract and child-only mutations. Translate known PostgreSQL unique violations (`23505`) using `IsUniqueViolation`, rather than relying on a pre-insert existence query alone. Subscriptions also translates unique violations centrally in its async DbContext save override.
+
+### Seeding
+
+Implement `IDataSeeder` (`SeedAllAsync`, `DbContextType`) and register it in the owning module. Seeding must be idempotent. Use `TenantSeedIds.For(tenantId, seedId)` for stable per-tenant ids. `UseMigration<T>()` runs seeders after migrations when migration is enabled; tenant-data seeders run in the Default tenant scope. Tenancy provisioning uses `MigrateAndSeedAsync` for dedicated tenant databases.
+
+### Audit trail
+
+Entities implementing `IAuditable` get an `audit_entries` row for each tracked insert, update and delete through `AuditTrailInterceptor`, in the same save transaction. Map `AddAuditTrail()` or `AddTenantAuditTrail()` before tenant filters; tenant-data audit tables also need RLS in the migration. Retention jobs call `PurgeAuditEntriesAsync`.
+
+`[AuditIgnore]` excludes noisy or secret properties; names containing Password, Secret, Token or Hash are automatically excluded. `ExecuteUpdate` and `ExecuteDelete` bypass this interceptor. See [ADR-0011](../Decisions/0011-audit-trail.md).
+
+### Row-level security
+
+Every new table in an `ITenantDataContext`, including children, audit rows and outbox rows, requires `EnableTenantRowLevelSecurity` in its migration. EF filters and tenant write checks are complemented by forced PostgreSQL RLS. The connection interceptor sets session tenant state. Role-based host bypass requires a privileged role; setting a session flag does not bypass role-based policies. Tenant-data connections must not use transaction pooling. See [Isolation and dedicated databases](../MultiTenancy/Isolation-and-Dedicated-Databases.md).
+
+### Migrations at deploy
+
+Production disables boot-time migration with `Database:MigrateOnStartup=false`. The deploy runs `dotnet run --project src/Api -- --migrate-only` (or the published API with the same flag) to migrate and seed shared and dedicated tenant databases, then exit. It also provisions the PostgreSQL message transport when configured.
+
+`MigrationLock` serializes migrators per database through a session advisory lock on a dedicated, unpooled connection. The lock is released on disposal or connection loss; lock acquisition times out rather than running migrations concurrently. The shared migration connection may use `Database:MigrationConnectionString` for elevated privileges, while normal request connections retain runtime privileges. That override is for shared-database migration; it does not replace dedicated-tenant connection strings. See [Migrations](../Reference/Migrations.md) for creation and deployment procedures.
+
+## Configuration
+
+Defaults come from `DatabaseMigrationOptions`, `src/Api/appsettings.json`, `appsettings.Docker.json` and audit retention configuration.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Database:MigrateOnStartup` | `true`; Docker `false` | Enables migration and seed during normal module initialization. |
+| `Database:MigrateOnly` | `false` | Set by `--migrate-only`; migrate regardless of the boot setting, then exit. |
+| `Database:MigrationConnectionString` | `null` | Optional privileged shared-database migration connection; otherwise the normal connection. |
+| `Database:LockTimeoutSeconds` | `300` | Maximum advisory-lock wait. |
+| `AuditTrail:RetentionDays` | `365` | Retention cutoff used by audit purge jobs. |
+
+## Usage
+
+The ordering in `src/Modules/Tenancy/Tenancy/Data/TenancyDbContext.cs` is:
 
 ```csharp
-builder.HasMany(p => p.Images).WithOne().HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Cascade);
-builder.Navigation(p => p.Images).UsePropertyAccessMode(PropertyAccessMode.Field);   // private List<T> backing field
+base.OnModelCreating(builder);
+builder.HasDefaultSchema(Schema);
+builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+builder.ToSnakeCaseTables();
+builder.ConfigureVersionConcurrencyTokens();
 ```
 
-Between aggregates of the same module, reference by id, with an FK only where integrity matters (for example
-`Product.CategoryId → categories`, `OnDelete(Restrict)`). Between modules, never use an FK.
+`ApplyTenantFilters(builder)` is the final model-building call. Tenant-data contexts follow the same ordering and require every entity to implement `IMustHaveTenant`. `AddCustomDbContext<TContext>` supplies Npgsql, naming conventions and save/connection interceptors; model mappings and migrations remain the module's responsibility.
 
-## Indexes
-
-- Index what you filter and sort on: foreign keys, status, `(is_deleted, deleted_at)` for purge jobs.
-- Tenant-data unique indexes **start with `tenant_id`**: `HasIndex(x => new { x.TenantId, x.Sku }).IsUnique()`.
-  `TenantIsolationArchitectureTests` enforces this.
-- An owned-column unique index (`name_en`) cannot include `tenant_id` in EF. Create it with raw SQL in the
-  migration, using the same name as the constant.
-- Use filtered unique indexes (`HasFilter("is_deleted = false")`) when soft-deleted rows must not block reuse.
-
-## Query filters
-
-All filters are **named** (EF Core 10, `QueryFilterNames`):
-- `SoftDelete` from `FilterSoftDeletedProperties()`
-- `Tenant` and `Branch` from `ApplyTenantFilters`
-- module-specific filters such as `Lifecycle`
+From `src/Modules/Tenancy/Tenancy/Data/Configurations/FeatureFlagConfigurations.cs`, a real aggregate-child mapping:
 
 ```csharp
-// Admin/restore/purge paths: drop soft-delete & lifecycle filters, KEEP tenant isolation.
-var deleted = await context.Products.IgnoreNonIsolationFilters().Where(p => p.IsDeleted).ToListAsync(ct);
-// Branch-wide view for users with tenant.branches.all:
-var all = await context.Products.IgnoreBranchScope().ToListAsync(ct);
+builder.HasMany(f => f.Overrides).WithOne().HasForeignKey(o => o.FeatureFlagId).OnDelete(DeleteBehavior.Cascade);
+builder.Navigation(f => f.Overrides).UsePropertyAccessMode(PropertyAccessMode.Field);
 ```
 
-The parameterless `IgnoreQueryFilters()` is forbidden in production code; an architecture test checks this.
+## Failure modes and guarantees
 
-## Reading data
+Version mismatches and translated uniqueness conflicts return 409; unmapped database failures follow the 500 path in [Errors and responses](Errors-and-Responses.md). Isolation checks are not optional query conveniences: omitting a tenant filter or RLS migration creates a security defect. An advisory-lock timeout fails the migration run; it does not authorize a second migrator to proceed. Deploy migrations before starting runtime instances that require the new schema.
 
-- Query handlers use `AsNoTracking()` and **project in SQL** (`Select(x => new Dto(...))`), then page with
-  `.PagedResult(pageNumber, pageSize, ct)` (`Shared.Core/Extensions/QueryExtensions.cs`).
-- Repositories load aggregates with their children (`Include(...)`, `AsSplitQuery()` for multiple collections).
-  Don't lazy load.
-- Avoid N+1: no per-row queries inside loops. Batch with `Where(x => ids.Contains(x.Id))`.
-- `LIKE` search escapes user input (see `Catalog/Common/LikePattern.cs`) and uses `EF.Functions.ILike`.
+## Guardrails
 
-## Writing data and transactions
+`TenantIsolationArchitectureTests`, `ClientGeneratedKeyTests`, `AuditTrailArchitectureTests` and `ModuleBoundaryTests` in `src/Api.Tests/Architecture/` enforce model and dependency rules. `PendingModelChangesTests` and `TenantRowLevelSecurityCoverageTests` in `src/Api.E2ETests/` check migrations and actual RLS coverage. `MigrationsHistoryTests` and `MigrationLockTests` in `src/Shared/Shared.Core.Tests/Infrastructure/` cover history isolation and lock behavior. Concurrency has its own [test coverage](Concurrency-and-Versions.md#guardrails).
 
-- One command = one `SaveChangesAsync`, which is transactional by itself. Domain events are collected on save and
-  published only after a successful commit.
-- If you need several saves to commit together, use an explicit transaction
-  (`await using var tx = await db.Database.BeginTransactionAsync(ct)`). Events of an uncommitted or rolled-back
-  transaction are discarded.
-- Concurrency conflicts surface as `DbUpdateConcurrencyException`, which becomes 409 through
-  `ConcurrencyHandlingBehavior`. For details, see `CLAUDE.md` → *Optimistic concurrency*.
-- Postgres unique violations (23505) are translated to `ConflictException` in the repository with
-  `IsUniqueViolation`.
+## Related
 
-## Seeding
-
-Implement `IDataSeeder` (`SeedAllAsync`, `DbContextType`) and register it in `<M>Module.cs`, as Catalog's
-`CatalogDataSeeder` does.
-- Seeding is idempotent: check before inserting.
-- Use fixed ids per tenant from `TenantSeedIds.For(tenantId, seedId)`.
-- Seeders run after migrations (`UseMigration<T>()`). Seeders of tenant-data contexts run as the Default tenant.
-  Dedicated tenant databases are migrated and seeded by Tenancy provisioning (`MigrateAndSeedAsync`).
-
-## Audit trail
-
-Entities that implement `IAuditable` (`Shared.Core.Auditing`) get an `audit_entries` row per insert, update and delete,
-written by `AuditTrailInterceptor` in the same `SaveChanges` (same transaction). Map the table in `OnModelCreating`
-(`builder.AddAuditTrail()`, or `AddTenantAuditTrail()` before `ApplyTenantFilters` in a tenant-data context), add a
-migration (tenant-data: also `EnableTenantRowLevelSecurity(schema, "audit_entries")`) and schedule a retention job that
-calls `PurgeAuditEntriesAsync` (`AuditTrail:RetentionDays`, default 365). Use `[AuditIgnore]` on noisy or secret
-properties; names containing Password / Secret / Token / Hash are skipped automatically. `ExecuteUpdate` /
-`ExecuteDelete` bypass it. `AuditTrailArchitectureTests` enforces the table mapping.
-Decision: [ADR-0011](../Decisions/0011-audit-trail.md).
-
-## Row-level security
-
-Tenant-data tables get Postgres RLS as a second isolation layer under the EF filter:
-`migrationBuilder.EnableTenantRowLevelSecurity(schema, table)` for every table, including `outbox_messages`. The
-connection interceptor sets the session's tenant. See
-[../MultiTenancy/Isolation-and-Dedicated-Databases.md](../MultiTenancy/Isolation-and-Dedicated-Databases.md).
-
-Related: [ApiGuidelines.md](ApiGuidelines.md) · [../Testing/Testing-Strategy.md](../Testing/Testing-Strategy.md)
+[Migrations](../Reference/Migrations.md), [Adding a tenant-aware module](../MultiTenancy/Adding-a-Tenant-Aware-Module.md), [API guidelines](ApiGuidelines.md), [Testing strategy](../Testing/Testing-Strategy.md), [ADR-0001](../Decisions/0001-modular-monolith-schema-per-module.md), and `/starterkit:add-migration` / `/starterkit:add-aggregate`.

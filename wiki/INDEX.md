@@ -36,6 +36,7 @@ wiki/
 - [Overview](Architecture/Overview.md): the big picture
 - [Request lifecycle](Architecture/Request-Lifecycle.md): HTTP middleware, endpoint filters, mediator, commit and event dispatch
 - [Errors and responses](Architecture/Errors-and-Responses.md): response envelopes, exception/status mapping, machine codes and trace identifiers
+- [Concurrency and versions](Architecture/Concurrency-and-Versions.md): version tokens, stale updates, child collections and background conflicts
 - [ProjectStructure](Architecture/ProjectStructure.md): solution and module layout
 - [CodingStandards](Architecture/CodingStandards.md): C# house style, errors, async, logging, localization
 - [DesignPatterns](Architecture/DesignPatterns.md): the patterns in use and the mediator pipeline
