@@ -1,7 +1,26 @@
 <!-- Template repository only: excluded from generated products (.template.config/template.json). -->
 # Changing the template
 
-The repository is the template, so every change is a normal code change. Three rules keep it generatable:
+Maintain the product and module generators while preserving compilable source and valid generated products.
+
+## Goal
+
+Ship template changes that pass build, test and documentation checks in every supported generation combination. This page is excluded from generated products.
+
+## Prerequisites
+
+Read `CLAUDE.md`, use the SDK pinned in `global.json`, and have Docker available for integration tests. Commit or release only when explicitly authorized.
+
+## Steps
+
+1. Apply the conditional-code rules below.
+2. Regenerate module migrations if its model changes.
+3. Generate a probe product and run verification.
+4. Release after the templates workflow passes.
+
+### Conditional-code rules
+
+The repository is the template, so every change is a normal code change. These rules keep it generatable:
 - **Optional code is conditional, not deleted.**
   - C#: `#if (SAMPLE)` … `#endif`. `Directory.Build.props` defines `SAMPLE` only in the template repository, so the
     template builds and tests every optional part.
@@ -20,6 +39,9 @@ The repository is the template, so every change is a normal code change. Three r
 
 The `templates.yml` workflow packs the templates and generates products with several switch combinations, plus
 modules inside them. Each one must build, pass its tests and the docs check, and contain no leftover template name.
+
+## Verify
+
 Run the same check locally:
 
 ```bash
@@ -70,10 +92,14 @@ written by hand, and the tenant sets get `EnableTenantRowLevelSecurity` for ever
 module's model, run `bash scripts/regenerate-module-migrations.sh` and review the diff. The CI matrix proves every set
 matches its model (`PendingModelChangesTests`).
 
-## Why the docs avoid marker syntax
+## Pitfalls
+
+### Why the docs avoid marker syntax
 
 `dotnet new` processes Markdown files too, and it reads the marker syntax anywhere on a line. A page that ships in a
 product must describe the markers in words, never quote them. This page and
 [ADR-0020](../Decisions/0020-dotnet-new-templates.md) are excluded from generated products, so they can.
 
-Design and rationale: [ADR-0020](../Decisions/0020-dotnet-new-templates.md).
+## Related
+
+Use `/starterkit:update-docs` for documentation and `/starterkit:new-project` for generation. Design and rationale: [ADR-0020](../Decisions/0020-dotnet-new-templates.md).
