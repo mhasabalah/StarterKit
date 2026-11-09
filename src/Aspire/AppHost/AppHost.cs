@@ -51,6 +51,17 @@ if (settings.Transport == MessagingTransport.RabbitMq)
     api.WithReference(rabbitmq).WaitFor(rabbitmq);
 }
 
+// Multi-tenancy with a second database for a dedicated tenant, on the same Postgres server. Aspire creates the database
+// and hands the API ConnectionStrings:tenant-demo; a tenant created with isolation Dedicated and
+// connectionSecretRef "tenant-demo" resolves to it, and its first provisioning migrates it.
+if (settings.DedicatedTenantSample)
+{
+    var tenantDatabase = postgres.AddDatabase(AppHostSettings.DedicatedTenantConnectionName, "starterkit_tenant_demo");
+
+    api.WithReference(tenantDatabase).WaitFor(tenantDatabase)
+        .WithEnvironment("MultiTenancy__Enabled", "true");
+}
+
 // Upload malware scanning (same image as docker-compose.clamav.yml). The first start loads signatures for 1-2 minutes;
 // the API does not wait for it - uploads get 503 malware_scanner_unavailable until clamd answers.
 if (settings.ClamAv)

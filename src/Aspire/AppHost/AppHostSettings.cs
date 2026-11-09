@@ -10,12 +10,17 @@ public sealed record AppHostSettings(
     bool ObservabilityFullStack,
     MessagingTransport Transport,
     int? PostgresHostPort,
-    bool ClamAv = false)
+    bool ClamAv = false,
+    bool DedicatedTenantSample = false)
 {
     public const string ObservabilityFullStackKey = "Observability:FullStack";
     public const string TransportKey = "Messaging:Transport";
     public const string PostgresHostPortKey = "Postgres:HostPort";
     public const string ClamAvKey = "Attachment:ClamAv";
+    public const string DedicatedTenantSampleKey = "MultiTenancy:DedicatedSample";
+
+    /// <summary>Connection-string name of the sample dedicated tenant database (its <c>connectionSecretRef</c>).</summary>
+    public const string DedicatedTenantConnectionName = "tenant-demo";
 
     public static AppHostSettings From(IConfiguration configuration)
     {
@@ -40,7 +45,8 @@ public sealed record AppHostSettings(
             configuration.GetValue(ObservabilityFullStackKey, defaultValue: false),
             transport,
             postgresPort,
-            configuration.GetValue(ClamAvKey, defaultValue: false));
+            configuration.GetValue(ClamAvKey, defaultValue: false),
+            configuration.GetValue(DedicatedTenantSampleKey, defaultValue: false));
     }
 }
 

@@ -71,10 +71,18 @@ public static class MassTransitExtensions
             // restart. Each module registers its sagas here, durably (AddDurableSagaStateMachine, ADR-0023).
             configureBus?.Invoke(config);
 
+            // A message scheduler on every transport, so saga timeouts (Schedule/ScheduleSend) work wherever a module
+            // runs: PostgreSql keeps scheduled messages in its own tables (durable), InMemory and RabbitMQ (delayed
+            // exchange) use the transport's delayed delivery. IMessageScheduler is injectable on all of them.
             switch (messaging.Transport)
             {
                 case MessagingTransport.PostgreSql:
-                    config.UsingPostgres((context, cfg) => ConfigureBus(context, cfg, delayedRedelivery: true));
+                    config.AddSqlMessageScheduler();
+                    config.UsingPostgres((context, cfg) =>
+                    {
+                        cfg.UseSqlMessageScheduler();
+                        ConfigureBus(context, cfg, delayedRedelivery: true);
+                    });
                     break;
 
                 case MessagingTransport.RabbitMq:
@@ -85,6 +93,11 @@ public static class MassTransitExtensions
                     if (string.IsNullOrWhiteSpace(rabbitConnectionString) && string.IsNullOrWhiteSpace(rabbit.Host))
                         throw new InvalidOperationException(
                             "The RabbitMq transport needs ConnectionStrings:rabbitmq or Messaging:RabbitMq:Host.");
+
+                    if (rabbit.UseDelayedExchange)
+                    {
+                        config.AddDelayedMessageScheduler();
+                    }
 
                     config.UsingRabbitMq((context, cfg) =>
                     {
@@ -111,7 +124,12 @@ public static class MassTransitExtensions
                     break;
 
                 default:
-                    config.UsingInMemory((context, cfg) => ConfigureBus(context, cfg, delayedRedelivery: true));
+                    config.AddDelayedMessageScheduler();
+                    config.UsingInMemory((context, cfg) =>
+                    {
+                        cfg.UseDelayedMessageScheduler();
+                        ConfigureBus(context, cfg, delayedRedelivery: true);
+                    });
                     break;
             }
         });

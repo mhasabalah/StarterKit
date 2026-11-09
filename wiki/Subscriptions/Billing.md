@@ -270,8 +270,14 @@ cannot use the plain b-tree index).
   in range), new subscriptions (activated in range).
 - Revenue per currency from the LEDGER: gross (Payment), refunds, credit notes, adjustments, net (= signed sum),
   grouped also by plan and by payment method (`Unspecified` when the entry has none, e.g. refunds).
-- Cached in `IDistributedCache` per range for `Subscriptions:BillingDashboardCacheMinutes` (default 5). No
-  invalidation: figures may lag a money event by up to that long. The default range key changes monthly.
+- Cached per range by `IBillingDashboardCache` for `Subscriptions:BillingDashboardCacheMinutes` (default 5, 0
+  disables it). Invalidation is explicit: `BillingDashboardCacheInvalidationHandler` drops EVERY cached range after a
+  ledger entry, a payment review change or a subscription status change commits.
+  - Every key embeds a generation token (`subscriptions:billing-dashboard:generation`, in Redis, so all replicas
+    agree); invalidating writes a new token. The TTL stays as the safety net.
+  - Ledger writes are covered in one place: `ILedgerRepository.Add` stages a `LedgerEntryRecordedEvent` on the same
+    save, so it fires only when the entry commits (credit notes and provider refunds included).
+  - A cache failure is logged and never fails the request or the money event.
 - `/dashboard/stats` (host) adds MRR, queue size and past-due count when the caller holds `billing.read`.
 
 ## Admin notifications

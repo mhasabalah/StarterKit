@@ -142,6 +142,26 @@ public class ProductCrudFlowTests(E2ETestFixture fixture)
     }
 
     [Fact]
+    public async Task Moderation_RequiresCatalogModerate_ForRolesAndApiKeys()
+    {
+        const string queue = "/api/v1/admin/products/pending";
+
+        (await fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.Support).GetAsync(queue))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden, "Support does not hold catalog.moderate");
+        (await Admin().GetAsync(queue)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var scoped = fixture.Factory.CreateClientWithApiKey(
+            await fixture.CreateApiKeyForAsync(RoleConstants.Admin, Permissions.CatalogModerate));
+        (await scoped.GetAsync(queue)).StatusCode.Should().Be(HttpStatusCode.OK,
+            "an Admin's key scoped to catalog.moderate may moderate");
+
+        var unscoped = fixture.Factory.CreateClientWithApiKey(
+            await fixture.CreateApiKeyForAsync(RoleConstants.Admin, Permissions.BillingRead));
+        (await unscoped.GetAsync(queue)).StatusCode.Should().Be(HttpStatusCode.Forbidden,
+            "the owner may moderate, but catalog.moderate is not one of the key's scopes");
+    }
+
+    [Fact]
     public async Task StaleVersion_Returns409()
     {
         var seller = Seller(Guid.NewGuid());

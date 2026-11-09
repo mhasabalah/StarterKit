@@ -22,8 +22,8 @@ public class RejectProductEndPoint : ICarterModule
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .WithSummary("Reject Product")
-            .WithDescription("PendingReview → Rejected (reason required). Admin only. Optional `version` → 409 when stale; the response carries the new version.")
-            .RequireAuthorization(PolicyConstants.AdminOnly)
+            .WithDescription("PendingReview → Rejected (reason required). Needs `catalog.moderate` (Admin, SuperAdmin). Optional `version` → 409 when stale; the response carries the new version.")
+            .RequirePermission(Permissions.CatalogModerate)
             .HasApiVersion(1.0);
     }
 }

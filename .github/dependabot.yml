@@ -11,7 +11,7 @@ updates:
     open-pull-requests-limit: 5
     groups:
       microsoft:
-        patterns: ["Microsoft.*", "System.*", "Aspire.*"]
+        patterns: ["Microsoft.*", "System.*", "Aspire.*", "dotnet-ef"]
       opentelemetry:
         patterns: ["OpenTelemetry*", "Grafana.OpenTelemetry*"]
       testing:
