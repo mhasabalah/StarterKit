@@ -3,12 +3,20 @@
 StarterKit runs as one Docker Compose stack on a VPS behind host Nginx with Let's Encrypt. GitHub Actions builds and
 tests, pushes the image to GHCR, and deploys after manual approval through a self-hosted runner on the server.
 
+```mermaid
+flowchart TB
+  G[GitHub build and test] --> I[GHCR image]
+  I -->|approval| R[Self-hosted runner on VPS]
+  R --> C[Docker Compose with .env.prod]
+  U[Internet] --> N[Nginx TLS and rate limits]
+  N --> A[API]
+  C --> A
+  A --> P[Postgres]
+  A --> D[Redis]
+  A --> S[Seq]
+  P --> B[pgBackRest] --> O[S3 backup]
 ```
-GitHub (build/test → GHCR image) ──approval──▶ self-hosted runner on VPS
-                                                 └─ docker compose -f docker-compose.yml --env-file .env.prod
-Internet ─▶ Nginx :443 (TLS, rate limits, IP allow-lists) ─▶ api :5000 ─▶ postgres · redis · seq
-                                                                         pgbackrest ─▶ S3
-```
+*Figure: Approved images run behind Nginx with database backup and supporting services.*
 
 | Page | Use it when you need to |
 |---|---|

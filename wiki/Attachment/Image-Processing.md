@@ -3,12 +3,15 @@
 The Attachment module reads image headers (upload validation) and creates JPEG thumbnails. Both go through one
 port, so the imaging library is a swappable detail.
 
+```mermaid
+flowchart TB
+  subgraph Attachment
+    F[FileValidationService] --> I[IImageProcessingService]
+    T[GenerateThumbnailJob] --> I
+    I --> S[SkiaImageProcessingService]
+  end
 ```
-FileValidationService ─┐
-ThumbnailJob ──────────┼──> IImageProcessingService  (port: Infrastructure/ImageProcessing/IImageProcessingService.cs)
-                       │          │
-                       │          └── SkiaImageProcessingService   (default adapter: SkiaSharp, MIT)
-```
+*Figure: Validation and thumbnail generation use the image-processing port and its SkiaSharp adapter.*
 
 ## The contract
 

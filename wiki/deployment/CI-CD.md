@@ -53,10 +53,17 @@ the `api` container (`up -d --no-deps api`) when Postgres is already up. It veri
 
 ## Release flow
 
+```mermaid
+flowchart TB
+  F[Feature branch] -->|PR| M[master]
+  M -->|push| B[build-and-test]
+  B --> P[build-and-push]
+  P --> G[GHCR latest and sha images]
+  G --> A[Deployment approval]
+  A --> D[deploy]
+  D --> H[Health checks] --> N[notify]
 ```
-feature branch ──PR──▶ master ──push──▶ build-and-test ──▶ build-and-push (GHCR :latest + :sha)
-                                                     └──▶ deploy (waits for approval) ──▶ health checks ──▶ notify
-```
+*Figure: A reviewed change produces an image before an approved deployment and health checks.*
 
 - PRs and `develop` run **build-and-test only**.
 - To roll back, run **Actions → Rollback Production Deployment** and type `ROLLBACK`. Locally you can run

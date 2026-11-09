@@ -15,16 +15,24 @@ Decision record: [ADR 0013](../Decisions/0013-enterprise-sso-and-scim.md).
 
 ## Sign-in flow
 
+```mermaid
+sequenceDiagram
+  autonumber
+  actor App
+  participant API
+  participant IdP
+  App->>API: POST /api/auth/sso/discover with email
+  API-->>App: ssoAvailable, ssoRequired, connectionId
+  App->>API: GET /api/auth/sso/{id}/start with returnUrl
+  API-->>App: Redirect with state, nonce and PKCE or AuthnRequest
+  App->>IdP: Sign in with IdP MFA
+  IdP->>API: OIDC callback or SAML ACS
+  API->>API: Validate, link or JIT, resolve membership
+  API-->>App: Redirect with one-time sso_code (60 seconds) or sso_error
+  App->>API: POST /api/auth/sso/exchange
+  API-->>App: LoginResult tokens or TOTP challenge
 ```
-App                     API                                   IdP
- │ POST /api/auth/sso/discover {email} ──▶ {ssoAvailable, ssoRequired, connectionId}
- │ navigate GET /api/auth/sso/{id}/start?returnUrl=… ──▶ 302 (state, nonce, PKCE / AuthnRequest)
- │ ─────────────────────────────────────────────────────────────▶ user signs in (MFA at the IdP)
- │                        ◀── GET /oidc/callback?code&state  or  POST /saml/{id}/acs
- │                        validate → link/JIT → membership → one-time code (60 s)
- │ ◀── 302 returnUrl?sso_code=…        (or ?sso_error=<code>)
- │ POST /api/auth/sso/exchange {code} ──▶ LoginResult (tokens or the TOTP challenge)
-```
+*Figure: SSO callbacks exchange a short-lived code for the application login result.*
 
 Security properties (all covered by tests):
 - **No tokens in URLs.** The callback hands over a single-use, 60-second code; the app exchanges it with a POST.

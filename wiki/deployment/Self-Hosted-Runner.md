@@ -25,16 +25,22 @@ This guide walks you through installing and configuring the GitHub Actions self-
 
 ## Architecture: Host-Based Runner
 
+```mermaid
+flowchart TB
+  subgraph VPS[VPS host]
+    U[ubuntu user] --> R[actions-runner directory]
+    R --> B[Runner binaries / systemd service]
+    U --> D[Docker Engine]
+    B ~~~ D
+    U --> F["/opt/starterkit"]
+    D ~~~ F
+    U --> N[Nginx]
+    F ~~~ N
+  end
 ```
-VPS Host (YOUR_SERVER_IP / api.example.com)
-├── ubuntu user
-│   └── ~/actions-runner/
-│       ├── Runner binaries
-│       └── systemd service: actions.runner.ubuntu-<hostname>.service
-├── Docker Engine (native access, no socket mounting)
-├── /opt/starterkit/ (direct filesystem access)
-└── Nginx (direct systemctl access)
-```
+*Figure: The runner accesses Docker, deployment files and Nginx directly on the VPS.*
+
+Docker uses native access without mounting its socket; `/opt/starterkit` is directly accessible, and Nginx is managed through `systemctl`.
 
 **Benefits:**
 - ✅ Direct localhost access (no network complexity)

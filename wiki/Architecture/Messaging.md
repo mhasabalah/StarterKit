@@ -93,19 +93,56 @@ unique `[MessageUrn]`, are not also `INotification`s, consumers live in module i
 
 Code: `src/Shared/Shared.Core/Messaging/Outbox/`.
 
+```mermaid
+sequenceDiagram
+  autonumber
+  participant A as Aggregate
+  participant DB as DbContext
+  participant I as OutboxInterceptor
+  A->>A: AddIntegrationEvent
+  A->>DB: SaveChanges
+  DB->>I: SavingChanges
+  I->>DB: Add outbox_messages row
+  Note over A,DB: Aggregate and row commit in the same transaction
+  I->>I: Stage OutboxMessagesSaved
+  Note over I: Discard on failed save or rollback
 ```
-Command handler / job                           same SaveChanges = same DB transaction
-  aggregate.AddIntegrationEvent(e) ─────► OutboxInterceptor ─► INSERT <schema>.outbox_messages (urn, json, tenant, trace)
-                                              │
-                                              └─► stages OutboxMessagesSaved in IDomainEventCollector
-                                                  (discarded if the save fails / the transaction rolls back)
+*Figure: The aggregate and its outbox row commit atomically.*
 
-after the outermost unit of work commits:
-  DomainEventDispatcher ─► OutboxMessagesSavedHandler ─► OutboxRelay.DeliverAsync(ids)   (immediate, best effort)
-
-every minute (Hangfire, Messaging:Outbox:SweepCron):
-  OutboxSweepJob ─► OutboxRelay.DeliverAsync(all due rows) + purge delivered rows past retention   (safety net)
+```mermaid
+sequenceDiagram
+  autonumber
+  participant D as Event dispatch
+  participant H as Saved handler
+  participant R as OutboxRelay
+  D->>H: OutboxMessagesSaved after outermost commit
+  H->>R: DeliverAsync(ids)
+  Note over H,R: Immediate, best effort
+  R-->>H: Delivery result
 ```
+*Figure: Post-commit dispatch attempts immediate delivery.*
+
+`DomainEventDispatcher` publishes to `OutboxMessagesSavedHandler`. Independently, `OutboxSweepJob` sweeps due rows and purges delivered rows past retention.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant R as OutboxRelay
+  participant T as Transport
+  participant C as Consumer
+  R->>T: Publish
+  alt Publish accepted
+    R->>R: Mark row delivered
+    T->>C: At-least-once delivery
+    Note over T,C: Retry consumer faults, then endpoint_error
+  else Publish fails
+    R->>R: Backoff and retry
+    R->>R: Dead-letter at MaxAttempts
+  end
+```
+*Figure: Publishing retries and consumer retries have separate failure paths.*
+
+Transport selection is `InMemory`, `PostgreSql` or `RabbitMq`. Admin requeue resets the outbox attempts and dead-letter mark; the next sweep redelivers.
 
 - **Atomicity.** The row is inserted by the same `SaveChanges` as the aggregate: committed together or not at all.
 - **Claiming.** The relay leases rows with `UPDATE ... SET lock_token, locked_until WHERE id IN (...) AND lease free`.
@@ -281,3 +318,39 @@ Guarded by `SagaArchitectureTests` (Api.Tests) and pinned by `Shared.Core.Tests/
   InMemory and on PostgreSql (Testcontainers). It covers tenant propagation, host scope, purged-tenant drop,
   migrating-tenant redelivery and noisy-neighbor isolation. These assertions are the contract any future transport or
   bus library must pass.
+
+
+## Choosing an event mechanism
+
+```mermaid
+flowchart TB
+  R{Reaction boundary?} -->|same module| D[IDomainEvent]
+  R -->|other module| S{Must succeed with command?}
+  S -->|yes| C[ISender with other module Contracts]
+  S -->|exceptional synchronous notification| N[Contracts IDomainEvent]
+  S -->|eventual reaction| I[IntegrationEvent through outbox]
+```
+*Figure: Choose synchronous contracts for required results and integration events for independent eventual reactions.*
+
+
+## Durable saga persistence
+
+This is the supported registration pattern, not an existing business saga. No production saga is currently registered. Tenant state also requires tenant mapping and RLS.
+
+```mermaid
+flowchart TB
+  subgraph Registration[Module manifest registration]
+    M[ConfigureMessaging] --> A[AddDurableSagaStateMachine]
+    A --> C[SagaStateConfiguration]
+  end
+  subgraph Runtime[Owning module]
+    T[Incoming message] --> L[EF repository: FOR UPDATE]
+    L --> S[SagaStateMachineInstance]
+    S --> D[Module DbContext]
+    D --> O[Commit state]
+    O --> P[Release buffered outgoing messages]
+  end
+  A -. configures .-> L
+  C -. maps state .-> D
+```
+*Figure: Durable saga registration keeps state and locking in the owning module database.*

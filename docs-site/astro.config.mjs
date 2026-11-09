@@ -1,5 +1,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import mermaid from 'astro-mermaid';
+import { mermaidOptions } from './scripts/mermaid-brand.mjs';
 import linksValidator from 'starlight-links-validator';
 import { sidebar, siteBase, repository } from './sidebar.mjs';
 import { readdir, mkdir, copyFile, readFile } from 'node:fs/promises';
@@ -51,12 +53,12 @@ export default defineConfig({
   site: process.env.DOCS_SITE || undefined,
   base: siteBase,
   trailingSlash: 'always',
-  integrations: [wikiAssets(), starlight({
+  integrations: [mermaid(mermaidOptions), wikiAssets(), starlight({
     title: 'StarterKit',
     logo: { light: './src/assets/logo-light.svg', dark: './src/assets/logo-dark.svg', replacesTitle: true },
     favicon: '/favicon.svg', // Starlight prefixes its configured base.
     customCss: ['@fontsource/inter/400.css', '@fontsource/inter/500.css', '@fontsource/inter/600.css', '@fontsource/inter/700.css', '@fontsource/jetbrains-mono/400.css', './src/styles/brand.css'],
-    components: { Hero: './src/components/BrandHero.astro' },
+    components: { Hero: './src/components/BrandHero.astro', Head: './src/components/DiagramHead.astro' },
     social: [{ icon: 'github', label: 'GitHub', href: `https://github.com/${repository}` }],
     head: [
       { tag: 'meta', attrs: { property: 'og:image', content: process.env.DOCS_SITE ? new URL(`${siteBase}og-image.png`, process.env.DOCS_SITE).href : `${siteBase}og-image.png` } },

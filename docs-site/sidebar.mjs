@@ -410,6 +410,11 @@ export const sections = [
         "order": 1
       },
       {
+        "source": "Reference/Diagram-Style.md",
+        "label": "Diagram style",
+        "order": 7
+      },
+      {
         "source": "Reference/Migrations.md",
         "label": "Migrations",
         "order": 2

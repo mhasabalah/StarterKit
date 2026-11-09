@@ -108,19 +108,15 @@ This Nginx setup provides enterprise-grade reverse proxy capabilities for the St
 
 ## Architecture
 
+```mermaid
+flowchart TB
+  C[Client] --> N[Nginx ports 80 and 443]
+  N --> S[TLS and security headers]
+  S --> R[Rate limiting]
+  R --> U[Upstream load balancing]
+  U --> A[API internal listener]
 ```
-Client Request
-      ↓
-  [Nginx :80/443]
-      ↓
-  Rate Limiting
-  Security Headers
-  SSL Termination
-      ↓
-  Load Balancer (upstream)
-      ↓
-  [API :80] (internal)
-```
+*Figure: Nginx secures and balances incoming API traffic.*
 
 ### Key Features
 
@@ -162,7 +158,7 @@ StarterKit has **two separate Nginx configurations**:
 
 Used for local development with Docker Compose. Nginx runs as a container.
 
-```
+```text
 infra/nginx/
 ├── Dockerfile              # Custom Nginx image
 ├── nginx.conf              # Main configuration (Docker)
@@ -181,7 +177,7 @@ infra/nginx/
 
 Used for production deployment on EC2. Nginx is installed on the host (not Docker).
 
-```
+```text
 deployment/nginx/
 ├── nginx.conf                          # Main global configuration
 │   ├── User and worker settings

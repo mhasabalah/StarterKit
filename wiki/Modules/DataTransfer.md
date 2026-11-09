@@ -9,7 +9,7 @@ outbox carries `DataImportCompletedIntegrationEvent`.
 
 ## Layout
 
-```
+```text
 DataTransfer.Contracts/
   Definitions/        IImportDefinition, IExportDefinition, TransferColumn, ImportRecord, ImportRowResult, AddImportDefinition/AddExportDefinition
   Jobs/               commands, queries, DTOs
@@ -28,17 +28,27 @@ DataTransfer.IntegrationTests/ Testcontainers Postgres, real module + RLS app ro
 
 ## How a job runs
 
+```mermaid
+flowchart TB
+  U[POST /imports] --> A[Attachment validation and malware scan]
+  A --> P[transfer_jobs: Pending]
+  P --> Q[Hangfire data-transfer queue]
+  Q --> J[ProcessImportJob: claim lease]
+  J --> R[Recheck permissions and membership]
+  R --> S[Branch scope and language]
+  S --> F[Scratch file and header check]
+  F --> V{ValidateFirst?}
+  V -->|yes: invalid row| X[Failed: validation_failed]
+  V -->|valid or disabled| B[BatchSize rows per owning-module unit of work]
+  B --> C[Checkpoint, counters, errors and cancellation]
+  C --> E[CSV error report]
+  E --> D[Completed or CompletedWithErrors]
+  D --> N[TransferJobFinishedEvent]
 ```
-POST /imports ──> Attachment upload (magic bytes + malware scan, fail-closed) ──> transfer_jobs row (Pending)
-                  ──> Hangfire queue "data-transfer"
-ProcessImportJob: claim lease ─> re-check the requester (membership + permissions) ─> enter their branch scope
-  + language ─> copy the file to a scratch file ─> check the header (no full pass; XLSX announces its row count)
-  ─> [ValidateFirst: a dry-run pass over the whole file; any invalid row -> Failed validation_failed]
-  ─> batches of BatchSize rows: ONE unit of work of the owning module's definition (its repository, aggregate,
-     domain events, outbox), then checkpoint + counters + row errors saved under the lease, cancel checked
-  ─> error report CSV (from the stored errors) ─> Completed / CompletedWithErrors
-  ─> TransferJobFinishedEvent -> in-app notification "data-transfer.job-finished" (+ SignalR hint)
-```
+*Figure: Imports validate and process leased batches before reporting completion.*
+
+Each batch runs the owning definition's repositories and aggregate behavior, including domain events and outbox
+writes. The completion event produces the `data-transfer.job-finished` in-app notification and SignalR hint.
 
 - **Lease.** `LeaseOwner` / `LeaseUntil` are claimed and renewed under optimistic concurrency. A duplicate run (a
   Hangfire re-fetch of a long job, or the stall sweep) exits while the lease is live, and may take it over once it

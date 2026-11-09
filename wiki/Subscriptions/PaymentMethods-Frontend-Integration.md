@@ -125,27 +125,26 @@ Response: `200 OK`
 | `metadata.iban` | metadata | Same as `value` |
 | `metadata.swift` | metadata | SWIFT/BIC code |
 
+```mermaid
+flowchart TB
+  P[BankTransfer payment card] --> B[Bank name and account name]
+  P --> A[Account number and SWIFT]
+  P --> I[IBAN: copy value]
+  P --> N[Description: application email in transfer note]
 ```
-┌─────────────────────────────────────┐
-│ 🏦 StarterKit Bank                     │
-│ Account Name: StarterKit for R.E.      │
-│ Account No:   123456789             │
-│ IBAN:         EG123456789   [Copy]  │
-│ SWIFT:        XXXXXXXX              │
-│ ⚠ Use application email in note    │
-└─────────────────────────────────────┘
-```
+*Figure: A bank-transfer card exposes account metadata and a copyable IBAN.*
 
 ### `VodafoneCash` / `InstaPay`
 
 `metadata` is null — only `value` (phone/ID) and `displayName` are used.
 
+```mermaid
+flowchart LR
+  P[VodafoneCash or InstaPay] --> D[displayName]
+  P --> V[value: phone or ID]
+  V --> C[Copy action]
 ```
-┌─────────────────────────────────────┐
-│ 📱 Vodafone Cash                    │
-│ Send to: +20 100 000 0000   [Copy] │
-└─────────────────────────────────────┘
-```
+*Figure: Wallet cards display a name and a copyable payment destination.*
 
 ---
 
@@ -201,26 +200,18 @@ const methods = await fetch('/api/v1/admin/payment-methods', {
 
 ### Step flow
 
+```mermaid
+flowchart TB
+  T{Pick payment type} -->|BankTransfer| B[Bank, account, number, IBAN and SWIFT]
+  T -->|VodafoneCash or InstaPay| W[Phone or ID]
+  T -->|Custom| C[Custom value]
+  B --> S[Display name, description and sort order]
+  W --> S
+  C --> S
+  S --> A[Active toggle on edit]
+  A --> R[Submit payment method]
 ```
-Step 1 — Pick type
-  [ BankTransfer ]  [ VodafoneCash ]  [ InstaPay ]  [ + Custom ]
-
-Step 2 — Type-specific fields (swap when type changes)
-
-  BankTransfer:               VodafoneCash / InstaPay:
-  ─────────────               ────────────────────────
-  Bank Name      [input]      Phone / ID     [input]  → value
-  Account Name   [input]
-  Account No.    [input]
-  IBAN           [input]  → value
-  SWIFT          [input]
-
-Step 3 — Shared fields (always visible)
-  Display Name   [input]
-  Notes          [input]   → description
-  Sort Order     [number]
-  Active         [toggle]  (Edit only)
-```
+*Figure: The admin form combines type-specific details with shared payment-method fields.*
 
 ### Building the request body on submit
 

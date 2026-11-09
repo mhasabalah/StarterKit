@@ -9,32 +9,33 @@ StarterKit is built as a **Modular Monolith** using **Clean Architecture** and *
 ### 1. Modular Monolith
 - Self-contained modules with clear boundaries
 - Each module has its own DbContext and database schema
-- Modules communicate via domain events (MassTransit)
+- Modules communicate through contracts and ISender, or integration events through the transactional outbox
 - Independent deployment capability (future microservices migration)
 
 ### 2. Clean Architecture Layers
 
+```mermaid
+flowchart TB
+  subgraph API[API boundary]
+    C[Carter endpoints]
+  end
+  subgraph Application[Application layer]
+    M[ISender] --> V[FluentValidation] --> H[Handlers]
+  end
+  subgraph Domain[Domain layer]
+    A[Aggregates and entities] --- O[Value objects and domain events]
+  end
+  subgraph Infrastructure[Infrastructure layer]
+    R[Repositories] --- D[DbContext]
+    E[External services]
+  end
+  C --> M
+  H --> A
+  H --> R
+  H --> E
+  D --> A
 ```
-┌─────────────────────────────────────┐
-│         API Layer (Carter)          │
-├─────────────────────────────────────┤
-│     Application Layer (Mediator port)  │
-│  - Commands/Queries                 │
-│  - Handlers                         │
-│  - Validators (FluentValidation)    │
-├─────────────────────────────────────┤
-│       Domain Layer (DDD)            │
-│  - Entities                         │
-│  - Value Objects                    │
-│  - Domain Events                    │
-│  - Aggregates                       │
-├─────────────────────────────────────┤
-│    Infrastructure Layer             │
-│  - EF Core DbContext                │
-│  - Repositories                     │
-│  - External Services                │
-└─────────────────────────────────────┘
-```
+*Figure: Endpoints invoke application handlers that coordinate domain behavior and persistence.*
 
 ### 3. Domain-Driven Design
 - **Aggregates**: Core business entities (Product, Subscription, User)
@@ -53,7 +54,7 @@ StarterKit is built as a **Modular Monolith** using **Clean Architecture** and *
 
 ### Vertical Slice Architecture
 Each feature is self-contained:
-```
+```text
 Features/
 ├── CreateProduct/
 │   ├── CreateProductHandler.cs    # Business logic
@@ -72,7 +73,7 @@ public static Product Create(Guid id, string name, Guid profileId)
 ```
 
 ### Event-Driven Architecture
-- Domain events for cross-module communication
+- Domain events for same-module reactions; integration events for eventual cross-module reactions
 - MassTransit for message bus
 - Event handlers for side effects
 
@@ -110,3 +111,101 @@ Each module:
 - [Project Structure](ProjectStructure.md)
 - [Technology Stack](TechnologyStack.md)
 - [Design Patterns](DesignPatterns.md)
+
+
+## System context
+
+Workers are background processing roles; deployments can host jobs in API processes or use the worker overlay. Blob, malware scanning, payment, push and identity-provider integrations depend on configuration.
+
+```mermaid
+flowchart TB
+  C[Clients] --> N[Nginx]
+  subgraph Deployment[StarterKit deployment]
+    N --> A[API replicas / background workers]
+    A --> D[PostgreSQL / Redis]
+    A --> S[Seq / blob storage / ClamAV]
+    D ~~~ S
+  end
+  A --> P[Payment gateways / FCM / IdPs]
+```
+*Figure: API and worker roles share infrastructure and call configured providers.*
+
+API requests use the identity providers; push jobs call FCM. Both roles can access PostgreSQL, Redis, Seq, blob storage, malware scanning and payment services as configured.
+
+
+## Allowed module dependencies
+
+Each implementation owns its contract assembly. Identity additionally exposes the provider-neutral user port.
+
+```mermaid
+flowchart TB
+  subgraph Identity
+    I[Identity] --> IC[Identity.Contracts]
+    I --> U[UserDirectory.Contracts]
+  end
+  subgraph Tenancy
+    T[Tenancy] --> TC[Tenancy.Contracts]
+  end
+  subgraph Attachment
+    A[Attachment] --> AC[Attachment.Contracts]
+  end
+  subgraph Subscriptions
+    S[Subscriptions] --> SC[Subscriptions.Contracts]
+  end
+  subgraph Webhooks
+    W[Webhooks] --> WC[Webhooks.Contracts]
+  end
+  subgraph DataTransfer
+    D[DataTransfer] --> DC[DataTransfer.Contracts]
+  end
+  subgraph Notification
+    N[Notification] --> NC[Notification.Contracts]
+  end
+  IC ~~~ T
+  U ~~~ T
+  TC ~~~ A
+  AC ~~~ S
+  SC ~~~ W
+  WC ~~~ D
+  DC ~~~ N
+```
+*Figure: Each platform module owns its contracts while Identity supplies the replaceable user-directory port.*
+
+The arrows illustrate allowed dependency directions, not a list of all calls. The same rule applies to Tenancy, Subscriptions, Webhooks and DataTransfer. `Identity.Contracts` is private to Identity and the host. Contracts depend only on `Shared.Contracts`, except the explicitly allowed `Tenancy.Contracts` dependency on `Shared.Core`.
+
+```mermaid
+flowchart TB
+  subgraph Attachment
+    A[Attachment implementation] --> AC[Attachment.Contracts]
+  end
+  subgraph Notification
+    N[Notification implementation] --> NC[Notification.Contracts]
+  end
+  A -->|ISender| NC
+  A -->|integration event in Contracts| E[Transactional outbox]
+  E --> N
+  A --> U[UserDirectory.Contracts]
+  N --> U
+  A --> CORE[Shared.Core]
+  N --> CORE
+  AC --> SC[Shared.Contracts]
+  NC --> SC
+  U --> SC
+  CORE --> SC
+```
+*Figure: Modules reach other modules through public contracts or integration events and obtain users through UserDirectory.Contracts.*
+
+
+## Module initialization order
+
+Both service registration and initialization follow ascending `ModuleOrder`.
+
+The sample occupies slot 300 only when included; generated products can omit that slot.
+
+```mermaid
+flowchart TB
+  I[Identity 0] --> T[Tenancy 100] --> A[Attachment 200]
+  A --> C[Optional sample 300] --> S[Subscriptions 400] --> W[Webhooks 500]
+  W --> D[DataTransfer 600] --> M[New modules: Default 700] --> N[Notification 900]
+```
+*Figure: ModuleOrder initializes the platform before new modules and Notification last.*

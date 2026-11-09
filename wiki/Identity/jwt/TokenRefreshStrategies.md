@@ -37,30 +37,18 @@ Wait for server to reject the request with `401 Unauthorized`, then refresh toke
 
 ### Flow Diagram
 
+```mermaid
+flowchart TB
+  U[User request] --> A[API call with access token]
+  A --> V{Token valid?}
+  V -->|yes| D[Return data]
+  V -->|401| I[Axios interceptor]
+  I --> R[Refresh API]
+  R --> S{Refresh succeeds?}
+  S -->|yes| T[Store tokens] --> Q[Retry original request]
+  S -->|no| L[Log out]
 ```
-User Request
-    ↓
-API Call with Access Token
-    ↓
-┌─────────────────────────────────────┐
-│ Is Token Valid?                     │
-├─────────────────────────────────────┤
-│ YES → Return Data                   │
-│ NO  → Return 401 Unauthorized       │
-└─────────────────────────────────────┘
-    ↓ (401)
-Axios Interceptor Catches 401
-    ↓
-Call Refresh Token API
-    ↓
-┌─────────────────────────────────────┐
-│ Refresh Success?                    │
-├─────────────────────────────────────┤
-│ YES → Store New Tokens              │
-│     → Retry Original Request        │
-│ NO  → Logout User                   │
-└─────────────────────────────────────┘
-```
+*Figure: Reactive refresh retries a failed request after successful token rotation.*
 
 ### Implementation (Axios)
 
@@ -194,21 +182,13 @@ Check token expiration **before** making requests and refresh proactively.
 
 ### Flow Diagram
 
+```mermaid
+flowchart TB
+  U[User request] --> E{Expires within two minutes?}
+  E -->|yes| R[Refresh token] --> W[Wait for new token] --> N[Request with new token]
+  E -->|no| A[Request immediately]
 ```
-User Request
-    ↓
-Check Token Expiration
-    ↓
-┌─────────────────────────────────────┐
-│ Token Expires Soon? (< 2 min)       │
-├─────────────────────────────────────┤
-│ YES → Refresh Token First           │
-│     → Wait for New Token            │
-│     → Make Request with New Token   │
-│                                     │
-│ NO  → Make Request Immediately      │
-└─────────────────────────────────────┘
-```
+*Figure: Proactive refresh checks token expiry before issuing the request.*
 
 ### Implementation (Axios)
 
@@ -348,21 +328,20 @@ Use a hidden iframe to refresh tokens in the background without disrupting the u
 
 ### Flow Diagram
 
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Parent as Parent window
+  participant Iframe as Hidden iframe
+  participant Server
+  Note over Parent,Server: Conceptual client pattern, requires a separate cookie-based endpoint
+  Parent->>Iframe: Timer every ten minutes
+  Iframe->>Server: Request refresh
+  Server-->>Iframe: Set httpOnly cookie
+  Iframe-->>Parent: postMessage success
+  Parent->>Parent: Update in-memory access token
 ```
-Background Timer (every 10 minutes)
-    ↓
-Create Hidden Iframe
-    ↓
-Load /auth/refresh-iframe endpoint
-    ↓
-Server sets new token in cookie (httpOnly)
-    ↓
-Iframe sends postMessage with success
-    ↓
-Parent window receives message
-    ↓
-Update access token in memory
-```
+*Figure: The conceptual iframe strategy requires server support beyond the token API.*
 
 ### Implementation
 
@@ -919,7 +898,7 @@ export default api;
 ### Recommended Setup (Hybrid)
 
 **File Structure:**
-```
+```text
 src/
 ├── services/
 │   ├── api.js              ← Axios instance with interceptors
@@ -1134,46 +1113,30 @@ function Dashboard() {
 
 ### 🎯 TL;DR - What Should I Use?
 
+```mermaid
+flowchart TB
+  P[Proactive expiry check] --> R[Request]
+  R -->|401 fallback| F[Reactive refresh]
+  F --> T[Retry once]
+  R -->|success| D[Return data]
+  T --> D
 ```
-┌─────────────────────────────────────────────────────────┐
-│ RECOMMENDED: Hybrid Strategy (Strategy 5)               │
-│                                                         │
-│ Proactive refresh (before expiration)                  │
-│    +                                                    │
-│ Reactive fallback (401 handling)                       │
-│                                                         │
-│ Result:                                                 │
-│ ✅ No failed requests (usually)                         │
-│ ✅ Handles all edge cases                               │
-│ ✅ Production-ready                                     │
-│ ✅ Battle-tested                                        │
-└─────────────────────────────────────────────────────────┘
-```
+*Figure: Hybrid refresh combines an expiry check with a bounded retry on unauthorized responses.*
 
 ### Decision Tree
 
+```mermaid
+flowchart TB
+  P{Prototype or MVP?} -->|yes| R[Reactive: simple]
+  P -->|no| U{UX critical?}
+  U -->|no| R
+  U -->|yes| C{Cookie-based server support?}
+  C -->|yes| I[Iframe: evaluate separately]
+  C -->|no| M{Mobile app?}
+  M -->|yes| A[Activity-based refresh]
+  M -->|no| H[Hybrid refresh]
 ```
-START
-  ↓
-Is this a prototype/MVP?
-  ├─ YES → Use Strategy 1 (Reactive)
-  │         Simple, works everywhere
-  │
-  └─ NO → Is UX critical?
-          ├─ NO → Use Strategy 1 (Reactive)
-          │        Good enough
-          │
-          └─ YES → Need httpOnly cookies?
-                  ├─ YES → Use Strategy 3 (Iframe)
-                  │         Most secure
-                  │
-                  └─ NO → Is it a mobile app?
-                          ├─ YES → Use Strategy 4 (Activity)
-                          │         Battery efficient
-                          │
-                          └─ NO → Use Strategy 5 (Hybrid) ← RECOMMENDED
-                                   Best for production
-```
+*Figure: Choose a refresh strategy according to client requirements and available server support.*
 
 ### Final Recommendation
 

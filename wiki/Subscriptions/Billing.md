@@ -6,12 +6,17 @@ Code: `src/Modules/Subscriptions/Subscriptions/Domains/Subscriptions/Billing/` (
 
 ## Lifecycle
 
+```mermaid
+stateDiagram-v2
+  PendingApproval --> Active: approve
+  PendingApproval --> Rejected: reject
+  Active --> PastDue: renewal boundary
+  PastDue --> Active: renewal approved
+  Active --> Cancelled: cancel
+  PastDue --> Cancelled: cancel
+  PastDue --> Expired: grace elapsed
 ```
-PendingApproval ──approve──► Active ──renewal boundary──► PastDue ──renewal approved──► Active
-       │                       │                             │
-       └─reject─► Rejected     └─cancel─► Cancelled ◄────────┤
-                                                             └─grace elapsed─► Expired
-```
+*Figure: Subscriptions move through approval, renewal and terminal billing states.*
 
 - One enum, `Subscriptions.Contracts.Subscriptions.Enums.SubscriptionStatus`, with stable numbers
   (PendingApproval=0, Active=1, PastDue=2, Expired=3, Cancelled=4, Rejected=5, Trialing=6 appended). Stored by **name** in the database.
