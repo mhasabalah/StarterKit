@@ -132,6 +132,7 @@ wiki/
 
 - [Feature catalog](Reference/Features.md): everything the template ships, by area
 <!--#if (templateSource)-->
+- [Brand](Reference/Brand.md): logos, palette, typography and voice
 - [Template backlog](Reference/Template-Backlog.md): known issues and roadmap of the template
 <!--#endif-->
 - [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Third-party licenses](Reference/Third-Party-Licenses.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)

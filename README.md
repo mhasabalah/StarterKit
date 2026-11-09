@@ -1,3 +1,14 @@
+<!--#if (templateSource)-->
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs-site/src/assets/logo-dark.svg" />
+    <img src="docs-site/src/assets/logo-light.svg" alt="StarterKit" width="345" height="84" />
+  </picture>
+  <p>Production-ready ASP.NET Core 10 modular monolith starter</p>
+  <p><a href="docs-site/README.md">Documentation</a></p>
+</div>
+<!--#endif-->
+
 # StarterKit
 
 [![CI/CD](https://github.com/mhasabalah/StarterKit/actions/workflows/hybrid-ci-cd.yml/badge.svg)](https://github.com/mhasabalah/StarterKit/actions/workflows/hybrid-ci-cd.yml)
