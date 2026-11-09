@@ -425,6 +425,11 @@ export const sections = [
         "order": 4
       },
       {
+        "source": "Reference/Brand.md",
+        "label": "Brand",
+        "order": 6
+      },
+      {
         "source": "Reference/Template-Backlog.md",
         "label": "Template Backlog",
         "order": 5

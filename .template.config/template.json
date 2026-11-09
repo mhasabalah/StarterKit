@@ -265,6 +265,7 @@
         ".github/workflows/docs.yml",
         ".template.config/**",
         "wiki/Reference/Template-Backlog.md",
+        "wiki/Reference/Brand.md",
         ".claude/settings.local.json",
         ".github/workflows/templates.yml",
         "artifacts/**",

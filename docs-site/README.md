@@ -21,3 +21,8 @@ are checked during builds; failures stop publication. Mermaid integration is def
 `DOCS_SITE` optionally sets the deployment origin; `DOCS_BASE` sets the URL prefix (default `/`).
 `GITHUB_REPOSITORY` sets the repository for source links (default `mhasabalah/StarterKit`). The Pages workflow
 supplies the origin and prefix on pushes to master; PR and manual builds produce downloadable artifacts.
+
+Brand tokens live in `src/styles/brand.css`; see [the brand guide](../wiki/Reference/Brand.md).
+Run `npm run brand` to render the social, package and Apple icons from the SVG sources, and
+`npm run check:contrast` to check both palettes against WCAG AA. Generated PNGs are checked in.
+The splash uses `BrandHero.astro` for base-aware actions; its MDX links also use `siteBase`.

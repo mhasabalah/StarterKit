@@ -53,6 +53,16 @@ export default defineConfig({
   trailingSlash: 'always',
   integrations: [wikiAssets(), starlight({
     title: 'StarterKit',
+    logo: { light: './src/assets/logo-light.svg', dark: './src/assets/logo-dark.svg', replacesTitle: true },
+    favicon: '/favicon.svg', // Starlight prefixes its configured base.
+    customCss: ['@fontsource/inter/400.css', '@fontsource/inter/500.css', '@fontsource/inter/600.css', '@fontsource/inter/700.css', '@fontsource/jetbrains-mono/400.css', './src/styles/brand.css'],
+    components: { Hero: './src/components/BrandHero.astro' },
+    social: [{ icon: 'github', label: 'GitHub', href: `https://github.com/${repository}` }],
+    head: [
+      { tag: 'meta', attrs: { property: 'og:image', content: process.env.DOCS_SITE ? new URL(`${siteBase}og-image.png`, process.env.DOCS_SITE).href : `${siteBase}og-image.png` } },
+      { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+      { tag: 'link', attrs: { rel: 'apple-touch-icon', href: `${siteBase}apple-touch-icon.png` } },
+    ],
     sidebar,
     lastUpdated: true,
     editLink: { baseUrl: `https://github.com/${repository}/edit/master/` },
