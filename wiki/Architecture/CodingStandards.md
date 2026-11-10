@@ -59,7 +59,7 @@ Do not swallow exceptions. A best-effort side effect catches, logs a warning wit
 
 - Inject `TimeProvider` in new handlers, services and jobs. Pass time into domain behavior when it needs to be controlled.
 - All timestamps are UTC `DateTime`.
-- Ids are `Guid` from `Guid.NewGuid()` in factories. Seed data uses fixed ids (`TenantSeedIds.For` per tenant).
+- Ids are `Guid` assigned in factories with `Guid.NewGuid()` or `Guid.CreateVersion7()`. Seed data uses fixed ids (`TenantSeedIds.For` per tenant).
 - Money is `decimal` with an explicit currency (see [money precision](../Decisions/0017-money-precision-and-per-currency-rounding.md)).
 
 ### Logging
@@ -74,6 +74,7 @@ Do not swallow exceptions. A best-effort side effect catches, logs a warning wit
 - Every user-facing message comes from the module resx through `IStringLocalizer<<Module>Resource>`, with keys in
   **both** `.resx` and `.ar.resx`. Keep both resource key sets identical.
 - Bilingual data is `LocalizedText` (en/ar). Enums exposed to clients carry `[LocalizedDescription("en", "ar")]`.
+- Exceptions and aggregate invariants without dependency injection use `IdentityText.Get(key, args)` in Identity (`src/Modules/Identity/Identity/Resources/IdentityText.cs`), backed by the same bilingual resources. Localized enum labels are served by the enum lookup endpoint described in [API guidelines](ApiGuidelines.md).
 
 ### Naming
 

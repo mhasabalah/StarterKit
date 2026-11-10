@@ -272,6 +272,7 @@
         "**/TestResults/**",
         "scripts/regenerate-module-migrations.sh",
         "wiki/Decisions/0020-dotnet-new-templates.md",
+        "wiki/Decisions/0024-documentation-site.md",
         "wiki/Getting-Started/Changing-The-Template.md"
       ],
       "modifiers": [

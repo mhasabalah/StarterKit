@@ -1,4 +1,6 @@
-# 0005. Tenant isolation: named EF filters + Postgres RLS, shared or dedicated databases
+# 0005. Tenant isolation: named EF filters + PostgreSQL RLS, shared or dedicated databases
+
+Named EF filters and PostgreSQL row-level security isolate tenant data in shared or dedicated databases.
 
 ## Status
 
@@ -16,11 +18,11 @@ Tenancy is split into two planes.
 
 - **Control plane** (Tenancy module, host context): tenants, branches, memberships, roles.
 - **Data plane** (`ITenantDataContext`): every entity is `IMustHaveTenant`, with a named `Tenant` filter (plus
-  `Branch`), and every table has **Postgres row-level security** as a second layer. `TenantEntityInterceptor` stamps
+  `Branch`), and every table has **PostgreSQL row-level security** as a second layer. `TenantEntityInterceptor` stamps
   `TenantId` and blocks cross-tenant writes.
 
 The ambient tenant (`TenantScope`) flows through HTTP, Hangfire and MassTransit. A tenant may live in the shared
-database or in a dedicated one, and can be moved between them. Single-tenant mode is simply the Default tenant.
+database or in a dedicated one, and can be moved between them. Single-tenant mode uses the Default tenant.
 
 ## Consequences
 

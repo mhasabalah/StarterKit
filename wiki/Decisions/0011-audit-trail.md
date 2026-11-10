@@ -1,5 +1,7 @@
 # 0011. Record entity changes with an opt-in audit trail written in the same SaveChanges
 
+An opt-in audit trail records entity changes in the same save transaction as the business data.
+
 ## Status
 
 - **Status:** Accepted

@@ -1,5 +1,7 @@
 # 0007. Own the mediator port; do not depend on MediatR
 
+An owned mediator port keeps request dispatch and pipeline behavior independent of third-party mediator packages.
+
 ## Status
 
 - **Status:** Accepted

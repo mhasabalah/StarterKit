@@ -9,7 +9,7 @@ Tests validate domain behavior, persistence, HTTP contracts and architectural bo
 | **Unit: domain** | `src/Modules/<M>/<M>.Tests/Domain` | ms, none | Factories, invariants, every state-machine transition (Theory over status × action), events raised |
 | **Unit: features** | `<M>.Tests/Features`, `Services` | ms, none | Validators (en + ar messages, resx key parity), handler branches with Moq (not found, forbidden, conflict), services, mappers |
 | **Integration** | `Identity.IntegrationTests`, `Subscriptions.IntegrationTests`, `Tenancy.IntegrationTests`, `DataTransfer.IntegrationTests`, `Webhooks.IntegrationTests` (plus optional sample integration tests); Attachment's in `Attachment.Tests/Integration` (incl. two-tenant RLS as a non-superuser) and Notification's in `Notification.Tests/Persistence` | s, Docker | Real `Add<M>Module` + Testcontainers `postgres:16-alpine` + real migrations: SQL filters, paging, unique indexes, optimistic concurrency, soft delete, tenant isolation, outbox rows, jobs, seeder idempotency |
-| **Shared kernel** | `src/Shared/Shared.Core.Tests` | ms to s | Interceptors, versioning (`Concurrency/*` on Postgres), outbox, multi-tenancy, caching, paging, health checks |
+| **Shared kernel** | `src/Shared/Shared.Core.Tests` | ms to s | Interceptors, versioning (`Concurrency/*` on PostgreSQL), outbox, multi-tenancy, caching, paging, health checks |
 | **Architecture** | `src/Api.Tests/Architecture` | s, none | Module boundaries, naming, messaging, tenancy, background-job dispatch, explicit auth on every endpoint, client-generated child keys (`ClientGeneratedKeyTests`) |
 | **HTTP E2E** | `src/Api.E2ETests` | s, Docker | The real API over HTTP: routing, auth (401/403), envelopes, cross-module flows, `PendingModelChangesTests`, `TenantRowLevelSecurityCoverageTests` (forced RLS on every tenant table of the real migrations) |
 | **Multi-tenant E2E** | `src/Api.E2ETests/MultiTenancy` | s, Docker | `MultiTenantE2EFixture`: tenant A can never read or modify tenant B |
@@ -71,6 +71,7 @@ share containers, not the assumption that tests run in a fixed order.
   emails).
 - Assert outcomes **and** side effects: DB state, events, outbox rows, version, "nothing changed" on failure.
 - Fake time with `TimeProvider`; never `Thread.Sleep` or `Task.Delay` in tests.
+- Set up tenant-dependent tests with `TenantContext.SingleTenant` for Default-tenant behavior or a disposable `TenantScope.Begin(...)` for a specific tenant; see `src/Shared/Shared.Core.Tests/MultiTenancy/TenantTestDb.cs` and `TenantDataIsolationTests.cs` in the same directory.
 - Tests may call `IgnoreQueryFilters()` to inspect raw data. Production code may not.
 
 ## Usage
@@ -113,7 +114,7 @@ The architecture suite is `dotnet test src/Api.Tests`; database-backed guards ru
 | `MessagingArchitectureTests` | Integration contracts, URNs and outbox registration |
 | `SagaArchitectureTests` | Durable saga registration and module-owned persistence |
 | `BackgroundJobEventDispatchTests` | Background writes dispatch committed domain events |
-| `TenantIsolationArchitectureTests` | Tenant ownership, named filters and tenant-first unique indexes |
+| `TenantIsolationArchitectureTests` | Tenant ownership, named filters and tenant inclusion in unique indexes; review enforces tenant-first order |
 | `AdminEndpointAuthorizationTests` | Every endpoint declares authorization; privileged policies are registered |
 | `ClientGeneratedKeyTests` | Aggregate child Guid keys are not store-generated |
 | `AuditTrailArchitectureTests` | Auditable entities map their audit trail |

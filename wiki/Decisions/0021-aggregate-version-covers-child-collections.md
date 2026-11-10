@@ -1,5 +1,7 @@
 # 0021. The aggregate version covers its child collections
 
+The root concurrency token covers child collections so child-only changes also reject stale writers.
+
 ## Status
 
 - **Status:** Accepted

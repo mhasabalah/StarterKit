@@ -1,5 +1,7 @@
 # 0018. Retry overdue renewals off-session on a saved card, idempotently, before the reminder
 
+Consented saved-card references support idempotent off-session renewal retries before overdue reminders.
+
 ## Status
 
 - **Status:** Accepted

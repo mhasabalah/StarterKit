@@ -37,7 +37,7 @@ stateDiagram-v2
   (PendingApproval=0, Active=1, PastDue=2, Expired=3, Cancelled=4, Rejected=5, Trialing=6 appended). Stored by **name** in the database.
 - Allowed transitions live in `SubscriptionStateMachine`.
 - **At most one open subscription per subscriber** (PendingApproval/Trialing/Active/PastDue): filtered unique index
-  `ux_subscriptions_subscriber_open`. A unique violation (Postgres `23505`) becomes a **409** in
+  `ux_subscriptions_subscriber_open`. A unique violation (PostgreSQL `23505`) becomes a **409** in
   `SubscriptionsDbContext.SaveChangesAsync`. Approval never cancels another subscription.
 
 ### Currency and decimals
@@ -503,7 +503,7 @@ Reuse the domain policies for new billing paths. Cross-module callers use the pu
 - `Subscriptions.Tests`: tax, billing periods, pricing, refunds, credit notes, invoice numbers, state machine,
   domain lifecycle, dashboard math (MRR mix, currencies, net), partial payments/overpayment, ledger entry rules,
   duplicate-proof flag, extend/comp/reactivate rules.
-- `Subscriptions.IntegrationTests` (Testcontainers Postgres, real module wiring): concurrent create/approval, gapless
+- `Subscriptions.IntegrationTests` (Testcontainers PostgreSQL, real module wiring): concurrent create/approval, gapless
   numbers under 20 parallel approvals, refund cap and double refund, upgrade → proof → approval, SLA revert,
   renewal orchestrator ordering, repeated downgrades, PDF snapshot after a plan rename; `AdminBillingTests`: SQL-side
   search + paging, Subscriber-360, ledger written in the same transaction (none on failure, append-only), manual

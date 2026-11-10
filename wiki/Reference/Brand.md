@@ -1,6 +1,8 @@
 # StarterKit brand
 
-StarterKit is a production-ready ASP.NET Core 10 modular monolith starter. Its identity reflects separately owned modules that compose into one system.
+StarterKit is a production-ready ASP.NET Core 10 modular monolith starter.
+
+Its identity reflects separately owned modules that compose into one system.
 
 ## Logo and mark
 

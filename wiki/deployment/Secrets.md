@@ -90,7 +90,7 @@ Rotation rules:
 `.env.prod` on the server (from `deployment/.env.production.example`) holds non-secret settings:
 
 - the domain, image and tag
-- Postgres user and DB names
+- PostgreSQL user and DB names
 - S3 bucket and region for backups
 - the messaging transport
 

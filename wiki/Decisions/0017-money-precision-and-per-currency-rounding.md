@@ -1,5 +1,7 @@
 # 0017. Store money as numeric(19,4) and round per ISO 4217 currency in the domain
 
+Explicit decimal precision and per-currency domain rounding preserve billing amounts across persistence and payment boundaries.
+
 ## Status
 
 - **Status:** Accepted
@@ -17,7 +19,7 @@ amount was shown as `1000.00`, and Paymob would have sent a wrong amount.
 
 - **The column is wide, the rounding is in the domain.** Every money property uses `HasMoneyPrecision()`
   (`Shared.Core`, `numeric(19,4)`): four decimals hold every ISO 4217 currency (CLF has four) without rounding on the
-  way into Postgres. Percentages and tax rates are not money and keep their own precision.
+  way into PostgreSQL. Percentages and tax rates are not money and keep their own precision.
 - **One helper decides decimals.** `Subscriptions.Domains.Subscriptions.Billing.Currency` knows the ISO 4217
   exponent (0 / 2 / 3 / 4) and offers `Round`, `HasValidScale`, `ToMinorUnits`, `FromMinorUnits`, `SmallestUnit`
   and `Format`. Rounding stays "away from zero". A null or unknown code falls back to 2 decimals, so call sites

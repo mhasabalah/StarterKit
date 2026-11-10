@@ -83,7 +83,7 @@ Resolution uses `tid`, host or `X-Tenant`, with cached store and membership look
 | `IMustHaveTenant`, `IBranchScoped`, `ITenantDataContext`, `[HostEntity]` | Markers |
 | `AppDbContextBase.ApplyTenantFilters` | Named `Tenant` / `Branch` filters + `tenant_id` indexes |
 | `TenantEntityInterceptor` | Write-side isolation |
-| `TenantSessionConnectionInterceptor` + `TenantRlsMigrationExtensions` | Postgres RLS |
+| `TenantSessionConnectionInterceptor` + `TenantRlsMigrationExtensions` | PostgreSQL RLS |
 | `TenantConnectionStringResolver` | Shared vs dedicated database |
 | `TenantResolutionMiddleware` + `RequireTenant()/HostOnly()/TenantOptional()` | Request resolution |
 | `TenantPermissions` + `RequireTenantPermission()/RequireTenantMember()` | Tenant authorization |
@@ -124,7 +124,7 @@ Resolution uses `tid`, host or `X-Tenant`, with cached store and membership look
 
 | Concern | Mechanism / limit |
 |---|---|
-| **Isolation** | Three independent layers (resolution validation, EF named filters + write interceptor, Postgres RLS). Fail closed: no tenant → no rows, no writes. Cross-tenant access answers **404** (no existence oracle). Enforced by architecture tests. |
+| **Isolation** | Three independent layers (resolution validation, EF named filters + write interceptor, PostgreSQL RLS). Fail closed: no tenant → no rows, no writes. Cross-tenant access answers **404** (no existence oracle). Enforced by architecture tests. |
 | **Performance** | Tenant + membership resolution: one cached lookup each per request (L1 memory 30 s, L2 Redis 10 min; misses cached 30 s). `tenant_id`-leading indexes on every tenant table; unique indexes are per tenant. Branch subtree = one indexed prefix query (materialized path, `text_pattern_ops`). |
 | **Scalability** | Shared tenants use row isolation. Dedicated DBs are bounded by `MaxDedicatedPoolSize` per tenant pool; the tenant → connection mapping is the hook for sharding (several servers). |
 | **Availability** | Background work fans out per tenant; one tenant's failure (job, migration, purge) is logged and skipped. Dedicated boot migrations are conditional; production uses the deploy migrator in [Operations](Operations.md). |

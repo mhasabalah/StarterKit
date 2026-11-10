@@ -1,5 +1,7 @@
 # 0014. Build passkeys on ASP.NET Core Identity's built-in WebAuthn, with server-side ceremony state
 
+Passkey ceremonies use the built-in Identity verifier with server-side state and application token sessions.
+
 ## Status
 
 - **Status:** Accepted

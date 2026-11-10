@@ -10,7 +10,7 @@ Notification delivers email, WhatsApp, inbox and push messages through independe
 |---|---|---|
 | `Notification.Contracts` | every module that sends notifications | `INotificationSender` / `INotificationBuilder`, `INotificationRecipientResolver`, `INotificationLinkResolver`, `IOtpDeliveryService`, enums (`EmailTemplate`, `WhatsAppTemplate`, `NotificationChannel`, `NotificationCulture`, `NotificationSeverity`, `PushPlatform`, ...), email models (`Email/Models/*Model`), `EmailAttachment`, `InApp/InAppContent`, `Push/PushContent`, inbox and device commands/queries/DTOs, the hub client contract (`Realtime/INotificationClient`) |
 | `Notification` | `Api` only (and test projects) | dispatch jobs (chain, in-app, push), channels (MailKit/NoOp email, WhatsApp Cloud API, FCM/NoOp push), `NotificationHub`, Liquid templates, subjects, options, `NotificationDbContext`, endpoints, `OtpDeliveryService` |
-| `Notification.Tests` | - | unit tests + Postgres Testcontainers tests |
+| `Notification.Tests` | - | unit tests + PostgreSQL Testcontainers tests |
 
 Modules never reference the implementation project (enforced by `Api.Tests/Architecture/ModuleBoundaryTests`).
 Notification itself reads recipient contact data only through `UserDirectory.Contracts` (`GetUserContactInfoQuery`),

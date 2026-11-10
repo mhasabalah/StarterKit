@@ -1,5 +1,7 @@
 # NNNN. <Decision title in the imperative>
 
+Record the context, decision and consequences of an architectural change so future changes can preserve its constraints.
+
 ## Status
 
 - **Status:** Proposed | Accepted | Superseded by NNNN

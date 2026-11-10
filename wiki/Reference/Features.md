@@ -53,7 +53,7 @@ flowchart TB
 | Feature | Highlights | Docs |
 |---|---|---|
 | Tenants | Optional multi-tenancy, subdomain / custom domain (DNS-verified) resolution, suspension, deletion, export | [Overview](../MultiTenancy/Overview.md), [Tenancy](../Modules/Tenancy.md) |
-| Isolation | Named EF filters + Postgres RLS, shared or dedicated databases, automated moves | [Isolation](../MultiTenancy/Isolation-and-Dedicated-Databases.md) |
+| Isolation | Named EF filters + PostgreSQL RLS, shared or dedicated databases, automated moves | [Isolation](../MultiTenancy/Isolation-and-Dedicated-Databases.md) |
 | Organization | Branch trees with scoped access, memberships, tenant roles, invitations, tenant audit | [Branches](../MultiTenancy/Branches-and-Scoping.md) |
 | Directory provisioning | Membership provisioning for SSO JIT and SCIM (`ProvisionMemberCommand`, seat limits, owner-safe) | [Tenancy](../Modules/Tenancy.md), [SCIM](../Identity/SCIM.md) |
 | Tenant operations | Default tenant, shared/dedicated provisioning, database moves with read-only migration state, purge/export, Redis cache eviction across replicas | [Operations](../MultiTenancy/Operations.md) |

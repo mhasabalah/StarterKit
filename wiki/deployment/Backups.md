@@ -24,7 +24,7 @@ default `starterkit` stanza.
 
 - **Configuration:** `deployment/postgres/config/pgbackrest.conf.template` is rendered at container start.
   - Placeholders (`{{S3_BACKUP_BUCKET}}`, `{{AWS_*}}`, `{{POSTGRES_USER}}`, `{{POSTGRES_DB}}`) come from `.env.prod`.
-  - The Postgres password comes from the `postgres_password` Docker secret via `.pgpass`; it is never in the config
+  - The PostgreSQL password comes from the `postgres_password` Docker secret via `.pgpass`; it is never in the config
     file.
 <!--#if (deploy)-->
   - See [`deployment/postgres/config/README.md`](../../deployment/postgres/config/README.md).
@@ -128,7 +128,7 @@ a public-schema table count alone is insufficient for module-owned schemas.
 | Symptom | Check |
 |---|---|
 | Backup fails at start | Validate rendered configuration inside the container without copying it to logs: it contains S3 credentials. |
-| Cannot connect to Postgres | `psql -U <POSTGRES_USER> -d <POSTGRES_DB> -h /var/run/postgresql -c "select 1"` inside the `pgbackrest` container (shared socket volume) |
+| Cannot connect to PostgreSQL | `psql -U <POSTGRES_USER> -d <POSTGRES_DB> -h /var/run/postgresql -c "select 1"` inside the `pgbackrest` container (shared socket volume) |
 | S3 errors | Bucket name and region in `.env.prod`; IAM permissions for `s3:ListBucket`, `GetObject`, `PutObject` and `DeleteObject` on `arn:aws:s3:::<bucket>/pgbackrest/*` |
 | Archive check fails | The `archive_command` and WAL volume on the `postgres` service; `pgbackrest --stanza=<name> check` |
 | Logs | `docker compose -f docker-compose.yml --env-file .env.prod logs pgbackrest` and `/var/log/pgbackrest/` in the container |

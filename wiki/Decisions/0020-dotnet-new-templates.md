@@ -1,5 +1,7 @@
 # 0020. The repository is the product template; modules come from a generated, CI-verified module template
 
+The repository generates configured products and CI-verified modules through two dotnet new templates.
+
 ## Status
 
 - **Status:** Accepted

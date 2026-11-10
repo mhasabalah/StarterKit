@@ -49,6 +49,8 @@ Use snake_case for tables, columns and indexes through `EFCore.NamingConventions
 | Audit columns | `CreatedAt`, `CreatedBy`, `LastModified`, `LastModifiedBy`, stamped by `AuditableEntityInterceptor`. |
 | Tenant ownership | `tenant_id` on every tenant-data entity; `TenantEntityInterceptor` stamps it. Never set `TenantId` yourself. |
 
+`Entity<T>.CreatedAt` is nullable (`DateTime?`) in `src/Shared/Shared.Core/DDD/Entity.cs`. If an entity needs a non-nullable creation time, shadow it with `public new DateTime CreatedAt { get; private set; }`, as in `src/Modules/Identity/Identity/Domains/Onboarding/Models/OnboardingProcess.cs`; do not assume the base property is non-nullable.
+
 #### Timestamps (UTC only)
 
 Npgsql uses non-legacy timestamp behavior. For `timestamptz`, supply UTC `DateTime` values, normally `TimeProvider.GetUtcNow().UtcDateTime`; local or unspecified values are rejected. Normalize client `DateTimeOffset` input with `ToUniversalTime()`. Do not enable `Npgsql.EnableLegacyTimestampBehavior`.

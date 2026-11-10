@@ -1,5 +1,7 @@
 # 0004. Transactional outbox with a pluggable MassTransit transport
 
+A transactional outbox persists cross-module facts with business changes and delivers them through a selectable MassTransit transport.
+
 ## Status
 
 - **Status:** Accepted

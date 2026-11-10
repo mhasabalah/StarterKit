@@ -590,9 +590,14 @@ export const sections = [
         "order": 23
       },
       {
+        "source": "Decisions/0024-documentation-site.md",
+        "label": "0024 documentation site",
+        "order": 24
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 24
+        "order": 25
       }
     ]
   }

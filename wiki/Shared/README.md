@@ -67,7 +67,7 @@ Typed shared exceptions map through `GlobalExceptionHandler` and `ExceptionStatu
 
 ### HTTP context, acting user and auditing
 
-`IHttpContextService` lives in `Shared.Core.Web`; add that using explicitly. It is scoped around `IHttpContextAccessor`, with test doubles injected through the interface.
+`IHttpContextService` lives in `Shared.Core.Web`; add that using explicitly. Carter resolves endpoint service parameters; avoid `[FromServices]`. It is scoped around `IHttpContextAccessor`, with test doubles injected through the interface.
 
 | Methods | Behavior |
 |---|---|

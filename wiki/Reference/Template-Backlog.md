@@ -1,6 +1,8 @@
 # StarterKit — Template Backlog
 
-Prioritized list of things to fix or upgrade in the template itself. Created when StarterKit was extracted from
+This backlog tracks completed and planned changes to the StarterKit template.
+
+Created when StarterKit was extracted from
 BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
 
 > Full review with every finding and the wave plan: Obsidian `projects/starterkit/2026-11-01 StarterKit Full Review.md`.
@@ -43,7 +45,7 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 |---|---|---|
 | G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning ([SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md)) | ✅ |
 | G16 | Passkeys (WebAuthn) ([Passkeys](../Identity/Passkeys.md)) | ✅ |
-| G17 | Full-text search abstraction (Postgres `tsvector` first) | ⬜ |
+| G17 | Full-text search abstraction (PostgreSQL `tsvector` first) | ⬜ |
 | G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
@@ -56,9 +58,9 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 
 | # | Item | Status |
 |---|---|---|
-| G25 | Public documentation site for the template: senior-level, built from the `wiki/` Markdown, hosted on GitHub, with a modern light and dark design and a brand identity | ⬜ |
+| G25 | Public documentation site for the template: senior-level, built from the `wiki/` Markdown, hosted on GitHub, with a modern light and dark design and a brand identity | ✅ |
 
-G25 scope (requested 2026-11-08, not started):
+G25 scope (requested 2026-11-08, completed in Wave 15):
 - **Source stays Markdown.** `wiki/` remains the single source of truth; the site is generated HTML, published by CI on
   GitHub (GitHub Pages), so docs and code change in the same PR.
 - **Senior-level structure.** Reorganized for readers rather than mirroring the folders: getting started, concepts and
@@ -68,9 +70,17 @@ G25 scope (requested 2026-11-08, not started):
   on phones.
 - **Brand identity for the template.** Name treatment, logo, color palette and typography, used on the site and on
   where the template is presented (the repository README and social preview, the `StarterKit.Templates` package page).
-- **Decide when it starts:** the static-site generator; public or private (GitHub Pages on a private repository needs a
-  paid plan), which goes with the public-or-private decision for the package feed; the custom domain, if any; whether
-  the site ships in generated products or stays template-only (it must not break `dotnet new` or `check-docs.sh`).
+- **Publication:** Astro Starlight, template-only; the site is excluded from generated products and the template pack.
+  Repository visibility and any custom domain remain owner choices; GitHub Pages on a private repository needs a
+  paid plan.
+
+Wave 15 (G25) (2026-11-10, branch `docs/g25-documentation-site`): **documentation site and brand.**
+- **Shipped:** reader-first Astro Starlight navigation in `docs-site/`, synced from the canonical `wiki/`; rewritten
+  references, light/dark brand assets, search, Mermaid rendering and link/contrast checks.
+- **Publication:** `.github/workflows/docs.yml` builds PR artifacts and publishes master to GitHub Pages; the site
+  stays out of generated products and the template pack ([ADR 0024](../Decisions/0024-documentation-site.md)).
+- **Owner follow-ups:** enable GitHub Pages with source "GitHub Actions"; upload `docs-site/public/og-image.png` as
+  the repository social preview.
 
 Wave 14 (2026-11-08, branch `chore/backlog-leftovers`): **the smaller leftovers of the older sections.**
 - **Moderation:** approve, reject, request changes, publish and the pending queue need `catalog.moderate` instead of
@@ -150,7 +160,7 @@ Six workstreams were each implemented and then reviewed by an architecture audit
 - **DataTransfer** (#20): the `catalog.categories` and `tenancy.members` definitions.
 - **G22** (#19): k6 HTTP load tests with a nightly CI baseline ([Load-Testing](../Testing/Load-Testing.md)).
 - **CI date bomb** (#23): the DataTransfer integration-test clock was pinned to 2026-11-06, so every branch failed
-  from the next day on. Never pin a fixture clock to a date when a test compares it with Postgres `now()`.
+  from the next day on. Never pin a fixture clock to a date when a test compares it with PostgreSQL `now()`.
 
 **Hints before the next production deploy:**
 - **Gateway mode.** An enabled payment gateway with a live key and no `Mode` now refuses to boot. Set
@@ -257,7 +267,7 @@ Wave 9 (2026-11-06, [ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-clo
 **Follow-ups of the review, done in the same PR:**
 - **Pending delete vs thumbnail race.** The thumbnail job could save the row mid-delete; the user got 409 and the
   row survived its deleted file. The delete now re-reads once and completes, including the new thumbnail
-  (`Integration/PendingDeleteRaceTests`, real Postgres conflict).
+  (`Integration/PendingDeleteRaceTests`, real PostgreSQL conflict).
 - **Lockout no longer enumerates accounts.** A locked-out account gets the same 401 `Invalid credentials` as an
   unknown one.
 - **ClamAV in CI.** `clamav-live.yml` runs the real-image test nightly and on PRs that touch the scanner.
@@ -295,7 +305,7 @@ immediately on session revocation~~ (done: `UserSessionsRevokedIntegrationEvent`
 ## 2026-11-04 — Production-readiness wave
 
 Implemented:
-- Deploy-time migrator (`Api.dll --migrate-only`) under a Postgres advisory lock, plus `Database:MigrateOnStartup`
+- Deploy-time migrator (`Api.dll --migrate-only`) under a PostgreSQL advisory lock, plus `Database:MigrateOnStartup`
   (off in `appsettings.Docker.json`). The migration connection string is a Docker secret.
 - Production guard against the `InMemory` messaging transport.
 - Request timeouts (`RequestTimeouts:DefaultSeconds` / `LongRunningSeconds`, 504 on expiry).
@@ -318,7 +328,7 @@ Still open:
 - A real payment provider adapter per project (the template ships only the port and the inbox).
 - Refund webhook posting to the ledger.
 
-## ✅ Wave 5 — Identity hardening + platform correctness (2026-11-03) — Catalog items deferred by owner
+## Wave 5 — Identity hardening + platform correctness (2026-11-03) — Catalog items deferred by owner
 
 - **Email confirmation:**
   - `POST /api/auth/email/send-confirmation` (the caller only) and `POST /api/auth/email/confirm`.
@@ -326,7 +336,7 @@ Still open:
   - Tokens come from their own provider with a 24h lifetime, bound to the security stamp.
   - Forgot-password by email works again for confirmed users.
   - Fixed: phone accounts (placeholder email) could never add a real email in complete-profile.
-- **One OTP system (#22):** Identity `IOtpCodeService` (Postgres, HMAC, atomic attempts and cooldown); Notification only delivers the code. The Redis verification store and the `notification_verification_hmac_key` secret are removed.
+- **One OTP system (#22):** Identity `IOtpCodeService` (PostgreSQL, HMAC, atomic attempts and cooldown); Notification only delivers the code. The Redis verification store and the `notification_verification_hmac_key` secret are removed.
 - **TOTP replay guard:** an accepted code is consumed for 180s (Redis `SET NX`, or a distributed-cache fallback). Recovery codes are confirmed single-use under concurrency.
 - **Data Protection keys:**
   - Encrypted at rest with a certificate (thumbprint, or a PFX plus a secret password).
@@ -349,7 +359,7 @@ Still open:
 - ~~Update the `dotnet-ef` tool to 10.x~~ Done in wave 14: a local tool pinned to the EF Core version.
 - Some E2E tests read Hangfire storage through DI, because the eager `ConnectionStrings__starterkit` env var is process-global. A second factory in the same process could point Hangfire at another database; keep one E2E host per process.
 
-## ✅ Wave 4 — Admin portal P0 (2026-11-02)
+## Wave 4 — Admin portal P0 (2026-11-02)
 
 - **Permissions** (`Shared.Core/Authorization/Permissions.cs`, `.RequirePermission(...)`):
   - New roles Finance (`66666666-…`) and Support (`77777777-…`).
@@ -389,7 +399,7 @@ Still open:
 - ~~Catalog moderation endpoints are still `AdminOnly`~~ Done in wave 14 (`catalog.moderate`).
 - ~~Billing dashboard cache has no invalidation~~ Done in wave 14 (generation token, invalidated on money events).
 
-## ✅ Wave 3 — Reliability (2026-11-02)
+## Wave 3 — Reliability (2026-11-02)
 
 - **Domain events:** only *committed* domain events are dispatched, and failed or rolled-back saves discard them.
   - Every background job uses `IUnitOfWorkRunner` / `IDomainEventDispatcher`, enforced by
@@ -406,7 +416,7 @@ Still open:
 - **New E2E** `AttachmentFlowTests`: upload → metadata → download → delete, plus cross-user upload (403) and HTML upload (400).
 - **Tests:** 1,367 green across 12 projects.
 
-## ✅ Wave 2 — Money correctness (2026-11-02)
+## Wave 2 — Money correctness (2026-11-02)
 
 Rules are documented in `wiki/Subscriptions/Billing.md`.
 - **Tax:** one `TaxCalculator`, configurable `Subscriptions:Tax:PricesIncludeTax` + `Rate`; the tax breakdown is snapshotted on each invoice.
@@ -424,7 +434,7 @@ Rules are documented in `wiki/Subscriptions/Billing.md`.
   - Approvals are bound to a specific `PaymentId`.
   - `ExpectVersion` on every admin money action.
   - Audit gains amount, currency and before/after JSON for every admin financial action.
-- **Tests:** 175 unit + 18 Postgres integration (concurrent create, double approval, 20 parallel approvals with no invoice gaps, refund cap, SLA revert, orchestrator ordering, snapshot PDF).
+- **Tests:** 175 unit + 18 PostgreSQL integration (concurrent create, double approval, 20 parallel approvals with no invoice gaps, refund cap, SLA revert, orchestrator ordering, snapshot PDF).
 
 ### Follow-ups created by Wave 2
 - **Decided (owner):** `Plan.DiscountPercent` IS applied to charges. `Plan.Price` is the list price. Frontends must show the
@@ -432,7 +442,7 @@ Rules are documented in `wiki/Subscriptions/Billing.md`.
 - `SubscriptionStatus` numbers changed (Cancelled 3→4, Expired 4→3). Update frontend enums. Existing data needs a backfill if migrated from BateCom.
 - The SLA job skips unpaid proration on an already PastDue subscription and leaves it for an admin (logged).
 
-## ✅ Wave 1 — Security baseline (2026-11-02)
+## Wave 1 — Security baseline (2026-11-02)
 
 All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **BateCom still has every one of them.**
 - **Identity (C1–C3):**
@@ -468,7 +478,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
   - Generic Docker secrets provider.
   - New secrets `identity_otp_hmac_key` and `notification_verification_hmac_key`.
 - **Catalog rebuilt** as the full reference module: 22 feature types (see `wiki/Modules/Catalog.md`).
-- **Tests:** 1,101 green across 12 projects (unit, Testcontainers Postgres/Redis integration, E2E).
+- **Tests:** 1,101 green across 12 projects (unit, Testcontainers PostgreSQL/Redis integration, E2E).
 
 ### Follow-ups created by Wave 1
 - **Email confirmation flow is missing.** Forgot-password now sends only to a *confirmed* email or *verified* phone, so
@@ -477,7 +487,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 - Deploy notes: all users are signed out once (security-stamp hash). Phones must be unique and E.164 before the index
   migration. Clients must use server-issued attachment session ids and `X-Correlation-Id`. `pageSize=-1` is gone.
 
-## ✅ Done (2026-11-01)
+## Done (2026-11-01)
 
 - **Optimistic concurrency fixed.** `AuditableEntityInterceptor` no longer overwrites `Version.OriginalValue`. A new
   helper `dbContext.ExpectVersion(entity, command.Version)` (`Shared.Core/Data/DbContextVersioningExtensions.cs`)
@@ -502,7 +512,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 ## P0 — Security
 
 1. **Rotate the BateCom secrets.** BateCom tracks `.env`, `.env.dev`, `.env.prod` and `src/Api/appsettings*.json`
-   in git, with real Postgres, Redis, AWS, JWT, SMTP, WhatsApp and Hangfire credentials, plus a wiki page containing
+   in git, with real PostgreSQL, Redis, AWS, JWT, SMTP, WhatsApp and Hangfire credentials, plus a wiki page containing
    an AWS key. Rotate all of them, untrack the files, and consider purging history with `git filter-repo`.
    StarterKit contains placeholders only.
 
@@ -579,7 +589,7 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
 
 ## P1 — Follow-ups of the Notification / UserDirectory refactor
 
-22. ~~**One OTP system.**~~ **Done:** Identity `IOtpCodeService` (Postgres `identity.otp_codes`, HMAC with
+22. ~~**One OTP system.**~~ **Done:** Identity `IOtpCodeService` (PostgreSQL `identity.otp_codes`, HMAC with
     `identity_otp_hmac_key`, atomic issue gate + attempt counting) serves forgot-password, phone verification,
     onboarding and `/notifications/verification/*`; Notification only delivers (`IOtpDeliveryService`). The Redis
     `IVerificationService`, `Notification:Verification` and the `notification_verification_hmac_key` secret are gone.
@@ -625,14 +635,14 @@ All critical items C1–C10 and C13 are fixed in StarterKit, each with tests. **
     architecture test. Not a global `FallbackPolicy`, which would also block middleware paths (Hangfire dashboard Basic
     auth, Swagger UI) and framework endpoints (health, OpenAPI, Scalar).
 24. ✅ **Ports** (2026-11-04): `.env.example` `API_PORT` 8888 → 5000 (8888 clashed with the OTel collector); Mailhog is
-    8025/1025 everywhere. Postgres/Redis/Seq keep deliberate dev offsets in `.env.example` (documented).
-25. ✅ **Integration coverage** (2026-11-04): new `Tenancy.IntegrationTests` (real Postgres + migrations + module);
+    8025/1025 everywhere. PostgreSQL/Redis/Seq keep deliberate dev offsets in `.env.example` (documented).
+25. ✅ **Integration coverage** (2026-11-04): new `Tenancy.IntegrationTests` (real PostgreSQL + migrations + module);
     `TenantRowLevelSecurityCoverageTests` (every tenant table of every tenant-data module has forced RLS);
     `ClientGeneratedKeyTests`. They found and fixed: **adding a tenant custom domain always failed with 409** (owned
     `TenantDomain` key not `ValueGeneratedNever`), and the same latent trap on `PlanFeature`. Also fixed: the committed
     AppHost `Messaging:Transport=RabbitMq` broke two `AppHost.Tests` (default restored to `InMemory`).
 26. ✅ **Notification + Attachment real-database coverage** (2026-11-04):
-    - `Notification.Tests/Persistence/NotificationDispatchPostgresTests`: the dispatch job on real Postgres. Covers no
+    - `Notification.Tests/Persistence/NotificationDispatchPostgresTests`: the dispatch job on real PostgreSQL. Covers no
       re-send after delivery, transient attempts counted across runs, fallback, admin re-enqueue, stored channel order.
     - `Attachment.Tests/Integration/AttachmentTenantIsolationTests`: two tenants, real migrations, a non-superuser
       connection so RLS is enforced. Covers no cross-tenant read, list or delete; tenant-rooted blobs.
