@@ -1,211 +1,73 @@
-# Seq Security Configuration
+# Secure Seq access
 
-## Overview
+Configure Seq's initial administrator credential and restrict network ingress before exposing operational logs.
 
-This guide explains how to secure your Seq logging instance with authentication.
+## Goal
 
-## Current Security Issue
+Allow authorized log searches while preventing direct unauthenticated access to the Seq UI and its stored data.
 
-**WARNING:** Seq is currently running WITHOUT authentication! Anyone with access to port 5341 can view all logs.
+## Prerequisites
 
-## Quick Fix (Production Server)
+Use the deployment checkout with Docker/OpenSSL and `.env.prod`. The base service uses `datalust/seq:2024.3`
+and persists `/data` in `seq-data`. Know whether this is a fresh or already initialized volume.
 
-### Option 1: Automated Script
+## Steps
 
-Run the security setup script on your production server:
+1. Generate a password/hash before the first start. From the repository root:
 
-```bash
-cd /path/to/StarterKit/deployment
-chmod +x secure-seq.sh
-./secure-seq.sh
-```
-
-The script will:
-1. Generate a secure random password
-2. Create a password hash compatible with Seq
-3. Save the password to `secrets/seq_admin_password.txt`
-4. Display the hash to add to `.env.prod`
-
-### Option 2: Manual Setup
-
-1. **Generate a secure password:**
-
-```bash
-openssl rand -base64 32
-```
-
-Save this password somewhere secure (e.g., password manager).
-
-2. **Generate the password hash:**
-
-```bash
-echo 'YOUR_PASSWORD_HERE' | docker run --rm -i datalust/seq:2024.3 config hash
-```
-
-This will output a hash like: `PH+Abc123...`
-
-3. **Update `.env.prod`:**
-
-Edit the `.env.prod` file and set:
-
-```bash
-SEQ_ADMIN_PASSWORD_HASH=PH+YOUR_GENERATED_HASH_HERE
-```
-
-4. **Restart Seq container:**
-
-```bash
-docker compose -f docker-compose.yml restart seq
-```
-
-Or for full stack:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml restart seq
-```
-
-5. **Verify authentication is working:**
-
-Access Seq at `http://your-server:5341` - you should be prompted for login.
-
-Default credentials:
-- Username: `admin`
-- Password: (the password you generated in step 1)
-
-## Additional Security Layers
-
-### 1. Nginx Basic Authentication
-
-Add an additional layer of HTTP basic auth in nginx (already configured at `deployment/nginx/conf.d/app-production.conf:177-188`):
-
-```nginx
-location /seq/ {
-    # IP restriction
-    allow YOUR_IP_HERE;
-    deny all;
-
-    # Basic auth (optional additional layer)
-    auth_basic "Seq Logs - Restricted";
-    auth_basic_user_file /etc/nginx/.htpasswd;
-
-    proxy_pass http://localhost:5341/;
-    # ... rest of config
-}
-```
-
-Generate htpasswd file:
-
-```bash
-sudo apt-get install apache2-utils
-sudo htpasswd -c /etc/nginx/.htpasswd seqadmin
-sudo systemctl reload nginx
-```
-
-### 2. IP Whitelisting
-
-Currently, the nginx config denies all access to `/seq/`. Update it to allow your IP:
-
-```nginx
-location /seq/ {
-    allow YOUR_IP_ADDRESS;
-    deny all;
-    # ... rest of config
-}
-```
-
-### 3. VPN Access Only
-
-Best practice: Access Seq only through a VPN connection to your server.
-
-## Security Checklist
-
-- [ ] Generate secure password for Seq
-- [ ] Set `SEQ_ADMIN_PASSWORD_HASH` in `.env.prod`
-- [ ] Restart Seq container
-- [ ] Verify login works at Seq UI
-- [ ] Save password in secure password manager
-- [ ] Update nginx IP whitelist for `/seq/` location
-- [ ] (Optional) Add nginx basic auth
-- [ ] (Optional) Setup VPN for monitoring tools access
-- [ ] Add `secrets/` directory to `.gitignore`
-
-## Troubleshooting
-
-### Seq doesn't prompt for password
-
-1. Check that the hash is correctly set:
    ```bash
-   grep SEQ_ADMIN_PASSWORD_HASH .env.prod
+   ./deployment/secure-seq.sh
    ```
 
-2. Verify the container picked up the environment variable:
+   The helper writes `secrets/seq_admin_password.txt` relative to the current directory and prints the password
+   and hash. Run it in a private terminal and protect the file/terminal output. It does not edit `.env.prod`.
+   Its output provides the `SEQ_ADMIN_PASSWORD_HASH` assignment to set there.
+
+2. For manual generation, use `openssl rand -base64 32` and the Seq image's `config hash` command, then store the
+   resulting hash in `SEQ_ADMIN_PASSWORD_HASH`. The base file maps that variable to
+   `SEQ_FIRSTRUN_ADMINPASSWORDHASH`; it is a **first-run** initialization setting, not a password-reset API.
+
+3. Create or recreate the selected service to apply changed environment configuration:
+
    ```bash
-   docker inspect starterkit-seq | grep SEQ_FIRSTRUN_ADMINPASSWORDHASH
+   docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps seq
    ```
 
-3. Check Seq logs:
-   ```bash
-   docker logs starterkit-seq
-   ```
+   A plain `restart` does not reload environment values. An existing initialized Seq volume retains its users;
+   changing the first-run hash does not reset them. Use Seq's supported account recovery for that installation
+   instead of deleting the log volume as a routine recovery procedure.
 
-### Forgot Seq password
+4. Restrict the published `SEQ_PORT` and `/seq/` proxy location. Base Compose publishes port 5341 by default
+   without a loopback bind; Nginx's deny rule does not protect direct port access. Bind/restrict it in the deployed
+   configuration, firewall or private network and require authorized access through a VPN/tunnel or reviewed proxy.
 
-1. Stop the container:
-   ```bash
-   docker compose stop seq
-   ```
+5. The shipped host `/seq/` location denies all. Add only intended administrator addresses before `deny all`,
+   validate Nginx and reload. Basic authentication is an optional additional layer, **not already active** in
+   `deployment/nginx/conf.d/app-production.conf`. If adding it, provision/protect the password file, preserve
+   the existing proxy headers and verify both UI access and ingestion from the API.
 
-2. Remove the Seq data volume (WARNING: This deletes all logs):
-   ```bash
-   docker volume rm starterkit_seq_data
-   ```
+## Verify
 
-3. Generate a new password hash and update `.env.prod`
+- A fresh Seq UI prompts for administrator login; use `admin` and the generated password.
+- An unapproved address cannot access either the proxy path or the published port directly.
+- Authorized access works through the intended route, and API logs/traces still arrive.
+- Inspect environment key presence and container logs without printing credentials or the full secret-bearing environment.
 
-4. Restart:
-   ```bash
-   docker compose up -d seq
-   ```
+## Pitfalls
 
-### Can't access Seq through nginx
+| Symptom | Investigation |
+|---|---|
+| No login prompt | Existing volume/user state, first-run hash and whether the container was recreated |
+| Wrong password | Correct initialized instance and credential; first-run changes do not reset existing users |
+| Proxy 403 | Intended IP allow-list and `deny all`; review the installed site, then `sudo nginx -t` and reload |
+| Proxy works but direct port is public | Docker publication/firewall; proxy authentication covers only its route |
+| API no longer logs | Seq endpoint/ingestion configuration and exporter logs; not proof of API readiness failure |
 
-1. Verify Seq is running:
-   ```bash
-   docker ps | grep seq
-   ```
+Keep logs and credential backups separate from database backups. Removing `seq-data` deletes logs and users;
+it is a destructive reinitialization, not a default password-reset step. Avoid committing secrets or retaining
+the helper's printed credential in CI logs.
 
-2. Check nginx allows your IP:
-   ```nginx
-   # In /etc/nginx/sites-available/app-production.conf
-   location /seq/ {
-       allow YOUR_IP;  # Make sure this matches your IP
-       deny all;
-   }
-   ```
+## Related
 
-3. Reload nginx:
-   ```bash
-   sudo nginx -t
-   sudo systemctl reload nginx
-   ```
-
-## References
-
-- [Seq Authentication Documentation](https://docs.datalust.co/docs/authentication)
-- [Seq Docker Configuration](https://hub.docker.com/r/datalust/seq)
-- Seq config: `docker-compose.yml:203-230`
-- Nginx config: `deployment/nginx/conf.d/app-production.conf:177-188`
-
-## Default Credentials
-
-After setup:
-- **Username:** `admin`
-- **Password:** (stored in `secrets/seq_admin_password.txt`)
-- **URL:** `http://localhost:5341` (internal) or `https://api.example.com/seq/` (via nginx)
-
-## Important Notes
-
-- First-run password hash (`SEQ_FIRSTRUN_ADMINPASSWORDHASH`) only applies on initial startup
-- If Seq data already exists, you'll need to reset the password through the UI or delete the volume
-- Always use HTTPS when accessing Seq remotely (via nginx reverse proxy)
-- Consider rotating the Seq admin password periodically
+[Secrets](Secrets.md), [Nginx](Nginx.md), [observability](Observability.md),
+[Seq authentication](https://docs.datalust.co/docs/authentication), and `/starterkit:update-docs`.
