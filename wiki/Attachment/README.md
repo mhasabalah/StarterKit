@@ -1,89 +1,119 @@
-# Attachment Module
+# Attachment module
 
-File upload, storage (Local / Azure Blob / S3) and access control for StarterKit.
+Attachment owns tenant-scoped file metadata, private blob storage and controlled reads so other modules can attach files without depending on storage implementations.
 
-**Start with [Security.md](Security.md)**: it is the reference for entity access policies, server-issued
-pending sessions, upload validation, signed read URLs, the download endpoint and storage consistency.
+## At a glance
 
-## Quick Start
+| Responsibility | Types / source |
+|---|---|
+| Aggregates | `AttachmentFile`, `PendingAttachment` in `src/Modules/Attachment/Attachment/Domains/Attachments/Models/` |
+| Persistence | `AttachmentDbContext`, schema `attachment`, `ITenantDataContext`; tenant filters and forced RLS |
+| Public boundary | `src/Modules/Attachment/Attachment.Contracts/`; commands, queries, DTOs and entity access policies |
+| Infrastructure | `Infrastructure/Storage/`, `Validation/`, `ImageProcessing/`, `BackgroundJobs/`, `Maintenance/` inside Attachment |
+| Discovery | `AttachmentModuleManifest`, `ModuleOrder.Attachment` (200): after Tenancy (100), before Subscriptions (400) |
 
-### 1. Configuration (appsettings.json)
-```json
-{
-  "Attachment": {
-    "Storage": { "Provider": "Local", "Local": { "UploadPath": "uploads" } },
-    "Validation": { "MaxImageSizeBytes": 10485760, "MaxImageMegapixels": 40 },
-    "Download": { "ReadUrlTtlMinutes": 5 },
-    "Image": { "EnableThumbnailGeneration": true }
-  }
-}
+The manifest delegates registration to `AddAttachmentModule` and initialization to `UseAttachmentModule`, and exposes the Contracts enum assembly. The host discovers it; do not add module calls to `Program.cs`. Initialization runs migrations through the shared migration mechanism and does not expose an upload directory as static files.
+
+## How it works
+
+```mermaid
+flowchart TB
+  C[HTTP caller or owning module] --> A[Attachment commands and queries]
+  subgraph Attachment
+    A --> V[Access and content validation]
+    V --> D[AttachmentDbContext]
+    V --> S[IStorageService]
+    D --> J[Thumbnail and cleanup jobs]
+    D --> O[Transactional outbox]
+  end
+  O --> I[Identity avatar consumer]
+```
+*Figure: Attachment owns storage and metadata; Identity receives committed avatar changes through the outbox.*
+
+Direct uploads become visible only after the blob is stored and the row is `Ready`. Pending uploads let a client upload before its owning entity exists, then associate the session after creation. Metadata returns stable API download URLs; pending previews and provider redirects are short-lived signed URLs. See [Uploads](Uploads.md), [Security](Security.md) and the shared [request lifecycle](../Architecture/Request-Lifecycle.md).
+
+### Contracts
+
+Send requests through `ISender`; other modules must not reference Attachment's implementation or DbContext.
+
+| Area | Contracts |
+|---|---|
+| Direct files | `UploadAttachmentCommand`, `DeleteAttachmentCommand`, `DeleteAttachmentsByEntityCommand` |
+| Pending files | `UploadPendingAttachmentCommand`, `AssociatePendingAttachmentsCommand`, `DeletePendingAttachmentCommand`, `ReorderPendingAttachmentsCommand`, `CleanupExpiredPendingAttachmentsCommand` |
+| Reads | `GetAttachmentByIdQuery`, `GetAttachmentsByEntityQuery`, `GetUserAvatarQuery`, `GetPendingAttachmentsBySessionQuery`, `GetPendingAttachmentByIdQuery` |
+| Trusted content reads | `GetAttachmentReadUrlQuery`, `OpenAttachmentContentQuery` (caller authorizes first; dispose returned streams) |
+| Entity authorization | `IAttachmentEntityAccessPolicy`, registered with `AddAttachmentEntityPolicy`; built-in User policy allows self-access |
+
+The HTTP upload, association and deletion endpoints enable entity-policy enforcement. Trusted module commands have different authorization defaults; [Security](Security.md) defines that boundary. DataTransfer uses `EntityType.DataTransferJob` for its files; Subscriptions uses trusted read URLs after checking invoice/proof access.
+
+### Endpoints and authorization
+
+Source: `src/Modules/Attachment/Attachment/Domains/Attachments/Features/`. All routes below start with `/api/v1/attachments`. Authorization declarations do not replace handler ownership checks.
+
+| Method | Route suffix | Declaration and checks |
+|---|---|---|
+| POST | `/upload` | `RequireAuthorization()`; entity attach policy |
+| GET | `/{id:guid}` | `RequireAuthorization()`; public, uploader, admin or entity read policy |
+| GET | `/{id:guid}/download` | `AllowAnonymous()`; public or authorized reader; optional `thumbnail=true` |
+| GET | `/files` | `AllowAnonymous()`; Local signed URL validation |
+| DELETE | `/{id:guid}` | `RequireAuthorization()`; admin, linked entity attach policy or unlinked uploader |
+| GET | `/entity/{entityType}/{entityId:guid}` | `RequireAuthorization()`; policy readers see all, otherwise public + own |
+| POST | `/pending/sessions` | `AllowAnonymous()`; `upload` rate policy; issues owner-bound session |
+| POST | `/pending/upload` | `AllowAnonymous()`; session ownership and `upload` rate policy |
+| GET | `/pending/session/{sessionId:guid}` | `AllowAnonymous()`; session ownership |
+| DELETE | `/pending/{id:guid}?sessionId=...` | `AllowAnonymous()`; session ownership |
+| POST | `/pending/associate` | `RequireAuthorization()`; session ownership + entity attach policy |
+
+Entity listing accepts `pageNumber` and `pageSize`, sorts newest first with id as tie-breaker, and returns a list with `X-Total-Count`, `X-Page-Number` and `X-Page-Size`. Without paging parameters it uses `Paging:MaxPageSize` (100). Reordering has a contract handler, not an HTTP endpoint.
+
+### Jobs and events
+
+| Job | Trigger / retry |
+|---|---|
+| `GenerateThumbnailJob` | Enqueued after image upload; two automatic retries |
+| `DeleteAttachmentFilesJob` | Enqueued after deletion or avatar replacement; three automatic retries, then reconciliation continues |
+| `CleanupExpiredPendingAttachmentsJob` | `cleanup-expired-attachments`, every six hours by default; three automatic retries |
+| `AttachmentReconciliationJob` | `attachment-reconciliation`, every 15 minutes by default; next scheduled run is the retry |
+
+`JobSchedulerBootstrap` schedules recurring work. Tenant maintenance preserves tenant scope; [Reliability](Reliability.md) explains compensation, batching and concurrency.
+
+`Domains/Attachments/Events/AttachmentEvents.cs` defines uploaded, updated, deleted, linked, thumbnail-generated and public/private domain events, plus pending uploaded/deleted/associated/thumbnail-generated events. `AttachmentUploadedEvent` handles replacement of older avatars. `AttachmentFile.MarkReady` also stages `UserAvatarChangedIntegrationEvent` for a user avatar in the same transaction. Identity's `UserAvatarChangedConsumer` re-reads `GetUserAvatarQuery`, so delayed messages do not overwrite the current avatar with stale data. Attachment consumes `UserDeletedIntegrationEvent` from `UserDirectory.Contracts`; `TenantDataPurgeRequestedEventHandler` handles tenant blob purge. See [Messaging](../Architecture/Messaging.md) for delivery semantics.
+
+## Configuration
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Attachment:Storage:Provider` | `Local` | Select Local, AzureBlob or S3 |
+| `Attachment:Pending:ExpirationHours` | 48 | Pending upload lifetime |
+| `Attachment:Download:ReadUrlTtlMinutes` | 5 | Signed URL lifetime |
+| `Attachment:Image:EnableThumbnailGeneration` | true | Background thumbnails |
+
+The [complete configuration reference](Configuration.md) distinguishes shipped settings, option fallbacks and ignored compatibility keys.
+
+## Usage
+
+Registration copied from `src/Modules/Attachment/Attachment/AttachmentModule.cs`:
+
+```csharp
+services.AddAttachmentEntityPolicy<UserAttachmentEntityAccessPolicy>(EntityType.User);
 ```
 
-### 2. Upload a file
-```bash
-curl -X POST "/api/v1/attachments/upload" \
-  -H "Authorization: Bearer {token}" \
-  -F "file=@avatar.jpg" \
-  -F "entityType=User" \
-  -F "entityId={your-user-id}"
-```
+An owning module registers its own policy through Attachment.Contracts, then uses contracts to upload, associate or delete files. Follow the [upload flow](Uploads.md) for HTTP payloads.
 
-The server detects the real type from the content; the stored extension and content type are its decision.
-Attaching to an entity requires that entity type's access policy to allow you (built-in: `User` = yourself).
+## Failure modes and guarantees
 
-### 3. Response
-```json
-{
-  "isSuccess": true,
-  "data": {
-    "id": "guid",
-    "fileName": "{id}.jpg",
-    "fileUrl": "/api/v1/attachments/{id}/download",
-    "thumbnailUrl": null,
-    "fileSize": 20480,
-    "contentType": "image/jpeg"
-  }
-}
-```
+Invalid files return 400; missing resources 404; ownership failures 403; concurrency or duplicate order 409. Scanning returns 400 `malware_detected` or 503 `malware_scanner_unavailable`. A successful upload does not imply its thumbnail is ready. Deletion hides metadata before asynchronous storage removal. Database and storage are not one transaction; compensation and reconciliation cover the gaps.
 
-Thumbnails are generated in the background after the upload; read the attachment
-(`GET /api/v1/attachments/{id}`) for its `thumbnailUrl` once it is there. The attachment DTO also carries
-`contentHash` (SHA-256 of the file).
+## Guardrails
 
-`fileUrl` is stable: every request is access-checked and then redirected to a short-lived signed URL
-(S3/Azure) or streamed (Local). Do not store provider URLs.
+`ModuleDiscoveryTests`, `ModuleBoundaryTests`, `TenantIsolationArchitectureTests`, `MessagingArchitectureTests`, `ThirdPartyIsolationTests` and `AdminEndpointAuthorizationTests` enforce module boundaries. `AttachmentTenantIsolationTests`, `AttachmentLifecycleTests`, `PendingAttachmentFlowTests` and `UserDeletedConsumerTests` exercise the module against PostgreSQL.
 
-## API Endpoints
+## Related
 
-| Method | Route | Auth | Notes |
-|--------|-------|------|-------|
-| POST | `/api/v1/attachments/upload` | user | entity policy enforced; body limit = max configured size |
-| GET | `/api/v1/attachments/{id}` | user | metadata (public / owner / admin / entity policy) |
-| GET | `/api/v1/attachments/{id}/download[?thumbnail=true]` | anonymous for public files | 302 to signed URL or stream |
-| DELETE | `/api/v1/attachments/{id}` | user | admin, entity policy, or uploader of an unlinked file; hidden at once, files removed in the background |
-| GET | `/api/v1/attachments/entity/{entityType}/{entityId}[?pageNumber=&pageSize=]` | user | all files if policy allows read, else public + own; newest first; `X-Total-Count` header |
-| POST | `/api/v1/attachments/pending/sessions` | anonymous | issues an owner-bound session id |
-| POST | `/api/v1/attachments/pending/upload` | anonymous | omit `sessionId` to get a new session |
-| GET | `/api/v1/attachments/pending/session/{sessionId}` | session owner | signed preview URLs |
-| DELETE | `/api/v1/attachments/pending/{id}?sessionId=` | session owner | |
-| POST | `/api/v1/attachments/pending/associate` | user | session owner + entity policy |
-
-## For other modules
-
-- Register an access policy for your entity type: `services.AddAttachmentEntityPolicy<TPolicy>(EntityType.X)`.
-- Upload / associate / delete via `ISender` with the commands in `Attachment.Contracts` (trusted calls: you
-  authorize the entity yourself).
-- Need to hand a private file to a client after your own checks? Send `GetAttachmentReadUrlQuery` and
-  redirect to the returned URL (see Subscriptions `GetPaymentProof` / `GetInvoicePdf`).
-- Need the bytes in the background (e.g. a bulk import job)? Send `OpenAttachmentContentQuery` (trusted, no check)
-  and dispose the returned stream. DataTransfer stores its files as `EntityType.DataTransferJob`.
-
-## Related Documentation
-
-- [Security.md](Security.md) - access model, validation, downloads, consistency, config keys, tests
-- [Reliability.md](Reliability.md) - upload/delete lifecycle, background deletion, reconciliation sweeper, schema
-- [Configuration.md](Configuration.md) - option reference (see Security.md section 8 for new keys)
-- [Uploads.md](Uploads.md) - direct uploads and the pending (session) upload flow for frontends (Security.md wins on conflicts)
-- [Storage-Providers.md](Storage-Providers.md) - Local / Azure Blob / S3: choosing, configuring, operating
-- [Image-Processing.md](Image-Processing.md) - thumbnails and image validation behind `IImageProcessingService` (SkiaSharp); switching libraries
-- [appsettings.Attachment.example.json](appsettings.Attachment.example.json) - complete example configuration section
+- [Uploads](Uploads.md): direct uploads, pending sessions, association and limits.
+- [Storage providers](Storage-Providers.md): private Local/Azure/S3 storage and tenant prefixes.
+- [Security](Security.md): policies, validation, malware scanning and signed reads.
+- [Image processing](Image-Processing.md): SkiaSharp port and thumbnail jobs.
+- [Reliability](Reliability.md): lifecycle, deletion, retries and orphan reconciliation.
+- [Configuration](Configuration.md): complete option reference and [example JSON](appsettings.Attachment.example.json).
+- [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), [ADR-0019](../Decisions/0019-module-manifests-and-discovery.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).

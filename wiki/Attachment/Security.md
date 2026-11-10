@@ -1,263 +1,126 @@
-# Attachment Module - Security, Access and Storage Model
+# Attachment security
 
-This page is the reference for how the Attachment module authorizes access, validates uploads, stores
-files and hands them out. It supersedes older statements in the other Attachment pages where they differ.
+Attachment validates untrusted content and checks file access independently of storage, with owner-bound upload sessions and fail-closed malware scanning.
 
-## 1. Entity access policies (who may attach / read)
+## At a glance
 
-An attachment can be linked to an entity (`EntityType` + `EntityId`). The Attachment module does not know
-the business rules of other modules, so **the module that owns an entity registers a policy** for it.
+| Boundary | Source under `src/Modules/Attachment/` |
+|---|---|
+| Entity policies | `Attachment.Contracts/Authorization/`, `Attachment/Infrastructure/Authorization/` |
+| Sessions and signing | `Attachment/Infrastructure/Security/`, `Infrastructure/Storage/LocalReadUrlSigner.cs` |
+| File inspection | `Attachment/Infrastructure/Validation/FileValidationService.cs`, `FileSignatureCatalog.cs` |
+| Malware port / adapter | `IMalwareScanner`, `ClamAvMalwareScanner` |
+| Download | `Attachment/Domains/Attachments/Features/DownloadAttachment/` |
 
-```csharp
-// Attachment.Contracts/Authorization/IAttachmentEntityAccessPolicy.cs
-public interface IAttachmentEntityAccessPolicy
-{
-    Task<bool> CanAttachAsync(Guid entityId, AttachmentAccessContext caller, CancellationToken ct = default);
-    Task<bool> CanReadAsync(Guid entityId, AttachmentAccessContext caller, CancellationToken ct = default);
-}
+## How it works
+
+```mermaid
+flowchart TB
+  U[Upload] --> A[Caller and entity access]
+  A --> E[Extension and content signature]
+  E --> T[Declared MIME and real length]
+  T --> I[Image header and megapixel cap]
+  I --> M{Malware verdict}
+  M -->|Clean or scanning disabled| S[Store file]
+  M -->|Infected| B[400 malware_detected]
+  M -->|Unavailable, default policy| F[503 malware_scanner_unavailable]
 ```
+*Figure: Enabled scanning runs after content checks and rejects uploads without a clean verdict unless fail-open is explicitly configured.*
 
-Rules:
+### Entity access policies
 
-- **Deny by default.** No policy registered for an entity type = the public endpoints refuse to attach to it
-  and only list its `IsPublic` files (plus the caller's own uploads).
-- **Admins** (`Admin`, `SuperAdmin`) are always allowed; policies are not consulted for them.
-- Built-in: `EntityType.User` -> `UserAttachmentEntityAccessPolicy` (self or admin).
+`IAttachmentEntityAccessPolicy.CanAttachAsync` and `CanReadAsync` let an owning module define entity rules without exposing its implementation. Policies are scoped and can call `ISender`; decisions are memoized per request. `UserAttachmentEntityAccessPolicy` allows the current user to attach/read their own user files. Admin access is handled by `AttachmentAccessService`. Missing policies deny entity attachment and do not grant private reads.
 
-### Registering a policy from another module
+| Operation | Authorization behavior |
+|---|---|
+| HTTP upload with an entity | `EnforceEntityAccessPolicy=true`; attach policy must allow |
+| HTTP association | Session ownership plus attach policy |
+| HTTP deletion | Admin, attach policy for linked file, or uploader of unlinked file |
+| Entity list | Read policy allows all; otherwise public files and caller's own uploads |
+| Metadata / download | Public, admin, uploader or entity read policy |
+| Trusted upload / association | Entity policy flag defaults false; calling module authorizes entity; association still checks session ownership |
+| Trusted single-file deletion | Admin or uploader when entity policy enforcement is not requested |
+| `GetAttachmentReadUrlQuery`, `OpenAttachmentContentQuery` | No access check; trusted caller must authorize first |
 
-Only `Attachment.Contracts` is needed (module boundary rules hold):
+All reads retain tenant isolation. Endpoint declarations are in the [module route table](README.md#endpoints-and-authorization); the anonymous declaration on downloads permits public reads, not unrestricted private access.
 
-```csharp
-// Catalog/Domains/Products/Authorization/ProductAttachmentAccessPolicy.cs
-public sealed class ProductAttachmentAccessPolicy(ISender sender) : IAttachmentEntityAccessPolicy
-{
-    public async Task<bool> CanAttachAsync(Guid productId, AttachmentAccessContext caller, CancellationToken ct = default)
-        => caller.UserId is { } userId && await IsOwnerAsync(productId, userId, ct);
+### Pending sessions
 
-    public Task<bool> CanReadAsync(Guid productId, AttachmentAccessContext caller, CancellationToken ct = default)
-        => CanAttachAsync(productId, caller, ct);
-    // ...
-}
+`PendingSessionService` issues a GUID containing an eight-byte nonce and eight-byte MAC bound to the user or anonymous fingerprint (resolved IP + User-Agent). Ownership is recomputed rather than stored. Upload/list/delete/reorder require the current owner; association accepts the user's session or the current request's anonymous fingerprint. A forged/foreign session returns 403. Issuance and pending uploads use the `upload` rate policy; the session lock enforces per-session limits under concurrency. See [Uploads](Uploads.md).
 
-// CatalogModule.AddCatalogModule(...)
-services.AddAttachmentEntityPolicy<ProductAttachmentAccessPolicy>(EntityType.Product);
-```
+### Content validation
 
-Policies are scoped keyed services (key = `EntityType`); registering again for the same type replaces it.
-Until Catalog registers a Product policy, Product attachments can only be managed through Catalog's own
-endpoints (trusted calls, see below) or by admins.
+1. Reduce the client name to a safe display name, without directory components or control characters.
+2. Apply built-in blocked extensions (including HTML, SVG, scripts, executables and macro-enabled Office files), then configured allow/block lists. A block always wins.
+3. Require a `FileSignatureCatalog` rule for the extension; merely adding an extension to configuration does not create support.
+4. Check magic bytes for raster images, PDF, OLE/OOXML documents and supported media. OOXML checks ZIP structure and rejects macros. Text formats must be UTF-8 without HTML/script markup; XML with `DOCTYPE` or `ENTITY` is rejected.
+5. Require declared MIME to agree with detection; `application/octet-stream` means unspecified. Check the real stream length against the detected type's size limit.
+6. Use `IImageProcessingService.IdentifyAsync` for header-only image format/dimension checks. Reject over `MaxImageMegapixels` before pixel decoding.
+7. Scan validated content when enabled. The stored extension, MIME and attachment type are server-determined; storage keys do not contain the client filename.
 
-### Where policies are enforced
-
-| Operation | HTTP endpoint (`EnforceEntityAccessPolicy = true`) | Trusted module call (default `false`) |
-|-----------|-----------------------------------------------------|----------------------------------------|
-| `UploadAttachmentCommand` with an entity | `CanAttachAsync` must allow | not checked (caller authorized the entity) |
-| `AssociatePendingAttachmentsCommand` | session owner **and** `CanAttachAsync` | session owner only |
-| `DeleteAttachmentCommand` | admin, or `CanAttachAsync` for linked files, or uploader for unlinked files | admin or uploader |
-| `GetAttachmentsByEntityQuery` | `CanReadAsync` -> all files; otherwise public + own uploads (SQL filter) | same |
-| `GetAttachmentByIdQuery`, download | public, admin, uploader, or `CanReadAsync` | same |
-| `GetAttachmentReadUrlQuery` | (no endpoint) | **no check** - only for callers that already authorized |
-| `OpenAttachmentContentQuery` | (no endpoint) | **no check** - stream of the stored file, for background processing |
-
-`EnforceEntityAccessPolicy` is an `init` property on the command records; only the Attachment endpoints set it.
-
-## 2. Pending upload sessions (server-issued, owner-bound)
-
-Session ids are no longer chosen by the client.
-
-- `POST /api/v1/attachments/pending/sessions` returns `{ sessionId }`, or omit `sessionId` on
-  `POST /attachments/pending/upload` and use the id returned in the response.
-- A session id is a normal GUID whose bytes are `nonce(8) || HMAC(owner, nonce)(8)`. The owner is the
-  authenticated user, or for anonymous uploads a fingerprint of client IP + User-Agent. Nothing is stored;
-  ownership is proven by recomputing the MAC.
-- Upload, list, delete and reorder require `IsOwnedByCurrentCaller`; associate requires the session to be
-  owned by the associating user **or** by the anonymous fingerprint of the current request (anonymous
-  upload, then login, then create the entity from the same browser).
-- A random or foreign GUID -> `403`. This also closes the "new GUID per file" bypass of
-  `MaxUploadsPerSession`; issuing sessions is rate limited by the `upload` policy.
-- Concurrent uploads to one session are serialized with a PostgreSQL advisory lock: the limit holds and a
-  duplicate `displayOrder` returns `409` instead of a unique-index `500`.
-
-## 3. Upload validation (C5)
-
-`FileValidationService` runs for every upload (direct and pending):
-
-1. File name reduced to a safe display name (no directory part, no control characters).
-2. Extension: a built-in block list (`.html .htm .svg .js .exe .docm ...`) always wins, then
-   `Validation:AllowedExtensions` and `Validation:BlockedExtensions`.
-3. The extension selects a rule in `FileSignatureCatalog`; extensions without a rule are rejected.
-4. **Magic bytes** must match the rule (JPEG/PNG/GIF/BMP/WebP, PDF, OLE and OOXML (zip structure checked,
-   macros rejected), MP4/MOV/MPEG/AVI, MP3/WAV/OGG). Text formats (`.txt .csv .json .xml`) must be UTF-8
-   without HTML/script markup; XML with `DOCTYPE`/`ENTITY` is rejected.
-5. The declared content type must agree with the rule (`application/octet-stream` = not declared).
-6. Size limits use the real stream length.
-7. Images: `Image.IdentifyAsync` (header only) must succeed and the format must match; images above
-   `Validation:MaxImageMegapixels` are rejected before any decoding.
-8. Optional malware scan (`IMalwareScanner`).
-
-**The stored extension, content type and attachment type are server-determined** from the rule; storage
-keys are `yyyy/MM/dd/{id}.ext` (no client file name in storage).
-
-Thumbnails decode with `DecoderOptions.TargetSize` and `MaxFrames = 1`; EXIF is stripped.
+Content verification is always enabled regardless of the obsolete switch. [Image processing](Image-Processing.md) describes the SkiaSharp decoder and thumbnail metadata removal. Upload endpoints cap body and multipart size at the largest type limit plus 64 KiB; excessive bodies can return 413.
 
 ### Malware scanning
 
-Step 8 runs only for files that passed every other check, so the scanner never sees obviously invalid input.
+`ClamAvMalwareScanner` uses clamd TCP `INSTREAM`, one connection per file and no third-party client. `IMalwareScanner` implementations must not dispose the caller's stream and must throw if they cannot return a verdict. Returning clean on an outage violates the port contract. With a custom registered scanner, keep `Scanner:Provider=None` and ensure that registration wins over the no-op fallback.
 
-**Built-in adapter: ClamAV.** `Infrastructure/Validation/ClamAv/ClamAvMalwareScanner.cs` talks to the ClamAV daemon
-(clamd) over TCP with its `INSTREAM` protocol. There is no third-party client library; one connection is used per
-file. Turn it on with configuration only:
-
-```json
-"Attachment": { "Validation": {
-  "EnableVirusScanning": true,
-  "RequireVirusScanning": true,
-  "Scanner": { "Provider": "ClamAv", "Host": "clamav", "Port": 3310, "TimeoutSeconds": 30, "FailOpen": false }
-} }
-```
-
-How to run clamd:
-- **Compose.** Add the overlay [`docker-compose.clamav.yml`](../../docker-compose.clamav.yml). It runs
-  `clamav/clamav:1.4`, keeps signatures in a volume and sets the API variables above.
-- **Aspire.** Pass `dotnet run -- Attachment:ClamAv=true` (see [Aspire](../Infrastructure/Aspire.md)).
-
-**Outcomes.** Every one ends in a stable `errorCode` that clients can branch on:
-
-| Scanner says | Result |
+| Outcome | HTTP / effect |
 |---|---|
-| clean | upload continues |
-| infected | **400 `malware_detected`** (`MalwareDetectedException`). The signature is logged, never returned. Nothing is stored. |
-| no verdict (unreachable, timeout, `ERROR`, stream over clamd's limit, any exception from a custom scanner) | **503 `malware_scanner_unavailable`** (`FileScanUnavailableException`). The upload **fails closed**; nothing is stored. |
-| no verdict and `Scanner:FailOpen=true` | the file is accepted **unscanned**. An error is logged and the metric records `skipped_fail_open`. |
+| Clean | Continue storing |
+| Infected | 400 `malware_detected`; signature logged, never returned; nothing stored |
+| Unreachable, timeout, ERROR, stream limit or scanner exception | 503 `malware_scanner_unavailable`; nothing stored |
+| Unavailable with `Scanner:FailOpen=true` | Accept unscanned; error log and `skipped_fail_open` metric |
 
-**Operations.**
-- **Health.** The check `clamav` (`zPING` → `PONG`) is part of `/health`. Its failure status is **Degraded**, not
-  Unhealthy: a scanner outage must not take the whole API out of rotation, and uploads already fail closed.
-- **Metric.** `attachment.malware.scans` (meter `StarterKit.Attachment`), tagged `result`:
-  `clean` / `infected` / `unavailable` / `skipped_fail_open`. Alert on `infected` (someone is uploading malware) and
-  on `unavailable`.
-- **`AlertExceedsMax yes` is required.** By default clamd answers `OK` for content it **skipped**: a file over
-  `MaxFileSize`, or an archive over `MaxScanSize`/`MaxFiles`/`MaxRecursion`. With the setting it answers
-  `Heuristics.Limits.Exceeded... FOUND`, so the upload is rejected. The compose overlay and the Aspire container set
-  it through `CLAMD_CONF_AlertExceedsMax=yes` (the image writes `CLAMD_CONF_<Option>` variables into `clamd.conf`).
-  `ClamAvContainerTests` proves it against the real image.
-- **Size limits.** clamd refuses streams over `StreamMaxLength` (default 100M, equal to the default largest upload);
-  such an upload gets 503. If you raise an upload limit, raise `CLAMD_CONF_StreamMaxLength` and
-  `CLAMD_CONF_MaxFileSize` together.
-- **Client messages.** The 503 body carries the generic server-error text, like every 5xx. Clients branch on
-  `errorCode` and show their own "try again later".
-- **Memory.** clamd needs about 1.5 GB resident; the overlay limits it to 3 GB.
+`FileScanUnavailableException` maps to the generic 5xx message; clients branch on `errorCode`. See [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md).
 
-**Startup posture.** `MalwareScannerStartupCheck` enforces three rules:
-- Scanning enabled while only the built-in `NoOpMalwareScanner` is registered → the app **fails to start**.
-- Scanning off outside Development/Testing → a **warning** at startup.
-- `RequireVirusScanning=true` with scanning off → the app **fails to start**. Set it in production once clamd runs;
-  the compose overlay does.
+[`docker-compose.clamav.yml`](../../docker-compose.clamav.yml) adds clamd, persists signatures and enables scanning with `RequireVirusScanning=true`. Aspire also supports `Attachment:ClamAv=true`; use the [Aspire guide](../Infrastructure/Aspire.md). The overlay uses `clamav/clamav:1.4`, a 3 GB memory limit and `CLAMD_CONF_AlertExceedsMax=yes`. Plan roughly 1.5 GB resident memory and signature warm-up time.
 
-**Another engine.** Register your own adapter after `AddAttachmentModule` and keep `Scanner:Provider=None`:
+`AlertExceedsMax yes` is essential: otherwise clamd can report OK for content skipped by scan limits. With it, exceeded archive/file limits produce a FOUND verdict and rejection. If raising upload limits, raise `CLAMD_CONF_StreamMaxLength` and `CLAMD_CONF_MaxFileSize` together; a stream above clamd's stream limit yields no verdict and 503.
+
+The `clamav` health check uses `zPING`/`PONG` and reports **Degraded**, never Unhealthy, on outage. It is registered with readiness tags, allowing other API functionality to remain available while uploads fail closed. Monitor `attachment.malware.scans` in meter `StarterKit.Attachment`, tagged `clean`, `infected`, `unavailable`, `skipped_fail_open`.
+
+`MalwareScannerStartupCheck` rejects enabled scanning with `NoOpMalwareScanner`, rejects `RequireVirusScanning=true` when scanning is disabled, and warns when scanning is off outside Development/Testing. Production should require scanning and retain `FailOpen=false`.
+
+### Private reads and response headers
+
+`StoragePath` is the source of truth. Stable DTO URLs are `/api/v1/attachments/{id}/download`, with `?thumbnail=true` for thumbnails and optional `Download:PublicBaseUrl` prefix. Checked downloads stream Local files or redirect (302) to an S3 presigned GET / Azure read-only SAS. Pending previews get fresh signed URLs.
+
+API-served files include `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, and attachment disposition except configured raster MIME types. Local signed URLs carry `p`, `e`, `n`, `t`, `i`, `s`; the HMAC covers path, expiry and response-header inputs. There is no static `/uploads` serving. `Download:SigningKey` falls back to a key derived from `JwtSettings:SecretKey`, then to a random per-process key; the last fallback breaks sessions/URLs across restarts or replicas.
+
+## Configuration
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Attachment:Validation:EnableVirusScanning` | false | Enable scanner calls |
+| `Attachment:Validation:RequireVirusScanning` | false | Refuse disabled scanning at startup |
+| `Attachment:Validation:Scanner:Provider` | `None` | `ClamAv` selects built-in adapter |
+| `Attachment:Validation:Scanner:Port` | 3310 | clamd TCP port |
+| `Attachment:Validation:Scanner:TimeoutSeconds` | 30 | Connect/scan deadline |
+| `Attachment:Validation:Scanner:ChunkSizeBytes` | 65536 | INSTREAM chunks |
+| `Attachment:Validation:Scanner:FailOpen` | false | Explicit unscanned acceptance on outage |
+| `Attachment:Validation:MaxImageMegapixels` | 40 | Pre-decode cap |
+| `Attachment:Download:ReadUrlTtlMinutes` | 5 | Signed read lifetime |
+
+Set the scanner host for the deployment. The [complete configuration reference](Configuration.md) includes host defaults, signing, allowlists and startup constraints.
+
+## Usage
+
+Built-in registration from `src/Modules/Attachment/Attachment/AttachmentModule.cs`:
 
 ```csharp
-services.AddSingleton<IMalwareScanner, MyCloudAvScanner>();
+services.AddSingleton<IMalwareScanner>(sp => sp.GetRequiredService<ClamAvMalwareScanner>());
 ```
 
-It must read the stream from its current position, must not dispose the stream, and must **throw** when it cannot
-give a verdict (preferably `MalwareScannerUnavailableException`). Never return clean in that case. Decision record:
-[ADR 0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md).
+This line is selected by `Scanner:Provider=ClamAv`; no endpoint code should depend directly on the adapter.
 
-### Request body limits
+## Failure modes and guarantees
 
-The upload endpoints set `RequestSizeLimit` and the multipart limit to the largest configured
-`Max*SizeBytes` + 64 KB, so oversized bodies are cut off by Kestrel (`413`).
+Access failures return 401/403, absent rows 404, invalid content/path 400, duplicate order/concurrency 409 and storage exceptions 500 with generic client text. Signed URLs expire but remain capabilities during their TTL. Database/blob compensation, pending cleanup and thumbnail races are defined in [Reliability](Reliability.md), not by a distributed transaction.
 
-## 4. Private files and downloads (C13)
+## Guardrails
 
-- `StoragePath` is the source of truth. URLs are never handed out from the database.
-- DTO `FileUrl` / `ThumbnailUrl` are **stable API URLs**: `/api/v1/attachments/{id}/download[?thumbnail=true]`
-  (prefixed with `Download:PublicBaseUrl` when set). Pending DTOs get fresh signed preview URLs.
-- `GET /api/v1/attachments/{id}/download` (anonymous allowed for public files) checks access, then:
-  - S3: `302` to a presigned GET (`Download:ReadUrlTtlMinutes`, default 5) with `Content-Disposition`
-    and `Content-Type` response overrides.
-  - Azure: `302` to a read-only SAS (account key or user-delegation key).
-  - Local: streams the file.
-- Files served by the API carry `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`,
-  and `Content-Disposition: attachment` except for `Download:InlineContentTypes` (raster images).
-- Local storage is **not** exposed as static files anymore. Local signed URLs point at
-  `/api/v1/attachments/files?p=&e=&n=&t=&i=&s=` (HMAC over path, expiry and response headers).
-- Modules that authorize access themselves use `GetAttachmentReadUrlQuery` (Subscriptions payment proofs
-  and invoice PDFs redirect to it after their subscriber/admin checks).
+`FileValidationServiceTests`, `ClamAvMalwareScannerTests`, `EntityAccessPolicyTests`, `PendingSessionServiceTests`, `LocalStorageContractTests`, `DownloadAuthorizationTests` and `AvatarReplacementTests` cover security boundaries. `ClamAvContainerTests` is opt-in with `STARTERKIT_CLAMAV_TESTS=1` and Docker; it checks real clamd and scan-limit behavior. `PendingAttachmentFlowTests` tests database races and ownership. `ThirdPartyIsolationTests` keeps image libraries inside Attachment.
 
-## 5. Storage providers
+## Related
 
-- Provider settings are validated at startup; there is **no fallback** to Local.
-- S3: leave `AccessKeyId` and `SecretAccessKey` empty to use the default AWS credential chain (IAM role).
-  Objects are private; `UsePublicAccess`/`CloudFrontDomain` are ignored.
-- Azure: the container is created private; the connection string must allow SAS signing (account key) or the
-  client must be able to get a user-delegation key.
-- Local: storage keys use `/`; `LocalFileStorageService.ResolveFullPath` combines them with the upload root
-  via `Path.Combine`/`GetFullPath` and rejects anything outside the root (`..`, absolute paths, backslashes,
-  drive letters) with `InvalidStoragePathException` (400). Works the same on Linux and Windows.
-
-## 6. DB / blob consistency
-
-Full lifecycle, background deletion and the reconciliation sweeper: [Reliability.md](Reliability.md).
-
-| Flow | Rule |
-|------|------|
-| Upload | two-phase: row inserted as `Uploading` (invisible), blob written, row marked `Ready` (size + SHA-256). Failure: blob and row removed; leftovers are swept |
-| Pending upload | blob written first (inside the session lock); if `SaveChanges` fails the blob is deleted; crash leftovers are found by the optional storage scan |
-| Associate | files moved, then one `SaveChanges` (rows created `Ready`); on failure files are moved back to their pending paths |
-| Delete / delete-by-entity / avatar replace | row(s) marked `PendingDeletion` (hidden) and saved in the request; `DeleteAttachmentFilesJob` deletes the blobs, then the rows; failures retried with backoff by Hangfire and the sweeper |
-| Thumbnail job (pending + direct uploads) | runs through `IUnitOfWorkRunner` (events published after commit); skips non-Ready/deleted/expired/associated rows; deletes its thumbnail blob if saving fails |
-| Pending cleanup | loops batches of `Pending:CleanupBatchSize` until done; runs every `Pending:CleanupIntervalHours`; old soft-deleted/associated rows are purged by the sweeper |
-
-## 7. Errors
-
-Handlers throw the shared exceptions only: `ForbiddenException` (403), `UnauthorizedException` (401),
-`BadRequestException`/`InvalidFileException` (400), `NotFoundException` (404), `ConflictException` (409),
-`FileStorageException` (500, generic message).
-
-## 8. Configuration keys
-
-| Key | Default | Notes |
-|-----|---------|-------|
-| `Attachment:Download:ReadUrlTtlMinutes` | 5 | signed URL lifetime (1-10080) |
-| `Attachment:Download:PublicBaseUrl` | empty | absolute origin for DTO URLs |
-| `Attachment:Download:InlineContentTypes` | jpeg/png/gif/webp/bmp | everything else is `attachment` |
-| `Attachment:Download:SigningKey` | empty | >= 32 chars; else derived from `JwtSettings:SecretKey`; else random per process (warning) |
-| `Attachment:Validation:MaxImageMegapixels` | 40 | decompression-bomb guard |
-| `Attachment:Validation:EnableVirusScanning` | false | requires a real `IMalwareScanner` (see [Malware scanning](#malware-scanning)) |
-| `Attachment:Validation:RequireVirusScanning` | false | refuse to start while scanning is off (production) |
-| `Attachment:Validation:Scanner:Provider` | None | `ClamAv` registers the clamd adapter + `clamav` health check |
-| `Attachment:Validation:Scanner:Host` / `Port` / `TimeoutSeconds` / `ChunkSizeBytes` | localhost / 3310 / 30 / 65536 | clamd connection |
-| `Attachment:Validation:Scanner:FailOpen` | false | true = accept unscanned files while clamd is down |
-| `Attachment:Pending:CleanupBatchSize` / `CleanupIntervalHours` | 100 / 6 | now actually used |
-| `Attachment:Reconciliation:*` | see [Reliability.md](Reliability.md#6-configuration-attachmentreconciliation) | sweeper schedule, timeouts, backoff, retention, storage scan |
-
-List options (`AllowedExtensions`, `Allowed*Types`, `BlockedExtensions`, `InlineContentTypes`) use their
-defaults only when not configured; a configured list **replaces** the default (it is no longer appended).
-
-Obsolete (still bind, ignored): `Storage:Local:BaseUrl`, `Storage:S3:UsePublicAccess`,
-`Storage:S3:CloudFrontDomain`, `Storage:S3:PresignedUrlExpirationMinutes`, `Storage:AzureBlob:UsePublicAccess`,
-`Validation:EnableContentVerification`, `Pending:MaxUploadsPerMinute`.
-
-## 9. Tests
-
-`src/Modules/Attachment/Attachment.Tests` (`dotnet test src/Modules/Attachment/Attachment.Tests`):
-
-- `Unit/FileValidationServiceTests` - spoofing, blocked types, magic bytes, size, megapixel bomb, text markup, scanner
-  outcomes (infected, fail-closed, fail-open) and the startup posture.
-- `Unit/ClamAvMalwareScannerTests` - the clamd protocol against an in-process fake clamd: framing, OK/FOUND/ERROR,
-  refused connection, timeout, caller cancellation, ping.
-- `Integration/ClamAvContainerTests` - **opt-in** (`STARTERKIT_CLAMAV_TESTS=1`, Docker, ~1 min): real clamd detects
-  the EICAR test file.
-- `Unit/AvatarReplacementTests` - a new avatar replaces only older ones (two avatars associated together used to
-  delete each other).
-- `Unit/EntityAccessPolicyTests` - self/other/admin/anonymous x User, deny-by-default, custom policy, delete rules.
-- `Unit/PendingSessionServiceTests` - forged/foreign/tampered sessions, anonymous fingerprint.
-- `Unit/LocalStorageContractTests` - provider contract on the current OS, path traversal, signed URLs.
-- `Unit/DownloadAuthorizationTests` - public/private x owner/other/admin/anonymous, redirect vs stream.
-- `Unit/ConsistencyTests` - two-phase upload compensation, cleanup keeps rows whose delete failed.
-- Lifecycle / deletion / sweeper / paging / streaming tests: see [Reliability.md](Reliability.md#8-tests).
-- `Integration/PendingAttachmentFlowTests` - Testcontainers PostgreSQL: session ownership, concurrent limit,
-  409 on duplicate order, associate, cleanup, DB failure compensation.
+[Uploads](Uploads.md), [Storage providers](Storage-Providers.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), and [`/starterkit:add-permission`](../../tools/claude/starterkit-plugin/skills/add-permission/SKILL.md).
