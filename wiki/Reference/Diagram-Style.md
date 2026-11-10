@@ -1,6 +1,8 @@
 # Diagram style
 
-Use Mermaid in plain Markdown so diagrams work in GitHub and the documentation site. Each diagram explains one
+Use Mermaid in plain Markdown so diagrams work in GitHub and the documentation site.
+
+Each diagram explains one
 idea. Keep labels short and aim for at most about 15 nodes; split larger subjects into focused diagrams. Group
 nodes by module or system boundary with subgraphs. Describe external actors in ordinary language, and use only
 real names from the code when labeling types, classes, methods or tables. Verify those names in `src/` before

@@ -100,7 +100,7 @@ admins at any status.
 | Join/child following the parent's soft delete (non-`IEntity` with its own filter) | `WishlistItemConfiguration` in `Data/Configurations/LookupConfigurations.cs` |
 | Enums stored as strings, explicit unique index names | `Data/Configurations/*.cs` |
 | Repository per aggregate root (+ named non-isolation filter bypass for restore/purge) | `Catalog/Data/Repository/ProductRepository.cs`, `CategoryRepository.cs`, `WishlistRepository.cs` |
-| Postgres `23505` (unique violation) → HTTP 409, matched by index name | `src/Shared/Shared.Core/Data/PostgresErrors.cs` (`ex.IsUniqueViolation(<Configuration>.<Index>Name)`), used in the repositories and lookup handlers |
+| PostgreSQL `23505` (unique violation) → HTTP 409, matched by index name | `src/Shared/Shared.Core/Data/PostgresErrors.cs` (`ex.IsUniqueViolation(<Configuration>.<Index>Name)`), used in the repositories and lookup handlers |
 | Idempotent seeder (`IgnoreNonIsolationFilters().AnyAsync()` guard, fixed ids) | `Catalog/Data/Seed/CatalogDataSeeder.cs` |
 | Design-time factory for `dotnet ef` (connection name `starterkit`) | `Catalog/Data/CatalogDbContextFactory.cs` |
 
@@ -289,7 +289,7 @@ Invalid workflow transitions are rejected by the allow-list. Stale critical-upda
 |---|---|---|
 | Unit | `Catalog.Tests/Domain/*` | invariants, every state-machine transition (Theory over all status × action pairs), gallery rules, pricing, soft delete, hierarchy algorithms, attribute value rules |
 | Unit | `Catalog.Tests/Features/*`, `Services/*` | validators (incl. en/ar messages and resx key parity), handlers (ExpectVersion via a disconnected DbContext, owner/admin/status authorization, upload compensation), cache (invalidate, swallow failures), mapper, LIKE escaping |
-| Integration | `Catalog.IntegrationTests/*` | real `AddCatalogModule` + Postgres: filters, has-all, search escaping, sort/paging, public vs admin, my-products stats, soft-delete filter + restore + purge job cascade, wishlist unique index, atomic view counter, stale version → `ConcurrencyConflictException`, cache invalidation via events, seeder idempotency, integration event published |
+| Integration | `Catalog.IntegrationTests/*` | real `AddCatalogModule` + PostgreSQL: filters, has-all, search escaping, sort/paging, public vs admin, my-products stats, soft-delete filter + restore + purge job cascade, wishlist unique index, atomic view counter, stale version → `ConcurrencyConflictException`, cache invalidation via events, seeder idempotency, integration event published |
 | E2E | `src/Api.E2ETests/Catalog/ProductCrudFlowTests.cs` | seller → moderation → public → wishlist → archive, 403s, 409, soft delete + restore, lookups |
 
 ## Related

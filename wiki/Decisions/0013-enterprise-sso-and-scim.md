@@ -1,5 +1,7 @@
 # 0013. Run per-tenant SSO and SCIM inside Identity, without dynamic auth schemes
 
+Tenant-specific SSO and SCIM run inside Identity while Tenancy remains responsible for memberships.
+
 ## Status
 
 - **Status:** Accepted

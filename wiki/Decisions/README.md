@@ -1,6 +1,8 @@
 # Architecture Decision Records
 
-Short records of the significant decisions behind StarterKit. Add one whenever you change a rule in `CLAUDE.md`, swap
+Short records of the significant decisions behind StarterKit.
+
+Add one whenever you change a rule in `CLAUDE.md`, swap
 a core library, or change an architecture test. Copy [0000-template.md](0000-template.md), take the next number, and
 link it here.
 
@@ -10,7 +12,7 @@ link it here.
 | [0002](0002-carter-minimal-apis.md) | Carter minimal APIs instead of MVC controllers | Accepted | 2026-11-04 (recorded) |
 | [0003](0003-exceptions-not-result-type.md) | Typed exceptions mapped centrally, no Result type | Accepted | 2026-11-04 (recorded) |
 | [0004](0004-outbox-and-messaging-transports.md) | Transactional outbox with a pluggable MassTransit transport | Accepted | 2026-11-03 |
-| [0005](0005-tenant-isolation-model.md) | Tenant isolation: named EF filters + Postgres RLS, shared or dedicated databases | Accepted | 2026-11-02 |
+| [0005](0005-tenant-isolation-model.md) | Tenant isolation: named EF filters + PostgreSQL RLS, shared or dedicated databases | Accepted | 2026-11-02 |
 | [0006](0006-identity-behind-userdirectory-port.md) | Other modules see users only through the UserDirectory port | Accepted | 2026-11-03 |
 | [0007](0007-owned-mediator-port.md) | Own the mediator port; do not depend on MediatR | Accepted | 2026-11-04 |
 | [0008](0008-feature-flags.md) | Own the feature-flag port; store flags in Tenancy | Accepted | 2026-11-05 |
@@ -25,6 +27,7 @@ link it here.
 | [0016](0016-bulk-data-transfer-on-hangfire.md) | Run bulk imports and exports as leased, checkpointed Hangfire jobs on their own queue | Accepted | 2026-11-06 |
 <!--#if (templateSource)-->
 | [0020](0020-dotnet-new-templates.md) | The repository is the product template; modules come from a generated, CI-verified module template | Accepted | 2026-11-08 |
+| [0024](0024-documentation-site.md) | Render the canonical wiki with Starlight and publish through GitHub Pages | Accepted | 2026-11-10 |
 <!--#endif-->
 | [0019](0019-module-manifests-and-discovery.md) | Modules plug in through a manifest the host discovers from the build graph | Accepted | 2026-11-07 |
 | [0021](0021-aggregate-version-covers-child-collections.md) | The aggregate version covers its child collections | Accepted | 2026-11-08 |

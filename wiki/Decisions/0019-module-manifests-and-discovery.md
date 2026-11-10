@@ -1,5 +1,7 @@
 # 0019. Modules plug in through a manifest the host discovers from the build graph
 
+Module manifests let the host discover registration and initialization from the build graph without per-module host edits.
+
 ## Status
 
 - **Status:** Accepted

@@ -44,7 +44,7 @@ docker compose -f docker-compose.yml -f docker-compose.dataprotection.yml --env-
 | Check | Expect |
 |---|---|
 | `docker compose -f docker-compose.yml --env-file .env.prod ps` | Long-lived services running; `migrator` exits 0 (use `ps -a`) |
-| `curl -s http://localhost:${API_PORT:-5000}/health` | `Healthy` (Postgres + Redis) |
+| `curl -s http://localhost:${API_PORT:-5000}/health` | `Healthy` (PostgreSQL + Redis) |
 | `curl -s http://localhost:${API_PORT:-5000}/alive` | `Healthy` |
 | API log at startup | `[secrets] Loaded N secret(s)`, inspect **migrator** logs for migrations/seeds and exit 0, non-durable `InMemory` is rejected, not merely warned about |
 | Register, log in and call an authorised endpoint | 200; anonymous calls return 401 |

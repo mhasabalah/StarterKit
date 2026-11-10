@@ -1,5 +1,7 @@
 # 0012. Deliver in-app and push as additive Notification channels over SignalR and FCM
 
+Persisted inbox and push channels complement notification delivery with best-effort real-time updates.
+
 ## Status
 
 - **Status:** Accepted

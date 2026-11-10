@@ -28,7 +28,7 @@ flowchart TB
 
 ## Action needed per product
 
-These are the only dependencies whose terms depend on **who you are** (revenue, company type) rather than simply
+These are the only dependencies whose terms depend on **who you are** (revenue, company type) rather than
 being permissive.
 
 | Dependency | License | Free when | Otherwise | Where it lives | Exit path |

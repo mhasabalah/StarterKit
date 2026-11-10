@@ -1,5 +1,7 @@
 # 0022. PostgreSQL is the default production message transport
 
+PostgreSQL supplies the default durable production message transport while preserving RabbitMQ as an option.
+
 ## Status
 
 - **Status:** Accepted

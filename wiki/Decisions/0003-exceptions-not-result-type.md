@@ -1,5 +1,7 @@
 # 0003. Typed exceptions mapped centrally, no Result type
 
+Typed exceptions and one shared HTTP error boundary provide consistent client failures without a Result abstraction.
+
 ## Status
 
 - **Status:** Accepted

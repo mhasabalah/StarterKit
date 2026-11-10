@@ -1,5 +1,7 @@
 # 0009. Deliver public integration events to tenants as signed outbound webhooks
 
+Opt-in public integration events reach tenant-managed webhook endpoints through signed, retryable deliveries.
+
 ## Status
 
 - **Status:** Accepted

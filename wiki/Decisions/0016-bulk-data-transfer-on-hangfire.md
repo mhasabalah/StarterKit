@@ -1,5 +1,7 @@
 # 0016. Run bulk imports and exports as leased, checkpointed Hangfire jobs on their own queue
 
+Leased Hangfire jobs process bulk imports and exports with checkpoints, resumability and a dedicated queue.
+
 ## Status
 
 - **Status:** Accepted
@@ -9,7 +11,7 @@
 
 Tenants need to load and extract thousands of rows (G19). Doing that inside an HTTP request breaks on real files:
 request timeouts, memory for a whole workbook, and lost work when a pod restarts. The template already has a
-durable job engine (Hangfire on Postgres) that carries the tenant into jobs (`TenantJobFilter`) and defers migrating
+durable job engine (Hangfire on PostgreSQL) that carries the tenant into jobs (`TenantJobFilter`) and defers migrating
 tenants, and a file store with content validation and malware scanning (Attachment). Business data stays in the
 owning modules, which other modules may only reach through `.Contracts`.
 

@@ -41,7 +41,7 @@ make loadtest-down       # stop and delete the volumes
 
 `docker-compose.loadtest.yml` is **self-contained** (project `starterkit-load`), not an overlay of
 `docker-compose.yml`: the base file needs Docker secrets, pgBackRest, Seq and the migrator, none of which a load run
-wants. It runs the API image (`src/Api/Dockerfile`, `ASPNETCORE_ENVIRONMENT=LoadTest`), Postgres 16 (tmpfs, fsync off),
+wants. It runs the API image (`src/Api/Dockerfile`, `ASPNETCORE_ENVIRONMENT=LoadTest`), PostgreSQL 16 (tmpfs, fsync off),
 Redis and the k6 container (profile `k6`). Secrets come from `.env.loadtest` (template `.env.loadtest.example`, all
 `CHANGE_ME`; `run.sh env` fills random values). The API is published on `127.0.0.1:5090` only. The Hangfire dashboard stays authenticated (user `admin`, password
 `HANGFIRE_DASHBOARD_PASSWORD` from the generated env file).
@@ -124,7 +124,7 @@ threshold fails the job.
 
 Measured 2026-11-07 with the open model: `make loadtest` equivalent, `LOAD_DURATION=60s`, rate scale 1 (the rates in the
 table above), all scenarios at once. Windows 11 laptop (16 logical CPUs, Docker Desktop/WSL2), API container limited to
-2 CPUs and 2 GB, Postgres and Redis in containers, k6 on the same host (so not comparable to a hosted runner).
+2 CPUs and 2 GB, PostgreSQL and Redis in containers, k6 on the same host (so not comparable to a hosted runner).
 
 | Scenario | Requests | req/s | avg ms | p95 ms | Failed | Dropped iterations |
 |---|---|---|---|---|---|---|
@@ -138,7 +138,7 @@ table above), all scenarios at once. Windows 11 laptop (16 logical CPUs, Docker 
 The latencies are far below the budgets because the offered load is modest (about 137 req/s, below saturation of 2 CPUs)
 and constant: an earlier closed-model run with 27 VUs looping without pauses pushed about 200 req/s and showed p95 of
 160 to 400 ms. Raise `LOAD_RATE_SCALE` to find the knee; the first dropped iterations mark the sustained-rate limit.
-First run on a GitHub-hosted runner (`ubuntu-latest`, 2 CPUs shared by the API, Postgres, Redis and k6; 60 s, rate
+First run on a GitHub-hosted runner (`ubuntu-latest`, 2 CPUs shared by the API, PostgreSQL, Redis and k6; 60 s, rate
 scale 1):
 
 | Scenario | Requests | req/s | avg ms | p95 ms | Failed | Dropped |

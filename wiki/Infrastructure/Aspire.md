@@ -27,8 +27,8 @@ Persistent containers survive AppHost restarts. Their generated passwords are st
 (`dotnet user-secrets list --project src/Aspire/AppHost`). To start from scratch, remove the containers and volumes
 in Docker.
 
-The API **waits** for Postgres and Redis (readiness), not for Seq. Its dashboard health comes from `/health`, which
-covers the process, Postgres and Redis. Seq is a log sink and has no health check: a Seq outage never marks the API
+The API **waits** for PostgreSQL and Redis (readiness), not for Seq. Its dashboard health comes from `/health`, which
+covers the process, PostgreSQL and Redis. Seq is a log sink and has no health check: a Seq outage never marks the API
 unhealthy.
 
 ## Configuration
@@ -89,7 +89,7 @@ Jaeger, Prometheus) are linked from the dashboard.
 - **The API gets its dependencies by reference** (`WithReference`), never by hard-coded host or port.
 
 `AppHostModelTests` check the resource graph without Docker. `AppHostLiveTests` boot everything and require
-`/health` = 200 (process + Postgres + Redis + MassTransit bus) on **each** message transport (`InMemory`,
+`/health` = 200 (process + PostgreSQL + Redis + MassTransit bus) on **each** message transport (`InMemory`,
 `PostgreSql`, `RabbitMq`). On RabbitMQ they also check that the API's queues exist on the broker. They use random ports,
 so they can run next to your own AppHost, but not while a debugger holds the API's DLLs. They run only with
 `ASPIRE_LIVE_TESTS=1`:

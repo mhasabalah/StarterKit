@@ -5,7 +5,7 @@
     <img src="docs-site/src/assets/logo-light.svg" alt="StarterKit" width="345" height="84" />
   </picture>
   <p>Production-ready ASP.NET Core 10 modular monolith starter</p>
-  <p><a href="docs-site/README.md">Documentation</a></p>
+  <p>The documentation site is published to GitHub Pages by the docs workflow.</p>
 </div>
 <!--#endif-->
 

@@ -1,5 +1,7 @@
 # 0008. Own the feature-flag port; store flags in Tenancy
 
+An owned feature-flag port and Tenancy-backed configuration control runtime rollout independently of plan entitlements.
+
 ## Status
 
 - **Status:** Accepted

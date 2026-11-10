@@ -185,6 +185,14 @@ After code changes, first run `dotnet build StarterKit.slnx`, then relevant beha
 - Tenant RLS coverage verifies policy presence and enabled/forced flags. Cross-tenant behavioral tests still verify policy behavior and connection scope.
 - The source rule requires tenant-first indexes; the current assertion checks only inclusion. Do not weaken the rule to match that narrower check.
 
+## Review workflow
+
+The `/starterkit:review` procedure applies these guardrails to a working-tree diff, a module, a path or the whole codebase. Agree on the scope and review size first: a big change allows up to four issues per section; a small change allows one.
+
+Review Architecture, Code Quality, Tests and Performance in that order. Number each finding, cite `file:line`, and offer two or three lettered options with effort, risk, impact and maintenance cost, placing the recommendation first. Include leaving the code unchanged when that is a reasonable option. Relate recommendations to duplication, test coverage, appropriate abstraction, edge cases and explicit behavior.
+
+Interactive reviews wait for confirmation after each section and do not edit code during the review. Approved fixes follow afterward, with the required build and relevant tests; commits require a separate user request. Passing architecture tests supports the review but does not prove business correctness or replace behavioral tests.
+
 ## Related
 
 [CLAUDE.md](../../CLAUDE.md), [Testing strategy](../Testing/Testing-Strategy.md), [ADRs](../Decisions/README.md), [Endpoint authorization](Endpoint-Authorization.md), and `/starterkit:write-tests` / `/starterkit:review`.

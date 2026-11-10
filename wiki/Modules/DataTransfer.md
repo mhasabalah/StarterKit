@@ -301,7 +301,7 @@ services.AddExportDefinition<MemberExportDefinition>();
 
 Contract of `ApplyBatchAsync`:
 
-- It runs in the requester's branch scope and culture (so EF filters and localized messages just work).
+- It runs in the requester's branch scope and culture (so EF filters and localized messages use that scope).
 - Return one result per record.
 - Report bad rows as row errors, never by throwing (a throw fails and retries the batch).
 - Save nothing when `DryRun`.
@@ -363,7 +363,7 @@ running the same job.
 ### Performance baseline
 
 `DataTransfer.IntegrationTests/PerformanceBaselineTests` (opt-in, `STARTERKIT_PERF_TESTS=1`) runs 100k rows through
-the real jobs on Postgres with the production batch size. The definition is in memory, so this measures the engine.
+the real jobs on PostgreSQL with the production batch size. The definition is in memory, so this measures the engine.
 
 | Scenario | Developer machine (2026-11-06) | CI threshold |
 |---|---|---|

@@ -1,5 +1,7 @@
 # 0006. Other modules see users only through the UserDirectory port
 
+The UserDirectory contracts isolate other modules from Identity so the user provider can be replaced.
+
 ## Status
 
 - **Status:** Accepted

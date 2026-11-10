@@ -69,7 +69,7 @@ docker compose -f docker-compose.yml -f docker-compose.clamav.yml --env-file .en
 ## Ports
 
 Host ports come from `.env`; the compose fallback is used when a variable is unset. `.env.example` deliberately
-offsets Postgres, Redis and Seq in development so they don't clash with locally installed services. Never use 8888
+offsets PostgreSQL, Redis and Seq in development so they don't clash with locally installed services. Never use 8888
 for the API: the OTel collector publishes it.
 
 | Service | `.env.example` | Compose fallback |
@@ -125,7 +125,7 @@ the Compose model. `infra/nginx/` supplies configuration artifacts, not a select
 |---|---|
 | Port already in use | Change the `*_PORT` value in `.env` |
 | API unhealthy at start | `docker compose logs api`, then check the connection string, migrations and missing secrets (`[secrets]` lines) |
-| Postgres password mismatch after changing the secret | The volume keeps the old password. Change it in SQL, or drop the volume (destroys data). See [../Reference/Troubleshooting-PostgreSQL-Authentication.md](../Reference/Troubleshooting-PostgreSQL-Authentication.md). |
+| PostgreSQL password mismatch after changing the secret | The volume keeps the old password. Change it in SQL, or drop the volume (destroys data). See [../Reference/Troubleshooting-PostgreSQL-Authentication.md](../Reference/Troubleshooting-PostgreSQL-Authentication.md). |
 | Production run picks up dev settings | You forgot `-f docker-compose.yml` (without it the override is merged) |
 
 ## Guardrails
