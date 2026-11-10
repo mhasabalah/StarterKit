@@ -133,6 +133,10 @@ wiki/
 
 ## Reference
 
+- [Configuration](Reference/Configuration.md): base settings, Docker/Development overrides and option meanings
+- [Endpoint authorization](Reference/Endpoint-Authorization.md): every Carter route, host surfaces, access policy, filters and role grants
+- [Architecture guardrails](Reference/Architecture-Guardrails.md): every architecture assertion, repair and related repository rule
+
 - [Diagram style](Reference/Diagram-Style.md): Mermaid conventions and examples
 - [Feature catalog](Reference/Features.md): everything the template ships, by area
 <!--#if (templateSource)-->

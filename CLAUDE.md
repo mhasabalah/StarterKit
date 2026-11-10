@@ -459,6 +459,8 @@ forbidden C# patterns after edits. Spec Kit
 
 ## Rules
 
+- Documentation-only changes do not require a build or test run. Run the applicable documentation link and formatting
+  checks instead. If the change includes code, the build and test requirements below still apply.
 - After any code change, run `dotnet build StarterKit.slnx` from the repo root and fix every error, then run the
   relevant tests and `dotnet test src/Api.Tests`.
 - The build treats warnings as errors: fix them, or relax a rule in `.editorconfig` with a justification; never `#pragma`
@@ -466,8 +468,9 @@ forbidden C# patterns after edits. Spec Kit
 - **Git: commit and open PRs only when the user asks, and only on a feature branch.**
   - Branch first (`feature/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`). Never commit on, push to, or
     merge into `master` / `develop`; they change only through a reviewed PR.
-  - Before committing, the build, the relevant tests and `dotnet test src/Api.Tests` must pass. Stage only the files
-    of the change (no secrets, build output or scratch files). Use a conventional commit message
+  - Before committing code changes, the build, the relevant tests and `dotnet test src/Api.Tests` must pass.
+    Documentation-only commits require the applicable documentation checks instead. Stage only the files of the
+    change (no secrets, build output or scratch files). Use a conventional commit message
     (`feat(module): ...`, `fix: ...`).
   - Open the PR with `gh pr create --base master` (or the base the user names). The body has a summary and the test
     plan with real results.

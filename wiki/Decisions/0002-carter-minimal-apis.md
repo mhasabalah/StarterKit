@@ -1,5 +1,7 @@
 # 0002. Carter minimal APIs instead of MVC controllers
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-04 (recorded)
 
@@ -26,3 +28,7 @@ lookups. They are discovered per module with `AddCarterWithAssemblies`. Endpoint
 
 - **MVC controllers:** familiar, but they work against slice locality.
 - **Plain `MapGet` in `Program.cs`:** doesn't scale across modules.
+
+## Related
+
+[ApiGuidelines](../Architecture/ApiGuidelines.md), [Endpoint Authorization](../Reference/Endpoint-Authorization.md).

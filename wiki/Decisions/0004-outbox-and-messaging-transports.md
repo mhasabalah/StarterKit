@@ -1,5 +1,7 @@
 # 0004. Transactional outbox with a pluggable MassTransit transport
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-03
 
@@ -28,3 +30,7 @@ that rolled back. Deployments range from a single VPS to setups with a dedicated
 
 - **Publishing directly from handlers:** loses messages on crash and sends them on rollback.
 - **A broker-only design:** forces RabbitMQ on every deployment.
+
+## Related
+
+[Messaging](../Architecture/Messaging.md).

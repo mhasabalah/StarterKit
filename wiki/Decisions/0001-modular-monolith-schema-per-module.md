@@ -1,5 +1,7 @@
 # 0001. Modular monolith with one schema and DbContext per module
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-04 (recorded; the decision predates the ADR log)
 
@@ -27,3 +29,7 @@ contexts, some of which may later be extracted into separate services.
 
 - **Microservices from day one:** operational cost far too high for a starter.
 - **A single shared DbContext:** fast at first, but every module becomes coupled to every table.
+
+## Related
+
+[Overview](../Architecture/Overview.md), [DatabaseConventions](../Architecture/DatabaseConventions.md).

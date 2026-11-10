@@ -1,5 +1,7 @@
 # 0020. The repository is the product template; modules come from a generated, CI-verified module template
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-08
 
@@ -8,6 +10,7 @@
 Starting a product meant copying the repository, running a case-sensitive search and replace, and walking a manual
 checklist (backlog #12). Adding a module meant hand-writing four projects from snippets (#13). Both drifted from the
 real code, and neither was tested. G23 asks for `dotnet new` templates. The hard parts:
+
 - keeping the template repository itself buildable and fully tested
 - optional parts that reach into many files (the Catalog sample is used by about 45 files outside its folder)
 - a module whose first migration must match its model in every option combination
@@ -76,8 +79,14 @@ real code, and neither was tested. G23 asks for `dotnet new` templates. The hard
 - Changing the example module's model means regenerating its migration sets with
   `scripts/regenerate-module-migrations.sh`. The CI matrix proves the result.
 - Generated products don't track the template. Later template fixes are ported by hand.
-- **Rejected options:**
-  - A separate template copy: two code bases.
-  - A post-generation script that runs `dotnet ef`: it needs `--allow-scripts`, network access and a build, and it
-    isn't drop-in.
-  - Hand-written conditional regions inside one migration snapshot: unverifiable by eye.
+
+## Alternatives considered
+
+- A separate template copy: two code bases.
+- A post-generation script that runs `dotnet ef`: it needs `--allow-scripts`, network access and a build, and it
+  isn't drop-in.
+- Hand-written conditional regions inside one migration snapshot: unverifiable by eye.
+
+## Related
+
+[Templates](../Getting-Started/Templates.md).

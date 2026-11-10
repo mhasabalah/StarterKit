@@ -1,5 +1,7 @@
 # 0016. Run bulk imports and exports as leased, checkpointed Hangfire jobs on their own queue
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-06
 
@@ -60,3 +62,7 @@ owning modules, which other modules may only reach through `.Contracts`.
 - **One transaction per file:** locks and memory grow with the file, and a failure at row 199,999 loses everything.
 - **CsvHelper / ClosedXML / EPPlus / MiniExcel:** CsvHelper is CSV-only, ClosedXML builds a DOM (memory),
   EPPlus is commercial. Sylvan streams both formats behind one `DbDataReader` API with an MIT license.
+
+## Related
+
+[DataTransfer](../Modules/DataTransfer.md).

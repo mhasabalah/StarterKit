@@ -1,5 +1,7 @@
 # 0006. Other modules see users only through the UserDirectory port
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-03
 
@@ -25,3 +27,7 @@ If modules depend on Identity's commands and models, that swap touches everythin
 ## Alternatives considered
 
 - **Modules referencing `Identity.Contracts`:** simpler today, but expensive to swap later.
+
+## Related
+
+[Replacing the Identity Provider](../Identity/Replacing-the-Identity-Provider.md).

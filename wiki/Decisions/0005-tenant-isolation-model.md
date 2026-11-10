@@ -1,5 +1,7 @@
 # 0005. Tenant isolation: named EF filters + Postgres RLS, shared or dedicated databases
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-02
 
@@ -11,6 +13,7 @@ The template must serve single-tenant products by default, and SaaS products wit
 ## Decision
 
 Tenancy is split into two planes.
+
 - **Control plane** (Tenancy module, host context): tenants, branches, memberships, roles.
 - **Data plane** (`ITenantDataContext`): every entity is `IMustHaveTenant`, with a named `Tenant` filter (plus
   `Branch`), and every table has **Postgres row-level security** as a second layer. `TenantEntityInterceptor` stamps
@@ -31,3 +34,7 @@ database or in a dedicated one, and can be moved between them. Single-tenant mod
 
 - **Schema per tenant:** migrations multiply with every tenant.
 - **Database per tenant only:** too expensive for small tenants. It is still offered as an option.
+
+## Related
+
+[Isolation and Dedicated Databases](../MultiTenancy/Isolation-and-Dedicated-Databases.md).

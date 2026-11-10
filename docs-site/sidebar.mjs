@@ -425,6 +425,21 @@ export const sections = [
         "order": 1
       },
       {
+        "source": "Reference/Configuration.md",
+        "label": "Configuration",
+        "order": 8
+      },
+      {
+        "source": "Reference/Endpoint-Authorization.md",
+        "label": "Endpoint authorization",
+        "order": 9
+      },
+      {
+        "source": "Reference/Architecture-Guardrails.md",
+        "label": "Architecture guardrails",
+        "order": 10
+      },
+      {
         "source": "Reference/Diagram-Style.md",
         "label": "Diagram style",
         "order": 7

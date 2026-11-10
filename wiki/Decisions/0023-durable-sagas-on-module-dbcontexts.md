@@ -1,5 +1,7 @@
 # 0023. Saga state is durable, in the owning module's DbContext
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-08
 
@@ -7,6 +9,7 @@
 
 The bus called `SetInMemorySagaRepositoryProvider()` and discovered sagas by assembly scanning. No saga existed yet, but
 the first one would have run on the in-memory repository without any warning:
+
 - its state would be lost on every restart and deploy;
 - each replica would keep its own copy;
 - nothing would fail until production.
@@ -56,3 +59,7 @@ MassTransit's EF Core repository needs one DbContext per saga, and this solution
   switched to it.
 - **Keep scanning and set an EF provider globally (`SetEntityFrameworkSagaRepositoryProvider`):** needs one DbContext
   for all sagas, so it is the shared-context option again.
+
+## Related
+
+[Messaging](../Architecture/Messaging.md), [Architecture Guardrails](../Reference/Architecture-Guardrails.md).

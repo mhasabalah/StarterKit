@@ -1,5 +1,7 @@
 # 0012. Deliver in-app and push as additive Notification channels over SignalR and FCM
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-05
 
@@ -59,3 +61,7 @@ tokens are short-lived JWTs whose sessions can be revoked (`sid`).
   APNs. Kept possible behind `IPushProvider` (backlog follow-up).
 - **A `UserSessionRevokedIntegrationEvent` to delete devices**: needs an outbox write from Identity's session code;
   re-reading the active sessions at send time is simpler and never stale.
+
+## Related
+
+[Notification Realtime and Push](../Modules/Notification-Realtime-and-Push.md).
