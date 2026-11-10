@@ -1,45 +1,24 @@
 # In-app inbox, real-time (SignalR) and push (FCM)
 
-Part of the [Notification module](Notification.md). Two **additive** channels sit next to the email/WhatsApp
-fallback chain:
+Inbox and push extend Notification with persisted user messages, session-bound devices and best-effort live updates across application replicas.
+
+## At a glance
+
+These features share `NotificationModuleManifest.Order = ModuleOrder.Notification` (900) and the host `NotificationDbContext`, schema `notification`. Main records are `InboxNotification` and `PushDevice`; the [module page](Notification.md#database) covers preferences and delivery logs. Source: `src/Modules/Notification/Notification/`, with public ports and DTOs in `Notification.Contracts/`.
 
 | Channel | What the user gets | Stored in | Delivered by |
 |---|---|---|---|
 | `InApp` | an inbox entry + a real-time event on every open tab/app | `notification.inbox_notification` | `InAppDeliveryJob` + `NotificationHub` |
 | `Push` | an OS notification on every active device (Android, iOS, Web) | `notification.push_device` (the devices) | `PushDeliveryJob` → `IPushProvider` (FCM) |
 
-"Additive" means they are delivered **in addition to** the chain, never instead of it: the inbox always gets the entry,
+"Additive" means they are delivered **in addition to** the chain, never instead of it: the inbox gets an entry unless suppressed by its category mute,
 push follows the user's `pushEnabled` switch, and the chain keeps its own preferences and fallback. They can never
 be put in a channel order (`ChannelOrderRules` and the `Notification:DefaultChannelOrder` validation refuse them).
 Decision record: [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md).
 
-## Sending
+## How it works
 
-```csharp
-await notifications
-    .For(invoice.UserId, culture)
-    .WithEmail(EmailTemplate.InvoiceIssued, model.ToDictionary())          // the chain (optional)
-    .WithInApp(new InAppContent(
-        Title: new LocalizedText("Invoice ready", "الفاتورة جاهزة"),
-        Body: new LocalizedText($"Invoice {invoice.Number} is ready.", $"الفاتورة {invoice.Number} جاهزة."),
-        Category: "billing.invoice-issued",                                 // clients group / route by it
-        ActionUrl: $"/billing/invoices/{invoice.Id}",                       // relative, or an allow-listed host
-        Severity: NotificationSeverity.Success,
-        Data: new Dictionary<string, string> { ["invoiceId"] = invoice.Id.ToString() }))
-    .WithPush()                                                             // same title/body as the inbox entry
-    .SendAsync(cancellationToken: ct);
-```
-
-- `WithPush(PushContent)` sends its own text; `WithPush(sensitive: true)` reuses the in-app text but sends a generic
-  "New notification / Open the app to view it" (push content transits Google/Apple).
-- Both need a USER recipient: `For(userId)` or `ToEmail(address, culture, userId)`. Without one they are logged
-  `Skipped`.
-- `SendAsync(NotificationChannel.Push)` (or `InApp`) delivers ONLY that channel. `SendAsync(NotificationChannel.Email)`
-  narrows the chain and keeps in-app and push.
-- Limits are part of the contract (`InAppContent.*MaxLength`, `MaxDataEntries`); exceeding the category or data limits
-  throws at the call site, long text is truncated at delivery. `Data` is for ids and routes, never PII.
-
-## Delivery
+### Delivery
 
 ```mermaid
 sequenceDiagram
@@ -47,10 +26,10 @@ sequenceDiagram
   participant M as Calling module
   participant S as INotificationSender
   participant H as Hangfire
-  M->>S: For(user) and channel content
+  M->>S: Recipient and content
   S->>H: Enqueue channel jobs
-  Note over S,H: One correlation id, separate jobs
-  H->>H: Run email / WhatsApp fallback chain
+  Note over S,H: Shared correlation id
+  H->>H: Run fallback chain
 ```
 *Figure: Channel jobs are independent and share a correlation id.*
 
@@ -59,36 +38,32 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   autonumber
-  participant J as InAppDeliveryJob
-  participant DB as PostgreSQL
-  participant H as NotificationHub
+  participant J as Inbox job
+  participant DB as Inbox store
   participant C as Client
-  J->>DB: Insert inbox entry idempotently
-  J->>H: NotificationReceived and UnreadCountChanged
-  H-->>C: Best-effort hint to all sessions
+  J->>DB: Insert once
+  J-->>C: Hints via realtime notifier
   J->>DB: Log InApp Sent
-  C->>H: Reconnect
-  C->>C: REST unread-count resync
+  Note over C: Resync REST
 ```
 *Figure: The inbox persists independently of best-effort real-time hints.*
 
-The hub uses the Redis backplane across replicas. Clients call `GET /inbox/unread-count` after reconnecting; the insert uses `ON CONFLICT DO NOTHING`.
+`InAppDeliveryJob` inserts the inbox row and calls `IRealtimeNotifier` for `NotificationReceived` and `UnreadCountChanged`. The notifier sends through the hub context; the hub has no client-invokable methods. The hub uses the Redis backplane across replicas. Clients call `GET /api/v1/notifications/inbox/unread-count` after reconnecting; the insert uses `ON CONFLICT DO NOTHING`.
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant J as PushDeliveryJob
-  participant U as UserDirectory.Contracts
+  participant J as Push job
+  participant U as User directory
   participant F as FCM
-  participant C as Device
-  J->>J: Load push-enabled devices
-  J->>U: GetActiveSessionIdsQuery
+  J->>J: Load devices
+  J->>U: Active sessions?
   U-->>J: Active sessions
-  J->>J: Remove ended-session devices
-  J->>F: Multicast, collapse by correlation id
-  F-->>C: OS notification
-  J->>J: Remove dead tokens and log result
-  J->>J: Retry transient failures only
+  J->>J: Drop revoked<br/>devices
+  J->>F: Multicast<br/>with collapse key
+  Note over F: Deliver to devices
+  J->>J: Drop dead tokens
+  J->>J: Log and retry<br/>transient failures
 ```
 *Figure: Push delivery validates device sessions before calling FCM.*
 
@@ -129,7 +104,7 @@ failure domains apart: an FCM outage never re-runs (re-sends) the email, and an 
 5. One `notification_log` row per attempt: `Sent` (at least one device accepted it; partial failures in `error`),
    `Skipped` or `Failed`. In-app and push rows cannot be re-enqueued by hand (they retry automatically).
 
-## Real-time hub
+### Real-time hub
 
 `/hubs/notifications` (`NotificationHub`, `Notification.Contracts.Realtime.NotificationHubContract`). It is
 **push-only**: clients invoke nothing on it, every command goes through REST. Events (camelCase JSON):
@@ -168,7 +143,7 @@ need sticky sessions.
 ### Closing sockets on revocation
 
 Revoking a session (sign out of a device, logout-all, lock, delete, password or role change, refresh-token reuse)
-closes its live sockets within seconds, not at access-token expiry:
+normally closes its live sockets shortly after outbox delivery; token expiry remains the fallback:
 
 1. Identity adds a short-lived `SessionRevocation` tombstone row; saving it writes `UserSessionsRevokedIntegrationEvent`
    (`UserDirectory.Contracts`, urn `userdirectory.user-sessions-revoked.v1`: `UserId`, `SessionIds` or `AllSessions`) to
@@ -199,7 +174,7 @@ subscription is retried in the background (and after a reconnect), so a replica 
 ### Which events notify
 
 In-app inbox entries (and push where it is actionable) accompany the existing emails and events. Category =
-`<group>.<event>` (groups in use today: `billing`, `membership`, `catalog`, `data-transfer`, `webhooks`; reserved: `security`,
+`<group>.<event>` (groups in use today: `billing`, `membership`, `data-transfer`, `webhooks`; reserved: `security`,
 `system`); text is in both languages from the owning module's resx (`InApp.<group>.<event>.Title/.Body`, read with
 `Shared.Core.Localization.BilingualResource`). Amounts are kept out of the text; webhook endpoints show only their host.
 Send a STABLE correlation id (`.WithCorrelationId(...)`, e.g. the integration event's message id) from consumers: the inbox
@@ -214,74 +189,98 @@ Membership notifications are not sent to the person who made the change.
 | `billing.expired`, `subscription-rejected`, `upgrade-reverted`, `trial-ending` | Subscriptions, `TrialReminderProcessor` | yes |
 | `membership.joined` (non-owner members added by someone else), `membership.role-changed` (the role SET changed) | Tenancy (to the member) | no |
 | `webhooks.endpoint-disabled` | Webhooks (to the tenant owner) | yes (sensitive) |
-| `catalog.product-published` | Catalog `ProductPublishedConsumer` (to the owner) | no |
 | `data-transfer.job-finished` | DataTransfer | yes |
 
-### Browser client (TypeScript, `@microsoft/signalr`)
+### Browser client
 
-```ts
-import { HubConnectionBuilder, HttpTransportType, LogLevel } from "@microsoft/signalr";
+Use the SignalR client with an access-token factory that obtains a fresh token on each connection, WebSockets and negotiation skipped when the load balancer has no affinity. Subscribe to the five inbox/user event methods in the table above. Deduplicate notifications by id, apply tenant-specific badge updates only to the matching tenant, and refresh unread count after initial connection and every reconnect. Handle `ForceDisconnect` by stopping reconnect attempts until sign-in establishes a new session; never reuse the revoked token. Client UI helpers are application code, not supplied by this backend template.
 
-const hub = new HubConnectionBuilder()
-  .withUrl("https://api.example.com/hubs/notifications", {
-    accessTokenFactory: () => auth.getAccessToken(),   // called on every (re)connect: return a FRESH token
-    transport: HttpTransportType.WebSockets,
-    skipNegotiation: true,
-  })
-  .withAutomaticReconnect()
-  .configureLogging(LogLevel.Warning)
-  .build();
+### Android client
 
-hub.on("NotificationReceived", (n) => inbox.upsert(n));          // de-duplicate by n.id
-hub.on("UnreadCountChanged", (c) => badge.set(c.tenantId, c.count));
-hub.on("NotificationsRead", (r) => inbox.markRead(r.ids, r.upTo));
-hub.on("NotificationDeleted", (d) => inbox.remove(d.id));
-hub.onreconnected(() => badge.refresh());                         // GET /api/v1/notifications/inbox/unread-count
-hub.onclose(() => setTimeout(() => hub.start(), 5000));            // token expiry closes the socket by design
+Register the Firebase token after sign-in, on application start and on token rotation. On Android 13 and later, obtain notification permission before expecting visible notifications. Handle foreground delivery and route taps using `category`, `actionUrl` and `correlationId` in the payload. Before sign-out, unregister the device while the access token is still valid, then delete the Firebase token.
 
-await hub.start();
-await badge.refresh();
+### iOS client
+
+Request notification authorization and register for remote notifications. Firebase maps the APNs token to an FCM token; register that token after sign-in and whenever it rotates. Unregister before sign-out, then delete the Firebase token. Direct APNs is optional and uses a native APNs token instead, as described below.
+
+The server sets `apns-collapse-id` to the correlation id and `thread-id` to the category: retries can replace the same notification while categories group notifications. Silent/background pushes are not used.
+
+### Tenancy
+
+The inbox is per user. With multi-tenancy on, a request in tenant T sees T's entries plus tenant-less platform
+notices (`InboxScope`); single-tenant mode sees all. Entries are deleted with the tenant (`TenantDataPurgeRequestedEvent`)
+and with the user (`UserDeletedIntegrationEvent`, which also deletes the devices). Hub events carry `tenantId`; a client
+in another tenant ignores them or refreshes.
+
+### Endpoints
+
+Declarations are in `src/Modules/Notification/Notification/Features/Inbox/InboxModule.cs`, `Features/Devices/PushDevicesModule.cs` and `NotificationModule.cs` for the hub. Preferences are declared in `Features/Preferences/`.
+
+| Route | Auth | Notes |
+|---|---|---|
+| `GET /api/v1/notifications/inbox?unreadOnly=&category=&pageNumber=&pageSize=` | `RequireAuthorization()` | newest first, the current tenant + platform notices |
+| `GET /api/v1/notifications/inbox/unread-count` | `RequireAuthorization()` | badge |
+| `POST /api/v1/notifications/inbox/{id}/read` | `RequireAuthorization()` | idempotent |
+| `POST /api/v1/notifications/inbox/read-all { upTo? }` | `RequireAuthorization()` | pass the `createdAt` of the newest entry the user SAW |
+| `DELETE /api/v1/notifications/inbox/{id}` | `RequireAuthorization()` | |
+| `PUT /api/v1/notifications/devices` | `RequireAuthorization()` + `DisallowApiKey()` | register / refresh |
+| `GET /api/v1/notifications/devices` | `RequireAuthorization()` + `DisallowApiKey()` | token masked (`...abcdefgh`) |
+| `DELETE /api/v1/notifications/devices/{id}` | `RequireAuthorization()` + `DisallowApiKey()` | |
+| `PUT /api/v1/notifications/preferences { channelOrder, pushEnabled?, categoryMutes?, quietHours?, timeZone? }` | `RequireAuthorization()` | omitted = unchanged; `categoryMutes` replaces the whole map |
+| `GET /api/v1/notifications/preferences/category-groups` | `RequireAuthorization()` | the mutable groups with `en`/`ar` names |
+| `/hubs/notifications` | `RequireAuthorization()` + `DisallowApiKey()`; JWT header or `?access_token=` | SignalR |
+
+A foreign or unknown id is always 404 (never 403), so ids cannot be probed.
+
+## Configuration
+
+Defaults from `src/Modules/Notification/Notification/Options/PushOptions.cs` and `src/Api/appsettings.json`; Docker restricts transports to WebSockets.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Inbox:RetentionDays` | 90 | Inbox retention |
+| `Realtime:Enabled` | true | Map the hub; false leaves REST available |
+| `Realtime:Transports` | `WebSockets,ServerSentEvents,LongPolling` | Comma-separated string, not an array |
+| `Realtime:KeepAliveInterval` | `00:00:15` | Server ping interval |
+| `Realtime:ClientTimeoutInterval` | `00:00:30` | Silent-client timeout |
+| `Realtime:UseRedisBackplane` | true | Use the backplane when Redis is enabled |
+| `Push:Provider` | `Auto` | FCM with credentials; otherwise NoOp |
+| `Push:ProjectId` | `null` | Optional override of credential project |
+| `Push:CredentialsJson / Push:CredentialsFile` | `null` | Secret JSON or file path |
+| `Push:DefaultTimeToLive` | `1.00:00:00` | Offline TTL; provider maximum is 28 days |
+| `Push:MaxAttempts` | 4 | Per-device transient attempts |
+| `Push:RetryDelaysSeconds` | `[30,120,600]` | Retry delay sequence |
+| `Push:MaxDevicesPerUser` | 10 | Evict least recently seen beyond cap |
+| `Push:StaleDeviceDays` | 60 | Device purge age |
+| `Push:Apns:Enabled` | false | Enable direct native APNs adapter |
+| `Push:Apns:KeyId / Push:Apns:TeamId / Push:Apns:BundleId` | Empty | APNs identity |
+| `Push:Apns:PrivateKeyFile` | `null` | PKCS#8 key file |
+| `Push:Apns:UseSandbox` | false | Use sandbox for development-build tokens |
+
+Options validate on startup. Explicit FCM without credentials, unknown transports or invalid intervals refuse boot. Transport selection is a string because configuration arrays merge by index and cannot reliably remove transports.
+
+## Usage
+
+### Sending
+
+The actual billing handler excerpt is in [Sending a notification](Notification.md#sending-a-notification). For the additive payload contract, see `src/Modules/Notification/Notification.Contracts/InApp/InAppContent.cs`; for fluent calls, `Notification.Contracts/INotificationSender.cs`.
+
+```csharp
+INotificationBuilder WithInApp(InAppContent content);
+INotificationBuilder WithPush(PushContent content);
+INotificationBuilder WithPush(bool sensitive = false);
 ```
 
-### Android client (Kotlin, `com.google.firebase:firebase-messaging`)
+- `WithPush(PushContent)` sends its own text; `WithPush(sensitive: true)` reuses the in-app text but sends a generic
+  "New notification / Open the app to view it" (push content transits Google/Apple).
+- Both need a USER recipient: `For(userId)` or `ToEmail(address, culture, userId)`. Without one they are logged
+  `Skipped`.
+- `SendAsync(NotificationChannel.Push)` (or `InApp`) delivers ONLY that channel. `SendAsync(NotificationChannel.Email)`
+  narrows the chain and keeps in-app and push.
+- Limits are part of the contract (`InAppContent.*MaxLength`, `MaxDataEntries`); exceeding the category or data limits
+  throws at the call site, long text is truncated at delivery. `Data` is for ids and routes, never PII.
 
-```kotlin
-class AppMessagingService : FirebaseMessagingService() {
-    // FCM rotated the token: refresh the registration (only when signed in).
-    override fun onNewToken(token: String) { if (session.isSignedIn) api.registerDevice(token) }
-
-    // Data / notification while the app is in the foreground. Route on tap with data["category"] / data["actionUrl"];
-    // data["correlationId"] is the inbox entry's correlation id.
-    override fun onMessageReceived(message: RemoteMessage) = notifications.show(message)
-}
-
-// After sign-in (Android 13+: request POST_NOTIFICATIONS first).
-val token = FirebaseMessaging.getInstance().token.await()
-deviceId = api.registerDevice(token)   // PUT /api/v1/notifications/devices {token, platform:"Android", appVersion, locale}
-
-// Sign-out: unregister while the access token is still valid, then drop the FCM token.
-api.unregisterDevice(deviceId)         // DELETE /api/v1/notifications/devices/{deviceId}
-FirebaseMessaging.getInstance().deleteToken().await()
-```
-
-### iOS client (Swift, `FirebaseMessaging`)
-
-```swift
-// AppDelegate: UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { ... }
-// then UIApplication.shared.registerForRemoteNotifications(). FirebaseMessaging maps the APNs token to an FCM token.
-extension AppDelegate: MessagingDelegate {
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        guard let fcmToken, session.isSignedIn else { return }
-        Task { deviceId = try await api.registerDevice(token: fcmToken, platform: "Ios") }
-    }
-}
-// Sign-out: try await api.unregisterDevice(deviceId); try await Messaging.messaging().deleteToken()
-```
-
-The server sets `apns-collapse-id` and `thread-id` (= category); notifications of one category are grouped and a
-duplicate replaces the shown one. Silent/background pushes are not used.
-
-## Push devices (mobile / web app)
+### Push devices (mobile / web app)
 
 1. After sign-in, on every app start and whenever FCM rotates the token (`onTokenRefresh`):
    `PUT /api/v1/notifications/devices { token, platform: "Android" | "Ios" | "Web", appVersion?, locale? }`.
@@ -292,44 +291,7 @@ duplicate replaces the shown one. Silent/background pushes are not used.
 3. Devices not re-registered for `Push:StaleDeviceDays` are purged daily.
 4. The data payload always carries `correlationId` (plus `category` / `actionUrl` with `WithPush()`): route on tap.
 
-## Endpoints
-
-| Route | Auth | Notes |
-|---|---|---|
-| `GET /api/v1/notifications/inbox?unreadOnly=&category=&pageNumber=&pageSize=` | the user | newest first, the current tenant + platform notices |
-| `GET /api/v1/notifications/inbox/unread-count` | the user | badge |
-| `POST /api/v1/notifications/inbox/{id}/read` | the user | idempotent |
-| `POST /api/v1/notifications/inbox/read-all { upTo? }` | the user | pass the `createdAt` of the newest entry the user SAW |
-| `DELETE /api/v1/notifications/inbox/{id}` | the user | |
-| `PUT /api/v1/notifications/devices` | the user, no API key | register / refresh |
-| `GET /api/v1/notifications/devices` | the user, no API key | token masked (`...abcdefgh`) |
-| `DELETE /api/v1/notifications/devices/{id}` | the user, no API key | |
-| `PUT /api/v1/notifications/preferences { channelOrder, pushEnabled?, categoryMutes?, quietHours?, timeZone? }` | the user | omitted = unchanged; `categoryMutes` replaces the whole map |
-| `GET /api/v1/notifications/preferences/category-groups` | the user | the mutable groups with `en`/`ar` names |
-| `/hubs/notifications` | the user (JWT, header or `?access_token=`), no API key | SignalR |
-
-A foreign or unknown id is always 404 (never 403), so ids cannot be probed.
-
-## Tenancy
-
-The inbox is per user. With multi-tenancy on, a request in tenant T sees T's entries plus tenant-less platform
-notices (`InboxScope`); single-tenant mode sees all. Entries are deleted with the tenant (`TenantDataPurgeRequestedEvent`)
-and with the user (`UserDeletedIntegrationEvent`, which also deletes the devices). Hub events carry `tenantId`; a client
-in another tenant ignores them or refreshes.
-
-## Configuration
-
-| Section | Keys (defaults) |
-|---|---|
-| `Inbox` | `RetentionDays` (90) |
-| `Realtime` | `Enabled` (true; false = no hub, clients poll), `Transports` (comma-separated, `WebSockets,ServerSentEvents,LongPolling`; Docker: `WebSockets`), `KeepAliveInterval` (15s), `ClientTimeoutInterval` (30s), `UseRedisBackplane` (true) |
-| `Push` | `Apns` (`Enabled`, `KeyId`, `TeamId`, `BundleId`, `PrivateKeyFile`, `UseSandbox`), `Provider` (`Auto` = FCM when credentials exist, else NoOp; `Fcm`; `NoOp`), `ProjectId`, `CredentialsFile` or the `fcm_service_account_json` secret, `DefaultTimeToLive` (1 day, max 28), `MaxAttempts` (4), `RetryDelaysSeconds` ([30,120,600]), `MaxDevicesPerUser` (10), `StaleDeviceDays` (60) |
-
-Everything is validated at startup (`ValidateOnStart`): `Push:Provider=Fcm` without credentials, an unknown transport
-or a bad interval refuses to boot. `Realtime:Transports` is a string, not an array: configuration merges arrays by
-index, so an environment file could never remove a transport from one.
-
-## Mutes and quiet hours
+### Mutes and quiet hours
 
 A category is `<group>.<event>` (`billing.invoice-issued`); the group is the part before the first dot. Groups:
 `billing`, `security`, `membership`, `catalog`, `data-transfer`, `webhooks`, `system` (no dot or an unknown group =
@@ -358,7 +320,7 @@ A category is `<group>.<event>` (`billing.invoice-issued`); the group is the par
   are still stored and counted as unread, but the live SignalR event is not sent. `security` ignores quiet hours.
   `enabled: false` removes the window.
 
-## FCM / APNs setup
+### FCM / APNs setup
 
 1. Create a Firebase project; add the Android, iOS and/or Web apps (the client SDKs give the registration token).
 2. iOS: upload the APNs authentication key (`.p8`) in Firebase → Project settings → Cloud Messaging. Pushes to iOS go
@@ -382,7 +344,7 @@ A category is `<group>.<event>` (`billing.invoice-issued`); the group is the par
    (`Push:CredentialsFile`) and never loaded into configuration (`.json` secrets are read-by-path, like `.pfx`).
 4. Only a `service_account` key is accepted (an external-account JSON could make the SDK call arbitrary token URLs).
 
-## Operations
+### Operations
 
 - Metrics (meter `StarterKit.Notification`): `notification.inapp.delivered`, `notification.push.sent{result}`,
   `notification.realtime.sent{method,result}`; open sockets: `signalr.server.active_connections`
@@ -393,7 +355,13 @@ A category is `<group>.<event>` (`billing.invoice-issued`); the group is the par
 - Nginx: `location /hubs/` (upgrade headers, no buffering, 3600s read timeout, its own per-IP connection budget, a log
   format without the query string) - [Nginx](../deployment/Nginx.md).
 
-## Troubleshooting
+## Failure modes and guarantees
+
+REST is authoritative after reconnect; SignalR hints can be missed or repeated. Inbox insertion is idempotent per user/correlation id. Push acceptance does not guarantee the OS displayed a notification; retries may replace a displayed notification through collapse keys. Foreign or absent inbox/device ids return 404; API keys are rejected on device and hub routes. See [Troubleshooting](#troubleshooting) for 401/403 and provider failures.
+
+The public `Notification.Contracts` surface contains inbox read/delete commands and queries, device registration/removal queries and commands, `INotificationClient` and `IUserEventPublisher`. `IRealtimeNotifier` lives in `Notification/Realtime/NotificationHub.cs`; `IPushProvider` is in `Notification/Channels/Push/IPushProvider.cs`. Both are implementation-side ports. There are no additive-channel integration events published. `UserSessionsRevokedConsumer` consumes the user-directory revocation event; user erasure and tenant purge are described in [Notification](Notification.md).
+
+### Troubleshooting
 
 | Symptom | Likely cause | Check / fix |
 |---|---|---|
@@ -416,7 +384,7 @@ Logs to search (Seq / Loki): `Push delivery`, `Push to device`, `Dropped ... pus
 `In-app notification delivered`. Alerts: `PushDeliveryFailing`, `PushRejectedByProvider`, `RealtimeSendErrors`
 (`infra/observability/configs/alerts.yaml`).
 
-## Tests
+## Guardrails
 
 | Where | What |
 |---|---|
@@ -443,3 +411,7 @@ dotnet test src/Api.E2ETests --filter "FullyQualifiedName~FcmLiveE2ETests"
 
 The device shows "StarterKit push works" and "StarterKit: delivered through the API", and never the third message
 (sent after logout).
+
+## Related
+
+[Notification](Notification.md), [ADR-0012](../Decisions/0012-realtime-inbox-and-push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
