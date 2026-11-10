@@ -1,80 +1,109 @@
-# Database Migrations in Deployment
+# Deploy database migrations
 
-Production does **not** migrate from the API at boot. A one-shot run of the same image does it before any API
-instance starts.
+Run the published application's one-shot migrator before replacing runtime instances, covering shared schemas and dedicated tenant databases.
 
-## Flow
+## Goal
 
-1. `docker compose run --rm migrator` runs `Api.dll --migrate-only` (the compose `command` is `["--migrate-only"]`; the
-   image ENTRYPOINT is `dotnet Api.dll`).
-2. It migrates and seeds every module (Identity, Tenancy, Attachment, Catalog, Subscriptions, Notification, the same
-   order as before), prepares the Hangfire schema, then migrates and seeds every **dedicated tenant database**.
-   Exit code `0` = success; non-zero (failed migration, or any failed tenant database) = deploy stops, the old API keeps
-   running.
-3. `api` starts only after `migrator` completed successfully (`service_completed_successfully`).
-   `deployment/deploy.sh` and the CI deploy job run the migrator explicitly first, then start every other service with
-   `up -d --no-deps <explicit list without migrator>`, so the migrator runs **exactly once per deploy**. (On the very
-   first deployment CI uses a plain `up -d`, where `depends_on` runs it once.)
+Apply migrations and seeds under PostgreSQL advisory locks while keeping runtime database privileges separate from DDL privileges.
 
-## Configuration (`Database` section)
+## Prerequisites
 
-| Key | Default | Meaning |
-|---|---|---|
-| `MigrateOnStartup` | `true` (`false` in `appsettings.Docker.json`) | Migrate + seed when the app boots. Keep `true` for dev, Aspire and tests. |
-| `MigrateOnly` | `false` | Set by the `--migrate-only` argument. Always migrates, then the process exits. |
-| `MigrationConnectionString` | empty | Privileged connection used **only** to apply migrations of the shared database (and to install the Hangfire schema during `--migrate-only`). Env: `Database__MigrationConnectionString`, compose: the `migration_connection_string` Docker secret, i.e. `secrets/migration_connection_string.txt`, mounted as `Database__MigrationConnectionString`. |
-| `LockTimeoutSeconds` | `300` | Wait for another migrator holding the lock before failing. |
+- A built API image and reachable PostgreSQL with the required migration, runtime and host-scope credentials.
+- A verified backup and a compatible release plan; an image rollback does not reverse schema changes.
+- Module migrations created with [`/starterkit:add-migration`](../../tools/claude/starterkit-plugin/skills/add-migration/SKILL.md).
+- Existing module-schema, concurrency and RLS conventions from [Database conventions](../Architecture/DatabaseConventions.md).
 
-`MultiTenancy:Database:MigrateDedicatedOnStartup` still controls the background migration of dedicated tenant
-databases when `MigrateOnStartup=true`.
+## Steps
 
-## Concurrency
+1. Keep `Database:MigrateOnStartup=false` for runtime instances. This is set in `src/Api/appsettings.Docker.json`;
+   development/tests default to true. Review the resolved runtime environment rather than assuming the setting
+   applies to every custom production host.
 
-Each migrate + seed runs under a Postgres **session advisory lock** (`pg_try_advisory_lock`, one key per database, on a
-dedicated unpooled connection), so replicas booting together, or a migrator racing an app with `MigrateOnStartup=true`,
-serialize; the loser finds nothing pending. The lock is released if the process dies. Dedicated tenant databases lock
-their own database.
+   | Key | Default (`DatabaseMigrationOptions`) | Meaning |
+   |---|---|---|
+   | `Database:MigrateOnStartup` | `true`; Docker `false` | Normal module startup migrates and seeds |
+   | `Database:MigrateOnly` | `false` | CLI `--migrate-only` sets it and forces migration, then exits |
+   | `Database:MigrationConnectionString` | `null` | Optional privileged shared-database connection |
+   | `Database:LockTimeoutSeconds` | `300` | Advisory-lock acquisition timeout |
 
-## Least-privilege roles (optional, recommended)
+2. If separating privileges, provision a DDL owner/migrator and a DML runtime user. Set the runtime connection
+   through the normal database settings and place the privileged connection in
+   `secrets/migration_connection_string.txt`. Compose mounts it only in migrator as
+   `/run/secrets/Database__MigrationConnectionString`; the provider converts `__` to `:`. An empty file falls
+   back to the runtime connection. The configuration key can also be supplied as `Database__MigrationConnectionString`
+   outside Compose; there is no base-file `MIGRATION_CONNECTION_STRING` interpolation.
 
-Create the roles yourself (the `deployment/postgres` init scripts are not part of this flow):
+3. Configure role-based tenant RLS before serving traffic. Run the reviewed
+   `deployment/postgres/scripts/init-rls-roles.sql` as a cluster administrator; it is not automatically invoked
+   by the base Compose init mount (`./postgres/init`). Use `CHANGE_ME` only as documentation placeholders.
 
-```sql
-CREATE ROLE starterkit_migrator LOGIN PASSWORD '...';   -- owns the schemas, runs DDL
-CREATE ROLE starterkit_app LOGIN PASSWORD '...';        -- runtime: DML only, NOT superuser, NOT BYPASSRLS
--- after the first migrator run, for each schema (identity, tenancy, catalog, attachment, subscriptions, notification, hangfire, transport):
-GRANT USAGE ON SCHEMA <s> TO starterkit_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA <s> TO starterkit_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA <s> TO starterkit_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE starterkit_migrator IN SCHEMA <s> GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO starterkit_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE starterkit_migrator IN SCHEMA <s> GRANT USAGE, SELECT ON SEQUENCES TO starterkit_app;
-```
+   - `starterkit_app`: non-superuser, no `BYPASSRLS`, not a table owner or member of `tenant_rls_bypass`.
+   - `starterkit_host`: host-scope login with `BYPASSRLS` and required DML privileges.
+   - `tenant_rls_bypass`: `NOLOGIN` group whose existence hardens the policy helper against arbitrary
+     `app.bypass_rls` flags. The runtime user must not belong to it.
+   - Set `MultiTenancy:Database:RlsBypass=Role` and `MultiTenancy:Database:HostConnectionString` for host work.
+     Do not route tenant-data connections through transaction pooling.
 
-`hangfire` (Hangfire.PostgreSql, `HangfireConfiguration`) and `transport` (`Messaging:PostgreSql:Schema`, MassTransit SQL
-transport) are created by the migration role like the module schemas, so they need the same grants. The same loop plus
-the default privileges is shipped in `deployment/postgres/scripts/init-rls-roles.sql`.
+   The grant script assumes migration owner `starterkit_migrator` for default privileges. Review its schema
+   list: it does not currently include `webhooks` or `datatransfer`. Grant usage, table DML and sequence usage
+   to runtime/host roles for every deployed schema, including `hangfire` and PostgreSQL messaging `transport`.
+   Reapply grants when adding a new schema; defaults apply to future objects only in existing schemas and only
+   for the configured creating role. Seeding uses normal module contexts after shared DDL; shared tenant-data
+   seeders run as the Default tenant, and dedicated seeders run as their tenant. DML credentials must work for
+   those scopes before migration is considered complete; migration host scopes also require the host credential.
 
-**New schema checklist.** `ALTER DEFAULT PRIVILEGES` only applies to schemas that already exist, and `GRANT ... ON ALL
-TABLES` only to objects that exist when it runs. When a migration creates a NEW schema (a new module, or a first
-`transport`/`hangfire` install), re-run the grant script (or the SQL above for that schema) **before the deploy that
-ships it reaches the API**, otherwise the runtime role gets `permission denied` on the new schema. New tables in an
-existing schema are covered by the default privileges, as long as the migration role is the one that creates them.
+4. Run the migration once before an existing API replacement:
 
-**Seeding uses the runtime connection.** The migrator applies DDL with `MigrationConnectionString`, but the seeding
-step that follows runs through the normal module contexts, i.e. with the runtime connection (DML only). Seeds therefore
-only need DML grants, and on tenant-data tables they run in host scope (with `RlsBypass=Role` that means the host role
-connection).
+   ```bash
+   docker compose -f docker-compose.yml --env-file .env.prod run --rm migrator
+   ```
 
-Point `POSTGRES_USER`/secret at `starterkit_app` and set `MIGRATION_CONNECTION_STRING` to the migrator role. The advisory
-lock uses the migrator connection. With `Messaging:Transport=PostgreSql`, the transport schema is created by MassTransit
-at API start using `Messaging:PostgreSql:AdminUsername/AdminPassword` (set them to the migrator role, or set
-`CreateInfrastructure=false` after the first run). Dedicated tenant databases use their own per-tenant credentials.
+   For source-based development, the equivalent entry point is:
 
-## Other deploy-time guards
+   ```bash
+   dotnet run --project src/Api -- --migrate-only
+   ```
 
-- `Messaging:Transport=InMemory` (or unset) aborts startup outside Development/Testing/Test/E2E.
-- Request timeouts: `RequestTimeouts:DefaultSeconds` (30) for all endpoints, `LongRunningSeconds` (300) for attachment
-  upload/download; the Hangfire dashboard is exempt. Timeouts answer `504`. Keep Nginx `proxy_read_timeout` above them.
-- Health: `/health` is readiness (compose healthcheck, deploy gate), `/alive` is liveness.
-- CI: the deploy job fails immediately when `APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_USER`, `POSTGRES_DB` or
-  `BACKUP_BUCKET` repository variables are missing.
+   `src/Api/Program.cs` initializes discovered modules in `ModuleOrder`, migrates/seeds shared contexts,
+   provisions the PostgreSQL transport when selected, and calls `DedicatedTenantDatabaseMigrator.MigrateAllAsync`.
+   Hangfire prepares its schema only when migration is enabled; the one-shot mode uses the migration connection
+   when supplied. The bus hosted service does not run in migrate-only mode; transport DDL is explicitly invoked.
+
+5. Require exit code zero, then start the API. Base Compose's `service_completed_successfully` dependency handles
+   first startup; CI runs the migrator explicitly on later releases before `up -d --no-deps api`. Supporting-service
+   updates exclude migrator so an exited one-shot service is not started twice.
+
+## Verify
+
+Inspect migrator logs and the exit code. A failed dedicated tenant makes the one-shot run fail; do not start
+the new application against a partially migrated fleet. After replacement check `/health`, not only `/alive`.
+Run `PendingModelChangesTests` and `TenantRowLevelSecurityCoverageTests` against the real migrations during CI.
+With role mode, verify both runtime isolation and authorized host work; an unreachable role-check database is
+logged rather than treated as proof of valid roles.
+
+## Pitfalls
+
+- `MigrationLock` uses `pg_try_advisory_lock` on a dedicated unpooled session, with one shared key per database.
+  Competing migrators serialize; timeout fails the run. Disposal or connection loss releases the lock. Each
+  dedicated database acquires its own lock; this is not one transaction across all module/tenant databases.
+- `MigrationConnectionString` overrides shared DDL and one-shot Hangfire setup; it does not replace per-tenant
+  connection strings. Dedicated migrations resolve the tenant's own database and credentials.
+- PostgreSQL transport provisioning obeys `Messaging:PostgreSql:CreateInfrastructure` (default `true`). Explicit
+  `Messaging:PostgreSql:AdminUsername` / `AdminPassword` override the chosen admin credentials; otherwise the
+  one-shot migrator derives them from `Database:MigrationConnectionString` when supplied. Setting
+  `CreateInfrastructure=false` means an administrator must already have installed the transport infrastructure.
+  Runtime instances with startup migration disabled do not create the transport schema/role at API boot.
+- `MultiTenancy:Database:MigrateDedicatedOnStartup` concerns normal startup migration; the explicit one-shot run
+  migrates dedicated tenants itself. See [dedicated database operations](../MultiTenancy/Isolation-and-Dedicated-Databases.md).
+- `RlsBypassRoleCheck` fails for a reachable database missing the group or an unsafe runtime role when its role-mode
+  prerequisites apply. It logs connection failures; readiness and deployment verification must still reject outages.
+- Non-development production guards reject non-durable `InMemory` transport and unsafe placeholders. Request
+  timeouts (`RequestTimeouts:DefaultSeconds=30`, `LongRunningSeconds=300`) are independent of migration locks;
+  Hangfire dashboard is exempt. Review Nginx timeouts for long attachment operations.
+- The deploy job requires explicit repository variables even though its environment expressions have fallbacks.
+
+## Related
+
+[Database conventions](../Architecture/DatabaseConventions.md), [CI/CD](CI-CD.md), [backups](Backups.md),
+[migration creation](../Reference/Migrations.md), [ADR-0022](../Decisions/0022-production-message-transport.md),
+and `/starterkit:add-migration`.
