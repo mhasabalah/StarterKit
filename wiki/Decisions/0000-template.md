@@ -1,5 +1,7 @@
 # NNNN. <Decision title in the imperative>
 
+## Status
+
 - **Status:** Proposed | Accepted | Superseded by NNNN
 - **Date:** YYYY-MM-DD
 
@@ -18,3 +20,7 @@ What becomes easier, what becomes harder, and how it is enforced (architecture t
 ## Alternatives considered
 
 The options we rejected and why.
+
+## Related
+
+[ADR index](README.md), [Architecture overview](../Architecture/Overview.md), and `/starterkit:update-docs`.

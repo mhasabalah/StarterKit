@@ -1,5 +1,7 @@
 # 0017. Store money as numeric(19,4) and round per ISO 4217 currency in the domain
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-06
 
@@ -62,3 +64,7 @@ amount was shown as `1000.00`, and Paymob would have sent a wrong amount.
 - **Store minor units as `bigint`:** exact, but every query, report and DTO would convert, and the exponent would
   have to travel with each amount.
 - **Per-currency column types:** not possible in one table.
+
+## Related
+
+[Billing](../Subscriptions/Billing.md).

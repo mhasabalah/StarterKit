@@ -1,5 +1,7 @@
 # 0014. Build passkeys on ASP.NET Core Identity's built-in WebAuthn, with server-side ceremony state
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-05
 
@@ -29,3 +31,7 @@ origins.
 
 - **Fido2NetLib** (MIT): mature, but redundant now that the framework ships the same verification.
 - **Cookie-based built-in flow**: does not fit cross-origin token clients.
+
+## Related
+
+[Passkeys](../Identity/Passkeys.md).

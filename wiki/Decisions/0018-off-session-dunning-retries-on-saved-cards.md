@@ -1,5 +1,7 @@
 # 0018. Retry overdue renewals off-session on a saved card, idempotently, before the reminder
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-06
 
@@ -65,3 +67,7 @@ and must never charge a subscriber twice, even with overlapping job runs, crashe
 - **Charging inside the settlement transaction:** holds a database transaction open across a network call.
 - **Retrying every dunning email run without an attempt row:** relies on the provider alone for idempotency and gives
   no audit trail of what was tried.
+
+## Related
+
+[Billing](../Subscriptions/Billing.md), [Online Payments](../Subscriptions/Online-Payments.md).

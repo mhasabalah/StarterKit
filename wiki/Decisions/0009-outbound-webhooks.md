@@ -1,5 +1,7 @@
 # 0009. Deliver public integration events to tenants as signed outbound webhooks
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-05
 
@@ -62,3 +64,7 @@ A new tenant-data module, **Webhooks**, forwards a curated subset of integration
 - **Validate the URL only at registration.** Defeated by DNS rebinding and later DNS changes. Rejected; the connect-time check is
   authoritative and registration checks are only early feedback.
 - **Resolve DNS and then let the handler re-resolve.** Leaves a TOCTOU window. Rejected.
+
+## Related
+
+[Webhooks](../Modules/Webhooks.md).

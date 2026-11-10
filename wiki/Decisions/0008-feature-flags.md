@@ -1,5 +1,7 @@
 # 0008. Own the feature-flag port; store flags in Tenancy
 
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-05
 
@@ -37,3 +39,7 @@ entitlements (`IEntitlementService`) answer "does the plan include it", not "is 
 - Microsoft.FeatureManagement: ties modules to a package and has no tenant/user override store.
 - Config only: needs a deploy per change.
 - Per-tenant DB flags: flags are platform decisions and must work before a tenant is resolved.
+
+## Related
+
+[Feature Flags](../Architecture/Feature-Flags.md).
