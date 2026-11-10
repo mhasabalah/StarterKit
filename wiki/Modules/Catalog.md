@@ -1,13 +1,22 @@
-# Catalog Module: the Reference Module
+# Catalog: the reference module
 
-`Catalog` is the **reference module** of the template. It contains one example of every feature type a real
-module needs (moderation workflow, soft delete, image gallery, bilingual lookups, Redis cache, MassTransit,
-Hangfire, ...) on a generic `Product` aggregate. When you build a new module, find the pattern below and copy
-the file it points to. Delete the module when your project no longer needs it (steps at the end).
+Catalog is the optional reference module for vertical slices, demonstrating product moderation, tenant persistence, attachments, caching and messaging.
+
+Use its pattern map when implementing a business module; remove the sample when the product no longer needs it. This page is excluded from products generated without the sample.
+
+## At a glance
+
+| Responsibility | Types / location |
+|---|---|
+| Product workflow and gallery | `Product`, `Pricing`, `ProductImage`, `ProductAttribute`, `ProductTag` |
+| Lookups and saved products | `Category`, `Tag`, `AttributeType`, `WishlistItem` |
+| Persistence | `CatalogDbContext`, schema `catalog`, `ITenantDataContext`; tenant filters and forced RLS |
+| Discovery | `CatalogModuleManifest.Order = ModuleOrder.Catalog` (300) |
+| Source | `src/Modules/Catalog/` |
 
 All paths are relative to `src/Modules/Catalog/` unless they start with `src/` or `wiki/`.
 
-## Layout
+### Layout
 
 ```
 Catalog.Contracts/          public surface: commands, queries, DTOs, enums, integration events
@@ -22,7 +31,28 @@ Catalog.IntegrationTests/   Testcontainers Postgres tests through the real DI + 
 src/Api.E2ETests/Catalog/   HTTP end-to-end flows against the booted Api
 ```
 
-## Pattern map ("copy me")
+## How it works
+
+```mermaid
+stateDiagram-v2
+  Draft --> PendingReview: submit
+  PendingReview --> Approved: approve
+  PendingReview --> Rejected: reject
+  PendingReview --> ChangesRequested: request changes
+  Rejected --> PendingReview: resubmit
+  ChangesRequested --> PendingReview: resubmit
+```
+*Figure: The review half of ProductStatus permits resubmission from Rejected and ChangesRequested.*
+
+```mermaid
+stateDiagram-v2
+  Approved --> Published: publish
+  Published --> Archived: archive
+  Archived --> Draft: return to draft
+```
+*Figure: The publication half returns archived products to Draft before another review.*
+
+States come from `Catalog.Contracts/Products/Enums/ProductEnums.cs`; `ProductStatusTransitions` is the transition allow-list. Soft deletion is separate from workflow status.
 
 ### Domain modelling
 
@@ -42,7 +72,7 @@ src/Api.E2ETests/Catalog/   HTTP end-to-end flows against the booted Api
 | Hierarchical lookup (self-referencing parent) + pure tree algorithms (cycle check, descendants, tree build) | `Catalog/Domains/Categories/Models/Category.cs`, `CategoryHierarchy.cs` |
 | Lookup with `int[]` "applicable types" (Npgsql array `Contains`) and a data-type enum validating values | `Catalog/Domains/AttributeTypes/Models/AttributeType.cs` |
 | Simple lookup entity (deactivate, never delete) | `Catalog/Domains/Tags/Models/Tag.cs` |
-| Separate small aggregate with unique `{UserId, ProductId}` | `Catalog/Domains/Wishlist/Models/WishlistItem.cs` |
+| Separate small aggregate with unique `{TenantId, UserId, ProductId}` | `Catalog/Domains/Wishlist/Models/WishlistItem.cs` |
 
 Workflow: `Draft / ChangesRequested / Rejected → PendingReview → Approved | Rejected | ChangesRequested`,
 `Approved → Published → Archived → Draft`. Owners may edit content only in Draft / ChangesRequested / Rejected;
@@ -69,9 +99,9 @@ admins at any status.
 | DbContext: schema `catalog`, `FilterSoftDeletedProperties`, snake_case, version tokens | `Catalog/Data/CatalogDbContext.cs` |
 | Join/child following the parent's soft delete (non-`IEntity` with its own filter) | `WishlistItemConfiguration` in `Data/Configurations/LookupConfigurations.cs` |
 | Enums stored as strings, explicit unique index names | `Data/Configurations/*.cs` |
-| Repository per aggregate root (+ `IgnoreQueryFilters` variants for restore/purge) | `Catalog/Data/Repository/ProductRepository.cs`, `CategoryRepository.cs`, `WishlistRepository.cs` |
-| Postgres `23505` (unique violation) → HTTP 409, matched by index name | `Shared.Core/Data/PostgresErrors.cs` (`ex.IsUniqueViolation(<Configuration>.<Index>Name)`), used in the repositories and lookup handlers |
-| Idempotent seeder (`IgnoreQueryFilters().AnyAsync()` guard, fixed ids) | `Catalog/Data/Seed/CatalogDataSeeder.cs` |
+| Repository per aggregate root (+ named non-isolation filter bypass for restore/purge) | `Catalog/Data/Repository/ProductRepository.cs`, `CategoryRepository.cs`, `WishlistRepository.cs` |
+| Postgres `23505` (unique violation) → HTTP 409, matched by index name | `src/Shared/Shared.Core/Data/PostgresErrors.cs` (`ex.IsUniqueViolation(<Configuration>.<Index>Name)`), used in the repositories and lookup handlers |
+| Idempotent seeder (`IgnoreNonIsolationFilters().AnyAsync()` guard, fixed ids) | `Catalog/Data/Seed/CatalogDataSeeder.cs` |
 | Design-time factory for `dotnet ef` (connection name `starterkit`) | `Catalog/Data/CatalogDbContextFactory.cs` |
 
 ### Features (vertical slices: `Features/<Feature>/<Feature>Handler.cs` + `<Feature>EndPoint.cs`)
@@ -126,48 +156,95 @@ admins at any status.
 
 Why attachments are cleaned up on **purge**, not on soft delete: a restored product must still have its images.
 
-## Endpoints
+### Public contracts
 
-| Method | Route (`/api/v1`) | Auth |
+Use `ISender` for commands and queries in `src/Modules/Catalog/Catalog.Contracts/`. DTOs and enums remain in that assembly; implementations remain private.
+
+| Area in `Catalog.Contracts` | Commands, queries and ports |
+|---|---|
+| `AttributeTypes` | `CreateAttributeTypeCommand`, `DeleteAttributeTypeCommand`, `GetAttributeTypesQuery`, `UpdateAttributeTypeCommand` |
+| `Categories` | `CreateCategoryCommand`, `DeleteCategoryCommand`, `GetCategoriesQuery`, `GetCategoryTreeQuery`, `UpdateCategoryCommand` |
+| `Products` | `ApproveProductCommand`, `ArchiveProductCommand`, `CreateProductCommand`, `DeleteProductCommand`, `DeleteProductImageCommand`, `GetAdminProductByIdQuery`, `GetAdminProductsQuery`, `GetMyProductsQuery`, `GetPendingProductsQuery`, `GetProductByIdQuery`, `GetProductHistoryQuery`, `GetProductStatsQuery`, `GetProductsQuery`, `IProductDetails`, `IProductFilterQuery`, `ProductPublishedIntegrationEvent`, `PublishProductCommand`, `PurgeProductCommand`, `RejectProductCommand`, `ReorderProductImagesCommand`, `RequestProductChangesCommand`, `RestoreProductCommand`, `SearchProductsQuery`, `SetPrimaryProductImageCommand`, `SubmitProductForReviewCommand`, `ToggleProductFeaturedCommand`, `UnarchiveProductCommand`, `UpdateProductCommand`, `UploadProductImageCommand` |
+| `Tags` | `CreateTagCommand`, `DeleteTagCommand`, `GetTagsQuery`, `UpdateTagCommand` |
+| `Wishlist` | `AddToWishlistCommand`, `GetWishlistQuery`, `RemoveFromWishlistCommand` |
+
+### Endpoints
+
+Routes use `/api/v1` for `EndpointConfig.BaseApiPath`. The table records Carter authorization declarations, including inherited group restrictions; handlers also enforce ownership and resource access.
+
+| Method | Route | Authorization / restrictions |
 |---|---|---|
-| POST | `/products` | authenticated, rate limit `create` |
-| PUT / DELETE | `/products/{id}` | owner (editable status) or admin / owner or admin |
-| GET | `/products`, `/products/search` | `PageGate` (page 1 public), rate limit `search` |
-| GET | `/products/{id}` | public (owners also see their unpublished products) |
-| GET | `/products/my`, `/products/wishlist` | authenticated |
-| POST | `/products/{id}/submit-for-review`, `/archive`, `/unarchive` | owner or admin |
-| POST | `/products/{id}/approve`, `/reject`, `/request-changes`, `/publish` | `catalog.moderate` (platform permission; Admin and SuperAdmin hold it) |
-| POST / PUT / DELETE | `/products/{id}/images/upload`, `/images/{imageId}/set-primary`, `/images/reorder`, `/images/{imageId}` | owner (editable status) or admin |
-| POST / DELETE | `/products/{id}/wishlist` | authenticated |
-| GET | `/admin/products`, `/admin/products/{id}` | admin |
-| GET | `/admin/products/pending` | `catalog.moderate` |
-| POST / PATCH | `/admin/products/{id}/restore`, `/admin/products/{id}/featured` | admin |
-| GET | `/categories/tree` | public (cached) |
-| GET / POST / PUT / DELETE | `/categories` | `catalog.categories.manage` (tenant permission; Owner and Administrator hold it) |
-| GET / POST / PUT / DELETE | `/tags`, `/attribute-types` | GET public; everything else admin |
+| GET | `/api/v1/admin/products` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| GET | `/api/v1/admin/products/{id:guid}` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| PATCH | `/api/v1/admin/products/{id:guid}/featured` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| POST | `/api/v1/admin/products/{id:guid}/restore` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| GET | `/api/v1/admin/products/pending` | `RequirePermission(Permissions.CatalogModerate)` |
+| GET | `/api/v1/attribute-types` | `AllowAnonymous()` |
+| POST | `/api/v1/attribute-types` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| DELETE | `/api/v1/attribute-types/{id:guid}` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| PUT | `/api/v1/attribute-types/{id:guid}` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| GET | `/api/v1/categories` | `RequireTenantPermission(TenantPermissions.CategoriesManage)` |
+| POST | `/api/v1/categories` | `RequireTenantPermission(TenantPermissions.CategoriesManage)` |
+| DELETE | `/api/v1/categories/{id:guid}` | `RequireTenantPermission(TenantPermissions.CategoriesManage)` |
+| PUT | `/api/v1/categories/{id:guid}` | `RequireTenantPermission(TenantPermissions.CategoriesManage)` |
+| GET | `/api/v1/categories/tree` | `AllowAnonymous()` |
+| GET | `/api/v1/products` | `RequireAuthorization("PageGate")` |
+| POST | `/api/v1/products` | `RequireAuthorization()` |
+| DELETE | `/api/v1/products/{id:guid}` | `RequireAuthorization()` |
+| GET | `/api/v1/products/{id:guid}` | `AllowAnonymous()` |
+| PUT | `/api/v1/products/{id:guid}` | `RequireAuthorization()` |
+| POST | `/api/v1/products/{id:guid}/approve` | `RequirePermission(Permissions.CatalogModerate)` |
+| POST | `/api/v1/products/{id:guid}/archive` | `RequireAuthorization()` |
+| GET | `/api/v1/products/{id:guid}/history` | `RequireTenantPermission(TenantPermissions.AuditRead)` |
+| DELETE | `/api/v1/products/{id:guid}/images/{imageId:guid}` | `RequireAuthorization()` |
+| PUT | `/api/v1/products/{id:guid}/images/{imageId:guid}/set-primary` | `RequireAuthorization()` |
+| PUT | `/api/v1/products/{id:guid}/images/reorder` | `RequireAuthorization()` |
+| POST | `/api/v1/products/{id:guid}/images/upload` | `RequireAuthorization()` |
+| POST | `/api/v1/products/{id:guid}/publish` | `RequirePermission(Permissions.CatalogModerate)` |
+| POST | `/api/v1/products/{id:guid}/reject` | `RequirePermission(Permissions.CatalogModerate)` |
+| POST | `/api/v1/products/{id:guid}/request-changes` | `RequirePermission(Permissions.CatalogModerate)` |
+| POST | `/api/v1/products/{id:guid}/submit-for-review` | `RequireAuthorization()` |
+| POST | `/api/v1/products/{id:guid}/unarchive` | `RequireAuthorization()` |
+| DELETE | `/api/v1/products/{id:guid}/wishlist` | `RequireAuthorization()` |
+| POST | `/api/v1/products/{id:guid}/wishlist` | `RequireAuthorization()` |
+| GET | `/api/v1/products/my` | `RequireAuthorization()` |
+| GET | `/api/v1/products/search` | `RequireAuthorization("PageGate")` |
+| GET | `/api/v1/products/wishlist` | `RequireAuthorization()` |
+| GET | `/api/v1/tags` | `AllowAnonymous()` |
+| POST | `/api/v1/tags` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| DELETE | `/api/v1/tags/{id:guid}` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
+| PUT | `/api/v1/tags/{id:guid}` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
 
-> **Breaking change.** The category endpoints no longer use the platform `AdminOnly` policy. They need the tenant
-> permission `catalog.categories.manage` (held by the owner and the Administrator role; grant it to custom roles). In
-> multi-tenant mode a platform Admin without a membership is now refused (403). In single-tenant mode platform
-> Admin/SuperAdmin still pass: they hold every tenant permission as a platform claim. API keys need the scope.
+Source: Carter classes under `src/Modules/Catalog/Catalog/Domains/*/Features/`. `PageGate` permits public page one; public detail still limits unpublished products to their owner. Authenticated writes enforce owner/admin and editable-state rules in handlers. Upload uses rate limit `upload`; create uses `create`; search/list uses `search`.
 
-> **Moderation permission.** The moderation endpoints (approve, reject, request changes, publish, the pending queue)
-> need the platform permission `catalog.moderate` instead of the `AdminOnly` role gate. The same people pass (Admin and
-> SuperAdmin hold it), but an API key now needs the `catalog.moderate` scope, and a product can grant it to another
-> platform role in `RolePermissionMap`.
+Category management uses tenant permission `catalog.categories.manage`, while the category tree remains anonymous. Platform Admin alone is insufficient in multi-tenant mode without membership; single-tenant Admin/SuperAdmin have tenant permission claims. Moderation uses platform `catalog.moderate`; API keys require that scope.
 
-Bulk: `catalog.categories` import/export definitions (`Domains/Categories/DataTransfer`), see [DataTransfer](DataTransfer.md).
+Bulk definitions `catalog.products` and `catalog.categories` register in `CatalogModule.cs`; [DataTransfer](DataTransfer.md) owns their engine. Product import upserts by SKU, validates bilingual fields, pricing and active lookups, and uses a per-batch SKU lookup before saving. Category import upserts by slug with columns `slug, name_en, name_ar, parent, display_order, active`; a parent slug must already exist or appear earlier in the file. Empty order/active cells keep existing values. Cycles produce `parent_cycle`; export orders parents first and domain events invalidate the tree cache.
 
-## Tests
+Product imports create Draft products owned by the requester and update only requester-owned products in owner-editable states. They reuse `ProductDetailsValidator`, including localized row messages. The definitions require `catalog.products.manage` and `catalog.categories.manage` respectively. An empty category parent means a top-level category. Product import performance is dominated by the per-batch SKU lookup and save; the engine-only baseline is on the DataTransfer page.
 
-| Kind | Where | Covers |
+## Configuration
+
+From `Catalog/Options/CatalogOptions.cs` and `src/Api/appsettings.json`:
+
+| Key | Default | Meaning |
 |---|---|---|
-| Unit | `Catalog.Tests/Domain/*` | invariants, every state-machine transition (Theory over all status × action pairs), gallery rules, pricing, soft delete, hierarchy algorithms, attribute value rules |
-| Unit | `Catalog.Tests/Features/*`, `Services/*` | validators (incl. en/ar messages and resx key parity), handlers (ExpectVersion via a disconnected DbContext, owner/admin/status authorization, upload compensation), cache (invalidate, swallow failures), mapper, LIKE escaping |
-| Integration | `Catalog.IntegrationTests/*` | real `AddCatalogModule` + Postgres: filters, has-all, search escaping, sort/paging, public vs admin, my-products stats, soft-delete filter + restore + purge job cascade, wishlist unique index, atomic view counter, stale version → `ConcurrencyConflictException`, cache invalidation via events, seeder idempotency, integration event published |
-| E2E | `src/Api.E2ETests/Catalog/ProductCrudFlowTests.cs` | seller → moderation → public → wishlist → archive, 403s, 409, soft delete + restore, lookups |
+| `Catalog:SoftDeleteRetentionDays` | 30 | Age before hard purge |
+| `Catalog:PurgeBatchSize` | 100 | Maximum products per purge run |
+| `Catalog:PurgeCron` | `0 3 * * *` | Daily purge schedule |
 
-## Wiring checklist for a new module (based on Catalog)
+`PurgeSoftDeletedProductsJob` removes expired soft-deleted products; `PurgeAuditEntriesJob` handles audit retention. `ProductPublishedConsumer` consumes the module's own `ProductPublishedIntegrationEvent`, re-reads visibility and notifies the owner; Webhooks forwards the public event. Integration delivery follows [Messaging](../Architecture/Messaging.md).
+
+## Usage
+
+From `src/Modules/Catalog/Catalog/Domains/Products/Models/ProductStatusTransitions.cs`:
+
+```csharp
+public static bool CanTransition(ProductStatus from, ProductStatus to) =>
+    Allowed.TryGetValue(from, out var targets) && targets.Contains(to);
+```
+
+### Wiring checklist for a new module (based on Catalog)
 
 1. Projects: `<M>.Contracts`, `<M>`, `<M>.Tests` (+ `<M>.IntegrationTests`); add them to `StarterKit.slnx`.
 2. References: `<M>.Contracts` → `Shared.Contracts` ONLY (it has `[LocalizedDescription]`, `IDomainEvent`, `IntegrationEvent`; architecture test);
@@ -186,15 +263,35 @@ Bulk: `catalog.categories` import/export definitions (`Domains/Categories/DataTr
    (`builder.AddOutbox()`/`AddTenantOutbox()`, `services.AddOutbox<TContext>()`) - checklist in `wiki/Architecture/Messaging.md`.
 8. Tests at every level as in the table above; `dotnet build StarterKit.slnx` and `dotnet test StarterKit.slnx`.
 
-## Removing the Catalog sample
+### Removing the Catalog sample
 
 1. Nothing to remove from `src/Api/Program.cs` or `src/Api/Api.csproj`: the module is discovered from its folder (ADR-0019).
 2. Remove the product stats from `src/Api/Endpoints/DashboardEndPoint.cs` and the `Catalog` section from `src/Api/appsettings.json`.
 3. Remove the `Catalog` references from `src/Api.E2ETests/Api.E2ETests.csproj`; delete `src/Api.E2ETests/Catalog/`.
 4. In `src/Api.Tests/Architecture`: remove
    `ProductPublishedIntegrationEvent` from the expected list and `CatalogDbContext` from the outbox expectation in
-   `MessagingArchitectureTests`; adjust `TenantIsolationArchitectureTests.Catalog_and_Attachment_are_tenant_data_contexts`.
+   `MessagingArchitectureTests`; adjust `TenantIsolationArchitectureTests.The_business_data_modules_are_tenant_data_contexts`.
    Optionally remove `Permissions.CatalogModerate` / `TenantPermissions.ProductsManage` and their grants.
 5. Remove the `/src/Modules/Catalog/` folder from `StarterKit.slnx` and delete `src/Modules/Catalog/`.
 6. Drop the schema from existing databases (`DROP SCHEMA catalog CASCADE;`) and the Hangfire job `catalog-purge-soft-deleted-products`.
-7. Run `dotnet build StarterKit.slnx`.
+7. Remove the sample forwarding consumer and its Catalog reference in `src/Modules/Webhooks/`, and sample-specific expectations in `AuditTrailArchitectureTests`. Search for remaining Catalog references before deleting the schema; generated products with `--sample false` already exclude these branches.
+8. Run `dotnet build StarterKit.slnx` and `dotnet test src/Api.Tests`.
+
+## Failure modes and guarantees
+
+Invalid workflow transitions are rejected by the allow-list. Stale critical-update versions return 409 through the mediator concurrency behavior; database uniqueness also resolves duplicate wishlist and lookup races. Soft delete retains attachments for restore; purge removes them through Attachment.Contracts. Upload association and cleanup failures are non-fatal as documented by their handlers. Cache failure falls back to the database. Integration events commit with the product through the outbox and can be delivered more than once.
+
+`ModuleDiscoveryTests`, `ModuleBoundaryTests`, `TenantIsolationArchitectureTests`, `ClientGeneratedKeyTests` and `MessagingArchitectureTests` enforce the wiring demonstrated here; the Guardrails table lists runtime suites.
+
+## Guardrails
+
+| Kind | Where | Covers |
+|---|---|---|
+| Unit | `Catalog.Tests/Domain/*` | invariants, every state-machine transition (Theory over all status × action pairs), gallery rules, pricing, soft delete, hierarchy algorithms, attribute value rules |
+| Unit | `Catalog.Tests/Features/*`, `Services/*` | validators (incl. en/ar messages and resx key parity), handlers (ExpectVersion via a disconnected DbContext, owner/admin/status authorization, upload compensation), cache (invalidate, swallow failures), mapper, LIKE escaping |
+| Integration | `Catalog.IntegrationTests/*` | real `AddCatalogModule` + Postgres: filters, has-all, search escaping, sort/paging, public vs admin, my-products stats, soft-delete filter + restore + purge job cascade, wishlist unique index, atomic view counter, stale version → `ConcurrencyConflictException`, cache invalidation via events, seeder idempotency, integration event published |
+| E2E | `src/Api.E2ETests/Catalog/ProductCrudFlowTests.cs` | seller → moderation → public → wishlist → archive, 403s, 409, soft delete + restore, lookups |
+
+## Related
+
+[ADR-0019](../Decisions/0019-module-manifests-and-discovery.md), [Concurrency](../Architecture/Concurrency-and-Versions.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:new-module`](../../tools/claude/starterkit-plugin/skills/new-module/SKILL.md).
