@@ -37,7 +37,7 @@ overlays and `secrets/README.md`; a file is not mounted merely because it exists
   | `postgres_password` | `POSTGRES_PASSWORD`, also builds `ConnectionStrings:starterkit` from `POSTGRES_HOST/PORT/DB/USER` |
   | `redis_password` | `REDIS_PASSWORD`, also builds `ConnectionStrings:Redis` from `REDIS_HOST/PORT` |
   | `identity_otp_hmac_key` | `Identity:OtpHmacKey` |
-  | `hangfire_dashboard_password` | `Hangfire:Dashboard:Password` |
+  | `hangfire_dashboard_password` | `Hangfire:DashboardAuth:Password` |
   | `turnstile_secret` | `BotProtection:SecretKey` |
   | `smtp_password` | `Email:SmtpPassword` |
   | `rabbitmq_password` | `Messaging:RabbitMq:Password` |
@@ -69,10 +69,10 @@ The base file requires `postgres_password.txt`, `redis_password.txt`, `jwt_secre
 and `apns_auth_key.p8`. `turnstile_secret.txt` needs an explicit mount when used; the provider's name mapping
 does not add a Compose secret mount automatically.
 
-The provider's legacy `hangfire_dashboard_password` mapping is `Hangfire:Dashboard:Password`, while the host
-auth options use `Hangfire:DashboardAuth:Password`. The shipped Compose file sets
-`Hangfire__DashboardAuth__Password` from `HANGFIRE_DASHBOARD_PASSWORD`; use that or the generic secret target
-`Hangfire__DashboardAuth__Password` rather than relying on the legacy mapping.
+The shipped Compose file sets `Hangfire__DashboardAuth__Password` from `HANGFIRE_DASHBOARD_PASSWORD`. To keep the
+password out of the environment, mount a `hangfire_dashboard_password` secret into the API instead: it maps to
+`Hangfire:DashboardAuth:Password` (the section the dashboard reads) and wins over an empty environment value, which
+`DockerSecretsConfigurationProviderTests` pins.
 
 Rotation rules:
 

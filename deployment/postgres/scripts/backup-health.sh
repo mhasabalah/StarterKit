@@ -4,7 +4,7 @@ set -e
 echo "Checking backup health..."
 
 # Check backup status
-BACKUP_INFO=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+BACKUP_INFO=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T -u postgres pgbackrest \
   pgbackrest --stanza=starterkit --output=json info 2>/dev/null)
 
 if [ -z "$BACKUP_INFO" ]; then
@@ -36,8 +36,8 @@ fi
 
 # Verify backup integrity
 echo "Verifying backup integrity..."
-docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
-  pgbackrest --stanza=starterkit check --no-archive-check
+docker compose -f docker-compose.yml --env-file .env.prod exec -T -u postgres pgbackrest \
+  pgbackrest --stanza=starterkit check
 
 echo "✓ Backup health check passed"
 echo "✓ Last backup: $BACKUP_AGE_HOURS hours ago"

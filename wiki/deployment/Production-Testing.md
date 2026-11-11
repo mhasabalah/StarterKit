@@ -49,7 +49,7 @@ docker compose -f docker-compose.yml -f docker-compose.dataprotection.yml --env-
 | API log at startup | `[secrets] Loaded N secret(s)`, inspect **migrator** logs for migrations/seeds and exit 0, non-durable `InMemory` is rejected, not merely warned about |
 | Register, log in and call an authorised endpoint | 200; anonymous calls return 401 |
 | Seq (`SEQ_PORT`) | Structured logs with trace ids; first-login password set ([Seq-Security.md](Seq-Security.md)) |
-| Backup | Inspect backup labels/status and rehearse a restore; see [wiring limitations](Backups.md#wiring-limits-to-resolve-before-production-use). |
+| Backup | Run `pgbackrest check` (WAL archiving end to end), inspect backup labels/status and rehearse a restore; see [Backups](Backups.md#verify). |
 
 To test Nginx and TLS locally, see [Nginx.md](Nginx.md). Use a self-signed certificate in place of the
 Let's Encrypt paths in a *copy* of `deployment/nginx/conf.d/app-production.conf`. Never edit the original for

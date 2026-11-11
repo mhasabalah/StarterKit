@@ -28,13 +28,30 @@ public sealed class DockerSecretsConfigurationProviderTests : IDisposable
     [Theory]
     [InlineData("jwt_secret", "JwtSettings:SecretKey")]
     [InlineData("identity_otp_hmac_key", "Identity:OtpHmacKey")]
-    [InlineData("hangfire_dashboard_password", "Hangfire:Dashboard:Password")]
+    [InlineData("hangfire_dashboard_password", "Hangfire:DashboardAuth:Password")]
     [InlineData("dataprotection_cert_password", "Identity:DataProtection:Certificate:Password")]
     public void Maps_well_known_secret_names(string file, string key)
     {
         Secret(file, "a-very-long-secret-value-0123456789abcdef");
 
         Build()[key].Should().Be("a-very-long-secret-value-0123456789abcdef");
+    }
+
+    [Fact]
+    public void Hangfire_dashboard_password_secret_reaches_the_dashboard_options_and_beats_an_empty_env_var()
+    {
+        Secret("hangfire_dashboard_password", "dashboard-secret");
+
+        // docker-compose.yml passes Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:-} (often empty).
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection([new("Hangfire:DashboardAuth:Password", "")])
+            .AddDockerSecrets(_dir, "Production")
+            .Build();
+
+        var options = new HangfireDashboardAuthOptions();
+        config.GetSection(HangfireDashboardAuthOptions.SectionName).Bind(options);
+        options.Password.Should().Be("dashboard-secret",
+            "the secret must land in the section the dashboard filter reads, or Basic auth silently never works");
     }
 
     [Fact]

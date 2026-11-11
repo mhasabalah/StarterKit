@@ -403,7 +403,8 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `SagaArchitectureTests` | A saga is registered through MassTransit directly (in-memory repository) instead of `AddDurableSagaStateMachine`, or its state is not mapped in a module DbContext |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
-| `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id`; parameterless `IgnoreQueryFilters()` appears |
+| `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id` or does not start with it; parameterless `IgnoreQueryFilters()` appears |
+| `EnumStorageTests` | An enum column of any module context is not stored as a string (nine legacy integer columns are listed; never add to the list) |
 | `AdminEndpointAuthorizationTests` | An `/admin` or `/superadmin` route has no admin or permission policy; a used permission policy is unregistered; **any endpoint declares no authorization at all** |
 | `ClientGeneratedKeyTests` | A child entity (reached through a collection navigation) has a store-generated Guid key: needs `ValueGeneratedNever()` |
 | `PendingModelChangesTests` (`Api.E2ETests`) | The EF model changed without a migration |
@@ -489,7 +490,11 @@ forbidden C# patterns after edits. Spec Kit
   - `.github/workflows/hybrid-ci-cd.yml` runs build and test on pushes to `master`/`develop` and on PRs.
   - Pushes to `master` additionally build the GHCR image, wait for manual approval (the `production`
     environment), then deploy on the self-hosted runner.
-  - `rollback.yml` restores the previous image or backup.
+  - `rollback.yml` runs a previous API image (`image_tag`) and/or restores the pre-deploy database dump, then
+    migrates and restarts the API; `deployment/rollback.sh <tag>` does the image part on the server.
+- Docker Compose publishes host ports on `BIND_ADDRESS` (default `127.0.0.1`): Docker bypasses the host firewall, so
+  never publish the database or Redis on all interfaces. PostgreSQL runs the image built from `infra/postgres`
+  (pgBackRest inside, so WAL archiving works); keep `init: true` on it.
 <!--#if (templateSource)-->
 - **This repo is the template** (ADR-0020, `wiki/Getting-Started/Changing-The-Template.md`). Optional code is
   conditional, never deleted (the page lists the marker syntax per file type; docs that ship in products never quote

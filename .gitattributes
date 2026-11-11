@@ -5,6 +5,8 @@
 # C# sources are CRLF in every checkout (Linux CI included): .editorconfig sets end_of_line = crlf and the build
 # enforces it (EnforceCodeStyleInBuild + TreatWarningsAsErrors -> IDE0055). The repository itself stores LF.
 *.cs text eol=crlf
+# Shell scripts run inside Linux containers and on Linux hosts: a CRLF checkout (Windows) breaks them.
+*.sh text eol=lf
 
 
 ###############################################################################
