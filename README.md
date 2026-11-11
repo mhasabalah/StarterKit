@@ -5,7 +5,8 @@
     <img src="docs-site/src/assets/logo-light.svg" alt="StarterKit" width="345" height="84" />
   </picture>
   <p>Production-ready ASP.NET Core 10 modular monolith starter</p>
-  <p>The documentation site is published to GitHub Pages by the docs workflow.</p>
+  <p><a href="https://mhasabalah.github.io/StarterKit/"><strong>Documentation</strong></a></p>
+  <p><a href="https://mhasabalah.github.io/StarterKit/"><img src="https://img.shields.io/badge/docs-mhasabalah.github.io%2FStarterKit-44318D" alt="Documentation" /></a></p>
 </div>
 <!--#endif-->
 
