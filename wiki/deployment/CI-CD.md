@@ -7,7 +7,7 @@ Hosted runners validate and package changes; a production environment gate contr
 | Workflow | Jobs / responsibility | Trigger and runner |
 |---|---|---|
 | `hybrid-ci-cd.yml` (Hybrid CI/CD) | `build-and-test`, `build-and-push`, `deploy` | Push master/develop excluding markdown/wiki/docs paths, PR to master, manual; hosted build, `[self-hosted, deploy-only]` deploy |
-| `rollback.yml` (Rollback Production Deployment) | `rollback`: logical database restore | Manual `confirmation=ROLLBACK`, optional `backup_file`; self-hosted, `production` environment |
+| `rollback.yml` (Rollback Production Deployment) | `rollback`: previous API image and/or pre-deploy database restore | Manual `confirmation=ROLLBACK`, optional `image_tag`, `restore_database`, `backup_file`; self-hosted, `production` environment |
 | `templates.yml` (Templates) | `pack`, matrix `verify`, `publish` | PR to master, `templates-v*` tag push, manual; hosted; package, generated-product validation, tag publication |
 | `docs.yml` (Docs site) | `build`, `deploy` | Master PR/push for wiki/site/checker/workflow paths, manual; hosted; Pages deployment only on master push |
 | `quality.yml` (Quality) | `docs`, `format`, `plugin` | Master/develop push, every PR, manual; hosted; documentation links, changed-C# whitespace, plugin manifests/skills/hooks |
@@ -57,14 +57,21 @@ The step named zero-downtime does not implement a second listener/traffic switch
 ### Rollback behavior
 
 `rollback.yml` requires the literal `ROLLBACK` and a production environment approval if reviewers are configured.
-It selects the specified `/backup` file or the latest pre-deploy dump, makes a safety dump, stops API,
-restores through `psql`, starts the stack and verifies health. It **does not select a previous image tag**.
-Restoring a dump can discard writes made after the backup and is separate from reverting application code.
+It does two independent things, chosen by its inputs:
 
-`deployment/rollback.sh` is an older image helper: it exports `IMAGE_TAG` and loads `.env`, whereas the current
-base reads `DOCKER_IMAGE_TAG` and CI uses `.env.prod`. Do not treat that helper as a working image rollback.
-Select a known compatible `DOCKER_IMAGE_TAG` in the deployment configuration and review database compatibility
-before replacement; migrations do not automatically reverse when an image is changed.
+| Input | Effect |
+|---|---|
+| `image_tag` (optional) | Pulls that API image (`master-<sha>` tags from the build job) **before** stopping anything, then runs it. |
+| `restore_database` (default `true`) | Restores `backup_file` or the latest `/backup/pre_deploy_*.sql.gz`: safety dump, stop the API and worker, drop and recreate the database, restore in one transaction that stops on the first error. |
+
+It then runs the migrator (forward migrations of the image that will run; a no-op when the dump already matches it)
+and starts the API and worker, then checks health. Restoring a dump discards writes made after the backup. EF
+migrations never move backwards, so an older image runs against the current schema unless the database is restored
+too.
+
+`deployment/rollback.sh <tag>` does the image part by hand on the server (`DEPLOY_DIR`, `.env.prod`): it pulls the
+tag, restarts the API and worker and waits for `/health`. Both rollbacks last until the next deploy or
+`docker compose up`, which use `DOCKER_IMAGE_TAG` from `.env.prod` again.
 
 ### Template, quality and documentation pipelines
 

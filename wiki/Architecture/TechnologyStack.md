@@ -111,7 +111,7 @@ Application logging uses `Microsoft.Extensions.Logging` and OpenTelemetry; there
 
 | Compose source | Images / tags |
 |---|---|
-| `docker-compose.yml` | `postgres:16-alpine`, `redis:7-alpine`, `datalust/seq:2024.3`, `woblerr/pgbackrest:2.53-alpine`; API image uses `DOCKER_IMAGE` / `DOCKER_IMAGE_TAG`. |
+| `docker-compose.yml` | `postgres:16-alpine` plus pgBackRest 2.57 (built from `infra/postgres` for `postgres` and `pgbackrest`), `redis:7-alpine`, `datalust/seq:2024.3`; API image uses `DOCKER_IMAGE` / `DOCKER_IMAGE_TAG`. |
 | `docker-compose.rabbitmq.yml` | `rabbitmq:3.13-management-alpine` |
 | `docker-compose.clamav.yml` | `clamav/clamav:1.4` |
 | `docker-compose.observability-lite.yml` | `prom/prometheus:v3.5.1`, `grafana/grafana:12.3.1` |

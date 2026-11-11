@@ -103,9 +103,9 @@ Reference: [implementation guide](../Architecture/Request-Lifecycle.md).
 
 Source: [TenantIsolationArchitectureTests.cs](../../src/Api.Tests/Architecture/TenantIsolationArchitectureTests.cs). Related rule: `CLAUDE.md` → Hard-won patterns → Multi-tenancy → Data rules and Filters.
 
-**Fails on:** Tenant-data root entities lack IMustHaveTenant (unless explicitly HostEntity); tenant-owned entities in module models lack the named Tenant filter; any filter is unnamed; a tenant unique index omits TenantId except TenantInvitation(TokenHash); production source contains parameterless IgnoreQueryFilters(). Known data contexts must be discoverable.
+**Fails on:** Tenant-data root entities lack IMustHaveTenant (unless explicitly HostEntity); tenant-owned entities in module models lack the named Tenant filter; any filter is unnamed; a tenant unique index omits TenantId except TenantInvitation(TokenHash), or contains it but not as its first column; production source contains parameterless IgnoreQueryFilters(). Known data contexts must be discoverable.
 
-**Fix:** Implement tenant ownership, call ApplyTenantFilters last, name every filter, prefix unique indexes with TenantId, and use IgnoreNonIsolationFilters/IgnoreBranchScope. The assertion checks index inclusion, not order; the repository rule is stronger. Model tests exclude owned/derived roots and dictionary join types from their root scan.
+**Fix:** Implement tenant ownership, call ApplyTenantFilters last, name every filter, make TenantId the leading column of every tenant unique index, and use IgnoreNonIsolationFilters/IgnoreBranchScope. Model tests exclude owned/derived roots and dictionary join types from their root scan. Raw-SQL indexes created in migrations are outside the model and stay a review item.
 
 Reference: [implementation guide](../MultiTenancy/Isolation-and-Dedicated-Databases.md).
 
@@ -126,6 +126,16 @@ Source: [ClientGeneratedKeyTests.cs](../../src/Api.Tests/Architecture/ClientGene
 **Fails on:** A child reached by a collection navigation has a single Guid primary key whose ValueGenerated is not Never and no database default SQL. The real host must expose at least six contexts.
 
 **Fix:** Map domain-assigned child IDs with `ValueGeneratedNever()` and add a migration if the model changes. A genuine database default is permitted by this test. Fix mapping rather than treating the first insert as a stale-update conflict.
+
+Reference: [implementation guide](../Architecture/DatabaseConventions.md).
+
+### EnumStorageTests
+
+Source: [EnumStorageTests.cs](../../src/Api.Tests/Architecture/EnumStorageTests.cs). Related rule: `CLAUDE.md` → Architecture rules → EF (enums are stored as strings).
+
+**Fails on:** An enum (or nullable enum) property of any entity in any module context of the real host is stored with a non-string provider type: an explicit `HasConversion<int>()` or no conversion at all. Nine legacy Identity/Subscriptions columns are listed as exceptions; a listed column that becomes a string, or disappears, must leave the list.
+
+**Fix:** Map the property with `.HasConversion<string>().HasMaxLength(...)` and add the migration. Never extend the legacy list: converting an existing int column is a data migration (`ALTER COLUMN ... USING CASE`), which a product can do and then remove the entry.
 
 Reference: [implementation guide](../Architecture/DatabaseConventions.md).
 
@@ -183,7 +193,7 @@ After code changes, first run `dotnet build StarterKit.slnx`, then relevant beha
 - Repair the offending code/model/registration before changing an expected list or exception. An exception needs a concrete architectural reason, not a way to make a failing test green.
 - IL and reference scans are deliberately bounded. They cannot validate permission choice, runtime factory success, arbitrary indirect saves or SQL that never appears in a scanned model.
 - Tenant RLS coverage verifies policy presence and enabled/forced flags. Cross-tenant behavioral tests still verify policy behavior and connection scope.
-- The source rule requires tenant-first indexes; the current assertion checks only inclusion. Do not weaken the rule to match that narrower check.
+- Tenant-first order is asserted for unique indexes in the EF model; unique indexes written as raw SQL in migrations are reviewed by hand.
 
 ## Review workflow
 

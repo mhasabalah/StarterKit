@@ -313,6 +313,9 @@ jobs:
           cd ${{ env.DEPLOY_DIR }}
           # Explicit list WITHOUT the migrator and with --no-deps: a plain `up -d` would re-run the exited migrator.
           SERVICES=$(docker compose -f docker-compose.yml --env-file .env.prod config --services | grep -vx migrator | tr '\n' ' ')
+          # The postgres/pgbackrest image (infra/postgres) is built on the host, not pulled; rebuild it (cached) so a
+          # changed Dockerfile or pgBackRest template is picked up.
+          docker compose -f docker-compose.yml --env-file .env.prod build postgres
           docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps $SERVICES
           echo "✅ All services updated"
 
