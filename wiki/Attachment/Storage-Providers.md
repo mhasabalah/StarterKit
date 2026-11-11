@@ -99,4 +99,4 @@ Provider startup validation checks required names and paired S3 credentials, not
 
 ## Related
 
-[Security](Security.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+[Security](Security.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), and `/starterkit:add-feature`.

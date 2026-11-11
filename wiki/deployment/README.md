@@ -95,4 +95,4 @@ certify server firewall rules, TLS, backup tooling or uninterrupted replacement.
 
 [Database conventions](../Architecture/DatabaseConventions.md), [developer observability](../Architecture/Observability.md),
 [DataTransfer workers](../Modules/DataTransfer.md#running-the-workers), and
-[`/starterkit:update-docs`](../../tools/claude/starterkit-plugin/skills/update-docs/SKILL.md).
+`/starterkit:update-docs`.

@@ -153,4 +153,4 @@ Fan-out is idempotent per event and endpoint; attempts use optimistic leases. A 
 
 ## Related
 
-[ADR-0009](../Decisions/0009-outbound-webhooks.md), [Notification](Notification.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-integration-event`](../../tools/claude/starterkit-plugin/skills/add-integration-event/SKILL.md).
+[ADR-0009](../Decisions/0009-outbound-webhooks.md), [Notification](Notification.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-integration-event`.

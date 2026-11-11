@@ -116,4 +116,4 @@ Invalid files return 400; missing resources 404; ownership failures 403; concurr
 - [Image processing](Image-Processing.md): SkiaSharp port and thumbnail jobs.
 - [Reliability](Reliability.md): lifecycle, deletion, retries and orphan reconciliation.
 - [Configuration](Configuration.md): complete option reference and [example JSON](appsettings.Attachment.example.json).
-- [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), [ADR-0019](../Decisions/0019-module-manifests-and-discovery.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+- [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), [ADR-0019](../Decisions/0019-module-manifests-and-discovery.md), and `/starterkit:add-feature`.

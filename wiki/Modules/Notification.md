@@ -212,4 +212,4 @@ Category groups, fixed channels, per-channel mutes and quiet hours are defined i
 
 ## Related
 
-[Real-time and push](Notification-Realtime-and-Push.md), [Email design system](Notification-Email-Design-System.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-email-template`](../../tools/claude/starterkit-plugin/skills/add-email-template/SKILL.md).
+[Real-time and push](Notification-Realtime-and-Push.md), [Email design system](Notification-Email-Design-System.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-email-template`.

@@ -171,7 +171,7 @@ The port's actual checkout signature from `src/Modules/Subscriptions/Subscriptio
 Task<CheckoutSession> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct);
 ```
 
-To add a provider, implement the internal port beside the existing adapters, register it in `SubscriptionsModule`, add a gateway configuration entry and adapter tests. Implement `Name`, checkout, signature parsing and refunds; return parse failures for malformed input instead of throwing. Preserve exact currency amounts and provider ids. Set capability flags accurately before supporting saved methods or repeatable refunds. Outbound clients need bounded timeouts and deliberate retry behavior. Reuse the provider-neutral settlement/inbox path rather than writing invoices or ledger entries inside an adapter. Follow [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+To add a provider, implement the internal port beside the existing adapters, register it in `SubscriptionsModule`, add a gateway configuration entry and adapter tests. Implement `Name`, checkout, signature parsing and refunds; return parse failures for malformed input instead of throwing. Preserve exact currency amounts and provider ids. Set capability flags accurately before supporting saved methods or repeatable refunds. Outbound clients need bounded timeouts and deliberate retry behavior. Reuse the provider-neutral settlement/inbox path rather than writing invoices or ledger entries inside an adapter. Follow `/starterkit:add-feature`.
 
 ## Failure modes and guarantees
 

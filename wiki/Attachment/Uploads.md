@@ -113,4 +113,4 @@ Association moves files then saves rows; it compensates failed saves by moving f
 
 ## Related
 
-[Security](Security.md), [Reliability](Reliability.md), [Image processing](Image-Processing.md), [module overview](README.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+[Security](Security.md), [Reliability](Reliability.md), [Image processing](Image-Processing.md), [module overview](README.md), and `/starterkit:add-feature`.

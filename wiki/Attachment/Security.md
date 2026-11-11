@@ -123,4 +123,4 @@ Access failures return 401/403, absent rows 404, invalid content/path 400, dupli
 
 ## Related
 
-[Uploads](Uploads.md), [Storage providers](Storage-Providers.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), and [`/starterkit:add-permission`](../../tools/claude/starterkit-plugin/skills/add-permission/SKILL.md).
+[Uploads](Uploads.md), [Storage providers](Storage-Providers.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [ADR-0015](../Decisions/0015-malware-scanning-clamd-fail-closed.md), and `/starterkit:add-permission`.

@@ -185,4 +185,4 @@ when changing `LOAD_P95_SCALE`. Keep generated env and results private and git-i
 
 [Testing strategy](Testing-Strategy.md), [DataTransfer](../Modules/DataTransfer.md),
 [production testing](../deployment/Production-Testing.md), [CI/CD](../deployment/CI-CD.md), and
-[`/starterkit:write-tests`](../../tools/claude/starterkit-plugin/skills/write-tests/SKILL.md).
+`/starterkit:write-tests`.

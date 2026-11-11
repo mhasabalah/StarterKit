@@ -127,4 +127,4 @@ Startup scanning posture is checked separately by `MalwareScannerStartupCheck`; 
 
 ## Related
 
-[Storage providers](Storage-Providers.md), [Security](Security.md), [Image processing](Image-Processing.md), [Reliability](Reliability.md), and [`/starterkit:update-docs`](../../tools/claude/starterkit-plugin/skills/update-docs/SKILL.md).
+[Storage providers](Storage-Providers.md), [Security](Security.md), [Image processing](Image-Processing.md), [Reliability](Reliability.md), and `/starterkit:update-docs`.
