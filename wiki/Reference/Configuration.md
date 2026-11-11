@@ -321,8 +321,8 @@ Options: [PushOptions](../../src/Modules/Notification/Notification/Options/PushO
 | `Push:MaxDevicesPerUser` | `10` | Devices kept per user; registering one more evicts the least recently seen. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
 | `Push:StaleDeviceDays` | `60` | Devices not re-registered for this many days are purged (FCM treats ~2 months inactive tokens as stale). | [Guide](../Modules/Notification-Realtime-and-Push.md) |
 | `Push:Apns:Enabled` | `false` | False (default) = iOS goes through FCM. True needs `KeyId`, `TeamId`, `BundleId` and the key file. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
-| `Push:Apns:KeyId` | `"CHANGE_ME"` | The 10-character key id of the APNs auth key (Apple Developer, Keys). | [Guide](../Modules/Notification-Realtime-and-Push.md) |
-| `Push:Apns:TeamId` | `"CHANGE_ME"` | Your 10-character Apple team id. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
+| `Push:Apns:KeyId` | `""` | The 10-character key id of the APNs auth key (Apple Developer, Keys). | [Guide](../Modules/Notification-Realtime-and-Push.md) |
+| `Push:Apns:TeamId` | `""` | Your 10-character Apple team id. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
 | `Push:Apns:BundleId` | `"com.example.app"` | The app's bundle id, sent as `apns-topic`. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
 | `Push:Apns:PrivateKeyFile` | `""` | Path of the `.p8` key file (PKCS#8 PEM), e.g. `/run/secrets/apns_auth_key.p8`. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
 | `Push:Apns:UseSandbox` | `false` | True = the sandbox host, for development-build tokens. A token only works in the environment that issued it. | [Guide](../Modules/Notification-Realtime-and-Push.md) |
@@ -447,14 +447,14 @@ Options: [SubscriptionOptions](../../src/Modules/Subscriptions/Subscriptions/Opt
 | `Subscriptions:Pdf:License` | `"Community"` | QuestPDF license selection: Community, Professional or Enterprise; eligibility must match the deployment. | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Stripe:Enabled` | `false` | Enable this configured subsystem/provider. | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Stripe:Mode` | `"Sandbox"` | `PaymentGatewayMode.Sandbox` (default) or `PaymentGatewayMode.Live`. The host refuses to boot when the keys do not match the mode (`sk_test_` in Live, `sk_live_` in Sandbox) and when a Sandbox gateway is enabled in Production without `AllowSandboxInProduction`. | [Guide](../Modules/Subscriptions.md) |
-| `Subscriptions:PaymentGateways:Stripe:ApiKey` | `"CHANGE_ME_stripe_secret_api_key"` | Secret API key used for outbound calls (checkout, refund): Stripe `sk_...`, Paymob secret key. Distinct from `Secret`, which only verifies inbound webhooks (Stripe `whsec_...`, Paymob HMAC secret). | [Guide](../Modules/Subscriptions.md) |
-| `Subscriptions:PaymentGateways:Stripe:Secret` | `"CHANGE_ME_whsec_webhook_signing_secret"` | Webhook signing secret (and/or API key, per adapter). | [Guide](../Modules/Subscriptions.md) |
+| `Subscriptions:PaymentGateways:Stripe:ApiKey` | `""` | Secret API key used for outbound calls (checkout, refund): Stripe `sk_...`, Paymob secret key. Distinct from `Secret`, which only verifies inbound webhooks (Stripe `whsec_...`, Paymob HMAC secret). | [Guide](../Modules/Subscriptions.md) |
+| `Subscriptions:PaymentGateways:Stripe:Secret` | `""` | Webhook signing secret (and/or API key, per adapter). | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Stripe:WebhookToleranceSeconds` | `300` | Stripe: how old a webhook's signed timestamp may be before it is refused as a replay. | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Paymob:Enabled` | `false` | Enable this configured subsystem/provider. | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Paymob:BaseUrl` | Provider API URL (see source; hostname omitted) | Provider base URL; the Fake adapter uses it for the hosted checkout page, Paymob for its API host. Paymob has one host for both modes and tells them apart by the keys, so the default (`the provider endpoint`) is right for Sandbox and Live; set it only for a regional host or a test double. | [Guide](../Modules/Subscriptions.md) |
-| `Subscriptions:PaymentGateways:Paymob:ApiKey` | `"CHANGE_ME_paymob_secret_key"` | Secret API key used for outbound calls (checkout, refund): Stripe `sk_...`, Paymob secret key. Distinct from `Secret`, which only verifies inbound webhooks (Stripe `whsec_...`, Paymob HMAC secret). | [Guide](../Modules/Subscriptions.md) |
-| `Subscriptions:PaymentGateways:Paymob:PublicKey` | `"CHANGE_ME_paymob_public_key"` | Paymob public key (`..._pk_...`) for the unified checkout URL. | [Guide](../Modules/Subscriptions.md) |
-| `Subscriptions:PaymentGateways:Paymob:Secret` | `"CHANGE_ME_paymob_hmac_secret"` | Webhook signing secret (and/or API key, per adapter). | [Guide](../Modules/Subscriptions.md) |
+| `Subscriptions:PaymentGateways:Paymob:ApiKey` | `""` | Secret API key used for outbound calls (checkout, refund): Stripe `sk_...`, Paymob secret key. Distinct from `Secret`, which only verifies inbound webhooks (Stripe `whsec_...`, Paymob HMAC secret). | [Guide](../Modules/Subscriptions.md) |
+| `Subscriptions:PaymentGateways:Paymob:PublicKey` | `""` | Paymob public key (`..._pk_...`) for the unified checkout URL. | [Guide](../Modules/Subscriptions.md) |
+| `Subscriptions:PaymentGateways:Paymob:Secret` | `""` | Webhook signing secret (and/or API key, per adapter). | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Paymob:IntegrationIds` | `[]` | Paymob payment integration ids (card, wallet, ...) offered at checkout. | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:PaymentGateways:Paymob:NotificationUrl` | `"https://api.example.com/api/v1/webhooks/payments/Paymob"` | Optional server-to-server callback URL sent with each Paymob intention (else the dashboard setting is used). | [Guide](../Modules/Subscriptions.md) |
 | `Subscriptions:GracePeriodDays` | `7` | Days allowed to settle an overdue subscription before expiry. | [Guide](../Modules/Subscriptions.md) |
@@ -991,6 +991,12 @@ Environment variables use `__` for `:`. See [Secrets](../deployment/Secrets.md) 
 ## Failure modes and guarantees
 
 - `ProductionConfigurationGuard` validates production settings; placeholder secrets and an in-memory production transport must not be treated as deployment-ready defaults.
+- Placeholders (`CHANGE_ME`) are reserved for values every deployment provides: the database connection
+  (`postgres_password` secret), the JWT signing key (`jwt_secret` secret), the Hangfire dashboard password and the
+  RabbitMQ password. Secrets of optional features that ship disabled (APNs, the Stripe and Paymob gateways) default to
+  `""`: the guard refuses to boot on any remaining placeholder, so a disabled feature must not carry one; the
+  feature's own options validation rejects it as incomplete when it is enabled.
+  `ProductionConfigurationGuardTests` pins both rules against the shipped settings.
 - `Attachment:Storage:Local:BaseUrl`, Azure/S3 public-access settings, `CloudFrontDomain`, `PresignedUrlExpirationMinutes` and `EnableContentVerification` remain compatibility keys; the option comments mark them obsolete. Downloads are access-checked or signed; content verification is always on. `MaxUploadsPerMinute` is unused; the upload rate-limit policy applies.
 - `SmsSettings` defines Mock/Twilio/AwsSns configuration shapes. Only the mock adapter is shipped; selecting an unimplemented provider fails startup. OTP delivery uses Notification.
 - Configuration has settings read directly rather than through the listed options: `MultiTenancy:Connections` and `MultiTenancy:Database:MigrateDedicatedOnStartup` are examples. Flat WhatsApp keys are supported secret aliases, not unused development entries.
