@@ -54,12 +54,12 @@ public sealed class ProductionConfigurationGuardTests
     {
         var config = Config(
             ("ConnectionStrings:starterkit", "Host=db;Password=CHANGE_ME;Username=real-user-name"),
-            ("Hangfire:Dashboard:Password", "change_me"));
+            ("Hangfire:DashboardAuth:Password", "change_me"));
 
         var act = () => ProductionConfigurationGuard.EnsureNoPlaceholders(config, "Production");
 
         var ex = act.Should().Throw<InvalidOperationException>().Which;
-        ex.Message.Should().Contain("ConnectionStrings:starterkit").And.Contain("Hangfire:Dashboard:Password");
+        ex.Message.Should().Contain("ConnectionStrings:starterkit").And.Contain("Hangfire:DashboardAuth:Password");
         ex.Message.Should().NotContain("real-user-name").And.NotContain("Host=db");
     }
 
@@ -369,5 +369,59 @@ public sealed class ProductionConfigurationGuardTests
         var act = () => ProductionConfigurationGuard.EnsureLoadTestProfileIsIsolated(config, environment);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*profile*missing*");
+    }
+
+    /// <summary>The shipped settings exactly as the Docker image loads them (appsettings.json + appsettings.Docker.json).</summary>
+    private static IConfigurationBuilder ShippedDockerSettings()
+    {
+        var api = Path.Combine(FindRepositoryRoot(), "src", "Api");
+        return new ConfigurationBuilder()
+            .AddJsonFile(Path.Combine(api, "appsettings.json"), optional: false)
+            .AddJsonFile(Path.Combine(api, "appsettings.Docker.json"), optional: false);
+    }
+
+    [Fact]
+    public void Shipped_settings_keep_placeholders_only_for_values_every_deployment_provides()
+    {
+        // A placeholder in an optional, disabled-by-default feature (APNs, payment gateways) made the guard refuse to
+        // boot every production deployment that did not use the feature. Optional secrets default to "" instead; their
+        // own validation rejects them as incomplete only when the feature is enabled.
+        ProductionConfigurationGuard.FindPlaceholders(ShippedDockerSettings().Build()).Should().BeEquivalentTo(
+            "ConnectionStrings:starterkit",    // built from the postgres_password Docker secret
+            "Hangfire:DashboardAuth:Password", // HANGFIRE_DASHBOARD_PASSWORD in docker-compose.yml
+            "JwtSettings:SecretKey");          // the jwt_secret Docker secret
+    }
+
+    [Fact]
+    public void Production_boots_with_what_the_base_compose_file_and_its_secrets_provide()
+    {
+        var secrets = Directory.CreateTempSubdirectory("prod-secrets").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(secrets, "jwt_secret"), "a-real-jwt-secret-of-at-least-32-characters!");
+            File.WriteAllText(Path.Combine(secrets, "postgres_password"), "a-real-database-password");
+
+            var config = ShippedDockerSettings()
+                // docker-compose.yml: Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:-}
+                .AddInMemoryCollection([new("Hangfire:DashboardAuth:Password", "")])
+                .AddDockerSecrets(secrets, "Production")
+                .Build();
+
+            var act = () => ProductionConfigurationGuard.EnsureNoPlaceholders(config, "Production");
+
+            act.Should().NotThrow("an optional feature that is switched off must not block a production boot");
+        }
+        finally
+        {
+            Directory.Delete(secrets, recursive: true);
+        }
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !dir.EnumerateFiles("*.slnx").Any())
+            dir = dir.Parent;
+        return dir?.FullName ?? throw new InvalidOperationException("Repository root (*.slnx) not found.");
     }
 }

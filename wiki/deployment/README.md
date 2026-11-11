@@ -80,7 +80,8 @@ external-provider delivery. Existing volumes preserve passwords and Seq users ac
 
 - DNS points to `YOUR_SERVER_IP`; restrict SSH and expose only intended HTTP/TLS ingress.
 - Replace placeholders, protect secret files, use durable messaging and encrypted Data Protection keys.
-- Review published Docker ports explicitly; base and full telemetry mappings are not loopback-only.
+- Keep published Docker ports on loopback (`BIND_ADDRESS=127.0.0.1`, the default); the full telemetry overlay
+  publishes on all interfaces, so restrict it before using it on a public host.
 - Issue TLS, test renewal and security headers, and restrict administrative tools.
 - Complete a backup and restore rehearsal, including dedicated tenant databases and off-database secrets.
 - Configure required reviewers, verify the runner, and check `/health` and `/alive` through Nginx.

@@ -37,9 +37,10 @@ and persists `/data` in `seq-data`. Know whether this is a fresh or already init
    changing the first-run hash does not reset them. Use Seq's supported account recovery for that installation
    instead of deleting the log volume as a routine recovery procedure.
 
-4. Restrict the published `SEQ_PORT` and `/seq/` proxy location. Base Compose publishes port 5341 by default
-   without a loopback bind; Nginx's deny rule does not protect direct port access. Bind/restrict it in the deployed
-   configuration, firewall or private network and require authorized access through a VPN/tunnel or reviewed proxy.
+4. Restrict the published `SEQ_PORT` and `/seq/` proxy location. Base Compose publishes port 5341 on
+   `BIND_ADDRESS` (default `127.0.0.1`), so it is not reachable from outside the host; keep it that way and require
+   authorized access through an SSH tunnel, VPN or reviewed proxy. Nginx's deny rule does not protect a port bound
+   to a public address.
 
 5. The shipped host `/seq/` location denies all. Add only intended administrator addresses before `deny all`,
    validate Nginx and reload. Basic authentication is an optional additional layer, **not already active** in

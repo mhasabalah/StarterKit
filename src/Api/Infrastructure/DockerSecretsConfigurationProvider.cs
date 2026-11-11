@@ -27,7 +27,8 @@ public class DockerSecretsConfigurationProvider(string secretsPath, string? envi
             ["postgres_password"] = ["POSTGRES_PASSWORD"],
             ["redis_password"] = ["REDIS_PASSWORD"],
             ["identity_otp_hmac_key"] = ["Identity:OtpHmacKey"],
-            ["hangfire_dashboard_password"] = ["Hangfire:Dashboard:Password"],
+            // The dashboard reads HangfireDashboardAuthOptions.SectionName (Hangfire:DashboardAuth).
+            ["hangfire_dashboard_password"] = ["Hangfire:DashboardAuth:Password"],
             ["turnstile_secret"] = ["BotProtection:SecretKey"],
             ["smtp_password"] = ["Email:SmtpPassword"],
             ["rabbitmq_password"] = ["Messaging:RabbitMq:Password"],

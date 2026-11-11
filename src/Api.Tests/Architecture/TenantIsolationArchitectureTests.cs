@@ -97,6 +97,22 @@ public sealed partial class TenantIsolationArchitectureTests
         offenders.Should().BeEmpty("a global unique index would let one tenant block (and detect) another tenant's values");
     }
 
+    [Theory]
+    [MemberData(nameof(DbContexts))]
+    public void Unique_indexes_of_tenant_owned_entities_start_with_tenant_id(Type contextType)
+    {
+        // CLAUDE.md: unique indexes START with TenantId. Leading with it keeps every per-tenant lookup a prefix scan of
+        // one tenant's slice (RLS adds tenant_id = ... to every query) and matches the raw-SQL indexes in migrations.
+        var offenders = RootEntities(BuildModel(contextType))
+            .Where(e => e.ClrType.IsAssignableTo(typeof(IMustHaveTenant)))
+            .SelectMany(e => e.GetIndexes().Where(i => i.IsUnique)
+                .Where(i => i.Properties.Any(p => p.Name == nameof(IMustHaveTenant.TenantId)) &&
+                            i.Properties[0].Name != nameof(IMustHaveTenant.TenantId))
+                .Select(i => $"{e.ClrType.Name}({string.Join(", ", i.Properties.Select(p => p.Name))})"));
+
+        offenders.Should().BeEmpty("TenantId must be the leading column of a tenant entity's unique index");
+    }
+
     [Fact]
     public void Production_code_never_calls_the_parameterless_IgnoreQueryFilters()
     {

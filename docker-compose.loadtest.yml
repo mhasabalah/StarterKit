@@ -23,6 +23,7 @@ name: starterkit-load
 services:
 
   postgres:
+    # The official image: this stack is self-contained (not merged onto docker-compose.yml) and needs no pgBackRest.
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: starterkit

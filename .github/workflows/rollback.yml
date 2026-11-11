@@ -1,10 +1,26 @@
 name: Rollback Production Deployment
 
+# Rolls production back after a bad deploy. Two independent parts, chosen by the inputs:
+#   - image_tag:        run a previous API image (the `master-<sha>` tags pushed by hybrid-ci-cd.yml).
+#   - restore_database: restore a logical pre-deploy dump (/backup/pre_deploy_*.sql.gz, taken by the deploy job).
+# A database restore replaces the whole database (drop + recreate + restore in one transaction, stopping on the first
+# error), then the migrator runs so the schema matches the image that will run. Physical/point-in-time recovery is
+# deployment/postgres/scripts/restore.sh (wiki/deployment/Backups.md).
+
 on:
   workflow_dispatch:
     inputs:
+      image_tag:
+        description: 'API image tag to roll back to, e.g. master-1a2b3c4 (leave empty to keep the current image)'
+        required: false
+        type: string
+      restore_database:
+        description: 'Restore the database from a pre-deploy dump'
+        required: false
+        type: boolean
+        default: true
       backup_file:
-        description: 'Backup file to restore from (leave empty for latest)'
+        description: 'Dump in /backup to restore (leave empty for the latest pre_deploy_*.sql.gz)'
         required: false
         type: string
       confirmation:
@@ -29,66 +45,90 @@ jobs:
       name: production
 
     steps:
-      - name: ⚠️ Validate Confirmation
+      - name: ⚠️ Validate inputs
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
         run: |
           if [ "${{ inputs.confirmation }}" != "ROLLBACK" ]; then
             echo "❌ Confirmation failed. You must type 'ROLLBACK' to proceed."
             exit 1
           fi
-          echo "✅ Confirmation validated"
-          echo "⚠️ WARNING: This will rollback the production database!"
+          if [ -z "$IMAGE_TAG_INPUT" ] && [ "${{ inputs.restore_database }}" != "true" ]; then
+            echo "❌ Nothing to do: set image_tag, restore_database, or both."
+            exit 1
+          fi
+          if [ -n "$IMAGE_TAG_INPUT" ] && ! printf '%s' "$IMAGE_TAG_INPUT" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'; then
+            echo "❌ '$IMAGE_TAG_INPUT' is not a valid image tag."
+            exit 1
+          fi
+          echo "✅ Inputs validated (image_tag='${IMAGE_TAG_INPUT:-current}', restore_database=${{ inputs.restore_database }})"
 
-      - name: 🔄 Execute Rollback
+      - name: 📥 Pull the rollback image
+        if: inputs.image_tag != ''
+        env:
+          DOCKER_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -e
+          cd ${{ env.DEPLOY_DIR }}
+          # Fail before anything is stopped if the tag does not exist.
+          docker compose -f docker-compose.yml --env-file .env.prod pull api migrator
+
+      - name: 🔄 Restore the database
+        if: inputs.restore_database
         env:
           BACKUP_FILE: ${{ inputs.backup_file }}
         run: |
-          set -e
-
+          set -euo pipefail
           cd ${{ env.DEPLOY_DIR }}
+          dc() { docker compose -f docker-compose.yml --env-file .env.prod "$@"; }
+          psql_() { docker exec -i ${{ env.APP_NAME }}-postgres psql -v ON_ERROR_STOP=1 -U ${{ env.POSTGRES_USER }} "$@"; }
 
-          # Determine backup file
           if [ -z "$BACKUP_FILE" ]; then
-            echo "🔍 Finding latest pre-deployment backup..."
-            BACKUP=$(ls -t /backup/pre_deploy_*.sql.gz 2>/dev/null | head -1)
+            BACKUP=$(ls -t /backup/pre_deploy_*.sql.gz 2>/dev/null | head -1 || true)
           else
-            BACKUP="/backup/$BACKUP_FILE"
+            BACKUP="/backup/$(basename "$BACKUP_FILE")"
           fi
-
-          if [ ! -f "$BACKUP" ]; then
-            echo "❌ Backup file not found: $BACKUP"
-            echo "Available backups:"
+          if [ -z "$BACKUP" ] || [ ! -f "$BACKUP" ]; then
+            echo "❌ Backup file not found: ${BACKUP:-<none>}"
             ls -lh /backup/*.sql.gz 2>/dev/null || echo "No backups found"
             exit 1
           fi
+          gzip -t "$BACKUP"
+          echo "📦 Using backup: $BACKUP ($(du -h "$BACKUP" | cut -f1), $(stat -c '%y' "$BACKUP"))"
 
-          echo "📦 Using backup: $BACKUP"
-          echo "   Size: $(du -h "$BACKUP" | cut -f1)"
-          echo "   Date: $(stat -c '%y' "$BACKUP")"
-
-          # Create safety backup before rollback
-          echo "💾 Creating safety backup before rollback..."
+          echo "💾 Safety backup of the current database..."
           mkdir -p /backup
           SAFETY_BACKUP="/backup/rollback_safety_$(date +%Y%m%d_%H%M%S).sql.gz"
           docker exec ${{ env.APP_NAME }}-postgres pg_dump -U ${{ env.POSTGRES_USER }} ${{ env.POSTGRES_DB }} | gzip > "$SAFETY_BACKUP"
-          echo "✅ Safety backup created: $SAFETY_BACKUP"
+          echo "✅ Safety backup: $SAFETY_BACKUP"
 
-          # Stop API container
-          echo "🛑 Stopping API container..."
-          docker compose -f docker-compose.yml --env-file .env.prod stop api
+          echo "🛑 Stopping every writer..."
+          WRITERS=$(dc config --services | grep -xE 'api|worker' | tr '\n' ' ')
+          dc stop $WRITERS
 
-          # Restore database
-          echo "🔄 Restoring database from backup..."
-          gunzip -c "$BACKUP" | docker exec -i ${{ env.APP_NAME }}-postgres psql -U ${{ env.POSTGRES_USER }} ${{ env.POSTGRES_DB }}
+          # A plain dump restored over the live database fails on every existing object, so replace the database.
+          echo "🔄 Recreating ${{ env.POSTGRES_DB }} and restoring (single transaction, stops on the first error)..."
+          psql_ -d postgres -c 'DROP DATABASE IF EXISTS "${{ env.POSTGRES_DB }}" WITH (FORCE)'
+          psql_ -d postgres -c 'CREATE DATABASE "${{ env.POSTGRES_DB }}" OWNER "${{ env.POSTGRES_USER }}"'
+          gunzip -c "$BACKUP" | psql_ -d ${{ env.POSTGRES_DB }} --single-transaction -q > /dev/null
+          echo "✅ Database restored"
 
-          # Restart services
-          echo "🔄 Restarting services..."
-          docker compose -f docker-compose.yml --env-file .env.prod up -d
+      - name: 🚀 Migrate and start the application
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+        run: |
+          set -e
+          cd ${{ env.DEPLOY_DIR }}
+          dc() { docker compose -f docker-compose.yml --env-file .env.prod "$@"; }
+          # docker compose reads DOCKER_IMAGE_TAG from the shell before .env.prod.
+          if [ -n "$IMAGE_TAG_INPUT" ]; then export DOCKER_IMAGE_TAG="$IMAGE_TAG_INPUT"; fi
 
-          # Wait for services
-          echo "⏳ Waiting for services to start..."
-          sleep 20
-
-          echo "✅ Rollback completed"
+          # The schema must match the image that runs: forward migrations of that image (a no-op when the restored
+          # dump already matches it). EF migrations never move backwards.
+          dc run --rm migrator
+          WRITERS=$(dc config --services | grep -xE 'api|worker' | tr '\n' ' ')
+          dc up -d --no-build --no-deps $WRITERS
+          echo "✅ Application started (image tag: ${DOCKER_IMAGE_TAG:-from .env.prod})"
 
       - name: 🏥 Verify Health
         run: |
@@ -131,7 +171,8 @@ jobs:
           echo "## ⚠️ Production Rollback Executed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Executed by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backup Used**: ${{ inputs.backup_file || 'Latest pre-deployment backup' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image tag**: ${{ inputs.image_tag || 'unchanged (DOCKER_IMAGE_TAG from .env.prod)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database restored**: ${{ inputs.restore_database }} (${{ inputs.backup_file || 'latest pre-deployment backup' }})" >> $GITHUB_STEP_SUMMARY
           echo "- **Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ job.status }}" == "success" ]; then
@@ -142,9 +183,9 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Important Notes" >> $GITHUB_STEP_SUMMARY
-          echo "- 💾 A safety backup was created before rollback" >> $GITHUB_STEP_SUMMARY
+          echo "- 💾 A database restore first writes a safety dump to /backup/rollback_safety_*.sql.gz" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔁 An image rollback lasts until the next deploy or 'docker compose up' (DOCKER_IMAGE_TAG in .env.prod)" >> $GITHUB_STEP_SUMMARY
           echo "- 🔍 Review the cause of the issue that required rollback" >> $GITHUB_STEP_SUMMARY
-          echo "- 📝 Document what went wrong and how to prevent it" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **Production URL**: ${{ env.PUBLIC_API_URL }}" >> $GITHUB_STEP_SUMMARY
 
