@@ -83,7 +83,16 @@ for the API: the OTel collector publishes it.
 | Mailhog UI / SMTP | `MAILHOG_UI_PORT=8025` / `MAILHOG_SMTP_PORT=1025` | 8025 / 1025 |
 | Grafana / Prometheus / Jaeger | full overlay: 3000 / 9090 / 16686; lite uses `GRAFANA_PORT` / `PROMETHEUS_PORT` | |
 
-The base file publishes API, PostgreSQL, Redis and Seq ports without a loopback bind. Restrict them explicitly in the deployed configuration/firewall. Only the lite telemetry overlay binds its published ports to loopback; the full overlay publishes on all interfaces.
+The base file publishes the API, PostgreSQL, Redis and Seq on `BIND_ADDRESS` (default `127.0.0.1`). Docker's port
+publishing bypasses the host firewall (UFW), so binding to all interfaces would expose the database and Redis to the
+internet; the host Nginx reaches the API on loopback, and administrators reach the rest through an SSH tunnel
+(`ssh -L 5432:127.0.0.1:5432 deploy@YOUR_SERVER_IP`). Set `BIND_ADDRESS` only for a private network you trust. The
+lite telemetry overlay also binds to loopback; the full overlay publishes on all interfaces, so restrict it before
+using it on a public host. The dev-only tools (pgAdmin, Redis Commander, Mailhog) publish on all interfaces.
+
+The base file builds the PostgreSQL image locally from `infra/postgres` (`postgres:16-alpine` plus pgBackRest) for the
+`postgres` and `pgbackrest` services; deploys run `docker compose build postgres` before starting them
+([Backups](Backups.md)).
 
 ## Configuration
 
@@ -93,6 +102,7 @@ The base file publishes API, PostgreSQL, Redis and Seq ports without a loopback 
 | `ASPNETCORE_ENVIRONMENT` | Literal `Docker` in the service | Loads Docker application settings; not interpolated from `.env.prod` |
 | `MESSAGING_TRANSPORT` | `PostgreSql` | Durable transport; RabbitMQ overlay overrides it |
 | `API_PORT` | `5000` | API host publication; internal listener stays 80 |
+| `BIND_ADDRESS` | `127.0.0.1` | Host address the API, PostgreSQL, Redis and Seq ports are published on |
 | `COMPOSE_PROJECT_NAME` | `starterkit` for explicit resource names | Container/network/volume prefix |
 
 - Non-secret settings come from `.env` (dev) or `.env.prod` (server). The templates are `.env.example` and

@@ -62,8 +62,14 @@ services:
   # PostgreSQL Database
   # ==============================================
   postgres:
-    image: postgres:16-alpine
+    # postgres:16-alpine + pgBackRest (infra/postgres): archive_command runs in this container.
+    image: ${COMPOSE_PROJECT_NAME:-starterkit}-postgres:16
+    build:
+      context: ./infra/postgres
     container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-postgres
+    # PID 1 must not be the postmaster: pgBackRest archive-async forks a process that is re-parented to PID 1,
+    # and the postmaster treats any unknown child that exits non-zero as a crashed backend and restarts the server.
+    init: true
     restart: unless-stopped
     secrets:
       - postgres_password
@@ -74,8 +80,15 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
       PGDATA: /var/lib/postgresql/data/pgdata
       TZ: ${TZ:-UTC}
+      # pgBackRest repository (rendered into /etc/pgbackrest/pgbackrest.conf; empty bucket = archiving off)
+      S3_BACKUP_BUCKET: ${S3_BACKUP_BUCKET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Loopback only: Docker's port publishing bypasses the host firewall (UFW), so 0.0.0.0 would put the
+      # database on the internet. Reach it through an SSH tunnel; set BIND_ADDRESS to change it.
+      - "${BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - postgres-wal:/var/lib/postgresql/wal_archive
@@ -136,7 +149,7 @@ services:
       - "-c"
       - "archive_mode=on"
       - "-c"
-      - "archive_command=pgbackrest --stanza=starterkit archive-push %p"
+      - "archive_command=pgbackrest-archive-wal %p"
 
       # Checkpoint Settings
       - "-c"
@@ -166,67 +179,30 @@ services:
   # pgBackRest - PostgreSQL Backup & Restore
   # ==============================================
   pgbackrest:
-    image: woblerr/pgbackrest:2.53-alpine
+    # The same image as postgres (infra/postgres): one pgBackRest version, one rendered configuration, and
+    # pgBackRest runs as the postgres user that owns the data directory.
+    #   backup:  docker compose exec -u postgres pgbackrest pgbackrest --stanza=starterkit --type=full backup
+    #   restore: docker compose run --rm --no-deps pgbackrest pgbackrest --stanza=starterkit --delta restore
+    image: ${COMPOSE_PROJECT_NAME:-starterkit}-postgres:16
+    build:
+      context: ./infra/postgres
     container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-pgbackrest
+    # PID 1 must not be the postmaster: pgBackRest archive-async forks a process that is re-parented to PID 1,
+    # and the postmaster treats any unknown child that exits non-zero as a crashed backend and restarts the server.
+    init: true
     hostname: pgbackrest
     restart: unless-stopped
-    secrets:
-      - postgres_password
-    entrypoint: ["/bin/bash", "-c"]
-    command: |
-      "# Generate pgbackrest.conf from template
-       if [ ! -f /tmp/pgbackrest.conf.template ]; then
-         echo \"✗ ERROR: pgbackrest.conf.template not found!\"
-         exit 1
-       fi
-
-       # Replace placeholders with environment variables
-       sed -e \"s|{{S3_BACKUP_BUCKET}}|$${S3_BACKUP_BUCKET}|g\" \\
-           -e \"s|{{AWS_DEFAULT_REGION}}|$${AWS_DEFAULT_REGION}|g\" \\
-           -e \"s|{{AWS_ACCESS_KEY_ID}}|$${AWS_ACCESS_KEY_ID}|g\" \\
-           -e \"s|{{AWS_SECRET_ACCESS_KEY}}|$${AWS_SECRET_ACCESS_KEY}|g\" \\
-           -e \"s|{{POSTGRES_USER}}|$${POSTGRES_USER}|g\" \\
-           -e \"s|{{POSTGRES_DB}}|$${POSTGRES_DB}|g\" \\
-           /tmp/pgbackrest.conf.template > /etc/pgbackrest/pgbackrest.conf
-
-       chmod 644 /etc/pgbackrest/pgbackrest.conf
-       echo \"✓ pgbackrest.conf generated from template\"
-
-       # Create .pgpass file from Docker secret
-       if [ -f /run/secrets/postgres_password ]; then
-         PASSWORD=$$(cat /run/secrets/postgres_password | tr -d '\\n')
-         echo \"postgres:5432:*:$${POSTGRES_USER}:$${PASSWORD}\" > /home/pgbackrest/.pgpass
-         chmod 600 /home/pgbackrest/.pgpass
-         chown pgbackrest:pgbackrest /home/pgbackrest/.pgpass
-         echo \"✓ .pgpass file created for pgbackrest user\"
-       else
-         echo \"✗ ERROR: /run/secrets/postgres_password not found!\"
-         exit 1
-       fi
-
-       echo \"✓ pgBackRest container ready\"
-       pgbackrest version
-
-       # Keep container running
-       tail -f /dev/null"
+    command: ["tail", "-f", "/dev/null"]
     environment:
-      # S3 Configuration (for template substitution)
-      - S3_BACKUP_BUCKET=${S3_BACKUP_BUCKET}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-
-      # PostgreSQL Configuration (for template substitution)
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_DB=${POSTGRES_DB}
-
-      # System
-      - TZ=${TZ:-UTC}
-
+      # pgBackRest repository (rendered into /etc/pgbackrest/pgbackrest.conf by the entrypoint)
+      S3_BACKUP_BUCKET: ${S3_BACKUP_BUCKET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: ${TZ:-UTC}
     volumes:
-      # pgBackRest configuration template (processed by entrypoint)
-      - ./deployment/postgres/config/pgbackrest.conf.template:/tmp/pgbackrest.conf.template:ro
-      # Data volumes
       - postgres-data:/var/lib/postgresql/data
       - postgres-wal:/var/lib/postgresql/wal_archive
       - postgres-socket:/var/run/postgresql
@@ -263,7 +239,7 @@ services:
     environment:
       TZ: ${TZ:-UTC}
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -310,7 +286,7 @@ services:
       SEQ_FIRSTRUN_ADMINPASSWORDHASH: ${SEQ_ADMIN_PASSWORD_HASH}
       TZ: ${TZ:-UTC}
     ports:
-      - "${SEQ_PORT:-5341}:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:${SEQ_PORT:-5341}:80"
     volumes:
       - seq-data:/data
     networks:
@@ -393,7 +369,7 @@ services:
       Messaging__Transport: ${MESSAGING_TRANSPORT:-PostgreSql}
 
     ports:
-      - "${API_PORT:-5000}:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:${API_PORT:-5000}:80"
     networks:
       - backend
       - database

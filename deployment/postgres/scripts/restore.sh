@@ -1,91 +1,78 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Restore the PostgreSQL cluster from pgBackRest (wiki/deployment/Backups.md). Run from the deployment checkout.
+#
+#   restore.sh latest                          latest backup + all archived WAL
+#   restore.sh time "2026-02-07 14:30:00+00"   point-in-time recovery, then promote
+#   restore.sh immediate                       end of the latest backup (consistent, no extra WAL)
+#   restore.sh set 20260207-020000F            a specific backup label (see `info`)
+#
+# Environment: ASSUME_YES=1 skips the confirmation; LOG_LEVEL=detail for pgBackRest's console output;
+# RESTART_APP=0 leaves the API/worker stopped (inspect the data first); PGBACKREST_STANZA (default starterkit);
+# COMPOSE_ARGS (default "-f docker-compose.yml --env-file .env.prod").
+#
+# Order: validate the request and the backup BEFORE stopping anything -> stop every writer -> stop PostgreSQL ->
+# delta restore (no manual wipe) -> start PostgreSQL -> apply migrations -> start the writers.
+set -euo pipefail
 
-RESTORE_TYPE=${1:-latest}  # latest, time, immediate
-RESTORE_TARGET=${2:-""}    # timestamp for PITR
+STANZA=${PGBACKREST_STANZA:-starterkit}
+LOG_LEVEL=${LOG_LEVEL:-info}
+read -r -a COMPOSE <<< "${COMPOSE_ARGS:--f docker-compose.yml --env-file .env.prod}"
+dc() { docker compose "${COMPOSE[@]}" "$@"; }
 
-echo "=================================================="
-echo "pgBackRest Restore Process"
-echo "=================================================="
+usage() {
+  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  exit 2
+}
 
-# Confirm restore
-read -p "WARNING: This will OVERWRITE the database. Continue? (yes/no): " CONFIRM
-if [ "$CONFIRM" != "yes" ]; then
-    echo "Restore cancelled."
-    exit 1
-fi
-
-echo "Stopping application..."
-docker compose -f docker-compose.yml --env-file .env.prod stop api
-
-echo "Stopping PostgreSQL..."
-docker compose -f docker-compose.yml --env-file .env.prod stop postgres
-
-# Clear data directory
-echo "Clearing PostgreSQL data directory..."
-docker compose -f docker-compose.yml --env-file .env.prod run --rm postgres \
-  sh -c "rm -rf /var/lib/postgresql/data/pgdata/*"
-
-# Restore based on type
-case $RESTORE_TYPE in
-  latest)
-    echo "Restoring latest backup..."
-    docker compose -f docker-compose.yml --env-file .env.prod run --rm pgbackrest \
-      pgbackrest --stanza=starterkit --delta restore
-    ;;
-
-  time)
-    if [ -z "$RESTORE_TARGET" ]; then
-      echo "Error: Timestamp required for PITR"
-      echo "Usage: ./restore.sh time '2026-02-07 14:30:00'"
-      exit 1
-    fi
-    echo "Restoring to point-in-time: $RESTORE_TARGET"
-    docker compose -f docker-compose.yml --env-file .env.prod run --rm pgbackrest \
-      pgbackrest --stanza=starterkit \
-      --type=time "--target=$RESTORE_TARGET" \
-      --target-action=promote \
-      restore
-    ;;
-
-  immediate)
-    echo "Restoring to last consistent state..."
-    docker compose -f docker-compose.yml --env-file .env.prod run --rm pgbackrest \
-      pgbackrest --stanza=starterkit \
-      --type=immediate \
-      --target-action=promote \
-      restore
-    ;;
-
-  *)
-    echo "Error: Invalid restore type"
-    echo "Usage: ./restore.sh [latest|time|immediate] [timestamp]"
-    echo "Examples:"
-    echo "  ./restore.sh latest"
-    echo "  ./restore.sh time '2026-02-07 14:30:00'"
-    echo "  ./restore.sh immediate"
-    exit 1
-    ;;
+type=${1:-}
+target=${2:-}
+case "$type" in
+  latest)    target_args=() ;;
+  time)      [ -n "$target" ] || usage; target_args=(--type=time "--target=$target" --target-action=promote) ;;
+  immediate) target_args=(--type=immediate --target-action=promote) ;;
+  set)       [ -n "$target" ] || usage; target_args=("--set=$target") ;;
+  *)         usage ;;
 esac
 
-# Start PostgreSQL
-echo "Starting PostgreSQL..."
-docker compose -f docker-compose.yml --env-file .env.prod up -d postgres
+echo "==> Checking the repository and the requested backup"
+dc exec -T -u postgres pgbackrest pgbackrest --stanza="$STANZA" --log-level-console=warn info
+if [ "$type" = set ]; then
+  # `info --set=<unknown>` exits 0, so look the label up in the JSON backup list.
+  dc exec -T -u postgres pgbackrest pgbackrest --stanza="$STANZA" --output=json info \
+    | grep -q "\"label\":\"$target\"" || { echo "Backup set '$target' not found; nothing was stopped." >&2; exit 1; }
+fi
 
-# Wait for PostgreSQL to be ready
-echo "Waiting for PostgreSQL to be ready..."
-sleep 10
+if [ "${ASSUME_YES:-0}" != "1" ]; then
+  read -r -p "This OVERWRITES the database with '$type${target:+ $target}'. Type 'yes' to continue: " confirm
+  [ "$confirm" = yes ] || { echo "Restore cancelled."; exit 1; }
+fi
 
-# Verify database
-echo "Verifying database..."
-docker compose -f docker-compose.yml --env-file .env.prod exec postgres \
-  psql -U starterkit_user -d starterkit -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';"
+writers=$(dc config --services | grep -xE 'api|worker' | tr '\n' ' ' || true)
 
-# Start application
-echo "Starting application..."
-docker compose -f docker-compose.yml --env-file .env.prod up -d api
+echo "==> Stopping writers (${writers:-none}) and PostgreSQL"
+[ -n "$writers" ] && dc stop $writers
+dc stop postgres
 
-echo "=================================================="
-echo "Restore completed successfully!"
-echo "Please verify database integrity."
-echo "=================================================="
+echo "==> Restoring ($type)"
+if ! dc run --rm --no-deps -T pgbackrest \
+  pgbackrest --stanza="$STANZA" --delta --log-level-console="$LOG_LEVEL" "${target_args[@]}" restore; then
+  echo "Restore FAILED. PostgreSQL and the writers are stopped on purpose: the data directory may be partly" >&2
+  echo "restored. Fix the cause and run the restore again (delta restore resumes), do not just start PostgreSQL." >&2
+  exit 1
+fi
+
+echo "==> Starting PostgreSQL"
+dc up -d --wait postgres
+
+if [ "${RESTART_APP:-1}" = "1" ]; then
+  echo "==> Applying migrations (the production API does not migrate on startup)"
+  dc run --rm migrator
+  if [ -n "$writers" ]; then
+    echo "==> Starting writers"
+    dc up -d --no-deps $writers
+  fi
+else
+  echo "==> RESTART_APP=0: API and workers stay stopped. Run the migrator, then start them."
+fi
+
+echo "==> Restore finished. Verify the data (module schemas, tenants) before sending traffic."
