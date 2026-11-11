@@ -261,14 +261,18 @@
         "tests/e2e/playwright-report/**",
         "tests/load/results/**",
         "templates/**",
+        "docs-site/**",
+        ".github/workflows/docs.yml",
         ".template.config/**",
         "wiki/Reference/Template-Backlog.md",
+        "wiki/Reference/Brand.md",
         ".claude/settings.local.json",
         ".github/workflows/templates.yml",
         "artifacts/**",
         "**/TestResults/**",
         "scripts/regenerate-module-migrations.sh",
         "wiki/Decisions/0020-dotnet-new-templates.md",
+        "wiki/Decisions/0024-documentation-site.md",
         "wiki/Getting-Started/Changing-The-Template.md"
       ],
       "modifiers": [

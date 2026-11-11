@@ -1,13 +1,27 @@
 # `dotnet new` templates
 
-StarterKit ships as a template pack, `StarterKit.Templates`, with two templates:
+StarterKit.Templates generates either a configured product or a module that the product host discovers.
+
+## Goal
+
+Choose generation switches, install one template source, then create a product or add a module.
+
+## Prerequisites
+
+Use the SDK pinned in `global.json`. Published-package installation needs GitHub Packages credentials; a local clone can be installed without that feed. Run module generation from a product root.
+
+## At a glance
+
+The tables below use template parameter definitions and CLI aliases. Standard CLI options such as `-n` (name) and `-o` (output) are engine options, not template parameters.
 
 | Template | Short name | Creates |
 |---|---|---|
 | Product | `starterkit` | A renamed, configured solution: the whole template with your switches applied |
 | Module | `starterkit-module` | A drop-in business module in an existing product: four projects, a manifest, an example aggregate with tests and its first migration |
 
-## Install
+## Steps
+
+### Install
 
 The pack is published to GitHub Packages on every `templates-v*` tag. GitHub Packages needs a login even to read, so
 you need a GitHub token with the `read:packages` scope:
@@ -47,7 +61,7 @@ dotnet new install ./StarterKit          # both templates: the repository root h
 
 Install the templates from one place only: the clone and the package provide the same templates and conflict.
 
-## New product
+### New product
 
 ```bash
 dotnet new starterkit -n Acme
@@ -62,23 +76,27 @@ The name replaces every spelling of the template's name. Each spelling maps as f
 | `starterkit` | `acme` | The connection-string key, container names, the database, the JWT issuer, the Redis instance, `/opt/acme`, the plugin |
 | `STARTERKIT` | `ACME` | Environment-variable prefixes |
 
-Module namespaces (`Identity`, `Catalog`, ...) carry no prefix and stay as they are. Every `UserSecretsId` and the
+Module namespaces (`Identity`, `Tenancy`, ...) carry no prefix and stay as they are. Every `UserSecretsId` and the
 compose project GUID are new per project.
 
-| Switch | Values (default) | Effect |
-|---|---|---|
-| `--sample` | `true` / `false` | `false` leaves out the Catalog reference module and everything that uses it (its E2E flows, the product webhook, dashboard stats, docs rows). The module template then generates your reference code. |
-| `--multitenancy` | `off` / `shared` / `dedicated` (`off`) | `MultiTenancy:Enabled` and `DefaultIsolation` in `appsettings.json` and `.env.example`. The single-tenant E2E suite pins it off, and the tenant suites switch it on. Can be changed later without a migration ([Overview](../MultiTenancy/Overview.md)). |
-| `--transport` | `PostgreSql` / `RabbitMq` (`PostgreSql`) | `MESSAGING_TRANSPORT` in `.env.example`. Dev and tests stay on `InMemory` ([Messaging](../Architecture/Messaging.md)). |
-| `--storage` | `Local` / `AzureBlob` / `S3` (`Local`) | `Attachment:Storage:Provider` in `appsettings.Docker.json` (production). Dev and tests stay on Local disk, and the bucket or container settings are yours to fill in ([Storage providers](../Attachment/Storage-Providers.md)). |
-| `--ai-tooling` | `true` / `false` | `false` leaves out the Claude Code plugin, `.claude`, Spec Kit, the other agent configs and the Claude workflows |
-| `--ci` | `true` / `false` | `false` leaves out `.github/workflows` |
-| `--deploy` | `true` / `false` | `false` leaves out `deployment/`, the Nginx part of `infra/`, the image build and deploy jobs, and the backup, rollback and health workflows. Local compose stays. |
-| `--github-owner` | text (`CHANGE_ME`) | The GitHub user or organization in `CODEOWNERS` and the issue links |
+| Name | Type / values | Default | Effect |
+|---|---|---|---|
+| `--sample` | bool | `true` | Include the Catalog reference module (products, categories, tags, wishlist) and everything that uses it. |
+| `--multitenancy` | choice: `off`, `shared`, `dedicated` | `off` | Multi-tenancy preset (MultiTenancy:Enabled / DefaultIsolation). It can be switched later without a migration. |
+| `--transport` | choice: `PostgreSql`, `RabbitMq` | `PostgreSql` | Production message transport (MESSAGING_TRANSPORT in .env.example). |
+| `--storage` | choice: `Local`, `AzureBlob`, `S3` | `Local` | Attachment storage provider (Attachment:Storage:Provider). |
+| `--ai-tooling` | bool | `true` | Include the Claude Code plugin (skills, reviewer agent, hooks), Spec Kit and the other agent configs. |
+| `--ci` | bool | `true` | Include the GitHub Actions workflows. |
+| `--deploy` | bool | `true` | Include the VPS deployment kit: deployment/, Nginx, image build and deploy jobs, backup/rollback/health workflows. |
+| `--github-owner` | text | `CHANGE_ME` | GitHub user or organization that owns the new repository (CODEOWNERS, issue links). |
+
+`--sample false` removes the reference module, its E2E flows, sample webhook/dashboard contributions and conditional documentation rows.
+
+The product definitions are `.template.config/template.json` and `.template.config/dotnetcli.host.json` in the template repository. Storage changes the Docker production preset; development and tests remain Local. Transport changes `.env.example`; development and tests remain InMemory. `--deploy false` keeps local compose. `--ai-tooling false` removes agent configs and Claude workflows; `--ci false` removes all workflows. Multi-tenancy can change later without a schema migration.
 
 Then follow [New-Project](New-Project.md) from "Configure": `.env`, secrets, the GitHub environment.
 
-## New module
+### New module
 
 Run it from the product root:
 
@@ -88,15 +106,16 @@ dotnet new starterkit-module -n Billing --data-plane host --outbox
 dotnet new starterkit-module -n Inventory --example false
 ```
 
-| Option | Values (default) | Effect |
-|---|---|---|
-| `--data-plane` | `tenant` / `host` (`tenant`) | `tenant`: `ITenantDataContext`, every entity `IMustHaveTenant`, RLS in the migration. `host`: platform data, no tenant filters. |
-| `--outbox` | `true` / `false` (`false`) | Adds the transactional outbox (`AddOutbox<T>()` plus the outbox table in the migration) for modules that publish integration events |
-| `--example` | `true` / `false` (`true`) | `false` gives an empty skeleton: no aggregate and no migration yet |
-| `--schema` | text (the lower-case name) | The Postgres schema |
+| Name | Type / values | Default | Effect |
+|---|---|---|---|
+| `--data-plane` | choice: `tenant`, `host` | `tenant` | `tenant`: `ITenantDataContext`, every entity `IMustHaveTenant`, forced RLS. `host`: platform/control-plane data without tenant filters or RLS. |
+| `--outbox` | bool | `false` | Adds `AddOutbox<T>()` and the outbox table/migration. Includes an example integration event when the example aggregate is included. |
+| `--example` | bool | `true` | Include the example Item aggregate (CRUD, concurrency, tests). false gives an empty skeleton. |
+
+The module definitions are `templates/module/.template.config/template.json` and its adjacent `dotnetcli.host.json`. There is no `--schema` switch: the context uses the lower-case module name. `--example false --outbox true` still includes an outbox migration; only an empty skeleton without outbox has no migration. Computed symbols are not CLI switches.
 
 Nothing else needs wiring ([ADR-0019](../Decisions/0019-module-manifests-and-discovery.md)):
-- The four projects are added to the `.slnx`.
+- A post-action adds the four projects to the solution; if it cannot, follow its manual instructions using `dotnet sln add`.
 - `Api.csproj` references the module by glob.
 - `builder.AddModules()` finds its manifest.
 - The architecture tests take the module list from the host.
@@ -118,3 +137,15 @@ machine to the latest one; new products then use it.
 
 A generated product doesn't track the template after it is created. Port later template fixes by hand, using the
 template's changelog in the PR descriptions.
+
+## Verify
+
+Build the generated `.slnx`, run `dotnet test src/Api.Tests`, and run module unit and integration projects (Docker required for integration). [New project](New-Project.md) contains the full checklist.
+
+## Pitfalls
+
+Generation presets do not configure provider credentials. Fill storage, broker and deployment settings before use. Generated products are independent of the installed pack.
+
+## Related
+
+[Project structure](../Architecture/ProjectStructure.md), [Module discovery](../Decisions/0019-module-manifests-and-discovery.md), and `/starterkit:new-module`.

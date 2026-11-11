@@ -4,7 +4,24 @@ HTTP load tests that drive the **real API in Docker** with [k6](https://k6.io) (
 no NuGet package). They guard the hot paths against latency and error-rate regressions. The engine-level import/export
 throughput has its own opt-in suite (`datatransfer-perf.yml`, [DataTransfer](../Modules/DataTransfer.md)).
 
-## Run it
+## Goal
+
+Detect HTTP latency/error regressions on an isolated runtime and distinguish them from import/export engine throughput.
+
+## Prerequisites
+
+Docker, Compose, Git Bash/Bash and Make must be available. The provided seed and default scenario set use the
+optional Catalog sample; products generated without that sample must adapt the seed/scenarios to their own
+module before running this suite. The core DataTransfer engine baseline does not depend on Catalog. Never
+target a shared or production database with this disposable stack.
+
+## Steps
+
+1. Generate credentials and start the standalone stack.
+2. Seed through public APIs and run the selected scenarios once.
+3. Inspect thresholds/artifacts, then tear down before a comparable run.
+
+### Run it
 
 ```bash
 make loadtest            # generate secrets, build + start the stack, seed, run all scenarios, tear down (Docker)
@@ -20,11 +37,11 @@ make loadtest-down       # stop and delete the volumes
 `LOAD_IMPORT_ROWS`, `LOADTEST_API_PORT` (5090), `API_CPUS` / `API_MEMORY_LIMIT`. Results land in
 `tests/load/results/` (`seed.json`, `summary.json`; git-ignored).
 
-## The stack
+### The stack
 
 `docker-compose.loadtest.yml` is **self-contained** (project `starterkit-load`), not an overlay of
 `docker-compose.yml`: the base file needs Docker secrets, pgBackRest, Seq and the migrator, none of which a load run
-wants. It runs the API image (`src/Api/Dockerfile`, `ASPNETCORE_ENVIRONMENT=LoadTest`), Postgres 16 (tmpfs, fsync off),
+wants. It runs the API image (`src/Api/Dockerfile`, `ASPNETCORE_ENVIRONMENT=LoadTest`), PostgreSQL 16 (tmpfs, fsync off),
 Redis and the k6 container (profile `k6`). Secrets come from `.env.loadtest` (template `.env.loadtest.example`, all
 `CHANGE_ME`; `run.sh env` fills random values). The API is published on `127.0.0.1:5090` only. The Hangfire dashboard stays authenticated (user `admin`, password
 `HANGFIRE_DASHBOARD_PASSWORD` from the generated env file).
@@ -32,7 +49,7 @@ Redis and the k6 container (profile `k6`). Secrets come from `.env.loadtest` (te
 `appsettings.LoadTest.json` is **not part of the published image** (`Api.csproj`: `CopyToPublishDirectory=Never`); the
 compose file mounts it read-only into `/app`. The profile therefore exists only where this stack mounts it.
 
-### The LoadTest profile (`src/Api/appsettings.LoadTest.json`)
+#### The LoadTest profile (`src/Api/appsettings.LoadTest.json`)
 
 Only existing options, no backdoor and no test auth handler in the host:
 
@@ -51,7 +68,7 @@ environment other than `LoadTest` (Development and Production included) refuses 
 environment without `LoadTest:Enabled=true` (a mislabelled host running on the base settings). Never point the scripts at
 a shared or production deployment.
 
-## Seeding (`tests/load/seed.js`)
+### Seeding (`tests/load/seed.js`)
 
 Public API only:
 
@@ -64,12 +81,12 @@ Public API only:
    exceeds its owner) and use bearer tokens.
 4. P products pushed through create, submit, approve, publish, so the public catalog has data.
 
-Output: `seed.json` (emails and ids, no tokens), read by the scenarios. Each VU signs in as its own user on first use
+Output: `seed.json` (includes the admin API key/password in addition to emails and ids; keep private), read by the scenarios. Each VU signs in as its own user on first use
 (`lib/session.js`), refreshes through `POST /api/auth/refresh` a minute before the access token expires or after a 401,
 and signs in again if the refresh fails, so a run is not bound to the token lifetime. Single-tenant mode (`MultiTenancy:Enabled=false`); set `LOAD_TENANT` to send `X-Tenant` against a
 multi-tenant stack.
 
-## Scenarios and thresholds (`tests/load/main.js`)
+### Scenarios and thresholds (`tests/load/main.js`)
 
 All run concurrently. `auth`, `catalog`, `products` and `inbox` use the **open model** (`constant-arrival-rate`): k6
 starts a fixed number of iterations per second whatever the latency, so a slow server cannot throttle its own load.
@@ -92,7 +109,9 @@ tripwires with a wide margin, not SLAs.
 Each run adds users, products and import rows, so `run.sh run` refuses a second run on the same stack (marker
 `tests/load/results/.ran`) unless you pass `--reuse`. Run `make loadtest-down` between runs you want to compare.
 
-## CI
+## Verify
+
+### CI
 
 `.github/workflows/load-test.yml` runs nightly (03:30 UTC), on pull requests that change the load-test kit
 (`tests/load/**`, the LoadTest profile, `docker-compose.loadtest.yml`, the workflow itself) with the defaults, and on
@@ -101,11 +120,11 @@ inputs (duration `10s` to `15m`, rate scale 1 to 10; the cap keeps image build, 
 teardown inside `timeout-minutes: 30`), generate secrets, boot the stack, seed, run k6, upload `summary.json` as the `load-test-summary` artifact, tear down. A crossed
 threshold fails the job.
 
-## Baseline
+### Recorded baseline
 
 Measured 2026-11-07 with the open model: `make loadtest` equivalent, `LOAD_DURATION=60s`, rate scale 1 (the rates in the
 table above), all scenarios at once. Windows 11 laptop (16 logical CPUs, Docker Desktop/WSL2), API container limited to
-2 CPUs and 2 GB, Postgres and Redis in containers, k6 on the same host (so not comparable to a hosted runner).
+2 CPUs and 2 GB, PostgreSQL and Redis in containers, k6 on the same host (so not comparable to a hosted runner).
 
 | Scenario | Requests | req/s | avg ms | p95 ms | Failed | Dropped iterations |
 |---|---|---|---|---|---|---|
@@ -119,7 +138,7 @@ table above), all scenarios at once. Windows 11 laptop (16 logical CPUs, Docker 
 The latencies are far below the budgets because the offered load is modest (about 137 req/s, below saturation of 2 CPUs)
 and constant: an earlier closed-model run with 27 VUs looping without pauses pushed about 200 req/s and showed p95 of
 160 to 400 ms. Raise `LOAD_RATE_SCALE` to find the knee; the first dropped iterations mark the sustained-rate limit.
-First run on a GitHub-hosted runner (`ubuntu-latest`, 2 CPUs shared by the API, Postgres, Redis and k6; 60 s, rate
+First run on a GitHub-hosted runner (`ubuntu-latest`, 2 CPUs shared by the API, PostgreSQL, Redis and k6; 60 s, rate
 scale 1):
 
 | Scenario | Requests | req/s | avg ms | p95 ms | Failed | Dropped |
@@ -135,7 +154,20 @@ The hosted runner is 3 to 15 times slower at p95 than the developer machine (the
 710 ms), so the workflow sets `LOAD_P95_SCALE=3`: the same budgets, relative to the box. Update both tables when the
 nightly numbers drift.
 
-## Troubleshooting
+### Engine baseline
+
+`.github/workflows/datatransfer-perf.yml` runs job `baseline` at 03:00 UTC nightly, on DataTransfer-related PRs
+and manually. It enables `STARTERKIT_PERF_TESTS=1` and filters `PerformanceBaselineTests` in
+`DataTransfer.IntegrationTests`: 100k CSV import and 100k XLSX export through real jobs/PostgreSQL, with an in-memory
+definition. It tests the engine rather than the HTTP/auth/storage/owning-module path. The CI floors are
+`STARTERKIT_PERF_MIN_ROWS_PER_SEC=10000` and `STARTERKIT_PERF_MAX_HEAP_MB=100`; the artifact is
+`datatransfer-perf` containing `datatransfer-perf.json`. See [DataTransfer's baseline](../Modules/DataTransfer.md#performance-baseline)
+for the recorded engine results and exact opt-in command.
+
+The tables above are retained historical measurements, not newly verified results or production SLAs. Compare
+fresh runs with identical image, resource limits, offered rate and duration; do not mix hosted and local baselines.
+
+## Pitfalls
 
 - `mfa_required` while seeding: the profile is not loaded (the file is mounted from `src/Api`; the API would refuse
   to boot without it). `MUST_CHANGE_PASSWORD` for the SuperAdmin is handled by the seed script (it changes the seeded
@@ -144,3 +176,13 @@ nightly numbers drift.
 - 403 `The permission 'catalog.products.manage' is required`: the admin API key lacks a scope (re-seed).
 - Git-bash on Windows rewrites `/scripts/...` into a host path; `run.sh` sets `MSYS_NO_PATHCONV=1`.
 - Docker Desktop with a small VM: lower `LOAD_RATE_SCALE` and `API_MEMORY_LIMIT`.
+
+Threshold failures return a nonzero k6 status (99 for crossed thresholds); inspect failed checks, request counts
+and dropped arrivals together. Increasing latency budgets can hide a regression; record resource/rate changes
+when changing `LOAD_P95_SCALE`. Keep generated env and results private and git-ignored.
+
+## Related
+
+[Testing strategy](Testing-Strategy.md), [DataTransfer](../Modules/DataTransfer.md),
+[production testing](../deployment/Production-Testing.md), [CI/CD](../deployment/CI-CD.md), and
+`/starterkit:write-tests`.

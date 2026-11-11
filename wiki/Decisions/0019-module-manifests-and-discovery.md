@@ -1,11 +1,16 @@
 # 0019. Modules plug in through a manifest the host discovers from the build graph
 
+Module manifests let the host discover registration and initialization from the build graph without per-module host edits.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-07
 
 ## Context
 
 Adding a module meant hand edits in six places:
+
 - `Program.cs`: the Add and Use calls, the MassTransit assembly list and the enum lookup list.
 - `Api.csproj`.
 - The Dockerfile restore list.
@@ -70,8 +75,14 @@ files as text (backlog G23). The startup order rules lived only in comments in `
 - Startup now loads module assemblies by name through reflection. This is eight `Assembly.Load` calls, done once.
 - The enum lookup scans assemblies in module order. Duplicate enum names would resolve first-wins, but none exist
   today.
-- **Rejected options:**
-  - A Roslyn source generator: compile-time, but it adds an analyzer project to maintain for no practical gain over
-    MSBuild-generated attributes.
-  - Scanning `deps.json`: it depends on the deployment layout.
-  - Text-patching `Program.cs` from the template: brittle markers.
+
+## Alternatives considered
+
+- A Roslyn source generator: compile-time, but it adds an analyzer project to maintain for no practical gain over
+  MSBuild-generated attributes.
+- Scanning `deps.json`: it depends on the deployment layout.
+- Text-patching `Program.cs` from the template: brittle markers.
+
+## Related
+
+[ProjectStructure](../Architecture/ProjectStructure.md).

@@ -1,5 +1,9 @@
 # NNNN. <Decision title in the imperative>
 
+Record the context, decision and consequences of an architectural change so future changes can preserve its constraints.
+
+## Status
+
 - **Status:** Proposed | Accepted | Superseded by NNNN
 - **Date:** YYYY-MM-DD
 
@@ -18,3 +22,7 @@ What becomes easier, what becomes harder, and how it is enforced (architecture t
 ## Alternatives considered
 
 The options we rejected and why.
+
+## Related
+
+[ADR index](README.md), [Architecture overview](../Architecture/Overview.md), and `/starterkit:update-docs`.

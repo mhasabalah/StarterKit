@@ -1,5 +1,9 @@
 # 0022. PostgreSQL is the default production message transport
 
+PostgreSQL supplies the default durable production message transport while preserving RabbitMQ as an option.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-08
 
@@ -37,3 +41,7 @@ which transport, and who creates the SQL transport's schema and role, which need
 - **RabbitMq by default:** a broker on every deployment, including single-VPS ones, and a plugin for full tenant-move
   behaviour.
 - **App instances migrate the transport at startup:** the runtime role would need DDL and `CREATEROLE`.
+
+## Related
+
+[Messaging](../Architecture/Messaging.md), [Database Migrations](../deployment/Database-Migrations.md).

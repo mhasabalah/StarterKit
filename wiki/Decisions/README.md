@@ -1,29 +1,35 @@
 # Architecture Decision Records
 
-Short records of the significant decisions behind StarterKit. Add one whenever you change a rule in `CLAUDE.md`, swap
+Short records of the significant decisions behind StarterKit.
+
+Add one whenever you change a rule in `CLAUDE.md`, swap
 a core library, or change an architecture test. Copy [0000-template.md](0000-template.md), take the next number, and
 link it here.
 
-| # | Decision | Status |
-|---|---|---|
-| [0001](0001-modular-monolith-schema-per-module.md) | Modular monolith, one schema and DbContext per module | Accepted |
-| [0002](0002-carter-minimal-apis.md) | Carter minimal APIs instead of controllers | Accepted |
-| [0003](0003-exceptions-not-result-type.md) | Typed exceptions mapped centrally, no Result type | Accepted |
-| [0004](0004-outbox-and-messaging-transports.md) | Transactional outbox, pluggable MassTransit transport | Accepted |
-| [0005](0005-tenant-isolation-model.md) | Tenant isolation: named filters + RLS, shared or dedicated DBs | Accepted |
-| [0006](0006-identity-behind-userdirectory-port.md) | Users only through the UserDirectory port | Accepted |
-| [0007](0007-owned-mediator-port.md) | Own the mediator port; do not depend on MediatR | Accepted |
-| [0012](0012-realtime-inbox-and-push.md) | In-app inbox, SignalR hub and FCM push as additive notification channels | Accepted |
-| [0013](0013-enterprise-sso-and-scim.md) | Per-tenant SSO (OIDC/SAML) and SCIM inside Identity, without dynamic auth schemes | Accepted |
-| [0014](0014-passkeys-on-built-in-identity.md) | Passkeys on .NET 10 Identity's built-in WebAuthn, server-side ceremony state | Accepted |
-| [0015](0015-malware-scanning-clamd-fail-closed.md) | Upload malware scanning with ClamAV over an own TCP client, failing closed | Accepted |
-| [0017](0017-money-precision-and-per-currency-rounding.md) | Money columns are numeric(19,4); rounding and scale are per ISO 4217 currency in the domain | Accepted |
-| [0018](0018-off-session-dunning-retries-on-saved-cards.md) | Idempotent off-session card retries before the dunning reminder; sandbox/live gateway mode | Accepted |
-| [0016](0016-bulk-data-transfer-on-hangfire.md) | Bulk import/export as leased, checkpointed Hangfire jobs on their own queue (same image, role switch) | Accepted |
+| Number | Title | Status | Date |
+|---|---|---|---|
+| [0001](0001-modular-monolith-schema-per-module.md) | Modular monolith with one schema and DbContext per module | Accepted | 2026-11-04 (recorded; the decision predates the ADR log) |
+| [0002](0002-carter-minimal-apis.md) | Carter minimal APIs instead of MVC controllers | Accepted | 2026-11-04 (recorded) |
+| [0003](0003-exceptions-not-result-type.md) | Typed exceptions mapped centrally, no Result type | Accepted | 2026-11-04 (recorded) |
+| [0004](0004-outbox-and-messaging-transports.md) | Transactional outbox with a pluggable MassTransit transport | Accepted | 2026-11-03 |
+| [0005](0005-tenant-isolation-model.md) | Tenant isolation: named EF filters + PostgreSQL RLS, shared or dedicated databases | Accepted | 2026-11-02 |
+| [0006](0006-identity-behind-userdirectory-port.md) | Other modules see users only through the UserDirectory port | Accepted | 2026-11-03 |
+| [0007](0007-owned-mediator-port.md) | Own the mediator port; do not depend on MediatR | Accepted | 2026-11-04 |
+| [0008](0008-feature-flags.md) | Own the feature-flag port; store flags in Tenancy | Accepted | 2026-11-05 |
+| [0009](0009-outbound-webhooks.md) | Deliver public integration events to tenants as signed outbound webhooks | Accepted | 2026-11-05 |
+| [0011](0011-audit-trail.md) | Record entity changes with an opt-in audit trail written in the same SaveChanges | Accepted | 2026-11-05 |
+| [0012](0012-realtime-inbox-and-push.md) | Deliver in-app and push as additive Notification channels over SignalR and FCM | Accepted | 2026-11-05 |
+| [0013](0013-enterprise-sso-and-scim.md) | Run per-tenant SSO and SCIM inside Identity, without dynamic auth schemes | Accepted | 2026-11-05 |
+| [0014](0014-passkeys-on-built-in-identity.md) | Build passkeys on ASP.NET Core Identity's built-in WebAuthn, with server-side ceremony state | Accepted | 2026-11-05 |
+| [0015](0015-malware-scanning-clamd-fail-closed.md) | Scan uploads with ClamAV over its own TCP client, failing closed | Accepted | 2026-11-06 |
+| [0017](0017-money-precision-and-per-currency-rounding.md) | Store money as numeric(19,4) and round per ISO 4217 currency in the domain | Accepted | 2026-11-06 |
+| [0018](0018-off-session-dunning-retries-on-saved-cards.md) | Retry overdue renewals off-session on a saved card, idempotently, before the reminder | Accepted | 2026-11-06 |
+| [0016](0016-bulk-data-transfer-on-hangfire.md) | Run bulk imports and exports as leased, checkpointed Hangfire jobs on their own queue | Accepted | 2026-11-06 |
 <!--#if (templateSource)-->
-| [0020](0020-dotnet-new-templates.md) | The repository is the product template; modules come from a generated, CI-verified module template | Accepted |
+| [0020](0020-dotnet-new-templates.md) | The repository is the product template; modules come from a generated, CI-verified module template | Accepted | 2026-11-08 |
+| [0024](0024-documentation-site.md) | Render the canonical wiki with Starlight and publish through GitHub Pages | Accepted | 2026-11-10 |
 <!--#endif-->
-| [0019](0019-module-manifests-and-discovery.md) | Modules plug in through a manifest the host discovers from the build graph (no Program.cs edits) | Accepted |
-| [0021](0021-aggregate-version-covers-child-collections.md) | The aggregate version covers its child collections, decided per aggregate | Accepted |
-| [0022](0022-production-message-transport.md) | PostgreSQL is the default production transport; the one-shot migrator owns its schema | Accepted |
-| [0023](0023-durable-sagas-on-module-dbcontexts.md) | Saga state is durable, in the owning module's DbContext; sagas are registered explicitly | Accepted |
+| [0019](0019-module-manifests-and-discovery.md) | Modules plug in through a manifest the host discovers from the build graph | Accepted | 2026-11-07 |
+| [0021](0021-aggregate-version-covers-child-collections.md) | The aggregate version covers its child collections | Accepted | 2026-11-08 |
+| [0022](0022-production-message-transport.md) | PostgreSQL is the default production message transport | Accepted | 2026-11-08 |
+| [0023](0023-durable-sagas-on-module-dbcontexts.md) | Saga state is durable, in the owning module's DbContext | Accepted | 2026-11-08 |

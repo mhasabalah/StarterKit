@@ -1,95 +1,76 @@
-# Image processing (thumbnails and image validation)
+# Attachment image processing
 
-The Attachment module reads image headers (upload validation) and creates JPEG thumbnails. Both go through one
-port, so the imaging library is a swappable detail.
+Attachment identifies image headers and generates JPEG thumbnails through an internal port that isolates SkiaSharp from the rest of the application.
 
-```
-FileValidationService ─┐
-ThumbnailJob ──────────┼──> IImageProcessingService  (port: Infrastructure/ImageProcessing/IImageProcessingService.cs)
-                       │          │
-                       │          └── SkiaImageProcessingService   (default adapter: SkiaSharp, MIT)
-```
+## At a glance
 
-## The contract
-
-| Method | Must do |
+| Type / source | Responsibility |
 |---|---|
-| `IdentifyAsync(stream)` | Read the **header only**, never the pixels: a 50,000 x 50,000 "decompression bomb" is measured, not decoded. Return MIME type + size, or `null` for anything that isn't an image it understands. **Never dispose the caller's stream**, because validation rewinds it and re-reads it for the malware scan. |
-| `GenerateThumbnailAsync(stream)` | Return a JPEG that fits inside `Attachment:Image:ThumbnailWidth` x `ThumbnailHeight` with the aspect ratio kept. It must: use the first frame only (animated GIFs); be upright (apply the EXIF orientation when `EnableOptimization`); carry no metadata (no EXIF/GPS); flatten transparency onto **white**; work on non-seekable streams. |
+| `IImageProcessingService` | Header identification and thumbnail contract |
+| `SkiaImageProcessingService` | Default SkiaSharp adapter |
+| `FileValidationService` | Checks detected image type and megapixels before decode |
+| `GenerateThumbnailJob` | Writes and records thumbnails after upload |
 
-Accepted upload formats are JPEG, PNG, GIF, BMP and WebP (`FileSignatureCatalog`). An adapter must identify all five.
+Source: `src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/`; jobs: `Infrastructure/BackgroundJobs/`. The port is an implementation detail of Attachment, not a cross-module image API.
 
-`Attachment.Tests/Unit/ImageProcessingContractTests` is the executable form of this table, down to pixel checks for
-EXIF rotations 1, 3, 6 and 8. **Every adapter must pass it unchanged.**
+## How it works
 
-## The default: SkiaSharp
+```mermaid
+flowchart TB
+  subgraph Attachment
+    F[FileValidationService] --> I[IImageProcessingService]
+    T[GenerateThumbnailJob] --> I
+    I --> S[SkiaImageProcessingService]
+  end
+```
+*Figure: Validation and thumbnail generation share one image port; only its adapter depends on SkiaSharp.*
 
-`SkiaImageProcessingService` is the only production file that references SkiaSharp (`ThirdPartyIsolationTests`).
-- **License:** MIT. No key and no revenue limit, so CI and `docker build` need no secret.
-- **Efficiency:** JPEGs are decoded directly at 1/2, 1/4 or 1/8 size when the thumbnail is much smaller, so a 24 MP
-  photo never gets fully decoded.
-- **Native library:** `SkiaSharp.NativeAssets.Linux.NoDependencies` ships `libSkiaSharp.so`, which needs only
-  glibc/libstdc++. Those are present in the `aspnet` image; verified with `ldd`. The Dockerfile publishes for the
-  image's architecture only (`TARGETARCH` → `linux-x64` / `linux-arm64`); the other ~20 platforms' native files would
-  add ~190 MB.
-- **Security:** Skia parses untrusted uploads. Keep SkiaSharp on current patch releases (Dependabot groups them
-  weekly), and keep the megapixel cap (`Attachment:Validation:MaxImageMegapixels`) in place. That cap is checked
-  before any decode.
+| Method | Contract |
+|---|---|
+| `IdentifyAsync` | Header only, no pixel decode; MIME and dimensions or null for unrecognized images; never disposes the caller's stream |
+| `GenerateThumbnailAsync` | JPEG within configured bounds, aspect ratio retained, first frame only, EXIF orientation when enabled, no EXIF/GPS metadata, transparency flattened onto white; supports non-seekable input |
 
-## Switching to another library
+The accepted raster formats are JPEG, PNG, GIF, BMP and WebP. `MaxImageMegapixels` is checked before decoding to reject decompression bombs. The Skia adapter uses scaled JPEG decoding when possible; it is not a guarantee that every format can avoid full-size decoding. Keep the parser patched and retain the size cap.
 
-Use this for a licensed ImageSharp, Magick.NET, libvips/NetVips, or a cloud image service:
+SkiaSharp is MIT-licensed and needs no build license secret. `SkiaSharp.NativeAssets.Linux.NoDependencies` supplies the native Linux library. `src/Api/Dockerfile` publishes for the target architecture; validate native loading on each deployment target. QuestPDF's native Skia library is separate and stays in Subscriptions; see [third-party licenses](../Reference/Third-Party-Licenses.md).
 
-1. Add the package (version in `Directory.Packages.props`) to `Attachment.csproj` only.
-2. Add `Infrastructure/ImageProcessing/<Name>ImageProcessingService.cs` implementing `IImageProcessingService`.
-3. Change the one registration line in `AttachmentModule`:
-   `services.AddScoped<IImageProcessingService, <Name>ImageProcessingService>();`
-4. Add `public sealed class <Name>ImageProcessingContractTests : ImageProcessingContractTests` returning your adapter,
-   and make it pass.
-5. Update `ThirdPartyIsolationTests` (the library check) and [Third-Party-Licenses](../Reference/Third-Party-Licenses.md).
-   Then remove both SkiaSharp packages. Nothing else depends on them: QuestPDF ships its own Skia build
-   (`libQuestPdfSkia.so`).
+### Thumbnail job
 
-### Example: ImageSharp with a license
+Direct uploads enqueue `ExecuteForAttachmentAsync` after the Ready commit. The response initially has no thumbnail and can report `thumbnailPending=true`. Pending uploads enqueue `ExecuteAsync`. Each execution uses `IUnitOfWorkRunner`, so thumbnail domain events dispatch only after a successful save.
 
-ImageSharp 3.2+ checks a license key **at build time** (Release). Once you have one (see
-[licensing.sixlabors.com](https://licensing.sixlabors.com/)), also:
-- add the repo secret `SIXLABORS_LICENSE_KEY` (the full contents of `sixlabors.lic`), and pass
-  `SixLaborsLicenseKey: ${{ secrets.SIXLABORS_LICENSE_KEY }}` as an env var to the CI build step;
-- in the Dockerfile, mount it as a BuildKit secret and pass `-p:SixLaborsLicenseKey=...` to `dotnet build`/`publish`.
-  Never `COPY` a `.lic` file; `.gitignore` and `.dockerignore` already exclude it;
-- change `Nothing_references_ImageSharp` in `ThirdPartyIsolationTests` into "only Attachment references it".
+The job skips missing/non-Ready direct rows, and missing/deleted/expired/associated pending rows. It also skips non-images, existing thumbnails and absent source blobs. It writes the JPEG, updates metadata, then saves. A failed save deletes the newly written thumbnail; concurrency conflicts end quietly, while other exceptions are rethrown for Hangfire's two retries. Direct-file metadata retains the original image dimensions; pending thumbnail metadata uses the produced thumbnail dimensions.
 
-The adapter itself:
+## Configuration
+
+Defaults from `Infrastructure/Configuration/AttachmentOptions.cs` and `src/Api/appsettings.json`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Attachment:Image:EnableThumbnailGeneration` | true | Enable upload-triggered thumbnail work |
+| `Attachment:Image:ThumbnailWidth` | 200 | Bounding-box width |
+| `Attachment:Image:ThumbnailHeight` | 200 | Bounding-box height |
+| `Attachment:Image:ThumbnailQuality` | 80 | JPEG quality, 1-100 |
+| `Attachment:Image:EnableOptimization` | true | Apply EXIF orientation; does not optimize or replace the original upload |
+| `Attachment:Validation:MaxImageMegapixels` | 40 | Header-based pre-decode cap |
+
+## Usage
+
+The actual registration in `src/Modules/Attachment/Attachment/AttachmentModule.cs`:
 
 ```csharp
-public sealed class ImageSharpImageProcessingService(IOptions<AttachmentOptions> options) : IImageProcessingService
-{
-    public async Task<ImageIdentity?> IdentifyAsync(Stream stream, CancellationToken ct = default)
-    {
-        try
-        {
-            var info = await Image.IdentifyAsync(stream, ct);
-            return new ImageIdentity(info.Metadata.DecodedImageFormat?.DefaultMimeType, info.Width, info.Height);
-        }
-        catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    public async Task<ThumbnailResult> GenerateThumbnailAsync(Stream stream, CancellationToken ct = default)
-    {
-        var o = options.Value.Image;
-        var box = new Size(o.ThumbnailWidth, o.ThumbnailHeight);
-        using var image = await Image.LoadAsync<Rgba32>(new DecoderOptions { TargetSize = box, MaxFrames = 1 }, stream, ct);
-        if (o.EnableOptimization) image.Mutate(x => x.AutoOrient());
-        image.Mutate(x => x.Resize(new ResizeOptions { Size = box, Mode = ResizeMode.Max }).BackgroundColor(Color.White));
-        image.Metadata.ExifProfile = null;
-        var output = new MemoryStream();
-        await image.SaveAsJpegAsync(output, new JpegEncoder { Quality = o.ThumbnailQuality }, ct);
-        output.Position = 0;
-        return new ThumbnailResult(output, image.Width, image.Height);
-    }
-}
+services.AddScoped<IImageProcessingService, SkiaImageProcessingService>(); // the image adapter: swap it here
 ```
+
+To replace the adapter, keep its package in Attachment only, implement this port, change this registration and run `ImageProcessingContractTests` unchanged against the replacement. Package versions belong in `Directory.Packages.props`. Update `ThirdPartyIsolationTests` and the license reference deliberately before introducing a different library; ImageSharp is currently forbidden by the architecture guardrail. Remove unused SkiaSharp packages only after no production caller depends on them. Do not copy hypothetical adapter implementations into feature handlers.
+
+## Failure modes and guarantees
+
+Header identification failure or mismatched type fails validation; excessive megapixels are rejected before thumbnail decoding. Upload success does not guarantee thumbnail completion. A job failure can leave a file without a thumbnail; inspect Hangfire and retry after fixing the cause. Compensation cannot make blob writes atomic with EF; orphan scanning is the recovery mechanism for crash leftovers.
+
+## Guardrails
+
+`ImageProcessingContractTests` checks headers, stream ownership, non-seekable input, bounds, white transparency and EXIF rotations (including 1, 3, 6, 8). `AttachmentLifecycleTests` covers thumbnail persistence/events and lifecycle skips. `FileValidationServiceTests` covers image validation, and `ThirdPartyIsolationTests` prevents SkiaSharp escaping Attachment.
+
+## Related
+
+[Security](Security.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [Third-party licenses](../Reference/Third-Party-Licenses.md), and `/starterkit:add-background-job`.

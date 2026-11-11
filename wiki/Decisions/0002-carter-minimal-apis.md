@@ -1,5 +1,9 @@
 # 0002. Carter minimal APIs instead of MVC controllers
 
+Carter minimal APIs keep HTTP routing and metadata beside each vertical slice without introducing MVC controllers.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-04 (recorded)
 
@@ -16,13 +20,18 @@ lookups. They are discovered per module with `AddCarterWithAssemblies`. Endpoint
 
 ## Consequences
 
-- Each slice is self-contained, has little ceremony, and is easy to version (`HasApiVersion`).
+- Each slice is self-contained; API version metadata uses `HasApiVersion`.
 - Conventions (auth, rate limit, `Produces`) are explicit per endpoint and repetitive. That repetition is
-  deliberate: there is no global fallback auth policy (see Template-Backlog #23), and the `add-feature` skill keeps
-  it consistent.
+  deliberate: `RequireAuthorizationByDefault()` adds authenticated-user authorization to Carter endpoints that
+  declare none, but this group-level safety net does not replace an explicit declaration. The `add-feature` skill
+  keeps endpoint declarations consistent, and the architecture test rejects missing declarations.
 - **Enforced by:** `NamingConventionTests` (`EndPoint`/`Module` suffixes) and `AdminEndpointAuthorizationTests`.
 
 ## Alternatives considered
 
 - **MVC controllers:** familiar, but they work against slice locality.
 - **Plain `MapGet` in `Program.cs`:** doesn't scale across modules.
+
+## Related
+
+[ApiGuidelines](../Architecture/ApiGuidelines.md), [Endpoint Authorization](../Reference/Endpoint-Authorization.md).

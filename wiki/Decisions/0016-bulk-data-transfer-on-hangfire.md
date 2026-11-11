@@ -1,5 +1,9 @@
 # 0016. Run bulk imports and exports as leased, checkpointed Hangfire jobs on their own queue
 
+Leased Hangfire jobs process bulk imports and exports with checkpoints, resumability and a dedicated queue.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-06
 
@@ -7,7 +11,7 @@
 
 Tenants need to load and extract thousands of rows (G19). Doing that inside an HTTP request breaks on real files:
 request timeouts, memory for a whole workbook, and lost work when a pod restarts. The template already has a
-durable job engine (Hangfire on Postgres) that carries the tenant into jobs (`TenantJobFilter`) and defers migrating
+durable job engine (Hangfire on PostgreSQL) that carries the tenant into jobs (`TenantJobFilter`) and defers migrating
 tenants, and a file store with content validation and malware scanning (Attachment). Business data stays in the
 owning modules, which other modules may only reach through `.Contracts`.
 
@@ -60,3 +64,7 @@ owning modules, which other modules may only reach through `.Contracts`.
 - **One transaction per file:** locks and memory grow with the file, and a failure at row 199,999 loses everything.
 - **CsvHelper / ClosedXML / EPPlus / MiniExcel:** CsvHelper is CSV-only, ClosedXML builds a DOM (memory),
   EPPlus is commercial. Sylvan streams both formats behind one `DbDataReader` API with an MIT license.
+
+## Related
+
+[DataTransfer](../Modules/DataTransfer.md).

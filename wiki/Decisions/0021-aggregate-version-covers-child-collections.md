@@ -1,5 +1,9 @@
 # 0021. The aggregate version covers its child collections
 
+The root concurrency token covers child collections so child-only changes also reject stale writers.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-08
 
@@ -44,3 +48,7 @@ A new aggregate with children picks one of these two ways. Set-based updates tha
   row, and it would make high-churn children conflict with unrelated edits. The choice belongs to the aggregate.
 - **A dummy `UpdatedAt` column on every aggregate:** a schema change and audit noise to get what one call gives.
 - **`SELECT ... FOR UPDATE` on the root:** serializes the writers but does nothing for a stale client version.
+
+## Related
+
+[Concurrency and Versions](../Architecture/Concurrency-and-Versions.md).

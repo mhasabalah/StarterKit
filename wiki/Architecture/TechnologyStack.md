@@ -1,239 +1,162 @@
-# Technology Stack
+# Technology stack
 
-## Core Framework
+StarterKit pins its application dependencies centrally and composes them behind module boundaries, with infrastructure images selected by Docker Compose overlays.
 
-### .NET 10.0
-- **Version**: .NET 10.0 (LTS)
-- **Language**: C# 12+
-- **Features Used**:
-  - File-scoped namespaces
-  - Primary constructors
-  - Record types
-  - Init-only properties
-  - Pattern matching enhancements
+## At a glance
 
-## API Layer
+| Concern | Source of truth |
+|---|---|
+| SDK | `global.json`: `10.0.403`, `rollForward: latestFeature`, prereleases disabled |
+| Target and compiler defaults | `Directory.Build.props`: `net10.0`, nullable and implicit usings enabled; no explicit `LangVersion` pin |
+| NuGet | `Directory.Packages.props`: central versions and transitive pinning |
+| Runtime infrastructure | `docker-compose.yml` and its overlays |
+| License constraints | [Third-party licenses](../Reference/Third-Party-Licenses.md) |
 
-### Carter
-- **Purpose**: Minimal API endpoints
-- **Usage**: Endpoint definitions with routing
-- **Benefits**: 
-  - Lightweight and fast
-  - Clean endpoint organization
-  - Automatic OpenAPI generation
+## How it works
 
-### ASP.NET Core Minimal APIs
-- **Purpose**: HTTP API framework
-- **Features**:
-  - Route-to-code pattern
-  - Built-in DI
-  - Model binding and validation
+```mermaid
+flowchart TB
+  H[ASP.NET Core host] --> A[Carter endpoints]
+  A --> M[Owned mediator and validation]
+  M --> D[Module domain and EF Core]
+  D --> P[PostgreSQL]
+  D --> O[Transactional outbox]
+  O --> B[MassTransit transport]
+  H --> R[Redis and Hangfire]
+  H --> T[OpenTelemetry and Seq]
+```
+*Figure: Shared infrastructure supports the modules while contracts and adapters contain library-specific dependencies.*
 
-## Application Layer
+The [architecture overview](Overview.md) explains module boundaries; [Request lifecycle](Request-Lifecycle.md) explains execution order. The tables below record repository pins, not claims about the newest upstream releases. A central package declaration makes a version available; the consuming project still selects its references.
 
-### Mediator (owned port)
-- **Purpose**: CQRS dispatch. `Shared.Contracts.Mediation` (`ISender`, `IPublisher`, `IPipelineBehavior`, ...) is
-  implemented by `Shared.Core.Mediation.Mediator`; no third-party mediator ([ADR-0007](../Decisions/0007-owned-mediator-port.md))
-- **Usage**: Command/Query handlers
-- **Pattern**: Request/Response messaging
-- **Benefits**:
-  - Decoupled handlers
-  - Cross-cutting concerns via behaviors
-  - Testable business logic
+### Framework, API and application
 
-### FluentValidation
-- **Purpose**: Input validation
-- **Usage**: Command/Query validators
-- **Integration**: mediator pipeline behavior
-- **Benefits**:
-  - Fluent API
-  - Reusable rules
-  - Clear error messages
+| Component | Repository version | Responsibility |
+|---|---|---|
+| .NET SDK | `10.0.403` | Builds the `net10.0` solution. SDK roll-forward is allowed within the configured policy. |
+| Carter | `10.0.0` | Minimal API endpoint organization; OpenAPI generation is supplied separately. |
+| Microsoft.AspNetCore.OpenApi | `10.0.14` | API description generation. |
+| Swashbuckle.AspNetCore | `10.3.1` | Swagger tooling. |
+| Scalar.AspNetCore | `2.19.0` | Interactive API reference. |
+| Asp.Versioning.Http | `10.2.3` | HTTP API versioning; Abstractions/Mvc/Mvc.ApiExplorer are `10.2.1`. |
+| Owned mediator | Repository source | `Shared.Contracts.Mediation` ports, implemented by `Shared.Core.Mediation.Mediator`; no MediatR package. |
+| FluentValidation | `12.2.0` | Validators run through the mediator pipeline; DI extensions use the same version. |
+| Mapster | `10.0.14` | Object mapping. |
+| Scrutor | `7.0.0` | Service registration utilities. |
+| Polly | `8.9.1` | Resilience policies. |
 
-### Mapster
-- **Purpose**: Object-to-object mapping
-- **Usage**: Entity ↔ DTO conversions
-- **Benefits**:
-  - High performance
-  - Simple configuration
-  - Type-safe mappings
+The code uses file-scoped namespaces, records, primary constructors, init-only properties and pattern matching. Language support follows the selected SDK and target framework; the repository does not pin “C# 12+” as a separate version.
 
-## Data Layer
+### Persistence, caching and jobs
 
-### Entity Framework Core 10
-- **Purpose**: ORM and data access
-- **Features Used**:
-  - Code-first approach
-  - Fluent API configurations
-  - Migrations
-  - Interceptors
-  - Query filters
+| Component | Repository version | Responsibility |
+|---|---|---|
+| Microsoft.EntityFrameworkCore | `10.0.14` | Code-first models, migrations, interceptors and named query filters. |
+| Npgsql.EntityFrameworkCore.PostgreSQL | `10.0.3` | PostgreSQL EF provider. |
+| EFCore.NamingConventions | `10.0.1` | snake_case naming. |
+| Microsoft.Extensions.Caching.StackExchangeRedis | `10.0.14` | Distributed cache adapter; Redis also carries cache invalidation pub/sub. |
+| Hangfire.Core / Hangfire.AspNetCore | `1.8.25` | Durable background jobs in API/worker roles. |
+| Hangfire.PostgreSql | `1.21.1` | Job storage. |
 
-### PostgreSQL
-- **Version**: 16 (Docker images `postgres:16-alpine`)
-- **Features Used**:
-  - Schema support for modules
-  - JSON/JSONB columns
-  - Full-text search
-  - Advanced indexing
-- **Naming**: snake_case via EFCore.NamingConventions
+PostgreSQL supplies per-module schemas, transactions, JSON/JSONB storage, indexes and row-level security. Query and index choices belong to the owning module; the database engine's full-text capabilities do not imply a shared full-text search feature. See [Database conventions](DatabaseConventions.md) and [Redis](../Infrastructure/Redis.md).
 
-### Npgsql
-- **Purpose**: PostgreSQL provider for EF Core
-- **Features**: Native PostgreSQL support
+### Messaging, notification and files
 
-## Messaging & Events
+| Component | Repository version | Responsibility / boundary |
+|---|---|---|
+| MassTransit, Abstractions, EntityFrameworkCore, RabbitMQ, SqlTransport.PostgreSql | `8.5.12` | Integration-event delivery and durable saga repository support; InMemory, PostgreSql or RabbitMq transport. |
+| Microsoft.AspNetCore.SignalR.StackExchangeRedis | `10.0.14` | Notification hub scale-out on a separate Redis connection. |
+| FirebaseAdmin | `3.7.0` | FCM behind Notification's `IPushProvider`; NoOp is the default without provider configuration. |
+| MailKit / Fluid.Core | `4.18.2` / `2.41.1` | Email transport and templates. |
+| Azure.Storage.Blobs | `12.30.1` | Attachment blob storage option. |
+| AWSSDK.S3 | `4.0.104.11` | Attachment S3 storage option. |
+| SkiaSharp | `4.155.0` | Attachment image processing. |
+| QuestPDF | `2026.9.1` | Subscriptions invoice PDFs. |
+| Stripe.net | `53.1.0` | Payment provider adapter. |
+| Sylvan.Data.Csv / Sylvan.Data.Excel | `1.4.4` / `0.5.8` | DataTransfer streaming CSV/XLSX readers. |
 
-### MassTransit
-- **Purpose**: Message bus and event handling
-- **Transport**: RabbitMQ / Azure Service Bus
-- **Patterns**:
-  - Publish/Subscribe
-  - Request/Response
-  - Saga pattern
-- **Usage**: Domain events and inter-module communication
+Domain events use the owned mediator, not MassTransit. Cross-module synchronous calls also use the mediator; [Messaging](Messaging.md) describes asynchronous delivery. SignalR serves `/hubs/notifications`; production uses WebSockets, while SSE/long polling require sticky sessions. FCM supports Android, iOS through APNs, and web push; provider SDKs stay behind module ports. See [Real-time and push](../Modules/Notification-Realtime-and-Push.md).
 
-## Caching
+### Identity and security
 
-### Redis
-- **Purpose**: Distributed caching and pub/sub
-- **Usage**:
-  - Session storage
-  - Response caching
-  - Temporary data
-  - L1 cache-eviction broadcasts and the SignalR backplane (see below)
-- **Library**: StackExchange.Redis
+| Component | Repository version | Responsibility |
+|---|---|---|
+| Microsoft.AspNetCore.Identity.EntityFrameworkCore | `10.0.14` | Extended user/role persistence, password hashing and Identity services. |
+| Microsoft.AspNetCore.Authentication.JwtBearer | `10.0.14` | Bearer authentication. |
+| Microsoft.AspNetCore.Authentication.Google / Facebook | `10.0.14` | Social authentication adapters. |
+| System.IdentityModel.Tokens.Jwt / Microsoft.IdentityModel.Protocols.OpenIdConnect | `8.23.0` | Tokens and OIDC metadata. |
+| ITfoxtec.Identity.Saml2 | `4.21.0` | Identity's SAML integration. |
+| Azure.Extensions.AspNetCore.DataProtection.Keys / Azure.Identity | `1.6.5` / `1.21.0` | Optional key encryption through Azure. |
+| AWSSDK.KeyManagementService | `4.0.101.4` | Optional AWS KMS key encryption. |
 
-## Real-time & Push
+Authentication details, including header/cookie handling and provider-specific behavior, belong in [Identity](../Identity/README.md); a library choice does not define the token storage contract.
 
-### ASP.NET Core SignalR
-- **Purpose**: Real-time server → client events (the in-app notification hub `/hubs/notifications`)
-- **Scale-out**: `Microsoft.AspNetCore.SignalR.StackExchangeRedis` backplane on its own Redis connection
-- **Transports**: WebSockets (production), SSE / long polling (need sticky sessions)
-- **Guide**: [Notification-Realtime-and-Push](../Modules/Notification-Realtime-and-Push.md), [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md)
+### Observability and local orchestration
 
-### Firebase Cloud Messaging (FirebaseAdmin SDK)
-- **Purpose**: Mobile and web push (Android, iOS through APNs, Web)
-- **Isolation**: Notification module only, behind `IPushProvider`; a NoOp provider is the default without credentials
+| Component | Repository version | Responsibility |
+|---|---|---|
+| OpenTelemetry.Extensions.Hosting / OTLP, Console and Zipkin exporters | `1.20.1` | Telemetry registration and optional exporters. |
+| OpenTelemetry ASP.NET Core / Http instrumentation | `1.20.2` | Server and client telemetry. |
+| OpenTelemetry Runtime instrumentation | `1.20.1` | Runtime metrics. |
+| OpenTelemetry Process instrumentation | `1.20.1-rc.1` | Process metrics (prerelease). |
+| OpenTelemetry GrpcNetClient / Prometheus.AspNetCore | `1.20.1-beta.1` | gRPC client instrumentation and metrics scraping (prerelease). |
+| Npgsql.OpenTelemetry | `10.0.3` | Database tracing. |
+| Grafana.OpenTelemetry | `1.14.1` | Optional Grafana distribution. |
+| Aspire hosting packages / Aspire.Seq | `13.6.4` | AppHost orchestration, dependency wiring, discovery and Seq export. |
+| AspNetCore.HealthChecks packages | `9.0.0` | Dependency checks and development health UI. |
 
-## Logging & Observability
+Application logging uses `Microsoft.Extensions.Logging` and OpenTelemetry; there is no Serilog package. Seq is a destination, alongside Aspire and configured OTLP collectors. Jaeger receives OTLP; Zipkin is an opt-in exporter retained for existing deployments. See [Observability](Observability.md).
 
-### Logging (Microsoft.Extensions.Logging + OpenTelemetry)
-- **Purpose**: Structured logging with message templates (`ILogger<T>`); no third-party logging framework
-- **Exported via OpenTelemetry** (`Shared.Core/OpenTelemetryCollector`, `OtlpExporterPlan`) to:
-  - the Aspire dashboard (local dev) or the OTel collector → Loki (compose), via the standard `OTEL_EXPORTER_OTLP_*` settings
-  - Seq (`AddSeqEndpoint("seq")`, `ConnectionStrings:seq`)
-- **Correlation**: correlation id in the logging scope (`UseCorrelationId`) + trace/span ids on every record
-- **Levels**: the `Logging:LogLevel` section (EF Core and `System` at Warning by default)
+### Infrastructure images
 
-### Seq
-- **Purpose**: Log aggregation and analysis
-- **Features**:
-  - Centralized logging
-  - Query capabilities
-  - Dashboards and alerts
+| Compose source | Images / tags |
+|---|---|
+| `docker-compose.yml` | `postgres:16-alpine`, `redis:7-alpine`, `datalust/seq:2024.3`, `woblerr/pgbackrest:2.53-alpine`; API image uses `DOCKER_IMAGE` / `DOCKER_IMAGE_TAG`. |
+| `docker-compose.rabbitmq.yml` | `rabbitmq:3.13-management-alpine` |
+| `docker-compose.clamav.yml` | `clamav/clamav:1.4` |
+| `docker-compose.observability-lite.yml` | `prom/prometheus:v3.5.1`, `grafana/grafana:12.3.1` |
+| `docker-compose.observability.yml` | Collector, Prometheus, Grafana, Tempo, Loki, Jaeger and infrastructure exporters use `latest`. |
+| `docker-compose.override.yml` | pgAdmin, Redis Commander and MailHog use `latest`; development API uses `starterkit-api:dev`. |
+| `docker-compose.loadtest.yml` | `grafana/k6:1.0.0`, PostgreSQL/Redis tags as above, `starterkit-api:loadtest`. |
 
-### OpenTelemetry
-- **Purpose**: Distributed tracing
-- **Integration**: ASP.NET Core, EF Core, HTTP clients
-- **Exporters**: Jaeger, Zipkin
+Floating tags are not immutable version pins. This table does not infer the resolved patch version of `7-alpine` or `latest`. See [Docker Compose](../deployment/Docker-Compose.md) for overlay selection and [operational observability](../deployment/Observability.md) for full versus lite telemetry stacks.
 
-## Orchestration & Hosting
+### Testing and build tooling
 
-### .NET Aspire
-- **Purpose**: Cloud-ready app orchestration
-- **Components**:
-  - AppHost (orchestration)
-  - ServiceDefaults (shared configs)
-- **Benefits**:
-  - Local development environment
-  - Service discovery
-  - Configuration management
+| Component | Repository version | Responsibility |
+|---|---|---|
+| xunit.v3.mtp-off / xunit.runner.visualstudio | `4.0.2` / `4.0.1` | xUnit v3 API with VSTest-compatible `dotnet test`. |
+| FluentAssertions | `7.2.2` | Assertions. |
+| Moq | `4.21.0` | Mocks. |
+| Testcontainers.PostgreSql / Redis | `4.16.0` | Real database/cache integration fixtures. |
+| Bogus | `35.6.5` | Test data. |
+| Microsoft.NET.Test.Sdk / coverlet.collector | `18.11.0` / `10.1.0` | Test execution and coverage. |
+| Microsoft.AspNetCore.Mvc.Testing / TestHost / SignalR.Client | `10.0.14` | HTTP and real-time tests. |
+| SonarAnalyzer.CSharp | `10.35.0.4138` | Build-time analysis. |
+| Microsoft.CodeAnalysis packages | `5.0.0` | Pin required by EF Core Design's workspace dependency. |
 
-## Security
+MSBuild centralizes package versions and build settings. Docker builds the deployable image; GitHub Actions supplies the repository CI/deployment workflows. Use a .NET 10-capable IDE and container runtime. pgAdmin is included as a development tool; an external SQL client is optional. NuGet feed configuration is a deployment choice, not an included Azure Artifacts integration.
 
-### ASP.NET Core Identity
-- **Purpose**: User management
-- **Custom Implementation**: Extended for module requirements
-- **Features**:
-  - Password hashing
-  - Role management
-  - Claims-based auth
+## Usage
 
-### JWT Bearer Authentication
-- **Purpose**: API authentication
-- **Token Type**: JSON Web Tokens
-- **Storage**: HttpOnly cookies / Authorization header
+The actual central pin in `Directory.Packages.props` is:
 
-## Testing
+```xml
+<PackageVersion Include="MassTransit" Version="8.5.12" />
+```
 
-### xUnit
-- **Purpose**: Unit testing framework
-- **Usage**: All test projects
+Projects reference centrally managed packages without a local `Version` attribute. Inspect `global.json` before choosing an SDK and the relevant Compose overlay before documenting an infrastructure version.
 
-### FluentAssertions
-- **Purpose**: Readable test assertions
-- **Usage**: Unit and integration tests
+## Failure modes and guarantees
 
-### Testcontainers
-- **Purpose**: Integration testing with real databases
-- **Containers**: PostgreSQL, Redis, RabbitMQ
+MassTransit stays on the 8.x major and FluentAssertions on 7.x for the repository's licensing policy; do not treat newer major releases as routine upgrades. MediatR was replaced by the owned mediator. QuestPDF has product-specific licensing requirements and stays inside Subscriptions; other service/container obligations are recorded in [Third-party licenses](../Reference/Third-Party-Licenses.md).
 
-### Bogus
-- **Purpose**: Test data generation
-- **Usage**: Fake data for tests
+An SDK pin with roll-forward and a floating container tag do not guarantee byte-for-byte reproduction. Versions in this page come from repository declarations, not network resolution. No Azure Service Bus transport is configured, and no production business saga is currently registered.
 
-## Build & Deployment
+## Guardrails
 
-### MSBuild
-- **Central Package Management**: Directory.Packages.props
-- **Common Properties**: Directory.Build.props
+`ThirdPartyIsolationTests` enforces package boundaries and prohibits MediatR/ImageSharp references. `ModuleBoundaryTests`, `MessagingArchitectureTests` and `SagaArchitectureTests` enforce the architectural use of dependencies. Central package management prevents project-local version drift; its declarations do not by themselves validate every upstream upgrade.
 
-### Docker
-- **Purpose**: Containerization
-- **Images**: API, databases, services
+## Related
 
-### GitHub Actions / Azure DevOps
-- **Purpose**: CI/CD pipelines
-- **Stages**: Build, test, deploy
-
-## Development Tools
-
-### Rider / Visual Studio 2022
-- **Purpose**: Primary IDEs
-- **Features**: .NET 10 support, debugging, refactoring
-
-### Docker Desktop
-- **Purpose**: Local container orchestration
-- **Usage**: Running dependencies
-
-### pgAdmin / DBeaver
-- **Purpose**: Database management
-- **Usage**: Query and schema inspection
-
-## Package Management
-
-### NuGet
-- **Central Management**: Directory.Packages.props
-- **Private Feed**: Optional Azure Artifacts
-
-## Version Summary
-
-| Component | Version |
-|-----------|---------|
-| .NET | 9.0 |
-| C# | 12+ |
-| EF Core | 9.x |
-| PostgreSQL | 14+ |
-| Carter | Latest |
-| Mediator | Owned (`Shared.Contracts.Mediation`) |
-| FluentValidation | Latest |
-| Mapster | Latest |
-| MassTransit | Latest |
-| OpenTelemetry | 1.20 |
-| Redis | 7+ |
-
-## Next Steps
-- [Design Patterns](DesignPatterns.md)
-- [Coding Standards](CodingStandards.md)
-- [Database Conventions](DatabaseConventions.md)
+[Overview](Overview.md), [Design patterns](DesignPatterns.md), [Coding standards](CodingStandards.md), [Database conventions](DatabaseConventions.md), [Third-party licenses](../Reference/Third-Party-Licenses.md), [ADR-0007](../Decisions/0007-owned-mediator-port.md), and `/starterkit:new-module` / `/starterkit:update-docs`.

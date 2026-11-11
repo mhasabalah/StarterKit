@@ -1,5 +1,9 @@
 # 0013. Run per-tenant SSO and SCIM inside Identity, without dynamic auth schemes
 
+Tenant-specific SSO and SCIM run inside Identity while Tenancy remains responsible for memberships.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-05
 
@@ -40,3 +44,7 @@ admin-supplied IdP URLs, and replay.
   without schemes.
 - **External broker** (Keycloak, Auth0, WorkOS): less code but a paid or operated dependency and a second user
   store; still possible behind `UserDirectory.Contracts` ([ADR 0006](0006-identity-behind-userdirectory-port.md)).
+
+## Related
+
+[Enterprise SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md).

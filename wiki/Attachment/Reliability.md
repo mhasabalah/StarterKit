@@ -1,167 +1,122 @@
-# Attachment Module - Lifecycle, Deletion and Reconciliation
+# Attachment reliability
 
-How the Attachment module keeps the database and blob storage consistent. Rule of thumb: **the database always
-knows about a blob before the blob exists, and forgets it only after the blob is gone.** Whatever a crash leaves
-behind is found and finished by the reconciliation sweeper.
+Attachment coordinates database rows and blob operations through explicit lifecycle states, compensating actions and recurring reconciliation rather than a distributed transaction.
 
-## 1. Attachment status
+## At a glance
 
-`attachment.attachments.status` (string):
+| Component | Source under `src/Modules/Attachment/Attachment/` |
+|---|---|
+| Lifecycle | `Domains/Attachments/Models/AttachmentStatus.cs`, `AttachmentFile.cs` |
+| Read visibility | `Data/AttachmentDbContext.cs` |
+| Deletion | `Infrastructure/Maintenance/AttachmentFileReaper.cs` |
+| Recovery | `Infrastructure/Maintenance/AttachmentReconciler.cs` |
+| Scheduling | `Infrastructure/BackgroundJobs/JobSchedulerBootstrap.cs` |
 
-| Status | Meaning | Visible to reads? |
-|--------|---------|-------------------|
-| `Uploading` | Row inserted, blob being written (or the upload died). | no |
-| `Ready` | Blob stored; real size and SHA-256 (`content_hash`) recorded. | **yes** |
-| `PendingDeletion` | Deleted by the business (`is_deleted = true`); blobs being removed in the background. | no |
+## How it works
 
-Every read (`GetAttachmentByIdQuery`, download, `GetAttachmentReadUrlQuery`, `GetAttachmentsByEntityQuery`,
-delete-one lookup, the thumbnail job) only sees **Ready, not-deleted** rows. This is the global query filter of
-`AttachmentDbContext` (set after the generic soft-delete filter, which it replaces). Maintenance code - the upload
-handler's phase 2, `DeleteAttachmentsByEntity`, `AttachmentFileReaper`, `AttachmentReconciler` - uses
-`IgnoreQueryFilters()` explicitly through `IAttachmentRepository.GetLiveByEntityAsync` / `GetForMaintenanceAsync`.
+```mermaid
+stateDiagram-v2
+  [*] --> Uploading: StartUpload
+  Uploading --> Ready: MarkReady
+  Uploading --> PendingDeletion: abandoned or entity deleted
+  Ready --> PendingDeletion: RequestDeletion
+  PendingDeletion --> [*]: blobs removed, row deleted
+```
+*Figure: AttachmentStatus has exactly Uploading, Ready and PendingDeletion; association can create Ready rows directly after moving existing blobs.*
 
-## 2. Upload (two-phase)
+| State | Visibility |
+|---|---|
+| `Uploading` | Hidden while a direct upload is in progress or abandoned |
+| `Ready` | Visible only if not soft-deleted and within tenant scope |
+| `PendingDeletion` | Hidden immediately; physical removal is asynchronous |
 
-`UploadAttachmentHandler`:
+`AttachmentDbContext` combines named `Lifecycle`, `SoftDelete` and tenant filters. Maintenance uses `IgnoreNonIsolationFilters()`, preserving tenant isolation; it never uses parameterless `IgnoreQueryFilters()`. `ApplyTenantFilters(builder)` comes last. Lifecycle fields are mapped in `Data/Configurations/AttachmentConfiguration.cs` and the existing migrations; no new migration is needed to use these behaviors.
 
-1. Validate the file (type from content, size, malware), compute SHA-256, take the known length.
-2. **Phase 1** - `AttachmentFile.StartUpload(...)` inserts the row as `Uploading` and commits. No event yet.
-3. **Phase 2** - write the blob, then `MarkReady(size, hash, width, height)` and commit. `MarkReady` raises
-   `AttachmentUploadedEvent` (avatar replacement, Identity sync) - so handlers only ever see stored files.
-4. Thumbnail (images, `GenerateThumbnail = true`, `Image:EnableThumbnailGeneration`): enqueued as
-   `GenerateThumbnailJob.ExecuteForAttachmentAsync` **after** the Ready commit. The upload response has
-   `thumbnailUrl = null` and `thumbnailPending = true`; read the attachment later for its `thumbnailUrl`.
+### Direct upload
 
-If phase 2 fails, the handler deletes the blob and then the row (best effort). Anything it cannot clean stays
-`Uploading` and the sweeper removes it after `Reconciliation:UploadingTimeoutMinutes`.
+1. Validate, determine actual length and compute SHA-256.
+2. Commit `AttachmentFile.StartUpload` as `Uploading`, before writing the blob.
+3. Store the blob, call `MarkReady(size, hash, width, height)` and save. Only this transition raises `AttachmentUploadedEvent` and the avatar integration event where applicable.
+4. Enqueue thumbnail work after the Ready commit.
 
-`MarkReady` is only valid from `Uploading`, and every save is version-checked: if the sweeper or a
-delete-by-entity claimed the row meanwhile, the Ready save fails with a concurrency conflict and the upload cleans
-up after itself - a claimed row can never come back to life.
+A phase-two failure attempts blob deletion and then row deletion. Failed compensation leaves recoverable state; abandoned `Uploading` rows are swept after the timeout. `MarkReady` requires `Uploading`, and optimistic concurrency prevents an uploader from resurrecting a row claimed by a sweeper or entity deletion.
 
-Pending uploads (`temp/{session}/...`) still write the blob first and the row second (inside the session lock);
-the hash is stored on the pending row and carried to the attachment by associate, which creates the attachment
-directly as `Ready` (`AttachmentFile.Create`) because its blobs already exist.
+### Pending uploads and association
 
-## 3. Delete (asynchronous)
+Pending uploads write blobs before rows inside the session lock. A failed save deletes the blob; a crash before compensation can leave an orphan. Association moves files first, creates `Ready` attachments with the pending hash, and saves the associated pending rows in the same database operation. A failure moves files back. These flows are the reason optional storage scanning has a safety window.
 
-| Command | Effect in the request | Background |
-|---------|----------------------|------------|
-| `DeleteAttachmentCommand` | `RequestDeletion` -> `PendingDeletion` + `is_deleted`, saved | `DeleteAttachmentFilesJob([id])` |
-| `DeleteAttachmentsByEntityCommand` | every live row of the entity (**Ready and Uploading**) marked in one save; `DeletedCount` = rows marked | one `DeleteAttachmentFilesJob(ids)` |
-| New avatar (`AttachmentUploadedEventHandler`) | previous avatars marked, saved | `DeleteAttachmentFilesJob(ids)` |
+A thumbnail can update a pending row between a delete/association read and save. Those handlers reload once to handle that specific race, including a newly created thumbnail. Association rejects rows that were deleted or associated by another operation and compensates its moves. Pending deletion treats a reloaded row that is already gone/deleted as success, since the requested deletion is complete. This is not a blanket retry of arbitrary commands.
 
-The request never waits for storage and never fails because of it. `DeleteAttachmentFilesJob` runs one unit of
-work per id (`IUnitOfWorkRunner`) through `AttachmentFileReaper`:
+### Asynchronous deletion
 
-- row missing -> nothing to do (**idempotent**; re-runs and retries are safe);
-- row not `PendingDeletion` -> left alone;
-- delete file + thumbnail (missing blobs count as deleted) -> hard-delete the row;
-- a blob could not be deleted -> `deletion_attempts++`, `next_deletion_attempt_at = now + backoff`
-  (`DeletionRetryBaseDelayMinutes * 2^(attempts-1)`, capped at `DeletionRetryMaxDelayMinutes`); the job then
-  throws so Hangfire retries it (3x). After that the sweeper keeps retrying when the attempt is due. From
-  `DeletionAttemptsAlertThreshold` failed attempts on, every failure is logged as an **error**.
+`DeleteAttachmentCommand`, `DeleteAttachmentsByEntityCommand` and avatar replacement mark rows `PendingDeletion` and save, then enqueue `DeleteAttachmentFilesJob`. Entity-wide deletion includes in-flight `Uploading` rows; `DeletedCount` is the number marked, not the number physically removed.
 
-If enqueueing the job fails (Hangfire storage down), the failure is logged and the sweeper picks the row up
-(`next_deletion_attempt_at` is set to the request time).
+`AttachmentFileReaper` uses one unit of work per id. Missing rows are no-ops; rows outside `PendingDeletion` are untouched. It removes original and thumbnail, treating missing blobs as success, then hard-deletes the row. Failure increments `deletion_attempts` and schedules `next_deletion_attempt_at` with exponential backoff. Hangfire retries three times; reconciliation continues when due. Failed enqueues are logged and recovered by the sweep.
 
-Catalog's purge flow (`ProductPurgedEvent` -> `DeleteAttachmentsByEntityCommand`) works unchanged through the
-contracts. Identity's avatar sync is an integration event: `AttachmentFile.MarkReady` writes
-`UserAvatarChangedIntegrationEvent` to the Attachment outbox in the same transaction, and Identity's
-`UserAvatarChangedConsumer` re-reads the current avatar with `GetUserAvatarQuery` (see `wiki/Architecture/Messaging.md`).
+Blob removal is not awaited by the request. Database/auth/concurrency errors can still fail deletion; the guarantee is that a provider outage does not force the request to wait for physical deletion. Avatar changes notify Identity through `UserAvatarChangedIntegrationEvent`; its consumer re-reads the current avatar, as described in [Messaging](../Architecture/Messaging.md).
 
-## 4. Reconciliation sweeper
+### Reconciliation and orphan cleanup
 
-`AttachmentReconciliationJob` (recurring, `Reconciliation:Cron`, UTC, no automatic retry, no concurrent runs)
-runs `AttachmentReconciler`. Every DB change is its own unit of work (`IUnitOfWorkRunner`); a concurrency conflict
-on one row is logged and skipped; a failing phase is logged and the next phase still runs.
+`AttachmentReconciliationJob` runs every 15 minutes by default, prevents overlapping execution, and has no automatic retries: the next scheduled run is recovery. `AttachmentReconciler` isolates work per tenant and per row, logs/skips concurrency conflicts, and continues later phases after a phase failure.
 
-1. **Abandoned uploads** - `Uploading` rows older than `UploadingTimeoutMinutes` are claimed (`RequestDeletion`,
-   version-checked) and reaped (blob + row).
-2. **Due deletions** - `PendingDeletion` rows whose `next_deletion_attempt_at` has passed are reaped again.
-3. **Storage scan** (optional, off by default) - lists the provider (`IStorageListing`: Local, S3, Azure) and,
-   for objects older than `StorageScan:SafetyWindowHours`, deletes those that **no** attachment or pending row (in
-   any status) references. `StorageScan:DryRun = true` (default) only logs `orphan blob {path} would be deleted`.
-   At most `StorageScan:MaxObjectsPerRun` objects are inspected per run. The safety window protects pending uploads
-   and associate moves, which write the blob shortly before their row (Local storage resets the modification time
-   of moved/copied files for this reason).
-4. **Purge** - pending-upload rows that are soft-deleted or associated and older than `PurgeRetentionDays` are
-   hard-deleted (their blobs are already gone or moved).
+| Phase | Action |
+|---|---|
+| Abandoned uploads | Claim old `Uploading` rows with a version-checked deletion request, then reap |
+| Due deletions | Retry `PendingDeletion` rows whose next attempt is due |
+| Optional storage scan | List tenant objects; only delete old objects referenced by no attachment or pending row in any lifecycle/soft-delete state |
+| Pending-row purge | Hard-delete old associated or soft-deleted pending records; blobs were already moved or removed |
 
-Turning the scan on safely: enable it with `DryRun = true`, check the log for a few runs, then set
-`DryRun = false`.
+Storage scanning is off by default and initially dry-run. Enable it with `DryRun=true`, inspect logs over several runs, then choose whether to delete. The 24-hour safety window protects recent pending writes and association moves; Local copies/moves refresh modification time. `MaxObjectsPerRun` caps work and scanning restarts from the beginning next time, so a large prefix is not guaranteed complete coverage on every run.
 
-## 5. Performance notes
+`CleanupExpiredPendingAttachmentsJob` separately processes expired unassociated uploads in batches until done, retaining rows whose files could not be removed. It runs every six hours by default, with three retries and no concurrent execution. Monitor both recurring jobs and deletion error logs.
 
-- Downloads stream the provider stream (a `FileStream` for Local, the response stream for S3); nothing is copied
-  into memory. S3/Azure downloads are redirects to signed URLs anyway.
-- Read paths load the row once, untracked; the access check reuses it. Entity-policy decisions are memoized per
-  request (`AttachmentAccessService`), so a policy that loads the owning entity runs once per request.
-- `GetAttachmentsByEntityQuery(EntityType, EntityId, PageNumber?, PageSize?)` filters, counts and pages in SQL
-  (newest first, id as tie-breaker). Without paging parameters the page size is `Paging:MaxPageSize` (100). The
-  HTTP endpoint keeps returning a plain list and adds `X-Total-Count`, `X-Page-Number`, `X-Page-Size` headers.
-- Uploads report the known stream length instead of re-reading object metadata (S3 HEAD / Azure properties).
-- The Azure container is created once per process at startup (`AzureBlobContainerInitializer`; a failure there
-  is retried by the first upload), not per upload.
-- Thumbnails of direct uploads are generated by `GenerateThumbnailJob`, never inside the request.
+### Persistence and read performance
 
-## 6. Configuration (`Attachment:Reconciliation`)
+`attachment.attachments` stores `status` as a string, `content_hash` as nullable fixed-length 64-character SHA-256 hex, deletion request time, attempts and next-attempt time. Pending rows also store the hash. Indexes support hash lookup, status/creation age and status/next attempt; tenant configuration adds tenant ownership indexes. See the configuration classes for current mappings rather than generating the former historical reliability migration again.
 
-| Key | Default | Notes |
-|-----|---------|-------|
-| `Enabled` | `true` | `false` removes the recurring job (abandoned uploads / failed deletions are then not retried) |
-| `Cron` | `*/15 * * * *` | Hangfire cron, UTC |
-| `BatchSize` | 100 | rows (or storage objects) per batch |
-| `MaxBatchesPerRun` | 100 | safety stop per phase; the next run continues |
-| `UploadingTimeoutMinutes` | 60 | min 5; an `Uploading` row older than this is abandoned |
-| `DeletionRetryBaseDelayMinutes` | 5 | first retry delay; doubles per attempt |
-| `DeletionRetryMaxDelayMinutes` | 1440 | backoff cap |
-| `DeletionAttemptsAlertThreshold` | 10 | failures from this attempt on are logged as errors |
-| `PurgeRetentionDays` | 30 | soft-deleted / associated pending rows older than this are purged |
-| `StorageScan:Enabled` | `false` | orphan scan of the storage provider |
-| `StorageScan:DryRun` | `true` | log only |
-| `StorageScan:SafetyWindowHours` | 24 | min 1; newer objects are never touched |
-| `StorageScan:MaxObjectsPerRun` | 10000 | objects inspected per run |
+Reads load metadata untracked and reuse it for authorization; per-request policy memoization avoids repeated owning-entity queries. Entity listing filters, counts and pages in SQL. Uploads use known stream length rather than extra provider metadata reads. Provider content reads stream, while normal cloud downloads redirect. Azure container initialization is gated rather than repeated on every upload. See [Storage providers](Storage-Providers.md).
 
-## 7. Schema (migration `AttachmentReliability`)
+## Configuration
 
-`attachment.attachments`:
+All keys below start with `Attachment:Reconciliation:`; [Configuration](Configuration.md) is the complete reference.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `status` | `character varying(32)` NOT NULL DEFAULT `'Ready'` | existing rows become Ready |
-| `content_hash` | `character(64)` NULL | SHA-256, lowercase hex |
-| `deletion_requested_at` | `timestamp with time zone` NULL | |
-| `deletion_attempts` | `integer` NOT NULL DEFAULT 0 | |
-| `next_deletion_attempt_at` | `timestamp with time zone` NULL | |
+| Key | Default | Meaning |
+|---|---|---|
+| `Enabled` | true | False removes recurring recovery job |
+| `Cron` | `*/15 * * * *` | UTC schedule |
+| `BatchSize` | 100 | Rows/objects per batch |
+| `MaxBatchesPerRun` | 100 | Bound per phase/run |
+| `UploadingTimeoutMinutes` | 60 | Abandonment threshold, minimum 5 |
+| `DeletionRetryBaseDelayMinutes` | 5 | First failed deletion delay |
+| `DeletionRetryMaxDelayMinutes` | 1440 | Delay cap |
+| `DeletionAttemptsAlertThreshold` | 10 | Log every failure from this attempt as error; not a retry cutoff |
+| `PurgeRetentionDays` | 30 | Associated/deleted pending row retention |
+| `StorageScan:Enabled` | false | List objects for orphan detection |
+| `StorageScan:DryRun` | true | Log without deleting |
+| `StorageScan:SafetyWindowHours` | 24 | Ignore newer objects |
+| `StorageScan:MaxObjectsPerRun` | 10000 | Scan work cap |
 
-Indexes: `(content_hash)`, `(status, created_at)`, `(status, next_deletion_attempt_at)`.
+## Usage
 
-`attachment.pending_attachments`: `content_hash character(64) NULL`.
+Backoff from `src/Modules/Attachment/Attachment/Infrastructure/Configuration/AttachmentOptions.cs`:
 
-```bash
-dotnet ef migrations add AttachmentReliability --context AttachmentDbContext \
-  --project src/Modules/Attachment/Attachment --startup-project src/Api --output-dir Data/Migrations
+```csharp
+public TimeSpan DeletionRetryDelay(int attempts)
+{
+    var exponent = Math.Clamp(attempts - 1, 0, 30);
+    var minutes = Math.Min((double)DeletionRetryBaseDelayMinutes * Math.Pow(2, exponent), DeletionRetryMaxDelayMinutes);
+    return TimeSpan.FromMinutes(minutes);
+}
 ```
 
-## 8. Tests
+## Failure modes and guarantees
 
-`src/Modules/Attachment/Attachment.Tests`:
+Jobs are repeatable and deletion is idempotent, but upload HTTP endpoints do not promise request replay deduplication. SHA-256 is metadata, not a uniqueness constraint on files. Concurrency conflicts become HTTP 409 through the shared mediator; jobs handle them explicitly. Neither failed HTTP responses nor cancellation prove that earlier saves were rolled back. Disabling reconciliation leaves abandoned uploads and exhausted immediate deletion retries without recurring recovery.
 
-- `Integration/AttachmentLifecycleTests` (real DI composition over Testcontainers PostgreSQL, `TestSupport/AttachmentHostFixture`):
-  Uploading -> Ready with size/hash, non-Ready rows invisible to every read path, blob-write failure (with and
-  without failed cleanup) and the sweeper, sweeper/upload race, delete hides at once + job deletes blobs and is
-  idempotent, failed blob delete backoff and sweeper retry, delete-by-entity incl. in-flight uploads, avatar
-  replacement, thumbnail job (events published, non-Ready rows skipped, pending thumbnails), streaming download,
-  SQL paging.
-- `Integration/PendingDeleteRaceTests` and `Integration/PendingAssociateRaceTests` (real PostgreSQL conflicts):
-  the thumbnail job may commit a pending row (thumbnail path + version) between a delete's or an associate's read
-  and save. Both handlers re-read the rows once and complete: the delete also removes the new thumbnail, and the
-  associate moves it to the entity folder and attaches it. A row really changed by someone else (deleted,
-  associated) still fails, and the associate moves its files back.
-- `Integration/ReconciliationTests`: storage scan (safety window, dry run, row and pending-row references, off by
-  default), purge retention, the recurring job end to end.
-- `Unit/AttachmentLifecycleUnitTests`: entity state machine, hash format, backoff, options validation, delete
-  handlers, reaper guards, per-request policy memoization.
-- `Unit/ConsistencyTests`: two-phase upload compensation; `Unit/StorageProviderTests`: Local listing / move
-  mtime / file stream / known length, Azure container gate.
+## Guardrails
+
+`AttachmentLifecycleTests` covers visibility, upload compensation, deletion idempotency, paging and sweeper/upload races. `PendingDeleteRaceTests` and `PendingAssociateRaceTests` cover thumbnail concurrency. `ReconciliationTests`, `AttachmentLifecycleUnitTests`, `ConsistencyTests` and `StorageProviderTests` cover backoff, safety windows, references and provider operations. `BackgroundJobEventDispatchTests` and `TenantIsolationArchitectureTests` protect dispatch and tenant boundaries.
+
+## Related
+
+[Uploads](Uploads.md), [Image processing](Image-Processing.md), [Security](Security.md), [Request lifecycle](../Architecture/Request-Lifecycle.md), [ADR-0021](../Decisions/0021-aggregate-version-covers-child-collections.md), and `/starterkit:add-background-job`.

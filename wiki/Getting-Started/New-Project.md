@@ -1,9 +1,18 @@
 # Starting a new project from StarterKit
 
-This is the canonical checklist. With Claude Code, `/starterkit:new-project` walks you through it and verifies each
-step.
+Generate, configure and verify a product from the StarterKit template before adding its first business module.
 
-## 1. Generate
+## Goal
+
+Finish with a renamed solution, working local dependencies and a discovered module. `/starterkit:new-project` follows this checklist.
+
+## Prerequisites
+
+Use the SDK pinned in `global.json`, Docker for Aspire and database tests, and Git Bash for these commands. Install the pack using [Templates](Templates.md#install); package installation needs feed credentials, while a clone can be installed locally.
+
+## Steps
+
+### 1. Generate
 
 Decide the switches first, then generate. See [Templates](Templates.md) for every switch.
 
@@ -38,16 +47,16 @@ add your own license and copyright for the new product.
 
 The template does all of this for you, so prefer it.
 
-## 2. Configure
+### 2. Configure
 
 1. Run `cp .env.example .env` and replace every `CHANGE_ME`. Never commit `.env`.
 2. Create `secrets/*.txt` (see `secrets/README.md`, or run `./deployment/secrets-setup.sh` with the deploy kit). See
    [Secrets](../deployment/Secrets.md).
 3. With the deploy kit: set `DOMAIN`, plus the Nginx `server_name` and admin IP allow-list in
    `deployment/nginx/conf.d/app-production.conf`.
-4. Review `appsettings.Production.json`: payment gateways, email, push and malware scanning.
+4. Review `src/Api/appsettings.json` and `src/Api/appsettings.Docker.json`, plus environment/secret overrides: payment gateways, email, push and malware scanning. There is no checked-in `appsettings.Production.json`.
 
-### Product decisions before the first production migration
+#### Product decisions before the first production migration
 
 The template ships neutral defaults for these. Each one is cheap to change now and expensive after go-live:
 
@@ -63,10 +72,10 @@ The template ships neutral defaults for these. Each one is cheap to change now a
    name, language and body parameters. The defaults are Arabic sample names. Register your own templates with Meta
    and set the names and `LanguageCode` per environment.
 4. **Admin allow-list.** In `deployment/nginx/conf.d/app-production.conf`, `/swagger` and `/scalar` allow only
-   `127.0.0.1`, and `/seq/`, `/grafana/`, `/prometheus/` and `/jaeger/` deny everyone. Add an `allow` line with your
+   the loopback address, and `/seq/`, `/grafana/`, `/prometheus/` and `/jaeger/` deny everyone. Add an `allow` line with your
    operators' IPs (or a VPN range) to each location you need, above its `deny all;`.
 
-## 3. Migrations
+### 3. Migrations
 
 The generated project keeps the template's migrations, and they match its model (the `PendingModelChangesTests` E2E
 test checks it). Regenerate them only if you change entities before your first production deploy. In that case,
@@ -74,7 +83,7 @@ delete the affected `Data/Migrations` folders and create one `Initial<Module>` m
 ([Reference/Migrations](../Reference/Migrations.md)). For tenant-data contexts, re-add the
 `EnableTenantRowLevelSecurity` calls, including `outbox_messages`.
 
-## 4. GitHub
+### 4. GitHub
 
 1. Create the `production` environment with required reviewers.
 2. Add the repository variables (`APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_USER`, `POSTGRES_DB`,
@@ -83,17 +92,26 @@ delete the affected `Data/Migrations` folders and create one `Initial<Module>` m
 3. Register the self-hosted runner with the `deploy-only` label; see
    [Self-Hosted-Runner](../deployment/Self-Hosted-Runner.md).
 
-## 5. Verify
+### 5. Run locally
+
+```bash
+cd src/Aspire/AppHost
+dotnet run
+```
+
+Use the API URL shown by Aspire to open `/swagger`. Register, log in and call an authorized endpoint. Return to the product root in another terminal for verification. The compose alternative is `docker compose up -d` after configuring `.env`.
+
+## Verify
 
 ```bash
 dotnet build Acme.slnx
 dotnet test Acme.slnx                    # Docker running
 git grep -i acme -- '*.slnx'             # the rename landed
 bash scripts/check-docs.sh               # docs links + placeholders
-cd src/Aspire/AppHost && dotnet run      # then /swagger: register, log in, call an authorised endpoint
+dotnet test src/Api.Tests                # architecture guardrails
 ```
 
-## 6. Build your first module
+## Build your first module
 
 ```bash
 dotnet new starterkit-module -n Orders   # four projects, a manifest, an example aggregate, tests, a migration
@@ -103,3 +121,13 @@ dotnet build Acme.slnx && dotnet test src/Modules/Orders/Orders.Tests
 The host picks the module up without edits ([ADR-0019](../Decisions/0019-module-manifests-and-discovery.md)). Grow it
 with `/starterkit:add-aggregate`, `/starterkit:add-feature` and `/starterkit:write-tests`. Without Claude Code, follow
 the `SKILL.md` files in `tools/claude/starterkit-plugin/skills/`.
+
+## Pitfalls
+
+- Regenerate initial migrations only before production deployment; preserve migration history after deployment. Production runs `dotnet run --project src/Api -- --migrate-only` before starting replicas.
+- If module post-actions cannot select a solution, use `dotnet sln Acme.slnx add` with the four generated project paths.
+- Generated products do not receive later template fixes automatically.
+
+## Related
+
+[Templates](Templates.md), [Project structure](../Architecture/ProjectStructure.md), [Migrations](../Reference/Migrations.md), and `/starterkit:new-project`.

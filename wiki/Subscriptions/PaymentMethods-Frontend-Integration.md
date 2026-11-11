@@ -1,284 +1,141 @@
-# Payment Methods — Frontend Integration Guide
+# Integrate payment methods in a frontend
 
-## Endpoint Map
+Build customer payment choices and an administrative editor against Subscriptions' payment-method and support-instruction endpoints.
 
-All endpoints are tagged **Payment Methods** in Swagger.
+## Goal
 
-| Method | Route | Auth | Returns |
+Display active payment destinations, let administrators manage them, and submit the chosen method id with a payment proof. These are configured offline payment destinations, separate from provider-hosted checkout and saved cards in [Online payments](Online-Payments.md).
+
+## Prerequisites
+
+- Use the API's `/api/v1` base path and parse its `ApiResponse` envelope (`isSuccess`, `data`, errors); see [Errors and responses](../Architecture/Errors-and-Responses.md).
+- Administrative calls require an authenticated caller with `payment-settings.manage`, declared as `RequirePermission(Permissions.PaymentSettingsManage)`; an Admin role name alone is not the endpoint contract.
+- Source of truth: `src/Modules/Subscriptions/Subscriptions/Domains/PaymentSettings/Features/` and `Subscriptions.Contracts/Subscriptions/Commands/`. `PaymentMethodDto` and `PaymentInstructionsDto` are both declared in `Subscriptions.Contracts/Subscriptions/DTOs/PaymentInstructionsDto.cs`.
+
+## Steps
+
+### 1. Load customer choices and support contacts
+
+Fetch the two resources independently. Read methods from `data`, rather than treating the entire response as an array. Handle missing instructions separately from an empty method list.
+
+| Method | Route | Authorization | Result |
 |---|---|---|---|
-| `GET` | `/api/v1/payment-methods` | Anonymous | Active methods only |
-| `GET` | `/api/v1/payment-instructions` | Anonymous | Support contacts only |
-| `GET` | `/api/v1/admin/payment-methods` | Admin | All methods (active + inactive) |
-| `POST` | `/api/v1/admin/payment-methods` | Admin | Create a method |
-| `PUT` | `/api/v1/admin/payment-methods/{id}` | Admin | Update a method |
-| `DELETE` | `/api/v1/admin/payment-methods/{id}` | Admin | Delete a method |
-| `PUT` | `/api/v1/admin/payment-instructions` | Admin | Upsert support contacts |
+| GET | `/api/v1/payment-methods` | `AllowAnonymous()` | Non-deleted, active methods, ascending `sortOrder` |
+| GET | `/api/v1/payment-instructions` | `AllowAnonymous()` | `supportWhatsApp`, `supportEmail`; missing configuration follows the endpoint's NotFound response path |
 
----
+Every method has these fields:
 
-## Public Endpoints
+| Field | Meaning |
+|---|---|
+| `id` | Method id to retain for proof submission |
+| `type` | Free string describing the destination; not an enum of supported gateways |
+| `displayName` | Card title |
+| `value` | Main copyable destination, such as account identifier or wallet id |
+| `description` | Nullable explanatory text |
+| `metadata` | Nullable string containing JSON, not a nested JSON object in this response |
+| `sortOrder` | Ascending display order; lower values first |
+| `isActive` | Public results are active; admin results may be inactive |
+| `version` | Optimistic version to retain when opening an edit form |
 
-### GET `/api/v1/payment-methods`
+### 2. Render destination details
 
-Active payment methods only, sorted by `sortOrder`. Anonymous — call on page load.
+Use `displayName`, `value` and `description` for a generic card with a copy action. Treat values as text. Parse non-null `metadata` defensively and tolerate missing/unknown properties. Always retain the generic fallback for types added by administrators.
 
-```json
-[
-  {
-    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "type": "BankTransfer",
-    "displayName": "StarterKit Bank",
-    "value": "EG123456789",
-    "description": "Use the application email in the transfer note.",
-    "metadata": "{\"bankName\":\"StarterKit Bank\",\"accountName\":\"StarterKit Ltd\",\"accountNumber\":\"123456789\",\"iban\":\"EG123456789\",\"swift\":\"XXXXXXXX\"}",
-    "sortOrder": 1,
-    "isActive": true
-  },
-  {
-    "id": "...",
-    "type": "VodafoneCash",
-    "displayName": "Vodafone Cash",
-    "value": "+20 100 000 0000",
-    "description": null,
-    "metadata": null,
-    "sortOrder": 2,
-    "isActive": true
-  }
-]
+```mermaid
+flowchart TB
+  M[Payment method DTO] --> C[Display name and description]
+  M --> V[Copyable value]
+  M --> J[Optional metadata JSON string]
+  J --> F[Frontend-specific details]
+  C --> P[Select method id for proof]
+  V --> P
 ```
+*Figure: The frontend can enrich a generic destination card while keeping the method id as the proof-submission reference.*
 
-### GET `/api/v1/payment-instructions`
+`BankTransfer` appears in the seed and tests. The earlier UI examples also used wallet labels such as Vodafone Cash and InstaPay; these remain product-defined strings, not backend enum members. Bank-specific form fields (bank name, account holder, account number, IBAN and SWIFT) can be encoded inside `metadata` by an agreed frontend schema. The server validates that metadata is JSON but defines none of those nested field names. Keep `value` usable even when that metadata schema is absent. Wallet-like destinations can use `metadata=null` and show only name/value.
 
-Support contact info only. Anonymous — call separately from methods.
+### 3. Load the administrative list
 
-```json
-{
-  "supportWhatsApp": "+201234567890",
-  "supportEmail": "support@example.com"
-}
-```
+| Method | Route | Authorization | Result |
+|---|---|---|---|
+| GET | `/api/v1/admin/payment-methods` | `payment-settings.manage` | Active and inactive, non-deleted methods, ascending `sortOrder` |
 
----
+Show inactive methods explicitly. Populate edits from this list, retaining `id` and `version`, top-level fields, and any recognized metadata. There is no payment-method detail GET route; the Location returned on create identifies the resource but is not a supported detail endpoint.
 
-## Admin Endpoints
+### 4. Create or edit a method
 
-### GET `/api/v1/admin/payment-methods`
-
-Returns **all** methods including inactive ones. Use this to populate the admin management list.
-
-Same shape as the public endpoint but includes methods where `isActive: false`.
-
-### POST `/api/v1/admin/payment-methods`
-
-```json
-{
-  "type": "BankTransfer",
-  "displayName": "StarterKit Bank",
-  "value": "EG123456789",
-  "description": "Use the application email in the transfer note.",
-  "metadata": "{\"bankName\":\"StarterKit Bank\",\"accountName\":\"StarterKit Ltd\",\"accountNumber\":\"123456789\",\"iban\":\"EG123456789\",\"swift\":\"XXXXXXXX\"}",
-  "sortOrder": 1
-}
-```
-
-Response: `201 Created` → `{ "data": { "id": "guid" } }`
-
-### PUT `/api/v1/admin/payment-methods/{id}`
-
-Same body as POST, plus `"isActive": true/false`.
-
-### DELETE `/api/v1/admin/payment-methods/{id}`
-
-Response: `200 OK`
-
-### PUT `/api/v1/admin/payment-instructions`
-
-```json
-{
-  "supportWhatsApp": "+201234567890",
-  "supportEmail": "support@example.com"
-}
-```
-
----
-
-## The `type` + `metadata` Pattern
-
-`type` is a free string — the frontend switches on it to decide which fields to render.
-`metadata` is a **JSON string** — parse it with `JSON.parse(method.metadata)` (check for null first).
-`value` is the **main copyable field** — IBAN for bank transfer, phone number for wallets.
-
----
-
-## Known Types and Their Fields
-
-### `BankTransfer`
-
-| Field | Source | Notes |
+| Method | Route | Result |
 |---|---|---|
-| `displayName` | top-level | Card title |
-| `value` | top-level | IBAN — put in Copy button |
-| `description` | top-level | Note shown below card |
-| `metadata.bankName` | metadata | Full bank name |
-| `metadata.accountName` | metadata | Account holder name |
-| `metadata.accountNumber` | metadata | Account number |
-| `metadata.iban` | metadata | Same as `value` |
-| `metadata.swift` | metadata | SWIFT/BIC code |
+| POST | `/api/v1/admin/payment-methods` | 201 Created, `data.id` and Location |
+| PUT | `/api/v1/admin/payment-methods/{id:guid}` | 200 OK |
+| DELETE | `/api/v1/admin/payment-methods/{id:guid}` | 200 OK |
 
-```
-┌─────────────────────────────────────┐
-│ 🏦 StarterKit Bank                     │
-│ Account Name: StarterKit for R.E.      │
-│ Account No:   123456789             │
-│ IBAN:         EG123456789   [Copy]  │
-│ SWIFT:        XXXXXXXX              │
-│ ⚠ Use application email in note    │
-└─────────────────────────────────────┘
-```
+All three require `payment-settings.manage`. The PUT route id overrides the command's id; use the selected method's id in the URL. Deletion has no version field. Prefer deactivation when a destination should disappear from customer choices while remaining in the administrative list.
 
-### `VodafoneCash` / `InstaPay`
+| JSON field | POST | PUT | Validation / meaning |
+|---|---|---|---|
+| `type` | Required | Required | Non-empty, at most 50 characters |
+| `displayName` | Required | Required | Non-empty, at most 200 characters |
+| `value` | Required | Required | Non-empty, at most 200 characters |
+| `description` | Nullable | Nullable | At most 500 characters |
+| `metadata` | Nullable JSON string | Nullable JSON string | Serialize the details once into a string; invalid JSON is rejected |
+| `sortOrder` | Required | Required | Non-negative integer |
+| `isActive` | Not in create command | Boolean | New methods start active |
+| `version` | Not in create command | Optional nullable integer | Send the read version to reject stale edits with 409 |
 
-`metadata` is null — only `value` (phone/ID) and `displayName` are used.
+The real edit contract from `src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions/Commands/UpdatePaymentMethodCommand.cs`:
 
-```
-┌─────────────────────────────────────┐
-│ 📱 Vodafone Cash                    │
-│ Send to: +20 100 000 0000   [Copy] │
-└─────────────────────────────────────┘
-```
-
----
-
-## User-Facing Payment Page
-
-Fetch both endpoints independently on page load:
-
-```typescript
-const [methods, instructions] = await Promise.all([
-  fetch('/api/v1/payment-methods').then(r => r.json()),
-  fetch('/api/v1/payment-instructions').then(r => r.json()),
-]);
-
-// methods is already filtered to active only — no client-side filtering needed
-// instructions has supportWhatsApp and supportEmail
+```csharp
+public record UpdatePaymentMethodCommand(
+    Guid Id,
+    string Type,
+    string DisplayName,
+    string Value,
+    string? Description,
+    string? Metadata,
+    int SortOrder,
+    bool IsActive,
+    long? Version = null) : ICommand<Unit>;
 ```
 
-Render each method by switching on `type`:
+On 409, refresh the list and let the operator reconcile changes before resubmitting. Preserve unknown metadata fields when editing an existing product-specific schema. Changing a configured method does not rewrite the snapshot already recorded on a submitted payment.
 
-```typescript
-function PaymentMethodCard({ method }) {
-  const meta = method.metadata ? JSON.parse(method.metadata) : {};
+### 5. Save support contacts
 
-  switch (method.type) {
-    case 'BankTransfer':   return <BankTransferCard method={method} meta={meta} />;
-    case 'VodafoneCash':   return <WalletCard method={method} />;
-    case 'InstaPay':       return <InstaPayCard method={method} />;
-    default:
-      // Graceful fallback — shows value with a copy button for any unknown type
-      return <GenericCard method={method} />;
-  }
-}
-```
+`PUT /api/v1/admin/payment-instructions` requires `payment-settings.manage` and returns 200. Its entire body contract is `supportWhatsApp` (non-empty, at most 50 characters) and `supportEmail` (non-empty email address, at most 256 characters). It creates or updates the instructions row; it does not add payment destinations. No `version` field is declared for this command. Refresh the anonymous instructions resource after saving.
 
-Always implement the `GenericCard` fallback. If admin adds a new type in the DB the frontend won't crash.
+### 6. Submit the selected method with proof
 
----
+Proof routes require authentication and subscriber billing access, use the `upload` rate policy, and opt into `WithIdempotency()`:
 
-## Admin List Page
+| Purpose | POST route | Multipart fields |
+|---|---|---|
+| Activation | `/api/v1/subscriptions/{subscriptionId:guid}/proof` | `file`, `paymentMethodId`, optional `paymentId` |
+| Renewal | `/api/v1/subscriptions/{subscriptionId:guid}/renewal/proof` | `file`, `paymentMethodId`, optional `paymentId` |
+| Proration | `/api/v1/subscriptions/{subscriptionId:guid}/proration/proof` | `file`, `paymentMethodId`, required `paymentId` |
 
-```typescript
-// Use the admin endpoint — shows all methods including inactive
-const methods = await fetch('/api/v1/admin/payment-methods', {
-  headers: { Authorization: `Bearer ${token}` }
-}).then(r => r.json());
+Use the selected destination's `id`, not its `type` or `value`. The server snapshots method details on submission; see [Billing](Billing.md#payments-and-approvals). A proof upload does not itself settle the payment. For an uncertain retry, retain the same optional `Idempotency-Key` and body; a changed body with that key returns 422 `idempotency_key_reused`.
 
-// Show inactive methods with a greyed badge — don't hide them
-```
+## Verify
 
----
+1. Confirm the anonymous list excludes inactive/deleted methods and preserves ascending `sortOrder`.
+2. Confirm the administrative list includes inactive methods and requires the permission policy.
+3. Create a method; verify 201 and `data.id`. Edit using its read `version`; confirm a stale version returns 409.
+4. Deactivate it and refresh both lists. Verify it remains in the admin list and leaves the public list.
+5. Test null metadata, valid product-specific metadata and an unfamiliar `type`; all must render a usable generic card. Verify invalid JSON is rejected on write.
+6. Save support contacts, reload them independently and submit a proof with a real method id in the appropriate billing flow.
 
-## Admin Add / Edit Form
+`PaymentMethodSnapshotTests` and `PaymentMethodSnapshotDtoJsonTests` cover preserved payment details; `AdminEndpointAuthorizationTests` guards declared authorization. Endpoint validators enforce the field constraints above. These are source checks and repository test coverage, not a claim that a separate frontend has been exercised.
 
-### Step flow
+## Pitfalls
 
-```
-Step 1 — Pick type
-  [ BankTransfer ]  [ VodafoneCash ]  [ InstaPay ]  [ + Custom ]
+- Unwrap `data` before mapping arrays or reading support contacts. Do not assume raw JSON arrays from successful GETs.
+- `metadata` is a JSON string and its nested schema belongs to the product. Avoid depending on undocumented bank-field names or rendering unsanitized HTML.
+- `type` is a destination label, not a gateway selection. Online checkout takes a separate `provider` field.
+- Retain `version` on edit; omitting it loses client-observed stale-edit protection.
+- Missing instructions do not mean the payment-method request failed. Render fallback support behavior independently.
+- Offline configuration and anonymous display do not authorize billing changes; subscriber proof routes still enforce ownership/billing access.
 
-Step 2 — Type-specific fields (swap when type changes)
+## Related
 
-  BankTransfer:               VodafoneCash / InstaPay:
-  ─────────────               ────────────────────────
-  Bank Name      [input]      Phone / ID     [input]  → value
-  Account Name   [input]
-  Account No.    [input]
-  IBAN           [input]  → value
-  SWIFT          [input]
-
-Step 3 — Shared fields (always visible)
-  Display Name   [input]
-  Notes          [input]   → description
-  Sort Order     [number]
-  Active         [toggle]  (Edit only)
-```
-
-### Building the request body on submit
-
-```typescript
-// BankTransfer
-const body = {
-  type: 'BankTransfer',
-  displayName: form.displayName,
-  value: form.iban,                    // IBAN is the copyable field
-  description: form.notes ?? null,
-  metadata: JSON.stringify({
-    bankName: form.bankName,
-    accountName: form.accountName,
-    accountNumber: form.accountNumber,
-    iban: form.iban,
-    swift: form.swift,
-  }),
-  sortOrder: form.sortOrder,
-  isActive: form.isActive,             // PUT only
-};
-
-// VodafoneCash / InstaPay
-const body = {
-  type: form.type,
-  displayName: form.displayName,
-  value: form.phoneOrId,               // phone/ID is the copyable field
-  description: form.notes ?? null,
-  metadata: null,
-  sortOrder: form.sortOrder,
-  isActive: form.isActive,             // PUT only
-};
-```
-
-### Populating fields on Edit
-
-```typescript
-const method = methods.find(m => m.id === selectedId);
-const meta = method.metadata ? JSON.parse(method.metadata) : {};
-
-form.type        = method.type;
-form.displayName = method.displayName;
-form.description = method.description;
-form.sortOrder   = method.sortOrder;
-form.isActive    = method.isActive;
-
-if (method.type === 'BankTransfer') {
-  form.bankName      = meta.bankName;
-  form.accountName   = meta.accountName;
-  form.accountNumber = meta.accountNumber;
-  form.iban          = meta.iban;
-  form.swift         = meta.swift;
-} else {
-  form.phoneOrId = method.value;
-}
-```
-
----
-
-## Sort Order
-
-Methods are returned already sorted by `sortOrder` ascending from the backend — no client-side sorting needed. Lower number = displayed first on the user page.
+[Billing](Billing.md), [Online payments](Online-Payments.md), [Subscriptions module](../Modules/Subscriptions.md), [Errors and responses](../Architecture/Errors-and-Responses.md), and `/starterkit:add-feature`.
