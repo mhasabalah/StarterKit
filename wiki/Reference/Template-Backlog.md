@@ -13,6 +13,10 @@ BateCom (2026-11-01). Tick items off (or delete them) as they are handled.
 
 Senior gap review of features a production SaaS needs. ✅ = shipped (wave 6, PR #11), 🚧 = in progress, ⬜ = open.
 
+> **Open work lives in [GitHub Issues](https://github.com/mhasabalah/StarterKit/issues)** (labels `security`, `ops`,
+> `owner-action`, `enhancement`, `dependencies`). This page is the history of what each wave shipped and why; an open
+> item here links to its issue, and closing the issue (`Fixes #N` in the PR) is recorded in the next wave summary.
+
 Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-rounding.md)): billing money columns are numeric(19,4) and rounded per ISO 4217 currency.
 
 **P0 — before the first real customer**
@@ -45,10 +49,10 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 |---|---|---|
 | G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning ([SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md)) | ✅ |
 | G16 | Passkeys (WebAuthn) ([Passkeys](../Identity/Passkeys.md)) | ✅ |
-| G17 | Full-text search abstraction (PostgreSQL `tsvector` first) | ⬜ |
+| G17 | Full-text search abstraction (PostgreSQL `tsvector` first) | ⬜ [#53](https://github.com/mhasabalah/StarterKit/issues/53) |
 | G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
-| G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ |
+| G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ [#54](https://github.com/mhasabalah/StarterKit/issues/54) |
 | G21 | Durable saga repository (= #27) ([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)) | ✅ |
 | G22 | Load/performance tests (k6) with a CI baseline (HTTP scenarios: `tests/load`, `load-test.yml`; DataTransfer engine baseline: `datatransfer-perf.yml`) | ✅ |
 | G23 | `dotnet new` project + module templates (= #12, #13) ([Templates](../Getting-Started/Templates.md), ADRs [0019](../Decisions/0019-module-manifests-and-discovery.md) / [0020](../Decisions/0020-dotnet-new-templates.md)) | ✅ |
@@ -82,7 +86,7 @@ Wave 15 (G25) (2026-11-10, branch `docs/g25-documentation-site`): **documentatio
 - **Owner follow-ups:**
   - ~~Enable GitHub Pages with source "GitHub Actions"~~ Done 2026-11-11: the site is live, linked from the README
     and the repository About.
-  - Upload `docs-site/public/og-image.png` as the repository social preview (still open).
+  - Upload `docs-site/public/og-image.png` as the repository social preview: [#48](https://github.com/mhasabalah/StarterKit/issues/48).
 
 Wave 16 (2026-11-11/12, PRs #40, #41/#42, #43, #44): **security bump and the defects the G25 review surfaced.**
 Writing the wiki against the code found places where the code did not do what the docs or CLAUDE.md promised.
@@ -116,19 +120,13 @@ Writing the wiki against the code found places where the code did not do what th
   - The deploy job runs on manual runs from `master` too.
   - The build job got `pages: read`; Configure Pages had failed with "Resource not accessible by integration".
   - The README links the site.
-- **Open from this wave:**
-  - **Self-hosted runner (owner):** the repository has no runner with the `deploy-only` label, so "Deploy to
-    Production" queues and is cancelled after 24 h ([Self-hosted runner](../deployment/Self-Hosted-Runner.md)).
-  - **First deploy with #42 (owner):**
-    - `git pull` in `DEPLOY_DIR`; PostgreSQL restarts once with the new image.
-    - Run `init-pgbackrest.sh` once when backups are configured.
-    - Reach PostgreSQL through an SSH tunnel.
-  - **Legacy integer enums:** nine Identity/Subscriptions columns stay integer by decision. Converting one is a data
-    migration (`ALTER COLUMN ... USING CASE`) that removes it from the `EnumStorageTests` list.
-  - **Nginx CSP:** the `Content-Security-Policy` header in `app-production.conf` is commented out. Define a policy
-    that keeps the Hangfire dashboard working.
-  - **Raw-SQL unique indexes:** tenant-first order is asserted only for indexes in the EF model; indexes created as
-    raw SQL in migrations stay a review item.
+- **Open from this wave** (tracked as issues):
+  - [#46](https://github.com/mhasabalah/StarterKit/issues/46) Register the self-hosted deploy runner (owner).
+  - [#47](https://github.com/mhasabalah/StarterKit/issues/47) First production deploy with #42: `git pull`, `init-pgbackrest.sh`, SSH tunnel (owner).
+  - [#49](https://github.com/mhasabalah/StarterKit/issues/49) Enable a Content-Security-Policy in the production Nginx config.
+  - [#50](https://github.com/mhasabalah/StarterKit/issues/50) Guardrail for tenant-first order of raw-SQL unique indexes.
+  - [#51](https://github.com/mhasabalah/StarterKit/issues/51) Migrate the nine legacy integer enum columns to strings (optional, by decision).
+  - [#52](https://github.com/mhasabalah/StarterKit/issues/52) Dependabot: ignore .NET major bumps of the Docker images (#37/#38).
 
 Wave 14 (2026-11-08, branch `chore/backlog-leftovers`): **the smaller leftovers of the older sections.**
 - **Moderation:** approve, reject, request changes, publish and the pending queue need `catalog.moderate` instead of
@@ -150,7 +148,7 @@ Wave 14 (2026-11-08, branch `chore/backlog-leftovers`): **the smaller leftovers 
   - The Data Protection KMS option shipped with G5.
   - ImageSharp was replaced by SkiaSharp (2b).
   - #10 shipped with G4.
-- **Still open:** HealthChecks 10.x (not released, checked 2026-11-08).
+- **Still open:** HealthChecks 10.x (not released, checked 2026-11-12): [#55](https://github.com/mhasabalah/StarterKit/issues/55).
 
 Wave 13 (2026-11-08): **G21 durable sagas + G24 observability-lite.**
 - **G21** ([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)):
