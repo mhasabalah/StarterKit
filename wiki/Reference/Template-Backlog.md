@@ -79,8 +79,56 @@ Wave 15 (G25) (2026-11-10, branch `docs/g25-documentation-site`): **documentatio
   references, light/dark brand assets, search, Mermaid rendering and link/contrast checks.
 - **Publication:** `.github/workflows/docs.yml` builds PR artifacts and publishes master to GitHub Pages; the site
   stays out of generated products and the template pack ([ADR 0024](../Decisions/0024-documentation-site.md)).
-- **Owner follow-ups:** enable GitHub Pages with source "GitHub Actions"; upload `docs-site/public/og-image.png` as
-  the repository social preview.
+- **Owner follow-ups:**
+  - ~~Enable GitHub Pages with source "GitHub Actions"~~ Done 2026-11-11: the site is live, linked from the README
+    and the repository About.
+  - Upload `docs-site/public/og-image.png` as the repository social preview (still open).
+
+Wave 16 (2026-11-11/12, PRs #40, #41/#42, #43, #44): **security bump and the defects the G25 review surfaced.**
+Writing the wiki against the code found places where the code did not do what the docs or CLAUDE.md promised.
+- **Security (#40):** CVE-2026-114147 (ASP.NET Core DoS, `SignalR.StackExchangeRedis` ≤ 10.0.14) and CVE-2026-120006
+  (Aspire elevation of privilege, < 13.6.5) made `NuGetAudit` fail restore on every branch. The 10.0.14 release train
+  moved to 10.0.15, Aspire packages and `Aspire.AppHost.Sdk` to 13.6.5, and `dotnet-ef` to 10.0.15.
+- **Backups (#42):** `archive_command` called pgBackRest, which `postgres:16-alpine` does not include. Every push
+  failed, WAL piled up until the disk would fill, and no backup had its WAL.
+  - `infra/postgres` (PostgreSQL 16 + pgBackRest 2.57) now runs both `postgres` and `pgbackrest`, with
+    `pgbackrest-archive-wal` and `init: true`.
+  - `restore.sh` validates the request before stopping anything and runs the migrator before restarting.
+  - Verified end to end, including point-in-time recovery ([Backups](../deployment/Backups.md)).
+- **Network (#42):** the production compose published PostgreSQL, Redis, Seq and the API on 0.0.0.0, and Docker
+  bypasses UFW. They now bind to `${BIND_ADDRESS:-127.0.0.1}` ([Docker Compose](../deployment/Docker-Compose.md)).
+- **Rollback (#42):**
+  - `rollback.sh` set the wrong variable and restarted the same image.
+  - `rollback.yml` piped a dump into the live database without `ON_ERROR_STOP`: it exited 0 and changed nothing.
+  - It now takes `image_tag` and/or `restore_database`, restores with drop + recreate in one transaction, then
+    runs the migrator ([CI/CD](../deployment/CI-CD.md#rollback-behavior)).
+- **Production boot (#42):** the `CHANGE_ME` defaults of APNs and the Stripe/Paymob gateways made
+  `ProductionConfigurationGuard` refuse to boot a default production deploy. It also broke the scheduled k6 load
+  test since 2026-11-06.
+  - Optional, disabled secrets default to `""`. `ProductionConfigurationGuardTests` pin both rules against the
+    shipped settings ([Configuration](Configuration.md)).
+- **Smaller (#42):**
+  - The Hangfire dashboard secret mapped to the wrong section.
+  - The SSO kill switch is now re-checked on the callback and on the code exchange.
+  - The tenant unique-index guardrail asserts `TenantId` comes **first**.
+  - New `EnumStorageTests`: nine legacy integer enum columns are listed, and new ones fail the build.
+- **Docs site (#43, #44):**
+  - The deploy job runs on manual runs from `master` too.
+  - The build job got `pages: read`; Configure Pages had failed with "Resource not accessible by integration".
+  - The README links the site.
+- **Open from this wave:**
+  - **Self-hosted runner (owner):** the repository has no runner with the `deploy-only` label, so "Deploy to
+    Production" queues and is cancelled after 24 h ([Self-hosted runner](../deployment/Self-Hosted-Runner.md)).
+  - **First deploy with #42 (owner):**
+    - `git pull` in `DEPLOY_DIR`; PostgreSQL restarts once with the new image.
+    - Run `init-pgbackrest.sh` once when backups are configured.
+    - Reach PostgreSQL through an SSH tunnel.
+  - **Legacy integer enums:** nine Identity/Subscriptions columns stay integer by decision. Converting one is a data
+    migration (`ALTER COLUMN ... USING CASE`) that removes it from the `EnumStorageTests` list.
+  - **Nginx CSP:** the `Content-Security-Policy` header in `app-production.conf` is commented out. Define a policy
+    that keeps the Hangfire dashboard working.
+  - **Raw-SQL unique indexes:** tenant-first order is asserted only for indexes in the EF model; indexes created as
+    raw SQL in migrations stay a review item.
 
 Wave 14 (2026-11-08, branch `chore/backlog-leftovers`): **the smaller leftovers of the older sections.**
 - **Moderation:** approve, reject, request changes, publish and the pending queue need `catalog.moderate` instead of
