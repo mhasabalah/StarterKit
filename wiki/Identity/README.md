@@ -226,7 +226,7 @@ runtime grants, key scope limits, rotation, sessions and OTP behavior.
 - [JWT frontend guide](jwt/JWT-AUTH-FRONTEND-GUIDE.md): client session contract.
 - [Token refresh strategies](jwt/TokenRefreshStrategies.md): client scheduling and coordination.
 - [Enterprise SSO](Enterprise-SSO.md), [SCIM](SCIM.md), [Passkeys](Passkeys.md), [Bot protection](Bot-Protection.md).
-- [ADR-0007](../Decisions/0007-owned-mediator-port.md); `/starterkit:add-feature`, `/starterkit:add-permission`, `/starterkit:update-docs`.
 <!--#if (sample)-->
 - [Catalog module](../Modules/Catalog.md): the reference module for new work.
 <!--#endif-->
+- [ADR-0007](../Decisions/0007-owned-mediator-port.md); `/starterkit:add-feature`, `/starterkit:add-permission`, `/starterkit:update-docs`.
