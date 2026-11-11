@@ -92,7 +92,7 @@ architecture test is a design problem, not a flaky test. Fix the code, or change
 
 Use `--filter "FullyQualifiedName~..."` with an actual class or method to narrow a run; the Identity command
 above runs one class. For new test templates and fixture setup use
-[`/starterkit:write-tests`](../../tools/claude/starterkit-plugin/skills/write-tests/SKILL.md).
+`/starterkit:write-tests`.
 
 ## Failure modes and guarantees
 

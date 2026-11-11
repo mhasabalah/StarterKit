@@ -414,4 +414,4 @@ The device shows "StarterKit push works" and "StarterKit: delivered through the 
 
 ## Related
 
-[Notification](Notification.md), [ADR-0012](../Decisions/0012-realtime-inbox-and-push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+[Notification](Notification.md), [ADR-0012](../Decisions/0012-realtime-inbox-and-push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-feature`.

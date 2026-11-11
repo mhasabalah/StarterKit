@@ -380,4 +380,4 @@ STARTERKIT_PERF_TESTS=1 dotnet test src/Modules/DataTransfer/DataTransfer.Integr
 
 ## Related
 
-[Tenancy](Tenancy.md), [ADR-0016](../Decisions/0016-bulk-data-transfer-on-hangfire.md), [Notification progress transport](Notification-Realtime-and-Push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-background-job`](../../tools/claude/starterkit-plugin/skills/add-background-job/SKILL.md).
+[Tenancy](Tenancy.md), [ADR-0016](../Decisions/0016-bulk-data-transfer-on-hangfire.md), [Notification progress transport](Notification-Realtime-and-Push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-background-job`.

@@ -174,5 +174,5 @@ cross-account ceremonies, ownership, last method, deactivated accounts and API-k
 [Frontend integration](Frontend-Integration.md#passkeys),
 [ADR-0014](../Decisions/0014-passkeys-on-built-in-identity.md);
 Backlog reference: G16.
-[/starterkit:add-feature](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md),
-[/starterkit:write-tests](../../tools/claude/starterkit-plugin/skills/write-tests/SKILL.md).
+`/starterkit:add-feature`,
+`/starterkit:write-tests`.

@@ -515,4 +515,4 @@ Reuse the domain policies for new billing paths. Cross-module callers use the pu
 
 ## Related
 
-[Subscriptions module](../Modules/Subscriptions.md), [Online payments](Online-Payments.md), [Payment methods frontend guide](PaymentMethods-Frontend-Integration.md), [ADR-0017](../Decisions/0017-money-precision-and-per-currency-rounding.md), [ADR-0018](../Decisions/0018-off-session-dunning-retries-on-saved-cards.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+[Subscriptions module](../Modules/Subscriptions.md), [Online payments](Online-Payments.md), [Payment methods frontend guide](PaymentMethods-Frontend-Integration.md), [ADR-0017](../Decisions/0017-money-precision-and-per-currency-rounding.md), [ADR-0018](../Decisions/0018-off-session-dunning-retries-on-saved-cards.md), and `/starterkit:add-feature`.

@@ -122,4 +122,4 @@ hybrid build. `templates.yml`, `quality.yml` and `docs.yml` enforce generated-pr
 
 [Runner](Self-Hosted-Runner.md), [migrations](Database-Migrations.md), [backups](Backups.md),
 [load testing](../Testing/Load-Testing.md), [new products](../Getting-Started/New-Project.md), and
-[`/starterkit:add-migration`](../../tools/claude/starterkit-plugin/skills/add-migration/SKILL.md).
+`/starterkit:add-migration`.

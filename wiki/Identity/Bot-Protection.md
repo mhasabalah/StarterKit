@@ -150,5 +150,5 @@ explicit authorization declarations.
 [Request lifecycle](../Architecture/Request-Lifecycle.md),
 [Errors and responses](../Architecture/Errors-and-Responses.md),
 [ADR-0002](../Decisions/0002-carter-minimal-apis.md);
-[/starterkit:add-feature](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md),
-[/starterkit:write-tests](../../tools/claude/starterkit-plugin/skills/write-tests/SKILL.md).
+`/starterkit:add-feature`,
+`/starterkit:write-tests`.

@@ -294,4 +294,4 @@ Invalid workflow transitions are rejected by the allow-list. Stale critical-upda
 
 ## Related
 
-[ADR-0019](../Decisions/0019-module-manifests-and-discovery.md), [Concurrency](../Architecture/Concurrency-and-Versions.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:new-module`](../../tools/claude/starterkit-plugin/skills/new-module/SKILL.md).
+[ADR-0019](../Decisions/0019-module-manifests-and-discovery.md), [Concurrency](../Architecture/Concurrency-and-Versions.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:new-module`.

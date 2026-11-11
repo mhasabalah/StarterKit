@@ -87,7 +87,7 @@ From `src/Modules/Notification/Notification/Channels/Email/Templates/OneTimeCode
 
 The same template sets its non-secret preview with `{{ 'Your verification code is inside' | set_preheader }}`. Never include the code, reset token or token-bearing URL in the subject or preheader.
 
-To add a template, follow [`/starterkit:add-email-template`](../../tools/claude/starterkit-plugin/skills/add-email-template/SKILL.md): add the `EmailTemplate` value and `TemplateFile` attribute, dictionary model, `IEmailTemplate` subject class and embedded Liquid file; render both cultures and run the design-system tests.
+To add a template, follow `/starterkit:add-email-template`: add the `EmailTemplate` value and `TemplateFile` attribute, dictionary model, `IEmailTemplate` subject class and embedded Liquid file; render both cultures and run the design-system tests.
 
 | Route | Authorization | Purpose |
 |---|---|---|
@@ -111,4 +111,4 @@ Template registration is validated at startup. Development smoke-renders every t
 
 ## Related
 
-[Notification](Notification.md), [Real-time and push](Notification-Realtime-and-Push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-email-template`](../../tools/claude/starterkit-plugin/skills/add-email-template/SKILL.md).
+[Notification](Notification.md), [Real-time and push](Notification-Realtime-and-Push.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-email-template`.

@@ -119,4 +119,4 @@ Jobs are repeatable and deletion is idempotent, but upload HTTP endpoints do not
 
 ## Related
 
-[Uploads](Uploads.md), [Image processing](Image-Processing.md), [Security](Security.md), [Request lifecycle](../Architecture/Request-Lifecycle.md), [ADR-0021](../Decisions/0021-aggregate-version-covers-child-collections.md), and [`/starterkit:add-background-job`](../../tools/claude/starterkit-plugin/skills/add-background-job/SKILL.md).
+[Uploads](Uploads.md), [Image processing](Image-Processing.md), [Security](Security.md), [Request lifecycle](../Architecture/Request-Lifecycle.md), [ADR-0021](../Decisions/0021-aggregate-version-covers-child-collections.md), and `/starterkit:add-background-job`.

@@ -265,5 +265,5 @@ JIT, administration, SCIM isolation and metadata refresh. These live under `src/
 [Permissions, 2FA and audit](Permissions-2FA-and-Admin-Audit.md),
 [Frontend integration](Frontend-Integration.md), [ADR-0013](../Decisions/0013-enterprise-sso-and-scim.md);
 Backlog reference: G15.
-[/starterkit:add-feature](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md),
-[/starterkit:add-background-job](../../tools/claude/starterkit-plugin/skills/add-background-job/SKILL.md).
+`/starterkit:add-feature`,
+`/starterkit:add-background-job`.

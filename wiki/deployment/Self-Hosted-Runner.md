@@ -95,4 +95,4 @@ For removal/re-registration, obtain the matching current token from repository s
 ## Related
 
 [CI/CD](CI-CD.md), [VPS deployment](Deploy-to-VPS.md), [backups](Backups.md),
-[`deployment/scripts/verify-runner.sh`](../../deployment/scripts/verify-runner.sh), and `/starterkit:update-docs`.
+`deployment/scripts/verify-runner.sh`, and `/starterkit:update-docs`.

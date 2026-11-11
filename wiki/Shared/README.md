@@ -167,4 +167,4 @@ For test doubles, see `TestSupport.Http(userId, roles)` in `src/Modules/Catalog/
 - [Request lifecycle](../Architecture/Request-Lifecycle.md), [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md).
 - [Notification module](../Modules/Notification.md): delivery infrastructure built on the shared boundaries.
 - [ADR-0007](../Decisions/0007-owned-mediator-port.md), [ADR-0021](../Decisions/0021-aggregate-version-covers-child-collections.md), [ADR-0022](../Decisions/0022-production-message-transport.md).
-- [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md), [`/starterkit:add-background-job`](../../tools/claude/starterkit-plugin/skills/add-background-job/SKILL.md).
+- `/starterkit:add-feature`, `/starterkit:add-background-job`.

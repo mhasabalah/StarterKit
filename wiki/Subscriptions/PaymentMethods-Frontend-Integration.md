@@ -138,4 +138,4 @@ Use the selected destination's `id`, not its `type` or `value`. The server snaps
 
 ## Related
 
-[Billing](Billing.md), [Online payments](Online-Payments.md), [Subscriptions module](../Modules/Subscriptions.md), [Errors and responses](../Architecture/Errors-and-Responses.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+[Billing](Billing.md), [Online payments](Online-Payments.md), [Subscriptions module](../Modules/Subscriptions.md), [Errors and responses](../Architecture/Errors-and-Responses.md), and `/starterkit:add-feature`.

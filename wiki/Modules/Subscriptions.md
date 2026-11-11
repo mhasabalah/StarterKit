@@ -199,4 +199,4 @@ Enforced feature denial is 403 `feature_not_in_plan`; quota denial is 429 `quota
 
 ## Related
 
-[Billing](../Subscriptions/Billing.md), [Payment methods](../Subscriptions/PaymentMethods-Frontend-Integration.md), [Online payments](../Subscriptions/Online-Payments.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-feature`](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md).
+[Billing](../Subscriptions/Billing.md), [Payment methods](../Subscriptions/PaymentMethods-Frontend-Integration.md), [Online payments](../Subscriptions/Online-Payments.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-feature`.

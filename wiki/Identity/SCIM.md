@@ -167,5 +167,5 @@ seat limits and owner protection. `SsoTenantTests` covers cross-tenant SCIM isol
 [Request lifecycle](../Architecture/Request-Lifecycle.md),
 [ADR-0013](../Decisions/0013-enterprise-sso-and-scim.md);
 Backlog reference: G15.
-[/starterkit:add-feature](../../tools/claude/starterkit-plugin/skills/add-feature/SKILL.md),
-[/starterkit:add-permission](../../tools/claude/starterkit-plugin/skills/add-permission/SKILL.md).
+`/starterkit:add-feature`,
+`/starterkit:add-permission`.

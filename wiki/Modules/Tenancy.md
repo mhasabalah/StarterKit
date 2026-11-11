@@ -164,4 +164,4 @@ New permissions go in `TenantPermissions` and `SystemTenantRoles`; follow `/star
 
 ## Related
 
-[Isolation and dedicated databases](../MultiTenancy/Isolation-and-Dedicated-Databases.md), [Adding a tenant-aware module](../MultiTenancy/Adding-a-Tenant-Aware-Module.md), [ADR-0005](../Decisions/0005-tenant-isolation-model.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and [`/starterkit:add-permission`](../../tools/claude/starterkit-plugin/skills/add-permission/SKILL.md).
+[Isolation and dedicated databases](../MultiTenancy/Isolation-and-Dedicated-Databases.md), [Adding a tenant-aware module](../MultiTenancy/Adding-a-Tenant-Aware-Module.md), [ADR-0005](../Decisions/0005-tenant-isolation-model.md); [Messaging](../Architecture/Messaging.md), [Multi-tenancy](../MultiTenancy/Overview.md), [Identity](../Identity/README.md), and `/starterkit:add-permission`.

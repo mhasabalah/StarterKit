@@ -10,7 +10,7 @@ Apply migrations and seeds under PostgreSQL advisory locks while keeping runtime
 
 - A built API image and reachable PostgreSQL with the required migration, runtime and host-scope credentials.
 - A verified backup and a compatible release plan; an image rollback does not reverse schema changes.
-- Module migrations created with [`/starterkit:add-migration`](../../tools/claude/starterkit-plugin/skills/add-migration/SKILL.md).
+- Module migrations created with `/starterkit:add-migration`.
 - Existing module-schema, concurrency and RLS conventions from [Database conventions](../Architecture/DatabaseConventions.md).
 
 ## Steps

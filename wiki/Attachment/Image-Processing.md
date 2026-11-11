@@ -73,4 +73,4 @@ Header identification failure or mismatched type fails validation; excessive meg
 
 ## Related
 
-[Security](Security.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [Third-party licenses](../Reference/Third-Party-Licenses.md), and [`/starterkit:add-background-job`](../../tools/claude/starterkit-plugin/skills/add-background-job/SKILL.md).
+[Security](Security.md), [Reliability](Reliability.md), [Configuration](Configuration.md), [Third-party licenses](../Reference/Third-Party-Licenses.md), and `/starterkit:add-background-job`.
