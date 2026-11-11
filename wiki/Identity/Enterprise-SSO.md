@@ -72,8 +72,9 @@ The protocol adapters and login flow enforce these boundaries:
 - **Availability.** Start, discovery/enforcement and SCIM user/group operations check `Identity:Sso:Enabled`.
   SSO start and callback both check the tenant plan feature `sso`: a lost entitlement gives 404 at start or
   callback `sso_error=sso_disabled`. Enforcement uses the same `ISsoEntitlement` check and lapses with availability.
-  The callback and code exchange do not independently recheck the platform switch; disabling it is not a
-  revocation mechanism for an already-started flow.
+  The callback and the code exchange check `Identity:Sso:Enabled` again: a sign-in started before an operator
+  switched SSO off ends with `sso_error=sso_disabled` (the IdP is not called), and an unused exchange code gets 404
+  without being consumed (`SsoKillSwitchTests`). Sessions already issued are not revoked by the switch.
 - **Default roles** must be roles of the tenant (Identity's `ITenantRoleGuard` queries Tenancy contracts; 400 `tenant_role_not_found`).
 - **Open redirect via discovery.** The OIDC `authorization_endpoint` must be HTTPS and on the authority host.
 - **SSRF.** Discovery, JWKS and token calls go through the shared guarded handler (`Shared.Core.Net.GuardedConnector`):

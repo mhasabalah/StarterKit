@@ -54,12 +54,12 @@ public sealed class ProductionConfigurationGuardTests
     {
         var config = Config(
             ("ConnectionStrings:starterkit", "Host=db;Password=CHANGE_ME;Username=real-user-name"),
-            ("Hangfire:Dashboard:Password", "change_me"));
+            ("Hangfire:DashboardAuth:Password", "change_me"));
 
         var act = () => ProductionConfigurationGuard.EnsureNoPlaceholders(config, "Production");
 
         var ex = act.Should().Throw<InvalidOperationException>().Which;
-        ex.Message.Should().Contain("ConnectionStrings:starterkit").And.Contain("Hangfire:Dashboard:Password");
+        ex.Message.Should().Contain("ConnectionStrings:starterkit").And.Contain("Hangfire:DashboardAuth:Password");
         ex.Message.Should().NotContain("real-user-name").And.NotContain("Host=db");
     }
 

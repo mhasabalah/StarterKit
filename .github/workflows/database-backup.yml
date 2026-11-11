@@ -48,13 +48,13 @@ jobs:
       - name: Run backup
         run: |
           cd ${{ env.DEPLOY_DIR }}
-          docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
-            pgbackrest --stanza=${{ env.APP_NAME }} --type=${{ steps.backup_type.outputs.type }} --no-archive-check backup
+          docker compose -f docker-compose.yml --env-file .env.prod exec -T -u postgres pgbackrest \
+            pgbackrest --stanza=${{ env.APP_NAME }} --type=${{ steps.backup_type.outputs.type }} backup
 
       - name: Verify backup
         run: |
           cd ${{ env.DEPLOY_DIR }}
-          docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+          docker compose -f docker-compose.yml --env-file .env.prod exec -T -u postgres pgbackrest \
             pgbackrest --stanza=${{ env.APP_NAME }} info
             
       - name: Gather backup metrics
@@ -64,7 +64,7 @@ jobs:
           cd ${{ env.DEPLOY_DIR }}
           
           # Get backup info in JSON format
-          BACKUP_INFO=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+          BACKUP_INFO=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T -u postgres pgbackrest \
             pgbackrest --stanza=${{ env.APP_NAME }} --output=json info 2>/dev/null)
           
           # Check if we have valid JSON
@@ -211,7 +211,7 @@ jobs:
         if: success()
         run: |
           cd ${{ env.DEPLOY_DIR }}
-          VERIFY_OUTPUT=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T pgbackrest \
+          VERIFY_OUTPUT=$(docker compose -f docker-compose.yml --env-file .env.prod exec -T -u postgres pgbackrest \
             pgbackrest --stanza=${{ env.APP_NAME }} info 2>&1)
           
           if echo "$VERIFY_OUTPUT" | grep -iE "error|warn|fail" > /dev/null; then

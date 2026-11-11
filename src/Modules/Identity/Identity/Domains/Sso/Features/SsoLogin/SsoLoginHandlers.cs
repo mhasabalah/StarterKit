@@ -214,6 +214,10 @@ public sealed class ExchangeSsoCodeHandler(
 
     public async Task<LoginResult> Handle(ExchangeSsoCodeCommand command, CancellationToken cancellationToken)
     {
+        // An exchange code issued just before SSO was switched off must not become a session (the code is not consumed).
+        if (!options.Value.Enabled)
+            throw new NotFoundException(SsoLoginFlow.DisabledMessage);
+
         var lifetime = TimeSpan.FromSeconds(Math.Clamp(options.Value.ExchangeCodeLifetimeSeconds, 10, 300));
         var grant = await store.ConsumeAsync<SsoLoginGrant>(SsoLoginFlow.GrantKind, command.Code, lifetime, cancellationToken)
                     ?? throw new UnauthorizedException(InvalidCodeMessage);
@@ -271,10 +275,14 @@ public sealed class SsoLoginFlow(
 
     private TimeSpan CodeLifetime => TimeSpan.FromSeconds(Math.Clamp(options.Value.ExchangeCodeLifetimeSeconds, 10, 300));
 
+    public const string DisabledMessage = "Single sign-on is not enabled.";
+
+    public bool Enabled => options.Value.Enabled;
+
     public void EnsureEnabled()
     {
-        if (!options.Value.Enabled)
-            throw new NotFoundException("Single sign-on is not enabled.");
+        if (!Enabled)
+            throw new NotFoundException(DisabledMessage);
     }
 
     /// <summary>The connection tenant still has the plan feature <c>sso</c> (evaluated in that tenant scope).</summary>
@@ -332,6 +340,11 @@ public sealed class SsoLoginFlow(
         SsoConnection connection, SsoLoginState state, Func<CancellationToken, Task<SsoIdentity>> validate,
         CancellationToken ct)
     {
+        // The master switch is checked at the start AND here: a sign-in started before an operator turned SSO off
+        // (state lives up to LoginTimeoutMinutes) must not complete afterwards. Checked before the IdP is called.
+        if (!Enabled)
+            return Fail(state.ReturnUrl, "sso_disabled");
+
         try
         {
             var identity = await validate(ct);
