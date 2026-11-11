@@ -54,6 +54,8 @@ dotnet new install .                                           # both templates 
 dotnet new starterkit -n Probe -o ../probe --sample false      # generate a product to check a template change
 dotnet pack templates/StarterKit.Templates.csproj -o artifacts # the StarterKit.Templates pack (CI: templates.yml)
 bash scripts/regenerate-module-migrations.sh                   # after changing the module template's model
+cd docs-site && npm ci && npm run dev   # the documentation site (wiki/ rendered by Starlight)
+cd docs-site && npm run check:mermaid   # every Mermaid diagram in wiki/ renders
 ```
 <!--#endif-->
 
@@ -79,6 +81,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 | `deployment/`, `infra/`, `.github/workflows/` | Deploy scripts, Nginx, observability configs, CI/CD |
 | `tools/claude/starterkit-plugin` | This repo's Claude Code plugin (skills, reviewer agent, hooks) |
 <!--#if (templateSource)-->
+| `docs-site/` | Astro Starlight documentation site rendered from `wiki/`; navigation in `sidebar.mjs` |
 | `.template.config/`, `templates/` | The `dotnet new` product template (this repo) and the module template + the `StarterKit.Templates` pack |
 <!--#endif-->
 
@@ -259,7 +262,7 @@ Notification is the exception: its context is in `Persistence/`.
   - Every NON-SSO sign-in path (password, passkey, social) and password reset calls `ISsoEnforcementPolicy`.
   - SSO availability (sign-in, discovery, enforcement) is ONE check, `ISsoEntitlement` (plan feature `sso`):
     enforcement must lapse with sign-in, never block passwords while SSO is unavailable.
-  - Role ids an admin assigns to directory-driven memberships go through `ITenantRoleGuard` (Tenancy contract).
+  - Role ids an admin assigns to directory-driven memberships go through `ITenantRoleGuard` (Identity, checks via Tenancy's contract).
   - Exceptions and aggregate invariants without DI localize through `IdentityText.Get(key, args)` (same resx).
   - Outbound calls to customer-supplied URLs (IdPs, webhooks) go through `Shared.Core.Net.GuardedConnector`.
   - Memberships from directories only via Tenancy `ProvisionMemberCommand`; deprovisioning suspends and revokes
@@ -451,6 +454,9 @@ forbidden C# patterns after edits. Spec Kit
 
 - The index of all docs is `wiki/INDEX.md`. Read the relevant page before changing an area: Architecture,
   MultiTenancy, Messaging, Modules, Identity, Attachment, Testing, Deployment, Decisions (ADRs).
+<!--#if (templateSource)-->
+- `wiki/` is rendered to the documentation site; every new page also needs an entry in `docs-site/sidebar.mjs`.
+<!--#endif-->
 - **Routing:** reference material every developer needs goes in `wiki/`. Flow walkthroughs, session analyses and
   investigations go in your notes vault (`<vault>/projects/<project>/`). Never add markdown to the repo root (only
   `README.md`, `CLAUDE.md`, `AGENTS.md`).
@@ -459,6 +465,8 @@ forbidden C# patterns after edits. Spec Kit
 
 ## Rules
 
+- Documentation-only changes do not require a build or test run. Run the applicable documentation link and formatting
+  checks instead. If the change includes code, the build and test requirements below still apply.
 - After any code change, run `dotnet build StarterKit.slnx` from the repo root and fix every error, then run the
   relevant tests and `dotnet test src/Api.Tests`.
 - The build treats warnings as errors: fix them, or relax a rule in `.editorconfig` with a justification; never `#pragma`
@@ -466,8 +474,9 @@ forbidden C# patterns after edits. Spec Kit
 - **Git: commit and open PRs only when the user asks, and only on a feature branch.**
   - Branch first (`feature/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`). Never commit on, push to, or
     merge into `master` / `develop`; they change only through a reviewed PR.
-  - Before committing, the build, the relevant tests and `dotnet test src/Api.Tests` must pass. Stage only the files
-    of the change (no secrets, build output or scratch files). Use a conventional commit message
+  - Before committing code changes, the build, the relevant tests and `dotnet test src/Api.Tests` must pass.
+    Documentation-only commits require the applicable documentation checks instead. Stage only the files of the
+    change (no secrets, build output or scratch files). Use a conventional commit message
     (`feat(module): ...`, `fix: ...`).
   - Open the PR with `gh pr create --base master` (or the base the user names). The body has a summary and the test
     plan with real results.

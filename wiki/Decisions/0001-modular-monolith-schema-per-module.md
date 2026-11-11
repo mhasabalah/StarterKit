@@ -1,5 +1,9 @@
 # 0001. Modular monolith with one schema and DbContext per module
 
+Module-owned schemas and contracts keep business boundaries explicit within one deployable application.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-04 (recorded; the decision predates the ADR log)
 
@@ -11,7 +15,7 @@ contexts, some of which may later be extracted into separate services.
 ## Decision
 
 - One ASP.NET Core host, with business capabilities as modules under `src/Modules/<M>`.
-- Each module owns a `DbContext`, a Postgres **schema**, its migrations and a `.Contracts` project.
+- Each module owns a `DbContext`, a PostgreSQL **schema**, its migrations and a `.Contracts` project.
 - Modules communicate only through `ISender` + `.Contracts` (sync) or integration events through the outbox (async).
 - There are no cross-schema foreign keys or joins. Other modules' ids are stored as plain values.
 
@@ -27,3 +31,7 @@ contexts, some of which may later be extracted into separate services.
 
 - **Microservices from day one:** operational cost far too high for a starter.
 - **A single shared DbContext:** fast at first, but every module becomes coupled to every table.
+
+## Related
+
+[Overview](../Architecture/Overview.md), [DatabaseConventions](../Architecture/DatabaseConventions.md).

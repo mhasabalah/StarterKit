@@ -1,89 +1,96 @@
-# Identity Module
+# Identity
 
-## Overview
+Identity owns global user accounts and authentication, exposing a provider-neutral user directory so other modules do not depend on its implementation.
 
-The **Identity** module handles authentication, authorization, user management, and security for the StarterKit platform.
+## At a glance
 
-> Admin governance (roles → permissions, `perm:*` policies, admin TOTP 2FA, the admin audit log):
-> see [Permissions-2FA-and-Admin-Audit.md](Permissions-2FA-and-Admin-Audit.md).
+| Responsibility | Main types / location |
+|---|---|
+| Accounts, credentials, roles, onboarding and verification | `src/Modules/Identity/Identity/Domains/`; ASP.NET Core Identity `ApplicationUser` and `ApplicationRole` |
+| Global persistence | `ApplicationIdentityDbContext`, schema `identity`; PostgreSQL stores accounts, refresh tokens, OTPs, API keys, audit and Data Protection keys |
+| Authentication | `IdentityModule`, `JwtTokenGenerator`, `AuthSessionService`, `ApiKeyAuthenticationHandler` |
+| Cross-module user access | `src/Modules/Identity/UserDirectory.Contracts`; queries through `ISender`, integration events through the outbox |
+| Private workflows | `src/Modules/Identity/Identity.Contracts`; only Identity and the host may reference it |
+| Authorization | `src/Shared/Shared.Core/Authorization`; Identity registers permission and MFA policies |
 
-## Responsibilities
+`ApplicationIdentityDbContext` maps `identity.users`, `roles`, `user_roles`, `user_claims`, `role_claims`,
+`user_logins`, `user_tokens` and `user_passkeys`; dedicated configurations map refresh tokens and other Identity records.
 
-- User authentication (login, logout, token management)
-- User registration and profile management
-- Role and permission management
-- Password management (reset, change)
-- JWT token generation and validation
-- Claims-based authorization
-- Multi-factor authentication (MFA)
-- Session management
+Identity stays global. Tenancy owns memberships, tenant roles and branches; see [Multi-tenancy](../MultiTenancy/Overview.md).
+The [request lifecycle](../Architecture/Request-Lifecycle.md) owns middleware and mediator ordering.
 
-## Technology Stack
+## How it works
 
-- **ASP.NET Core Identity**: User management framework
-- **JWT Bearer**: Token-based authentication
-- **BCrypt/PBKDF2**: Password hashing
-- **Redis**: Session and token storage
-- **Mediator** (`Shared.Contracts.Mediation`, owned): command/query handling
-
-## Domain Model
-
-### Key Entities
-
-#### User
-```csharp
-public class ApplicationUser : IdentityUser<Guid>
-{
-    public string ArabicName { get; set; }
-    public string EnglishName { get; set; }
-    public bool IsActive { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? LastLoginAt { get; set; }
-    public Guid? ProfileId { get; set; }
-    public Profile? Profile { get; set; }
-}
+```mermaid
+flowchart TB
+  C[Caller] --> P[Authentication policy scheme]
+  P --> J[JWT Bearer]
+  P --> K[ApiKey]
+  J --> T[PermissionClaimsTransformation]
+  K --> T
+  T --> A[Authorization policies]
+  A --> I[Identity endpoint]
+  subgraph Other[Other modules]
+    S[ISender] --> U[UserDirectory.Contracts]
+  end
+  U --> H[Identity query handlers]
 ```
+*Figure: Authentication feeds application authorization while other modules access users through the directory port.*
 
-#### Role
-```csharp
-public class ApplicationRole : IdentityRole<Guid>
-{
-    public string ArabicName { get; set; }
-    public string? Description { get; set; }
-    public bool IsSystemRole { get; set; }
-}
-```
+### Authentication and sessions
 
-#### RefreshToken
-```csharp
-public class RefreshToken : BaseEntity
-{
-    public Guid UserId { get; set; }
-    public string Token { get; set; }
-    public DateTime ExpiresAt { get; set; }
-    public bool IsRevoked { get; set; }
-    public DateTime? RevokedAt { get; set; }
-}
-```
+The `BearerOrApiKey` policy scheme selects `ApiKey` for `Authorization: ApiKey <key>` or `X-Api-Key: <key>`; an explicit
+`Authorization: Bearer <token>` takes precedence. The JWT path validates signature, issuer, audience and lifetime,
+then checks access-token, session and user-stamp revocation. `sid` identifies the refresh-token family, allowing
+one device to be signed out. [JWT technical guide](jwt/JWT-AUTH-TECHNICAL-GUIDE.md) owns rotation, revocation,
+claims, signing-key rotation, storage and lifetimes.
 
-## Features
+ASP.NET Core Identity manages password hashing and credentials. Redis accelerates revocation checks; it is not
+the authoritative store for refresh sessions. Social login, passkeys and enterprise SSO complete authentication
+through Identity; they do not give other modules access to Identity internals.
 
-### Endpoints
+### Roles and permissions
 
-The full, code-generated route table (auth, onboarding, profile, users, admins, impersonation, audit), with the
-authorization and rate limit of each route, is in **[Users-and-Admins-API.md](Users-and-Admins-API.md)**. In short:
+Tokens carry platform roles; `PermissionClaimsTransformation` derives permissions through `RolePermissionMap`
+on each request. Token issuance does not expand the map into permission claims. There is no platform role CRUD
+API: roles are seeded, assigned and revoked; grants are code. Tenant permissions come from memberships in
+multi-tenant mode, not JWT claims.
 
-- **Auth:** `api/auth/{register,login,refresh,logout,change-password,forgot-password,verify-reset-otp,reset-password}`,
-  `api/auth/email/*`, `api/auth/2fa/*`, and `api/auth/switch-tenant` (multi-tenancy).
-- **Passkeys:** `api/auth/passkeys/*` - see [Passkeys](Passkeys.md).
-- **Enterprise SSO:** `api/auth/sso/*` (sign-in) and `api/v1/tenant/sso/*` (tenant admin) - see
-  [Enterprise SSO](Enterprise-SSO.md); provisioning at `/scim/v2` - see [SCIM](SCIM.md).
-- **Users and admins (platform staff, permission-gated):** `api/identity/users/*`, `api/identity/admins/*`.
-- **Roles:** there is no role CRUD API. Roles are seeded (`Domains/Roles/Constants/RoleConstants.cs`), assigned with
-  `POST api/identity/users/{id}/roles` and revoked with `DELETE api/identity/users/{id}/roles/{roleName}`.
-  Permissions per role are code (`RolePermissionMap`).
-- **Token flow details:** [jwt/JWT-AUTH-TECHNICAL-GUIDE.md](jwt/JWT-AUTH-TECHNICAL-GUIDE.md) and
-  [jwt/JWT-AUTH-FRONTEND-GUIDE.md](jwt/JWT-AUTH-FRONTEND-GUIDE.md).
+Seed identifiers from `src/Modules/Identity/Identity/Domains/Roles/Constants/RoleConstants.cs`:
+
+| Role | Seeded id |
+|---|---|
+| User | `11111111-1111-1111-1111-111111111111` |
+| Admin | `33333333-3333-3333-3333-333333333333` |
+| SuperAdmin | `44444444-4444-4444-4444-444444444444` |
+| Finance | `66666666-6666-6666-6666-666666666666` |
+| Support | `77777777-7777-7777-7777-777777777777` |
+
+The default MFA requirement covers SuperAdmin, Admin and Finance on permission/admin policies. Support is a staff
+role but is not in that default list. A user-verified passkey counts as MFA. See
+[Permissions, 2FA and audit](Permissions-2FA-and-Admin-Audit.md) for grants, enrollment, enforcement and role hierarchy.
+
+### Impersonation and restricted endpoints
+
+Support impersonation issues an access-only token with `act` identifying the actor, a mandatory reason and a bounded
+lifetime; it cannot impersonate staff or create another impersonation. Identity and tenant audit writes must both
+succeed before the token is returned. Identity writes are blocked while impersonating, and
+`.DisallowImpersonation()` also blocks explicitly marked endpoints, including safe methods.
+`.DisallowApiKey()` separately rejects API-key callers on interactive credential, session and key-management routes.
+The [endpoint reference](Users-and-Admins-API.md) lists the declarations; [governance](Permissions-2FA-and-Admin-Audit.md)
+owns the impersonation constraints.
+
+### API keys (personal access tokens)
+
+Keys have format `sk_<8-character prefix>_<secret>`. Creation returns the secret once; persistence stores its SHA-256
+hash. Effective permissions are the owner's current permissions intersected with key scopes, including tenant
+membership permissions where applicable. Creation cannot grant scopes the owner lacks. Locked, inactive or deleted
+owners cannot authenticate with a key.
+
+Key principals carry neither `ClaimTypes.Role` nor `is_admin`; owner roles use `ApiKeyClaimTypes.OwnerRole` solely
+for permission derivation and the MFA gate. Role policies and Hangfire admin checks therefore do not accept a key
+as an administrator. Keys have no `amr=mfa`, so owners subject to MFA enforcement cannot use them to satisfy that
+requirement. Each key has its own rate-limit partition. Last-use writes are throttled.
 
 ### One-time codes (OTP)
 
@@ -92,10 +99,10 @@ Identity owns the application's ONE one-time-code system: `IOtpCodeService` (`Se
 
 | Purpose | Used by | Delivery |
 |---|---|---|
-| `PhoneVerification` | `POST /api/identity/phone/send-verification` + verify; `/notifications/verification/*` (PhoneVerification) | SMS (`ISmsService`) / WhatsApp |
+| `PhoneVerification` | `POST /api/identity/phone/send-verification` + verify; `/api/v1/notifications/verification/*` (PhoneVerification) | SMS (`ISmsService`) / WhatsApp |
 | `PasswordReset` | `forgot-password` (phone) + `verify-reset-otp` | SMS (`ISmsService`) |
-| `OnboardingPhoneVerification` | onboarding register / resend-otp / verify-phone, `OnboardingOtpRetryJob` | WhatsApp (`IOtpSender` → Notification `IOtpDeliveryService`) |
-| `EmailVerification`, `TwoFactorLogin` | `/notifications/verification/*` | Notification (email has no OTP template yet) |
+| `OnboardingPhoneVerification` | onboarding register / resend-otp / verify-phone, `OnboardingOtpRetryJob` | WhatsApp or email (`IOtpSender` → Notification `IOtpDeliveryService`) |
+| `EmailVerification`, `TwoFactorLogin` | `/api/v1/notifications/verification/*` | Notification (WhatsApp or email) |
 
 Guarantees:
 - Codes from a CSPRNG; stored only as HMAC-SHA256(`Identity:OtpHmacKey` / secret `identity_otp_hmac_key`,
@@ -136,201 +143,90 @@ part of onboarding.
 - The `email_verified` claim in existing access tokens updates at the next refresh.
 - Phone accounts carry a non-routable placeholder email. They get no confirmation mail until they add a real email.
 
-#### Reset Password
-- **Endpoint**: `POST api/auth/reset-password`
-- **Request**:
-```json
-{
-  "email": "user@example.com",
-  "token": "reset-token-here",
-  "newPassword": "NewPassword123!"
-}
-```
+## Configuration
 
-## Security Configuration
+Defaults below come from `src/Api/appsettings.json` and Identity's `Options/IdentityOptions.cs`,
+`PhoneVerificationOptions.cs`, `EmailConfirmationOptions.cs`, `PasswordResetOptions.cs` and `ApiKeyOptions.cs`.
+JWT and Data Protection settings belong to the [technical guide](jwt/JWT-AUTH-TECHNICAL-GUIDE.md#configuration)
+and [governance guide](Permissions-2FA-and-Admin-Audit.md#configuration).
 
-### Data Protection key encryption
+| Key | Default | Meaning |
+|---|---|---|
+| `IdentitySettings:Password:RequiredLength` | `8` | Minimum password length |
+| `IdentitySettings:Password:RequireDigit`, `RequireLowercase`, `RequireUppercase`, `RequireNonAlphanumeric` | `true` each | Required character classes; all keys under the same Password section |
+| `IdentitySettings:Password:RequiredUniqueChars` | `1` | Distinct characters required |
+| `IdentitySettings:Lockout:MaxFailedAccessAttempts` | `5` | Failed-attempt threshold |
+| `IdentitySettings:Lockout:DefaultLockoutTimeSpanMinutes` | `15` | Lockout duration |
+| `IdentitySettings:Lockout:AllowedForNewUsers` | `true` | Enable lockout for new accounts |
+| `IdentitySettings:User:RequireUniqueEmail` | `true` | Unique email requirement |
+| `IdentitySettings:SignIn:RequireConfirmedEmail`, `RequireConfirmedPhoneNumber` | `false` each | Framework sign-in requirements |
+| `PhoneVerification:CodeLength` | `6` | Numeric OTP length |
+| `PhoneVerification:CodeExpirationMinutes` | `10` | OTP lifetime |
+| `PhoneVerification:MaxVerificationAttempts` | `5` | Attempt cap |
+| `PhoneVerification:ResendCooldownSeconds` | `60` | Minimum resend interval |
+| `PhoneVerification:MaxSendsPerDay` | `10` | Rolling 24-hour send cap |
+| `Identity:OtpHmacKey` | No production default | Stable shared secret; Development/Testing generate a per-process fallback |
+| `EmailConfirmation:TokenExpiryHours` | `24` | Confirmation-token lifetime |
+| `EmailConfirmation:SendOnRegister` | `true` | Best-effort automatic confirmation email |
+| `PasswordReset:TokenExpiryHours` | `1` | Reset-link lifetime |
+| `PasswordReset:OtpExpiryMinutes` | `15` | Reset OTP lifetime |
+| `PasswordReset:MaxOtpAttempts` | `3` | Reset OTP attempt cap |
+| `Identity:ApiKeys:Enabled` | `true` | Key authentication and creation switch |
+| `Identity:ApiKeys:DefaultExpiryDays` | `90` | Default key lifetime |
+| `Identity:ApiKeys:MaxExpiryDays` | `365` | Maximum requested lifetime |
+| `Identity:ApiKeys:MaxActiveKeysPerUser` | `10` | Active-key cap |
+| `Identity:ApiKeys:LastUsedWriteIntervalMinutes` | `5` | Last-use write throttle |
 
-`Identity:DataProtection:KeyEncryption` = `None` | `Certificate` | `AzureKeyVault` | `AwsKms`. Azure uses
-`ProtectKeysWithAzureKeyVault`; AWS uses the module's own KMS `IXmlEncryptor`/`IXmlDecryptor`, with the encryption
-context bound to the application name. `RequireKeyEncryption=true` makes startup fail when no protector is configured
-(`DataProtectionKeyEncryptionCheck`). Sessions and API keys are documented in
-[Users-and-Admins-API.md](Users-and-Admins-API.md#sessions-devices).
+Set `EmailConfirmation:FrontendBaseUrl` and `PasswordReset:FrontendBaseUrl` to the deployed frontend origin.
+See [Frontend integration](Frontend-Integration.md) for client flows and provider configuration.
 
-### JWT Configuration
+## Usage
+
+A provider-neutral query contract, from
+`src/Modules/Identity/UserDirectory.Contracts/Queries/GetUserProfileQuery.cs`:
+
 ```csharp
-public class JwtSettings
-{
-    public string SecretKey { get; set; }
-    public string Issuer { get; set; }
-    public string Audience { get; set; }
-    public int AccessTokenExpirationMinutes { get; set; } = 60;
-    public int RefreshTokenExpirationDays { get; set; } = 7;
-}
+public sealed record GetUserProfileQuery(Guid UserId) : IQuery<UserProfileDto?>;
 ```
 
-### Password Policy
-```csharp
-services.Configure<IdentityOptions>(options =>
-{
-    // Password settings
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = true;
-    options.Password.RequiredLength = 8;
-    
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.AllowedForNewUsers = true;
-    
-    // User settings
-    options.User.RequireUniqueEmail = true;
-});
-```
+Send this through `ISender`; unknown users return null. Do not reference `ApplicationUser`, the Identity DbContext
+or `Identity.Contracts` from another module. [Replacing the provider](Replacing-the-Identity-Provider.md) lists
+the complete port, including deletion and session-revocation events.
 
-### Claims
-```csharp
-var claims = new List<Claim>
-{
-    new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-    new(ClaimTypes.Name, user.UserName),
-    new(ClaimTypes.Email, user.Email),
-    new("ArabicName", user.ArabicName),
-    new("EnglishName", user.EnglishName)
-};
+Use [database conventions](../Architecture/DatabaseConventions.md) for migrations; the context is
+`ApplicationIdentityDbContext`, not `IdentityDbContext`.
 
-// Add role claims
-foreach (var role in userRoles)
-{
-    claims.Add(new Claim(ClaimTypes.Role, role));
-}
-```
+## Failure modes and guarantees
 
-## Authorization Policies
+- Login returns the same 401 for unknown accounts, bad passwords and lockout. A successful HTTP response can still
+  require a second factor or represent partial login; clients must inspect the result.
+- OTP issuance and attempt reservation are atomic. Consuming a correct code succeeds once; delivery failure lifts
+  cooldown but preserves the send cap. `OtpRateLimitedException` maps to 429.
+- Revocation cache failures can leave issued access tokens valid until expiry; refresh validity remains database-backed.
+- API-key restrictions and impersonation restrictions return 403. These do not replace permission or ownership checks.
+- Confirmation links are stamp-bound; invalid, unknown-user and expired confirmations share a 400 response.
 
-### Predefined Policies
-```csharp
-services.AddAuthorization(options =>
-{
-    options.AddPolicy("RequireAdministratorRole", 
-        policy => policy.RequireRole("Admin"));
-    
-    options.AddPolicy("RequireAgentRole", 
-        policy => policy.RequireRole("Agent", "Admin"));
-    
-    options.AddPolicy("RequireActiveUser", 
-        policy => policy.RequireClaim("IsActive", "true"));
-    
-    options.AddPolicy("UserManagement", 
-        policy => policy.RequireRole("Admin", "UserManager"));
-});
-```
+For the envelope and the distinction between error strings and `errorCode`, use
+[Errors and responses](../Architecture/Errors-and-Responses.md).
 
-## Database Schema
+## Guardrails
 
-### Tables
-- `identity.users` - User accounts
-- `identity.roles` - Application roles
-- `identity.user_roles` - User-role assignments
-- `identity.user_claims` - User claims
-- `identity.user_logins` - External login providers
-- `identity.user_tokens` - User tokens
-- `identity.refresh_tokens` - Refresh tokens
+`ModuleBoundaryTests` enforces the user-directory boundary. `AdminEndpointAuthorizationTests` requires explicit
+endpoint authorization. `RolePermissionMapTests`, `PermissionClaimsTransformationTests`, `ApiKeyAuthenticatorTests`, `ApiKeyHandlerTests`,
+`ApiKeyAuthorizationTests`, `AuthSessionServiceTests`, `SessionManagementTests` and `OtpCodeServiceTests` cover
+runtime grants, key scope limits, rotation, sessions and OTP behavior.
 
-### Migrations
-```bash
-cd src\Modules\Identity\Identity
-dotnet ef migrations add InitialIdentity --context IdentityDbContext
-dotnet ef database update --context IdentityDbContext
-```
+## Related
 
-## Integration with Other Modules
-
-### Domain Events
-```csharp
-// Published events
-public record UserRegisteredEvent(Guid UserId, string Email) : IDomainEvent;
-public record UserLoggedInEvent(Guid UserId, DateTime LoginAt) : IDomainEvent;
-public record PasswordChangedEvent(Guid UserId) : IDomainEvent;
-
-// Consumed events
-// None - Identity is foundational
-```
-
-## Best Practices
-
-### ✅ Do's
-- Always use secure password hashing
-- Implement token refresh mechanism
-- Log all authentication attempts
-- Use HTTPS for all endpoints
-- Implement rate limiting for login
-- Store tokens securely (HttpOnly cookies)
-- Validate JWT signatures
-- Use strong secret keys (256-bit minimum)
-
-### ❌ Don'ts
-- Don't store passwords in plain text
-- Don't log sensitive data (passwords, tokens)
-- Don't expose user enumeration vulnerabilities
-- Don't use weak JWT secret keys
-- Don't skip authorization checks
-- Don't trust client-side validation only
-
-## Testing
-
-### Unit Tests
-```csharp
-[Fact]
-public async Task Login_WithValidCredentials_ReturnsToken()
-{
-    // Arrange
-    var command = new LoginCommand("user@example.com", "password");
-    
-    // Act
-    var result = await _handler.Handle(command, CancellationToken.None);
-    
-    // Assert
-    result.IsSuccess.Should().BeTrue();
-    result.Value.AccessToken.Should().NotBeNullOrEmpty();
-}
-```
-
-### Integration Tests
-```csharp
-[Fact]
-public async Task POST_Login_Returns_Token()
-{
-    // Arrange
-    var request = new LoginRequest("user@example.com", "password");
-    
-    // Act
-    var response = await _client.PostAsJsonAsync("/api/auth/login", request);
-    
-    // Assert
-    response.StatusCode.Should().Be(HttpStatusCode.OK);
-    var content = await response.Content.ReadFromJsonAsync<LoginResponse>();
-    content.AccessToken.Should().NotBeNullOrEmpty();
-}
-```
-
-## Common Issues & Solutions
-
-### Issue: Token expiration
-**Solution**: Implement refresh token mechanism
-
-### Issue: User enumeration
-**Solution**: Return generic error messages for login failures
-
-### Issue: Weak passwords
-**Solution**: Enforce strong password policy
-
-## Next Steps
-- [Users-and-Admins-API.md](Users-and-Admins-API.md): every Identity route with its authorization
-- [Permissions-2FA-and-Admin-Audit.md](Permissions-2FA-and-Admin-Audit.md): permissions, 2FA, audit, impersonation
+- [Users and admins API](Users-and-Admins-API.md): every Identity Carter route and its authorization.
+- [Permissions, 2FA and admin audit](Permissions-2FA-and-Admin-Audit.md): platform governance.
+- [Replacing the Identity provider](Replacing-the-Identity-Provider.md): provider-neutral contracts.
+- [Frontend integration](Frontend-Integration.md): sign-in orchestration, SSO and passkeys.
+- [JWT technical guide](jwt/JWT-AUTH-TECHNICAL-GUIDE.md): server token lifecycle.
+- [JWT frontend guide](jwt/JWT-AUTH-FRONTEND-GUIDE.md): client session contract.
+- [Token refresh strategies](jwt/TokenRefreshStrategies.md): client scheduling and coordination.
+- [Enterprise SSO](Enterprise-SSO.md), [SCIM](SCIM.md), [Passkeys](Passkeys.md), [Bot protection](Bot-Protection.md).
 <!--#if (sample)-->
-- [Catalog module](../Modules/Catalog.md): the reference module for new work
+- [Catalog module](../Modules/Catalog.md): the reference module for new work.
 <!--#endif-->
-- [Replacing-the-Identity-Provider.md](Replacing-the-Identity-Provider.md): the `UserDirectory.Contracts` port
+- [ADR-0007](../Decisions/0007-owned-mediator-port.md); `/starterkit:add-feature`, `/starterkit:add-permission`, `/starterkit:update-docs`.

@@ -1,0 +1,25 @@
+---
+import DefaultHero from '@astrojs/starlight/components/Hero.astro';
+import mark from '../assets/mark.svg';
+import { siteBase, repository } from '../../sidebar.mjs';
+const { data, id } = Astro.locals.starlightRoute.entry;
+const isLanding = id === '' || id === 'index';
+const actions = [
+  { text: 'Get started', link: 'getting-started/new-project/', variant: 'primary' },
+  { text: 'Architecture', link: 'architecture/overview/', variant: 'secondary' },
+  { text: 'GitHub', link: 'github', variant: 'minimal' },
+];
+const href = (link: string) => link === 'github' ? `https://github.com/${repository}` : `${siteBase}${link.replace(/^\//, '')}`;
+---
+{isLanding ? <section class="brand-hero" aria-labelledby="_top">
+  <div>
+    <p class="brand-eyebrow">One host. Clear boundaries.</p>
+    <h1 id="_top" data-page-title class="brand-wordmark">Starter<strong>Kit</strong></h1>
+    <p class="brand-tagline">{data.hero?.tagline}</p>
+    <p class="brand-subtitle">Start with the infrastructure. Build what makes your product yours.</p>
+    <nav class="brand-actions" aria-label="Get started">
+      {actions.map(action => <a class:list={['brand-button', action.variant]} href={href(action.link)}>{action.text}<span aria-hidden="true">&nbsp;{action.link === "github" ? "↗︎" : "→"}</span></a>)}
+    </nav>
+  </div>
+  <div class="brand-art"><img src={mark.src} width="128" height="128" alt="Three offset module slices forming an S" /><p>COMPOSE / ISOLATE / EXTEND</p></div>
+</section> : <DefaultHero />}

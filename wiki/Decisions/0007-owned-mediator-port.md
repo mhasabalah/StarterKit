@@ -1,5 +1,9 @@
 # 0007. Own the mediator port; do not depend on MediatR
 
+An owned mediator port keeps request dispatch and pipeline behavior independent of third-party mediator packages.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-04
 
@@ -8,6 +12,7 @@
 Every module dispatched commands and queries and published domain events through MediatR 12.5. That version is
 Apache-2.0, but it is the last free major: 13+ is commercial and 12.x gets no further fixes. MediatR's types were
 everywhere:
+
 - 13 global usings
 - `ICommand`/`IQuery` inheriting `MediatR.IRequest`
 - `IDomainEvent : MediatR.INotification`
@@ -73,3 +78,7 @@ handlers of a notification. We use no streams, no pre/post processors and no exc
   envelope types and reflection to bridge them. That is more code than the dispatcher itself, for no gain.
 - **A source-generated mediator now.** It is faster, but it brings its own interfaces and analyzers. The owned port
   keeps that option open without paying for it today.
+
+## Related
+
+[DesignPatterns](../Architecture/DesignPatterns.md), [Architecture Guardrails](../Reference/Architecture-Guardrails.md).

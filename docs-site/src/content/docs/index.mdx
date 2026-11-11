@@ -1,0 +1,74 @@
+---
+title: StarterKit
+description: Production-ready ASP.NET Core 10 modular monolith starter. Isolated modules, enforced boundaries, production defaults.
+template: splash
+editUrl: false
+hero:
+  title: StarterKit
+  tagline: Production-ready ASP.NET Core 10 modular monolith starter
+
+---
+
+import { CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
+import { siteBase } from '../../../sidebar.mjs';
+
+## Your next product starts here
+
+A working foundation, with space for your domain. Install the template, create your project, and run the stack with Aspire.
+
+<Steps>
+
+1. **Install the templates.** First complete the <a href={`${siteBase}getting-started/templates/#install`}>GitHub Packages feed setup</a> outside any repository.
+
+   ```bash
+   dotnet new install StarterKit.Templates
+   ```
+
+2. **Create your product.** Start with the defaults, or choose the tenancy, transport, and storage options in the guide.
+
+   ```bash
+   dotnet new starterkit -n Acme
+   ```
+
+3. **Run with Aspire.** With the .NET 10 SDK and Docker available, launch the API and its backing services.
+
+   ```bash
+   cd Acme/src/Aspire/AppHost && dotnet run
+   ```
+
+</Steps>
+
+Continue with the <a href={`${siteBase}getting-started/new-project/`}>configuration and verification checklist</a> before deployment.
+
+## The foundations, already connected
+
+Each module owns its data and exposes explicit contracts. Follow a capability from its public API to its operational details.
+
+<CardGrid>
+  <LinkCard title="Identity & authentication" description="JWT, permissions and 2FA, plus passkeys, enterprise SSO and SCIM provisioning." href={`${siteBase}identity/`} />
+  <LinkCard title="Multi-tenancy" description="Tenants, branches and memberships. Named EF filters and PostgreSQL row-level security." href={`${siteBase}multitenancy/overview/`} />
+  <LinkCard title="Billing & subscriptions" description="Plans, invoices, refunds and an append-only ledger. Trials, coupons and usage quotas." href={`${siteBase}modules/subscriptions/`} />
+  <LinkCard title="Notifications" description="Email and WhatsApp, an in-app inbox, real-time SignalR events and FCM push." href={`${siteBase}modules/notification/`} />
+  <LinkCard title="Outbox & sagas" description="Transactional integration events, idempotent consumers and durable saga state in module databases." href={`${siteBase}architecture/messaging/`} />
+  <LinkCard title="Attachments" description="Validated uploads, ClamAV malware scanning and Local, Azure Blob or S3 storage." href={`${siteBase}attachment/`} />
+  <LinkCard title="Bulk import & export" description="CSV and Excel background jobs with dry runs, error reports and crash-safe resume." href={`${siteBase}modules/datatransfer/`} />
+  <LinkCard title="Webhooks" description="Tenant endpoints, signed deliveries, retries with backoff and a delivery log." href={`${siteBase}modules/webhooks/`} />
+  <LinkCard title="Observability" description="OpenTelemetry traces and metrics, structured logs, and the Aspire development dashboard." href={`${siteBase}architecture/observability/`} />
+  <LinkCard title="Deployment" description="Docker, Nginx and GitHub Actions, with migration, backup and rollback procedures." href={`${siteBase}deployment/`} />
+  <LinkCard title="Architecture guardrails" description="Tests enforce module boundaries, tenant isolation, endpoint authorization and naming conventions." href={`${siteBase}testing/testing-strategy/`} />
+  <LinkCard title="Claude Code plugin" description="Repository-aware skills for modules, features, migrations, events, tests and documentation." href={`${siteBase}getting-started/new-project/#6-build-your-first-module`} />
+</CardGrid>
+
+## Why StarterKit
+
+<div className="brand-why">
+  <div><strong>Boundaries you can enforce.</strong><p>A modular monolith with explicit contracts and integration events. One host, independently owned schemas.</p></div>
+  <div><strong>Tests that protect decisions.</strong><p>Architecture tests turn conventions into checks. Extend the system without silently eroding its boundaries.</p></div>
+  <div><strong>Production defaults, made explicit.</strong><p>Durable messaging, tenant isolation and deployment-time migrations, with documented configuration for your environment.</p></div>
+</div>
+
+<div className="brand-cta">
+  <h2>Build your first vertical slice.</h2>
+  <p>Generate a product, understand its boundaries, then add the module your business needs.</p>
+  <a href={`${siteBase}getting-started/new-project/`}>Start your project →</a>
+</div>

@@ -1,283 +1,263 @@
 # Messaging: domain events, integration events, outbox and transports
 
-How modules talk to each other **asynchronously**, and how StarterKit guarantees an event is published **if and only if**
-the change that raised it was committed.
+Messaging separates in-process reactions from durable cross-module facts, committing integration events with business changes and delivering them asynchronously through an outbox.
 
-> Sync vs async: a module that needs an answer *now* sends a `.Contracts` query/command through `ISender` (in-process,
-> same transaction scope available). There is **no gRPC** between modules: they share one process. gRPC (or HTTP) only
-> becomes relevant for a module that is physically extracted into its own service - its `.Contracts` are the seam.
+## At a glance
 
----
+| Boundary | Main types / source |
+|---|---|
+| In-process events | `IDomainEvent`, `IPublisher`, `IDomainEventDispatcher` |
+| Integration contracts | `IntegrationEvent`, `IIntegrationEvent`, `src/Shared/Shared.Contracts/Messaging/` |
+| Persistence and relay | `OutboxInterceptor`, `OutboxRelay`, `OutboxSweepJob`, `src/Shared/Shared.Core/Messaging/Outbox/` |
+| Transport | `src/Shared/Shared.Messaging/Extensions/MassTransitExtensions.cs` |
+| Operations | `src/Api/Endpoints/OutboxAdminEndPoint.cs` |
+| Saga persistence | `src/Shared/Shared.Core/Messaging/Sagas/` |
 
-## 1. Which kind of event?
+Synchronous calls use `ISender` and the other module's contracts. There is no gRPC or HTTP hop between modules. Extracting a service would require a new transport boundary; contracts provide the seam, not an existing remote implementation. See [Overview](Overview.md) and [Request lifecycle](Request-Lifecycle.md).
+
+## How it works
+
+### 1. Which kind of event?
 
 | | Domain event | Integration event |
 |---|---|---|
-| Interface | `IDomainEvent` (`Shared.Contracts.Events`, an `INotification` (`Shared.Contracts.Mediation`)) | `IIntegrationEvent` / `IntegrationEvent` (`Shared.Contracts.Messaging`) |
-| Raised with | `AddDomainEvent(...)` in the aggregate | `AddIntegrationEvent(...)` in the aggregate |
-| Delivered by | `IPublisher` (owned mediator), in-process, after the unit of work commits | Transactional outbox → MassTransit bus (InMemory / PostgreSql / RabbitMq) |
-| Guarantee | Runs once per committed unit of work; a handler failure fails the caller | **At-least-once**, retried, survives restarts (durable transport); never fails the publisher |
-| Consumers | `INotificationHandler<T>` (same module, or another module for in-process contract notifications) | `IConsumer<T>` in the reacting module |
-| Lives in | `Domains/<Aggregate>/Events/` (module) - or `.Contracts/.../Events/` when another module handles it in-process | `<Module>.Contracts/<Area>/IntegrationEvents/` |
+| Contract | `IDomainEvent`, an owned-mediator `INotification` | `IIntegrationEvent` / `IntegrationEvent` |
+| Raised with | `AddDomainEvent(...)` | `AddIntegrationEvent(...)` |
+| Delivery | `IPublisher`, normally after the outermost successful unit of work | Transactional outbox to MassTransit |
+| Guarantee | Committed events are eligible for in-process dispatch; no durable replay | At-least-once publish attempts, bounded retries and dead letters |
+| Reaction | `INotificationHandler<T>` | `IConsumer<T>` in the reacting module |
+| Location | Module `Domains/<Aggregate>/Events/`, or contract events for explicit synchronous notifications | Publishing `.Contracts` project, under `IntegrationEvents/` |
 
-**Decision rule.** Use an **integration event** for a fact other modules react to *eventually*, where the publisher must
-not fail or roll back because of the reaction. If the reaction **must succeed for the command to succeed**, it is not an
-event: call the other module synchronously (`ISender` + its `.Contracts`) or, exceptionally, use an in-process contract
-notification (a `.Contracts` `IDomainEvent` handled inside the same unit of work).
+Use integration events for eventual reactions that must not fail the publishing command. If a reaction must succeed before issuing a result, call a contract synchronously, or use an explicit synchronous contract notification. Ordinary post-commit domain-event dispatch cannot make an already committed save roll back. The impersonation audit below explicitly publishes before token issuance; it is not evidence that all domain events run before commit.
+
+```mermaid
+flowchart TB
+  R{Reaction boundary?} -->|same module| D[IDomainEvent]
+  R -->|other module| S{Must succeed with command?}
+  S -->|yes| C[ISender with other module Contracts]
+  S -->|exceptional synchronous notification| N[Contracts IDomainEvent]
+  S -->|eventual reaction| I[IntegrationEvent through outbox]
+```
+*Figure: Choose synchronous contracts for required results and integration events for independent eventual reactions.*
 
 ### Current flows
 
-| Flow | Kind | Why |
+| Event / flow | Kind | Current reaction |
 |---|---|---|
-| Catalog `ProductPublishedIntegrationEvent` → any module (sample consumer logs it) | Integration | cross-module fact; nothing waits for it |
-| Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` (suspend / reactivate tenant) | Integration | billing must never lose the fact, and a Tenancy failure must not break expiry/activation |
-| Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` (`ProfilePictureUrl`) | Integration | eventually consistent projection in another module |
-| Identity `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`; written to the Identity outbox via a `SessionRevocation` tombstone after any session revoke / logout-all / lock / delete / refresh reuse) → Notification `UserSessionsRevokedConsumer` (closes the revoked sessions' hub sockets on every replica) | Integration | live connections must drop within seconds, and a Notification problem must not fail a sign-out |
-| `UserDirectory.Contracts.Events.ImpersonationStartedEvent` → Tenancy audit | **In-process** (sync) | audit-before-token: if the audit write fails, no impersonation token may be issued |
-| `TenantDataPurgeRequestedEvent` → Attachment / Notification purge | **In-process** | an orchestration step of `PurgeDeletedTenantsJob`; a failure must stop the purge (the job retries) |
-| Tenancy cache invalidation, Subscriptions emails, Catalog logging | Domain (same module) | never leaves the module |
+| `SubscriptionActivatedIntegrationEvent`, `SubscriptionExpiredIntegrationEvent` | Integration | Tenancy `TenantBillingStatusConsumer` re-reads current billing status to suspend/reactivate; Webhooks `SubscriptionActivatedWebhookConsumer` / `SubscriptionExpiredWebhookConsumer` forward public events. |
+| `UserAvatarChangedIntegrationEvent` (Attachment) | Integration | Identity `UserAvatarChangedConsumer` re-reads the current avatar and updates `ProfilePictureUrl`. |
+| `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | Identity persists a `SessionRevocation` tombstone and outbox fact for session revocation; Notification `UserSessionsRevokedConsumer` closes revoked hub sessions across replicas. Sign-out does not wait for Notification. |
+| `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer` clean up module-owned data. |
+| Optional sample: `ProductPublishedIntegrationEvent` | Integration | `ProductPublishedConsumer` re-reads visibility and sends the owner an in-app notification using the event id for correlation; `ProductPublishedWebhookConsumer` forwards it. This flow exists only when the sample is included. |
+| `UserDirectory.Contracts.Events.ImpersonationStartedEvent` | Explicit synchronous notification | Tenancy `ImpersonationAuditHandler` must write the audit before an impersonation token is issued. |
+| `TenantDataPurgeRequestedEvent` | In-process orchestration | Attachment `TenantDataPurgeRequestedEventHandler` and Notification `NotificationTenantPurgeHandler` participate in `PurgeDeletedTenantsJob`; failure stops that attempt and the job retries. |
+| Tenancy cache invalidation, Subscriptions emails; optional sample logging | Same-module domain events | In-process side effects, with the commit/dispatch limitations above. |
 
----
+### Outbox
 
-## 2. Adding an integration event (checklist)
+The outbox lives in the publishing module's database, not in a separate shared business-state store. `OutboxInterceptor` inserts the event row in the same `SaveChanges` transaction as the aggregate and stages `OutboxMessagesSaved` for post-commit dispatch.
 
-1. **Contract** in the publishing module's `.Contracts`:
-   ```csharp
-   // Catalog.Contracts/Products/IntegrationEvents/ProductPublishedIntegrationEvent.cs
-   [MessageUrn("catalog.product-published.v1")]           // stable wire name - never change it
-   public sealed class ProductPublishedIntegrationEvent : IntegrationEvent
-   {
-       public Guid ProductId { get; init; }
-       public Guid OwnerId { get; init; }
-       public string Sku { get; init; } = default!;
-       public DateTime PublishedAt { get; init; }
-   }
-   ```
-   - Ids and a minimal projection only - never an aggregate/entity.
-   - No `TenantId` property: the tenant travels as a transport header and is restored as the consumer's tenant scope.
-2. **Raise it from the aggregate**, next to the domain event:
-   ```csharp
-   AddDomainEvent(new ProductPublishedEvent(Id, OwnerId, Sku, PublishedAt.Value));
-   AddIntegrationEvent(new ProductPublishedIntegrationEvent { ProductId = Id, ... });
-   ```
-3. **Outbox in the module's DbContext** (once per context):
-   - host context: `builder.AddOutbox();` - tenant-data context (`ITenantDataContext`): `builder.AddTenantOutbox();`
-     (before `ApplyTenantFilters(builder)`).
-   - migration: `dotnet ef migrations add AddOutbox --context <Ctx> --project src/Modules/<M>/<M> --startup-project src/Api --output-dir Data/Migrations`;
-     tenant-data contexts add `migrationBuilder.EnableTenantRowLevelSecurity("<schema>", "outbox_messages");`.
-   - registration in `<Module>Module.cs`: `services.AddOutbox<TContext>();` (after `AddCustomDbContext`).
-4. **Consumer** in the reacting module (registered automatically: the module manifest's `ConsumerAssemblies`, ADR-0019):
-   ```csharp
-   public sealed class XConsumer(...) : IConsumer<ProductPublishedIntegrationEvent> { ... }
-   ```
-   Consumer rules:
-   - **Idempotent** - the same message may arrive twice (crash after publish, retries). `context.MessageId` = `EventId`.
-   - **Order-independent** - treat the event as a *trigger* and re-read the current state from its owner
-     (`ISender` + `.Contracts` query) instead of trusting the payload or arrival order
-     (see `TenantBillingStatusConsumer`, `UserAvatarChangedConsumer`).
-   - Runs **outside the mediator**: if it saves aggregates, dispatch their domain events (`IDomainEventDispatcher.DispatchPendingAsync`
-     after `SaveChanges`, or do the work through `IUnitOfWorkRunner`). Enforced by `BackgroundJobEventDispatchTests`.
-   - Throw to retry (transient failure); return normally for "nothing to do" (unknown entity, already applied).
-5. **Never** call `IPublishEndpoint.Publish` from feature code for cross-module facts - it bypasses the outbox (lost on
-   crash, published even when the transaction rolls back).
-
-**Versioning.** Evolve by adding optional properties only. A breaking change is a **new type with a new `.vN` urn**;
-publish both while consumers migrate, then delete the old one once its outbox rows and queues are drained.
-
-Architecture tests (`Api.Tests/Architecture/MessagingArchitectureTests`) enforce: events live in `.Contracts`, carry a
-unique `[MessageUrn]`, are not also `INotification`s, consumers live in module implementations, `.Contracts` stay thin.
-
----
-
-## 3. The transactional outbox (how it works)
-
-Code: `src/Shared/Shared.Core/Messaging/Outbox/`.
-
+```mermaid
+sequenceDiagram
+  autonumber
+  participant A as Aggregate
+  participant DB as DbContext
+  participant I as OutboxInterceptor
+  A->>A: AddIntegrationEvent
+  A->>DB: SaveChanges
+  DB->>I: SavingChanges
+  I->>DB: Add outbox_messages row
+  Note over A,DB: Aggregate and outbox commit together
+  I->>I: Stage OutboxMessagesSaved
+  Note over I: Discard on failed save or rollback
 ```
-Command handler / job                           same SaveChanges = same DB transaction
-  aggregate.AddIntegrationEvent(e) ─────► OutboxInterceptor ─► INSERT <schema>.outbox_messages (urn, json, tenant, trace)
-                                              │
-                                              └─► stages OutboxMessagesSaved in IDomainEventCollector
-                                                  (discarded if the save fails / the transaction rolls back)
+*Figure: The aggregate and its outbox row commit atomically.*
 
-after the outermost unit of work commits:
-  DomainEventDispatcher ─► OutboxMessagesSavedHandler ─► OutboxRelay.DeliverAsync(ids)   (immediate, best effort)
-
-every minute (Hangfire, Messaging:Outbox:SweepCron):
-  OutboxSweepJob ─► OutboxRelay.DeliverAsync(all due rows) + purge delivered rows past retention   (safety net)
+```mermaid
+sequenceDiagram
+  autonumber
+  participant D as Event dispatch
+  participant H as Saved handler
+  participant R as OutboxRelay
+  Note over D: After outermost commit
+  D->>H: OutboxMessagesSaved
+  H->>R: DeliverAsync(ids)
+  Note over H,R: Immediate, best effort
+  R-->>H: Delivery result
 ```
+*Figure: Post-commit dispatch attempts immediate delivery.*
 
-- **Atomicity.** The row is inserted by the same `SaveChanges` as the aggregate: committed together or not at all.
-- **Claiming.** The relay leases rows with `UPDATE ... SET lock_token, locked_until WHERE id IN (...) AND lease free`.
-  The lease predicate is on the target row, so concurrent relays (other API instances, immediate vs. sweep) never own
-  the same row. A lease that expires (crashed relay) is reclaimed.
-- **Publishing.** Each message is published inside **its own tenant scope** (restored from the row), so the tenant
-  publish filter stamps `X-Tenant-Id` and the consumer runs as that tenant. `MessageId` = `EventId`.
-  The publish span (`StarterKit.Outbox` activity source) is parented on the trace that raised the event.
-- **Failures.** `attempts + 1`, `last_error`, `next_attempt_at` = 5s, 10s, 20s ... (max 1h). After
-  `Messaging:Outbox:MaxAttempts` (10) the row is **dead-lettered** (`dead_lettered_at`). Permanent errors (unknown urn,
-  unreadable payload, tenant no longer exists) are dead-lettered immediately.
-- **Tenant data.** Tenant-data contexts use `TenantOutboxMessage` (tenant-owned: named tenant filter, RLS, moved /
-  exported / purged with the tenant). The sweep visits them per serviceable tenant (`ITenantJobRunner`); a `Migrating`
-  tenant's rows wait until it is serviceable again.
-- **Ordering** is best-effort (`occurred_on`); a retried row can overtake a newer one - hence the consumer rules above.
+`DomainEventDispatcher` publishes to `OutboxMessagesSavedHandler` for immediate best-effort delivery. Independently, `OutboxSweepJob` recovers due rows and purges delivered rows beyond retention. See [Request lifecycle](Request-Lifecycle.md#save-commit-and-dispatch) for save failure, rollback and outermost-dispatch handling.
 
-### Configuration (`Messaging:Outbox`)
+```mermaid
+sequenceDiagram
+  autonumber
+  participant R as OutboxRelay
+  participant T as Transport
+  participant C as Consumer
+  R->>T: Publish
+  alt Publish accepted
+    R->>R: Mark row delivered
+    T->>C: At-least-once delivery
+    Note over T,C: Retry consumer faults, then endpoint_error
+  else Publish fails
+    R->>R: Backoff and retry
+    R->>R: Dead-letter at MaxAttempts
+  end
+```
+*Figure: Publishing retries and consumer retries have separate failure paths.*
 
-| Key | Default | Meaning |
+The relay conditionally leases target rows using `lock_token` and `locked_until`. Competing relays cannot claim an unexpired lease; expired leases are reclaimable after a crash or an overlong delivery. Delivery must fit within the configured lease. A crash after publish but before marking the row processed can publish again with the same `MessageId = EventId`.
+
+Each publish restores the row's tenant/host scope; the transport propagates `X-Tenant-Id`. `StarterKit.Outbox` produces an `outbox publish` span parented to the originating trace. Tenant-data contexts use `TenantOutboxMessage`, named filters and RLS; rows move, export and purge with the tenant. The sweep visits serviceable tenants through `ITenantJobRunner`, including dedicated databases; migrating tenants wait. Ordering by `occurred_on` is best effort, not an ordering guarantee across retries.
+
+### Transports (`Messaging:Transport`)
+
+| Transport | Durability | Intended use |
 |---|---|---|
-| `BatchSize` | 100 | rows claimed per relay round |
-| `MaxAttempts` | 10 | attempts before dead-lettering |
-| `LeaseSeconds` | 60 | claim lease |
-| `SweepCron` | `* * * * *` | Hangfire cron of the safety-net sweep |
-| `RetentionDays` | 7 | delivered rows are deleted after this; dead letters are kept |
+| `InMemory` | None; each process has its own bus | Development/tests only. In-flight and retry messages disappear on restart. |
+| `PostgreSql` | Durable queues in the existing database's `transport` schema | Default production Compose selection. |
+| `RabbitMq` | Durable broker queues | Deployments requiring a separate broker and its routing/fan-out facilities. |
 
-### Operations
+`ProductionConfigurationGuard` rejects production InMemory and RabbitMq without a usable broker address/password. Outbox persistence protects the publish intent; it cannot make an in-memory consumer queue durable.
 
-**Metrics.** `outbox.messages.pending` and `outbox.messages.dead_lettered` (gauges, tag `context` = DbContext name, e.g.
-`CatalogDbContext`; Prometheus: `outbox_messages_pending`, `outbox_messages_dead_lettered`). The outbox sweep refreshes
-cached values each run (`SweepCron`); the metrics callback never queries the database. Tenant-data contexts are summed over
-every serviceable tenant, dedicated databases included. A value not refreshed for 10 minutes (the instance no longer runs
-the sweep, Hangfire picks one server per run) is no longer reported. Alerts: `infra/observability/configs/alerts.yaml`
-(`OutboxDeadLetters`: dead-lettered > 0 for 5m; `OutboxBacklogGrowing`: pending > 10 and rising for 15m).
+All transports use kebab-case endpoint names, tenant publish/send/consume filters and `MassTransitHostOptions.WaitUntilStarted`. Waiting for startup is essential: publishing before receive endpoints bind can be accepted without reaching a subscription, then marked delivered by the relay.
 
-**Endpoints** (permission `outbox.manage`, SuperAdmin only; requeue is `.DisallowImpersonation()`). `{context}` is the
-DbContext type name, case-insensitive. For tenant-data contexts an optional `?tenantId=` targets one tenant (use it for a
-tenant on a DEDICATED database); without it the call runs in a small host scope over the shared database.
+`TenantMigratingException` uses delayed redelivery at 5s, 30s, 1m, 2m, 5m, 10m, 15m and 30m. PostgreSql and InMemory support it natively. RabbitMQ needs `rabbitmq_delayed_message_exchange` and `UseDelayedExchange=true`; otherwise migration failures use in-memory retry, holding consumer slots and risking starvation of other tenants. An inner exponential retry handles other transient failures with five retries; exhausted messages fault to `<endpoint>_error`.
 
-| Method | Route | Notes |
-|---|---|---|
-| GET | `/api/v1/admin/outbox/{context}/dead-letters?page=&pageSize=` | Paged `OutboxDeadLetterDto` (id, type, tenant, attempts, `lastError`; no payload) |
-| POST | `/api/v1/admin/outbox/{context}/dead-letters/{id}/requeue` | 404 unknown context/row, 409 when the row is not dead-lettered |
-| POST | `/api/v1/admin/outbox/{context}/dead-letters/requeue` | All dead letters of the context (and tenant); returns the count |
+PostgreSql resolves `ConnectionStrings:starterkit`, falling back to `PostgresOptions:ConnectionString`. Infrastructure creation needs DDL and `CREATEROLE`. Normal startup provisions it only with `Database:MigrateOnStartup=true`; production's `--migrate-only` provisions it explicitly, using `Database:MigrationConnectionString` credentials when supplied. Module migrations use the [migration advisory lock](DatabaseConventions.md#migrations-at-deploy); the transport uses MassTransit's migration service. Disable `CreateInfrastructure` only when provisioning it externally.
 
-Requeue resets attempts and the dead-letter mark; the next sweep redelivers (at-least-once). Fix the cause first (e.g. an
-unknown URN needs the event type restored, or the row dead-letters again).
+RabbitMq prefers `ConnectionStrings:rabbitmq` (including the URI injected by Aspire), otherwise `Messaging:RabbitMq:*`. Supply its password through Docker secret `rabbitmq_password` or `Messaging__RabbitMq__Password`.
 
-**SQL fallback** (no API access, schema = catalog, attachment, subscriptions, ...):
-
-```sql
-SELECT count(*) FILTER (WHERE processed_at IS NULL AND dead_lettered_at IS NULL) AS pending,
-       count(*) FILTER (WHERE dead_lettered_at IS NOT NULL)                       AS dead_lettered,
-       min(occurred_on) FILTER (WHERE processed_at IS NULL)                       AS oldest_pending
-FROM catalog.outbox_messages;
-
--- Tenant tables have RLS: run as a role that bypasses it, or set app.bypass_rls = 'on' for the session.
-UPDATE catalog.outbox_messages
-SET dead_lettered_at = NULL, attempts = 0, next_attempt_at = now()
-WHERE id = '<id>' AND dead_lettered_at IS NOT NULL;
-```
-
-Logs: `Outbox message {MessageId} ({MessageType}) DEAD-LETTERED ...` (error) and `... publish failed ... retry at ...`
-(warning). Alert on the error.
-
----
-
-## 4. Transports (`Messaging:Transport`)
-
-| Value | Durable | Infrastructure | Use for |
-|---|---|---|---|
-| `InMemory` (default) | **No** - messages in flight / being retried are lost on restart; each instance has its own bus | none | development, tests |
-| `PostgreSql` | Yes | none new - queues live in the `transport` schema of the existing database (MassTransit SQL transport) | production default for most deployments |
-| `RabbitMq` | Yes | a RabbitMQ broker | high throughput, fan-out/routing, non-.NET consumers |
-
-The outbox makes **publishing** reliable with any transport; a durable transport makes **delivery to consumers**
-reliable (queued messages and retries survive restarts, failed messages land in `<endpoint>_error` queues).
-
-All transports share the same bus configuration (`Shared.Messaging/Extensions/MassTransitExtensions.cs`):
-- kebab-case endpoints and the tenant publish/send/consume filters;
-- **start-up waits for the bus** (`MassTransitHostOptions.WaitUntilStarted`). Without that, a message published
-  before the receive endpoints are bound reaches a topic with no subscription: PostgreSql accepts it, routes it to
-  nobody, and the outbox marks it delivered, so it is silently lost. Found and pinned by `TenantMessagingBusTests`;
-- **`TenantMigratingException` → delayed redelivery** (5s, 30s, 1m, 2m, 5m, 10m, 15m, 30m). The message goes back to the
-  transport instead of holding a consumer slot. An in-memory retry let 200 waiting messages of one migrating tenant
-  stall every other tenant on the endpoint (`A_migrating_tenant_does_not_block_other_tenants`). InMemory and
-  PostgreSql support this natively. RabbitMQ needs the `rabbitmq_delayed_message_exchange` plugin
-  (`Messaging:RabbitMq:UseDelayedExchange=true`); without it, RabbitMQ falls back to the old in-memory retry and keeps
-  that risk;
-- an inner retry for transient failures (5 attempts, exponential). After that the message moves to
-  `<endpoint>_error`. The outbox already counts it as delivered, so the **`MessageConsumerFaults`** alert (MassTransit
-  `receive.errors`) is what tells you. Fix the consumer, then move the messages back from the `_error` queue (RabbitMQ
-  management UI "Move messages", or the `transport` schema for PostgreSql).
-
-```jsonc
-"Messaging": {
-  "Transport": "InMemory",                       // InMemory | PostgreSql | RabbitMq
-  "PostgreSql": { "Schema": "transport", "Role": "transport", "CreateInfrastructure": true,
-                  "AdminUsername": null, "AdminPassword": null },
-  "RabbitMq": { "Host": "localhost", "Port": 5672, "VirtualHost": "/", "Username": "starterkit", "Password": "CHANGE_ME",
-                "UseDelayedExchange": false }          // true once the broker has the delayed-message plugin
-}
-```
-
-- **PostgreSql** uses `ConnectionStrings:starterkit`. `CreateInfrastructure: true` creates/upgrades the transport
-  schema, role and functions, which needs DDL and `CREATEROLE` rights. App instances do that at startup only with
-  `Database:MigrateOnStartup=true` (dev, Aspire, tests). In production the one-shot `--migrate-only` run owns it, under
-  `Database:MigrationConnectionString` when one is set, so the runtime role stays DML-only. Set
-  `CreateInfrastructure: false` only when a DBA provisions the transport outside the deploy
-  ([ADR 0022](../Decisions/0022-production-message-transport.md)).
-- **RabbitMq** uses `ConnectionStrings:rabbitmq` (an `amqp://user:pass@host:port/vhost` URI - what Aspire injects) when
-  present, otherwise `Messaging:RabbitMq:*`. The password is a secret: Docker secret `rabbitmq_password` or env
-  `Messaging__RabbitMq__Password` - never in `appsettings*.json`.
-
-Running it:
-
-| Environment | How |
+| Environment | Selection |
 |---|---|
-| Aspire | AppHost config/env `Messaging__Transport=RabbitMq` adds a RabbitMQ container (+ management UI) and wires `ConnectionStrings:rabbitmq`; `PostgreSql` needs nothing extra |
-| Docker Compose | `MESSAGING_TRANSPORT=PostgreSql` in `.env`, or the RabbitMQ overlay: `docker compose -f docker-compose.yml -f docker-compose.rabbitmq.yml up -d` (add `-f docker-compose.override.yml` in development). With the worker overlay, also add `-f docker-compose.rabbitmq-worker.yml`, or the worker stays on another transport |
+| Aspire | AppHost `Messaging__Transport=RabbitMq` adds and wires the broker and management UI; PostgreSql uses the existing database. |
+| Compose | `MESSAGING_TRANSPORT=PostgreSql`, or add `docker-compose.rabbitmq.yml`; development also uses `docker-compose.override.yml`. With workers, also include `docker-compose.rabbitmq-worker.yml` so both roles use the same transport. |
 
 ### Sagas
 
-No saga exists yet. When the first one is needed, it is durable from the start
-([ADR 0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md)). The bus never discovers sagas and never uses
-the in-memory repository.
+No production business saga is registered. `AddDurableSagaStateMachine<TMachine,TState,TDbContext>` is the supported registration seam in a module manifest's `ConfigureMessaging`; the bus scans consumers, not sagas. See [ADR-0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md).
 
-1. **State** in the owning module: a class implementing `SagaStateMachineInstance` (plus `IMustHaveTenant` in a
-   tenant-data context). Use a plain class, not `Entity<T>`.
-2. **Mapping:** a `SagaStateConfiguration<TState>` (`Shared.Core.Messaging.Sagas`), applied in the module's DbContext
-   before `ToSnakeCaseTables()`. Then a migration in that module (`/starterkit:add-migration`); a tenant-data table also
-   gets `EnableTenantRowLevelSecurity`.
-3. **Registration** in the module manifest:
+State is a plain `SagaStateMachineInstance`, not `Entity<T>`. Map it with `SagaStateConfiguration<TState>` before `ToSnakeCaseTables()`, and migrate the owning module. Tenant-data saga state also implements `IMustHaveTenant` and requires RLS. The helper supplies an EF repository on that context, PostgreSQL pessimistic `FOR UPDATE` locking, and an in-memory outgoing-message buffer released after state persistence. This buffer is not a second transactional outbox table or an exactly-once guarantee.
 
-   ```csharp
-   public override void ConfigureMessaging(IBusRegistrationConfigurator bus) =>
-       bus.AddDurableSagaStateMachine<OrderFulfilmentStateMachine, OrderFulfilmentState, OrdersDbContext>();
-   ```
-
-What the helper gives:
-- **EF Core repository** on that DbContext.
-- **Pessimistic locking** (`FOR UPDATE`): events of one instance never lose an update.
-- **In-memory outbox:** messages the saga publishes leave only after its state is committed.
-
-Tenancy: the bus restores the message's tenant, `TenantEntityInterceptor` stamps it on the new row, and the tenant
-filter scopes the lookup. Mark events with `OnMissingInstance(m => m.Discard())` when a message may legitimately find no
-instance, for example another tenant's.
-
-**Timeouts.** Declare them with `Schedule(() => Timeout, x => x.TimeoutTokenId, s => { s.Delay = ...; })` and a
-`Guid? TimeoutTokenId` on the state. The bus registers a message scheduler per transport, and `IMessageScheduler` is
-injectable wherever it exists:
+Tenant filters scope lookup and `TenantEntityInterceptor` stamps new state. Configure `OnMissingInstance` to discard when absence is legitimate, such as a message scoped to a different tenant. Scheduled timeouts use the state machine's `Schedule` API and a nullable GUID token property. `IMessageScheduler` is available only when the chosen transport configuration registers it.
 
 | Transport | Scheduler | Durable |
 |---|---|---|
-| PostgreSql | `AddSqlMessageScheduler` / `UseSqlMessageScheduler` (the transport's own tables) | yes |
-| InMemory | delayed message scheduler | no (dev and tests) |
-| RabbitMq | delayed message scheduler, only with `Messaging:RabbitMq:UseDelayedExchange=true` | yes (plugin) |
+| PostgreSql | `AddSqlMessageScheduler` / `UseSqlMessageScheduler` | Yes |
+| InMemory | Delayed message scheduler | No |
+| RabbitMq | Delayed message scheduler with `UseDelayedExchange=true` | Yes, with plugin |
 
-On RabbitMQ without the delayed-exchange plugin there is no scheduler: a saga that schedules faults to its `_error`
-queue. Enable the plugin before shipping such a saga. The scheduled message carries the tenant header like any send,
-so the timeout reaches the saga in its tenant (`DurableSagaTests.A_scheduled_timeout_is_delivered_back_to_the_saga_in_its_tenant`).
+Without the RabbitMQ plugin/configuration there is no scheduler, so scheduling a timeout faults the saga step. Scheduled sends carry tenant headers like other sends.
 
-Guarded by `SagaArchitectureTests` (Api.Tests) and pinned by `Shared.Core.Tests/Messaging/DurableSagaTests`.
+#### Durable saga persistence
 
----
+```mermaid
+flowchart TB
+  subgraph Registration[Module manifest registration]
+    M[ConfigureMessaging] --> A[AddDurableSagaStateMachine]
+    C[SagaStateConfiguration]
+  end
+  subgraph Runtime[Owning module]
+    T[Incoming message] --> L[EF repository: FOR UPDATE]
+    L --> S[SagaStateMachineInstance]
+    S --> D[Module DbContext]
+    D --> O[Commit state]
+    O --> P[Release buffered outgoing messages]
+  end
+  A -. configures .-> L
+  C -. maps state .-> D
+```
+*Figure: Durable saga registration keeps state and locking in the owning module database.*
 
-## 5. Testing
+## Configuration
 
-- Aggregates: assert `aggregate.IntegrationEvents` after the domain method (pure unit test).
-- Persistence: Testcontainers Postgres - after saving, assert the `outbox_messages` row (urn, payload, tenant).
-- Consumers: unit-test `Consume` with a mocked `ISender` / real `DbContext`; cover duplicate and out-of-order delivery.
-- End-to-end bus behavior: `Shared.Core.Tests/Messaging/TenantMessagingBusTests` runs the REAL bus configuration on
-  InMemory and on PostgreSql (Testcontainers). It covers tenant propagation, host scope, purged-tenant drop,
-  migrating-tenant redelivery and noisy-neighbor isolation. These assertions are the contract any future transport or
-  bus library must pass.
+Outbox defaults come from `OutboxOptions` and `src/Api/appsettings.json`; transport defaults come from `MessagingOptions` and the same settings file.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Messaging:Outbox:BatchSize` | `100` | Rows claimed per relay round (1–1000). |
+| `Messaging:Outbox:MaxAttempts` | `10` | Publish attempts before dead-lettering (1–100). |
+| `Messaging:Outbox:LeaseSeconds` | `60` | Claim lease (5–3600 seconds). |
+| `Messaging:Outbox:SweepCron` | `* * * * *` | Hangfire recovery sweep. |
+| `Messaging:Outbox:RetentionDays` | `7` | Delivered-row retention (1–365); dead letters are retained. |
+| `Messaging:Transport` | `InMemory` | Base settings; production Compose selects PostgreSql. |
+| `Messaging:PostgreSql:Schema` / `Role` | `transport` / `transport` | Queue schema and owning role. |
+| `Messaging:PostgreSql:CreateInfrastructure` | `true` | Create/upgrade transport objects during the migration path. |
+| `Messaging:PostgreSql:AdminUsername` / `AdminPassword` | `null` / `null` | Optional infrastructure credentials; otherwise derived from the selected connection. |
+| `Messaging:RabbitMq:Port` / `VirtualHost` | `5672` / `/` | Broker endpoint settings. |
+| `Messaging:RabbitMq:Username` | `starterkit` in appsettings; options fallback `guest` | Broker user. |
+| `Messaging:RabbitMq:Password` | `CHANGE_ME` in base appsettings; options fallback empty | Replace through secret configuration. |
+| `Messaging:RabbitMq:UseDelayedExchange` | `false` | Enables delayed redelivery and scheduling when the broker plugin is installed. |
+
+`Messaging:RabbitMq:Host` is a local development address in base settings and the Compose broker service in Docker settings; configure the deployed broker or supply `ConnectionStrings:rabbitmq`. Deployment addresses are not portable defaults.
+
+## Usage
+
+### Adding an integration event
+
+From `src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions/IntegrationEvents/SubscriptionLifecycleIntegrationEvents.cs`:
+
+```csharp
+[MessageUrn("subscriptions.subscription-activated.v1")]
+[PublicWebhookEvent(Description = "A subscription became active.")]
+public sealed class SubscriptionActivatedIntegrationEvent : IntegrationEvent
+{
+    public Guid SubscriptionId { get; init; }
+    public Guid SubscriberId { get; init; }
+}
+```
+
+The aggregate in `src/Modules/Subscriptions/Subscriptions/Domains/Subscriptions/Models/Subscription.cs` raises:
+
+```csharp
+AddIntegrationEvent(new SubscriptionActivatedIntegrationEvent { SubscriptionId = Id, SubscriberId = SubscriberId });
+```
+
+Keep payloads to ids and minimal projections, never entities. Tenant scope travels in headers, not an event `TenantId` property. Host contexts map `builder.AddOutbox()`; tenant-data contexts map `builder.AddTenantOutbox()` before tenant filters and enable RLS for `outbox_messages` in their migration. Register `services.AddOutbox<TContext>()` after context registration. Consumers are discovered through manifests' `ConsumerAssemblies`. Follow `/starterkit:add-integration-event` and `/starterkit:add-migration` for the procedure.
+
+Never call `IPublishEndpoint.Publish` from feature code for cross-module facts: it bypasses the transactionally persisted intent. `[PublicWebhookEvent]` exposes a contract in the webhook catalog; it also requires a forwarding consumer in Webhooks. `WebhookCatalogAndPayloadTests` checks that every public event has one. It does not mean every internal integration event is customer-visible.
+
+### Consumer idempotency and versioning
+
+Consumers must tolerate duplicate and out-of-order delivery. Treat lifecycle events as triggers and query the owning module's current state through contracts, as `TenantBillingStatusConsumer` and `UserAvatarChangedConsumer` do. For side effects, use the event id as a durable deduplication/correlation key. `MessageId = EventId` identifies retries; it does not itself suppress them.
+
+Consumers run outside the mediator. After saving aggregates, dispatch pending domain events explicitly or use `IUnitOfWorkRunner`. Throw for transient failures; return normally for known no-op cases such as an already-applied effect or absent entity. Tenant jobs use `ITenantJobRunner`.
+
+Wire identity is the unique `[MessageUrn]`, not a CLR rename. Add optional properties for compatible changes. Breaking changes require a new type and `.vN` URN; publish both while consumers migrate, and retain the old type until its outbox rows and queues drain.
+
+## Failure modes and guarantees
+
+Atomicity applies to the aggregate and its outbox row. A publish failure increments `attempts`, records `last_error` and backs off 5s, 10s, 20s, up to one hour. At `MaxAttempts` the row is dead-lettered. Unknown URNs, unreadable payloads and missing tenants dead-letter immediately. Recovery is bounded and operationally visible, not an unconditional promise that every committed event reaches a consumer. Immediate delivery catches non-cancellation failures; cancellation can still propagate after commit while the sweep retains the recovery path.
+
+Consumer failures occur after the relay has accepted publication as delivered. They belong to transport retries and `<endpoint>_error`, not the outbox dead-letter list. Fix the consumer and use the transport's queue inspection/replay tools; the outbox requeue API does not replay consumer error queues. `MessageConsumerFaults` alerts on MassTransit `receive.errors`.
+
+### Operations
+
+`outbox.messages.pending` and `outbox.messages.dead_lettered` are gauges tagged by DbContext `context` (for example `SubscriptionsDbContext`). Prometheus names are `outbox_messages_pending` and `outbox_messages_dead_lettered`. The sweep caches counts; callbacks do not query the database. Tenant counts sum serviceable shared/dedicated tenants. Samples older than ten minutes disappear, since another Hangfire server may own later runs. Alerts in `infra/observability/configs/alerts.yaml` include `OutboxDeadLetters` (>0 for 5m) and `OutboxBacklogGrowing` (>10 and rising for 15m).
+
+Admin routes require `outbox.manage` (SuperAdmin); requeue disallows impersonation. Context names are case-insensitive. For tenant-data contexts, `?tenantId=` selects the tenant, including its dedicated database; without it operations use host scope over the shared database.
+
+| Method | Route | Result |
+|---|---|---|
+| GET | `/api/v1/admin/outbox/{context}/dead-letters?page=&pageSize=` | Paged `OutboxDeadLetterDto`: id, type, tenant, attempts and last error; no payload. |
+| POST | `/api/v1/admin/outbox/{context}/dead-letters/{id}/requeue` | Requeue one; 404 unknown context/row, 409 if not dead-lettered. |
+| POST | `/api/v1/admin/outbox/{context}/dead-letters/requeue` | Requeue all in context/scope; returns count. |
+
+Requeue clears the dead-letter mark and attempts and makes the row due for the next sweep. Fix the underlying cause first; a missing event type will dead-letter again. These routes use the standard [error envelope](Errors-and-Responses.md), without dedicated outbox `errorCode` strings.
+
+SQL inspection remains possible against the owning schema's `outbox_messages`: pending rows have `processed_at IS NULL AND dead_lettered_at IS NULL`, dead letters have `dead_lettered_at IS NOT NULL`, and `min(occurred_on)` identifies the oldest outstanding fact. Manual requeue resets `dead_lettered_at`, `attempts` and `next_attempt_at`. Prefer the admin service, which also resets lease state. Tenant tables require an authorized RLS scope or bypass role; `app.bypass_rls` alone does not bypass role-based RLS. Never assume host SQL sees a dedicated tenant's database.
+
+Relay logs use `DEAD-LETTERED` at Error and publish failures/retry times at Warning. Correlate those with [Observability](Observability.md).
+
+## Guardrails
+
+`MessagingArchitectureTests` validates contract placement, unique URNs, separation from mediator notifications, consumer location and outbox mapping/registration. Add new events to its expected inventory. `BackgroundJobEventDispatchTests` guards explicit dispatch outside the mediator; `SagaArchitectureTests` requires durable saga registration and mapped state.
+
+`OutboxInterceptorTests`, `OutboxRelayTests`, `OutboxMessagesSavedHandlerTests`, `OutboxOptionsTests` and `OutboxVisibilityTests` cover persistence, delivery and operations. `TenantMessagingBusTests` runs the real InMemory and PostgreSql bus configurations for tenant propagation, host scope, purged-tenant drop, migration redelivery and noisy-neighbor isolation. `DurableSagaTests` covers persistence, locking and tenant-scoped scheduled timeouts. `OutboxAdminTests` exercises the admin API.
+
+For a new event, assert `IntegrationEvents` in aggregate unit tests, persisted URN/payload/tenant in PostgreSQL integration tests, and duplicate/out-of-order handling in consumer tests. Run the bus acceptance tests when changing transport behavior.
+
+## Related
+
+[Request lifecycle](Request-Lifecycle.md), [Database conventions](DatabaseConventions.md), [Overview](Overview.md), [ADR-0004](../Decisions/0004-outbox-and-messaging-transports.md), [ADR-0022](../Decisions/0022-production-message-transport.md), [ADR-0023](../Decisions/0023-durable-sagas-on-module-dbcontexts.md), and `/starterkit:add-integration-event` / `/starterkit:add-background-job`.

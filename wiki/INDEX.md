@@ -1,10 +1,12 @@
 # Documentation index
 
-This page links every page of the wiki. Keep it complete; `bash scripts/check-docs.sh` reports pages missing from
+This page links every page of the wiki.
+
+Keep it complete; `bash scripts/check-docs.sh` reports pages missing from
 it. Conventions: `Title-Kebab.md` files, one canonical page per topic, placeholders only (`api.example.com`,
 `YOUR_SERVER_IP`, `CHANGE_ME`).
 
-```
+```text
 wiki/
 ├── README.md                     landing page (start here)
 ├── Getting-Started/              new project from the template
@@ -34,6 +36,9 @@ wiki/
 ## Architecture
 
 - [Overview](Architecture/Overview.md): the big picture
+- [Request lifecycle](Architecture/Request-Lifecycle.md): HTTP middleware, endpoint filters, mediator, commit and event dispatch
+- [Errors and responses](Architecture/Errors-and-Responses.md): response envelopes, exception/status mapping, machine codes and trace identifiers
+- [Concurrency and versions](Architecture/Concurrency-and-Versions.md): version tokens, stale updates, child collections and background conflicts
 - [ProjectStructure](Architecture/ProjectStructure.md): solution and module layout
 - [CodingStandards](Architecture/CodingStandards.md): C# house style, errors, async, logging, localization
 - [DesignPatterns](Architecture/DesignPatterns.md): the patterns in use and the mediator pipeline
@@ -67,6 +72,7 @@ wiki/
 - [0019](Decisions/0019-module-manifests-and-discovery.md): modules plug in through a discovered manifest (no Program.cs edits)
 <!--#if (templateSource)-->
 - [0020](Decisions/0020-dotnet-new-templates.md): `dotnet new` product and module templates (the repo is the template)
+- [0024](Decisions/0024-documentation-site.md): render the canonical wiki with Starlight and publish through GitHub Pages
 <!--#endif-->
 - [0021](Decisions/0021-aggregate-version-covers-child-collections.md): the aggregate version covers its child collections
 - [0022](Decisions/0022-production-message-transport.md): PostgreSQL is the default production message transport
@@ -130,8 +136,14 @@ wiki/
 
 ## Reference
 
+- [Configuration](Reference/Configuration.md): base settings, Docker/Development overrides and option meanings
+- [Endpoint authorization](Reference/Endpoint-Authorization.md): every Carter route, host surfaces, access policy, filters and role grants
+- [Architecture guardrails](Reference/Architecture-Guardrails.md): every architecture assertion, repair and related repository rule
+
+- [Diagram style](Reference/Diagram-Style.md): Mermaid conventions and examples
 - [Feature catalog](Reference/Features.md): everything the template ships, by area
 <!--#if (templateSource)-->
+- [Brand](Reference/Brand.md): logos, palette, typography and voice
 - [Template backlog](Reference/Template-Backlog.md): known issues and roadmap of the template
 <!--#endif-->
 - [Reference/README](Reference/README.md) · [Migrations](Reference/Migrations.md) · [Third-party licenses](Reference/Third-Party-Licenses.md) · [Troubleshooting PostgreSQL authentication](Reference/Troubleshooting-PostgreSQL-Authentication.md)
@@ -143,6 +155,57 @@ wiki/
 - [Secrets](deployment/Secrets.md) · [Backups](deployment/Backups.md) · [Docker Compose](deployment/Docker-Compose.md)
 - [Database migrations](deployment/Database-Migrations.md): one-shot migrator, advisory lock, least-privilege roles
 - [Nginx](deployment/Nginx.md) · [Observability stack](deployment/Observability.md) · [Seq security](deployment/Seq-Security.md) · [Production testing](deployment/Production-Testing.md)
+
+## Rulebook coverage
+
+Use this map with `CLAUDE.md`: the rulebook defines constraints, while these canonical pages explain their application and limits.
+
+| Topic | Canonical page |
+|---|---|
+| Module boundaries, Contracts dependencies, provider-neutral users, no inter-module HTTP | [Architecture overview](Architecture/Overview.md), [Replacing Identity](Identity/Replacing-the-Identity-Provider.md) |
+| Slice layout, grouped lookups, context locations and naming | [Project structure](Architecture/ProjectStructure.md), [Coding standards](Architecture/CodingStandards.md) |
+| Command repositories, query projections and pagination | [Design patterns](Architecture/DesignPatterns.md), [Database conventions](Architecture/DatabaseConventions.md) |
+| Schema, snake_case, string enums, soft delete and child keys | [Database conventions](Architecture/DatabaseConventions.md) |
+| Manifest discovery, module order and startup registration | [Architecture overview](Architecture/Overview.md), [ADR 0019](Decisions/0019-module-manifests-and-discovery.md) |
+| Middleware order, automatic validation and mediator behaviors | [Request lifecycle](Architecture/Request-Lifecycle.md), [Design patterns](Architecture/DesignPatterns.md) |
+| Typed exceptions, status mapping, envelopes and machine codes | [Errors and responses](Architecture/Errors-and-Responses.md) |
+| HTTP idempotency, replay, conflicts and Redis failure behavior | [Request lifecycle](Architecture/Request-Lifecycle.md) |
+| Plan feature gates, quotas and paying versus managing subscribers | [Subscriptions](Modules/Subscriptions.md), [Billing](Subscriptions/Billing.md) |
+| Runtime flags versus entitlements | [Feature flags](Architecture/Feature-Flags.md) |
+| Human verification and CAPTCHA failures | [Bot protection](Identity/Bot-Protection.md) |
+| Deploy-time migration, seeding and advisory locks | [Database migrations](deployment/Database-Migrations.md), [Migrations](Reference/Migrations.md) |
+| Committed domain events, outermost dispatch and background units of work | [Request lifecycle](Architecture/Request-Lifecycle.md), [Messaging](Architecture/Messaging.md) |
+| Version contracts, child-only changes, uniqueness and background conflicts | [Concurrency and versions](Architecture/Concurrency-and-Versions.md) |
+| TimeProvider and nullable CreatedAt | [Coding standards](Architecture/CodingStandards.md), [Database conventions](Architecture/DatabaseConventions.md) |
+| Explicit authorization, impersonation and API-key restrictions | [Endpoint authorization](Reference/Endpoint-Authorization.md), [API guidelines](Architecture/ApiGuidelines.md) |
+| Role-derived permissions, seeded roles, API-key scope intersection and MFA | [Permissions, 2FA and audit](Identity/Permissions-2FA-and-Admin-Audit.md), [Identity](Identity/README.md) |
+| Passkey ceremony state and MFA sign-in | [Passkeys](Identity/Passkeys.md) |
+| SSO entitlement/enforcement, verified domains, one-time exchange and guarded outbound URLs | [Enterprise SSO](Identity/Enterprise-SSO.md), [Shared projects](Shared/README.md) |
+| Directory role validation, provisioning and suspension on offboarding | [SCIM](Identity/SCIM.md), [Tenancy](Modules/Tenancy.md) |
+| Notification builder, forced security email and additive channel jobs | [Notification](Modules/Notification.md) |
+| Push-only hub, session revocation, URL tokens, devices and FCM isolation | [Real-time and push](Modules/Notification-Realtime-and-Push.md), [JWT technical guide](Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md) |
+| Email tokens, components and preheaders | [Email design system](Modules/Notification-Email-Design-System.md) |
+| Categories, fixed channels, mutes and quiet hours | [Real-time and push](Modules/Notification-Realtime-and-Push.md#mutes-and-quiet-hours) |
+| Bilingual resources, IdentityText, LocalizedText and enum lookup | [Coding standards](Architecture/CodingStandards.md), [API guidelines](Architecture/ApiGuidelines.md) |
+| Same-save audit trail, ignored secrets and retention | [Database conventions](Architecture/DatabaseConventions.md) |
+| Fail-closed malware scanning and degraded health | [Attachment security](Attachment/Security.md) |
+| Bulk definitions, replayable batches, dry runs, worker queues and requester scope | [DataTransfer](Modules/DataTransfer.md) |
+| Distributed caching, tenant keys and explicit invalidation | [Redis](Infrastructure/Redis.md) |
+| HTTP context, Carter injection and ActingUser | [Shared projects](Shared/README.md) |
+| Tenant entities, tenant-first indexes, filters last, interceptors and forced RLS | [Isolation and dedicated databases](MultiTenancy/Isolation-and-Dedicated-Databases.md), [Adding a tenant-aware module](MultiTenancy/Adding-a-Tenant-Aware-Module.md) |
+| Role-based host bypass, pooling, Redis eviction and named filter bypasses | [Isolation and dedicated databases](MultiTenancy/Isolation-and-Dedicated-Databases.md), [Operations](MultiTenancy/Operations.md) |
+| Ambient scopes, migrating tenants, default ownership, blob roots and seed ids | [Multi-tenancy overview](MultiTenancy/Overview.md), [Operations](MultiTenancy/Operations.md) |
+| Domain versus integration versus synchronous reactions; existing event flows | [Messaging](Architecture/Messaging.md) |
+| Transactional outbox, public webhook forwarding, headers, stable URNs and consumer idempotency | [Messaging](Architecture/Messaging.md), [Webhooks](Modules/Webhooks.md) |
+| Durable module-owned sagas, registration, migrations and timeouts | [Messaging](Architecture/Messaging.md#sagas), [ADR 0023](Decisions/0023-durable-sagas-on-module-dbcontexts.md) |
+| Dead letters, retry limits, admin operations and alerts | [Messaging](Architecture/Messaging.md), [Deployment observability](deployment/Observability.md) |
+| Production transports, startup waiting, tenant redelivery and fault queues | [Messaging](Architecture/Messaging.md) |
+| Every architecture guardrail, including migration and RLS E2E checks | [Architecture guardrails](Reference/Architecture-Guardrails.md) |
+| Test stack, levels, fixtures, failure cases and tenant scopes | [Testing strategy](Testing/Testing-Strategy.md) |
+| Every module and its owned capabilities | [Modules](#modules), [Feature catalog](Reference/Features.md) |
+| Product switches: sample, multitenancy, transport, storage, ai-tooling, ci, deploy, github-owner | [Templates](Getting-Started/Templates.md#new-product) |
+| Module switches: data-plane, outbox, example | [Templates](Getting-Started/Templates.md#new-module) |
+| Every starterkit skill and its canonical guide | [By task](#by-task-claude-code-skills) |
 
 ## By task (Claude Code skills)
 
@@ -161,5 +224,6 @@ wiki/
 | Permission | `/starterkit:add-permission` | [Permissions-2FA](Identity/Permissions-2FA-and-Admin-Audit.md) |
 | Email | `/starterkit:add-email-template` | [Notification](Modules/Notification.md) |
 | Tests | `/starterkit:write-tests` | [Testing strategy](Testing/Testing-Strategy.md) |
-| Review | `/starterkit:review` | CLAUDE.md guardrails |
+| Review | `/starterkit:review` | [Architecture guardrails](Reference/Architecture-Guardrails.md) |
+| New product | `/starterkit:new-project` | [New project](Getting-Started/New-Project.md) |
 | Docs | `/starterkit:update-docs` | this page |

@@ -1,5 +1,9 @@
 # 0011. Record entity changes with an opt-in audit trail written in the same SaveChanges
 
+An opt-in audit trail records entity changes in the same save transaction as the business data.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-05
 
@@ -39,3 +43,7 @@ actions written by hand, so it only covers what a handler remembers to record.
 - Database triggers: miss the application actor, impersonator and correlation id.
 - Event sourcing / domain-event log: far larger change, and domain events are not emitted for every property.
 - A shared audit schema: would break per-tenant dedicated databases and RLS; the table lives next to the data.
+
+## Related
+
+[DatabaseConventions](../Architecture/DatabaseConventions.md), [Architecture Guardrails](../Reference/Architecture-Guardrails.md).

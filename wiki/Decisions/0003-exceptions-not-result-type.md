@@ -1,5 +1,9 @@
 # 0003. Typed exceptions mapped centrally, no Result type
 
+Typed exceptions and one shared HTTP error boundary provide consistent client failures without a Result abstraction.
+
+## Status
+
 - **Status:** Accepted
 - **Date:** 2026-11-04 (recorded)
 
@@ -27,3 +31,7 @@ need one error shape.
 ## Alternatives considered
 
 - **`Result<T>` / OneOf:** explicit in signatures, but adds ceremony to every call and needs its own mapping layer.
+
+## Related
+
+[Errors and Responses](../Architecture/Errors-and-Responses.md).
