@@ -165,6 +165,9 @@ deploy() {
     # Rolling update. The migrator already ran above (exactly once per deploy), so start every OTHER service with
     # --no-deps; a plain `up -d` would start the migrator a second time through depends_on.
     SERVICES=$(docker compose -f "$COMPOSE_FILE" config --services | grep -vx 'migrator' | tr '\n' ' ')
+    # The postgres/pgbackrest image (infra/postgres) is built on the host, not pulled: build it (cached) so a
+    # changed Dockerfile or pgBackRest template is picked up and `up --no-build` finds the image.
+    docker compose -f "$COMPOSE_FILE" build postgres
     # shellcheck disable=SC2086
     docker compose -f "$COMPOSE_FILE" up -d --no-build --no-deps --remove-orphans $SERVICES
     

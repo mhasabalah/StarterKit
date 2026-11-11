@@ -114,7 +114,8 @@ The architecture suite is `dotnet test src/Api.Tests`; database-backed guards ru
 | `MessagingArchitectureTests` | Integration contracts, URNs and outbox registration |
 | `SagaArchitectureTests` | Durable saga registration and module-owned persistence |
 | `BackgroundJobEventDispatchTests` | Background writes dispatch committed domain events |
-| `TenantIsolationArchitectureTests` | Tenant ownership, named filters and tenant inclusion in unique indexes; review enforces tenant-first order |
+| `TenantIsolationArchitectureTests` | Tenant ownership, named filters, and unique indexes that include TenantId as their first column |
+| `EnumStorageTests` | Enum columns of every module context are stored as strings (nine legacy integer columns listed) |
 | `AdminEndpointAuthorizationTests` | Every endpoint declares authorization; privileged policies are registered |
 | `ClientGeneratedKeyTests` | Aggregate child Guid keys are not store-generated |
 | `AuditTrailArchitectureTests` | Auditable entities map their audit trail |

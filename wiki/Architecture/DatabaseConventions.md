@@ -41,7 +41,7 @@ Use snake_case for tables, columns and indexes through `EFCore.NamingConventions
 | Concern | Rule |
 |---|---|
 | Primary key | Generate `Guid` ids in factories; both `Guid.NewGuid()` and `Guid.CreateVersion7()` exist. Client-generated child keys require `ValueGeneratedNever()`. |
-| Enums | Prefer `.HasConversion<string>().HasMaxLength(...)` for readable, reorder-safe values. This is the convention, not a claim that every existing enum is string-backed. |
+| Enums | `.HasConversion<string>().HasMaxLength(...)`: readable and reorder-safe. `EnumStorageTests` fails on any enum column stored as an integer, except nine legacy Identity/Subscriptions columns it lists (converting them is a data migration on existing tables). |
 | Strings | Bound persisted strings with `HasMaxLength`, using entity constants. |
 | Money | Explicit decimal precision and currency; shared money precision is `numeric(19,4)`. |
 | Booleans | Use `IsRequired()`; avoid `HasDefaultValue` sentinel surprises. |
