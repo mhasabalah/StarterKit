@@ -36,7 +36,7 @@ public sealed partial class TenantIsolationArchitectureTests
 #if (SAMPLE)
             "CatalogDbContext",
 #endif
-            "AttachmentDbContext", "WebhooksDbContext", "DataTransferDbContext"
+            "AttachmentDbContext", "WebhooksDbContext", "DataTransferDbContext", "AgenticDbContext"
         ]);
 
     [Theory]

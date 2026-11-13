@@ -53,10 +53,23 @@ public static class TenantPermissions
     /// <summary>Bulk CSV/Excel export (DataTransfer module), plus the definition's own permission.</summary>
     public const string DataExport = "datatransfer.export";
 
+    /// <summary>
+    /// Start AI agent runs (Agentic module). The agent never exceeds its initiator: every tool call is checked against
+    /// the initiator's CURRENT permissions, and each tool also requires its own permission.
+    /// </summary>
+    public const string AgentRunsStart = "agentic.runs.start";
+
+    /// <summary>Read every agent run of the tenant (without it, members see only the runs they started).</summary>
+    public const string AgentRunsRead = "agentic.runs.read";
+
+    /// <summary>Manage the tenant's agent runs: cancel a run someone else started.</summary>
+    public const string AgentsManage = "agentic.manage";
+
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
-        AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport
+        AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport,
+        AgentRunsStart, AgentRunsRead, AgentsManage
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

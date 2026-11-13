@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Thin contract: Shared.Contracts only (no Shared.Core / infrastructure; architecture test). No AI package
+             either: business modules that add agents and tools never reference a model SDK. -->
+        <ProjectReference Include="..\..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
+        <!-- IServiceCollection for the registration helpers (AddAgent / AddAgentTool / AddAgentScript). -->
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    </ItemGroup>
+
+</Project>

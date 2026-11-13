@@ -180,6 +180,11 @@ export const sections = [
         "order": 8
       },
       {
+        "source": "Modules/Agentic.md",
+        "label": "Agentic",
+        "order": 9
+      },
+      {
         "label": "Identity",
         "items": [
           {
@@ -595,9 +600,19 @@ export const sections = [
         "order": 24
       },
       {
+        "source": "Decisions/0025-agentic-module-and-model-seam.md",
+        "label": "0025 agentic module and model seam",
+        "order": 25
+      },
+      {
+        "source": "Decisions/0026-durable-agent-runs-on-hangfire.md",
+        "label": "0026 durable agent runs on hangfire",
+        "order": 26
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 25
+        "order": 27
       }
     ]
   }

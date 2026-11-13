@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.AgentKey.Required" xml:space="preserve">
+    <value>مفتاح الوكيل مطلوب.</value>
+  </data>
+  <data name="Validation.AgentKey.MaxLength" xml:space="preserve">
+    <value>مفتاح الوكيل طويل جداً.</value>
+  </data>
+  <data name="Validation.Prompt.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الطلب {0} حرفاً.</value>
+  </data>
+  <data name="Validation.Input.Required" xml:space="preserve">
+    <value>الطلب أو المدخلات مطلوبة.</value>
+  </data>
+  <data name="Validation.Input.TooLarge" xml:space="preserve">
+    <value>يجب ألا تتجاوز المدخلات {0} بايت.</value>
+  </data>
+  <data name="Validation.Input.NotJsonObject" xml:space="preserve">
+    <value>يجب أن تكون المدخلات كائن JSON.</value>
+  </data>
+  <data name="Validation.Status.Invalid" xml:space="preserve">
+    <value>الحالة غير صالحة.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>يجب ألا يقل رقم الصفحة عن 1.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>يجب أن يكون حجم الصفحة بين 1 و100.</value>
+  </data>
+  <data name="Agent.Error.agent_not_found" xml:space="preserve">
+    <value>الوكيل '{0}' غير موجود.</value>
+  </data>
+  <data name="Agent.Error.run_not_found" xml:space="preserve">
+    <value>تشغيل الوكيل '{0}' غير موجود.</value>
+  </data>
+  <data name="Agent.Error.disabled" xml:space="preserve">
+    <value>الوكلاء غير متاحين.</value>
+  </data>
+  <data name="Agent.Error.authentication_required" xml:space="preserve">
+    <value>تسجيل الدخول مطلوب.</value>
+  </data>
+  <data name="Agent.Error.trigger_not_allowed" xml:space="preserve">
+    <value>لا يمكن تشغيل الوكيل '{0}' بهذه الطريقة ({1}).</value>
+  </data>
+  <data name="Agent.State.agent_required" xml:space="preserve">
+    <value>الوكيل مطلوب.</value>
+  </data>
+  <data name="Agent.State.model_required" xml:space="preserve">
+    <value>النموذج مطلوب.</value>
+  </data>
+  <data name="Agent.State.initiator_required" xml:space="preserve">
+    <value>يحتاج التشغيل إلى مستخدم يعمل بالنيابة عنه.</value>
+  </data>
+  <data name="Agent.State.input_required" xml:space="preserve">
+    <value>الطلب أو المدخلات مطلوبة.</value>
+  </data>
+  <data name="Agent.State.budget_invalid" xml:space="preserve">
+    <value>حدود التشغيل غير صالحة.</value>
+  </data>
+  <data name="Agent.State.trigger_key_too_long" xml:space="preserve">
+    <value>مفتاح المشغِّل طويل جداً.</value>
+  </data>
+  <data name="Agent.State.already_finished" xml:space="preserve">
+    <value>انتهى التشغيل بالفعل.</value>
+  </data>
+  <data name="Agent.State.not_running" xml:space="preserve">
+    <value>التشغيل ليس قيد التنفيذ.</value>
+  </data>
+  <data name="Agent.State.step_closed" xml:space="preserve">
+    <value>تمت معالجة هذه الخطوة بالفعل.</value>
+  </data>
+  <data name="Agent.Failure.internal_error" xml:space="preserve">
+    <value>تعذر إكمال التشغيل بسبب خطأ داخلي.</value>
+  </data>
+  <data name="Agent.Failure.model_unavailable" xml:space="preserve">
+    <value>تعذر الوصول إلى نموذج الذكاء الاصطناعي. حاول مرة أخرى لاحقاً.</value>
+  </data>
+  <data name="Agent.Failure.agents_disabled" xml:space="preserve">
+    <value>الوكلاء متوقفون.</value>
+  </data>
+  <data name="Agent.Failure.agent_not_found" xml:space="preserve">
+    <value>الوكيل '{0}' لم يعد موجوداً.</value>
+  </data>
+  <data name="Agent.Failure.agent_version_retired" xml:space="preserve">
+    <value>تغيّر الوكيل منذ بدء هذا التشغيل، لذا لا يمكن متابعته. ابدأ تشغيلاً جديداً.</value>
+  </data>
+  <data name="Agent.Failure.initiator_no_longer_authorized" xml:space="preserve">
+    <value>المستخدم الذي بدأ التشغيل لم يعد يملك صلاحية الوصول.</value>
+  </data>
+  <data name="Agent.Failure.budget_exceeded" xml:space="preserve">
+    <value>بلغ التشغيل حدّه ({0}) وتم إيقافه.</value>
+  </data>
+  <data name="Agent.Failure.tool_outcome_unknown" xml:space="preserve">
+    <value>تمت مقاطعة الإجراء '{0}' ولا يُعرف ما إذا كان قد نُفِّذ. تحقق منه قبل بدء تشغيل جديد.</value>
+  </data>
+  <data name="Agent.Tool.refused" xml:space="preserve">
+    <value>تم رفض الاستدعاء.</value>
+  </data>
+  <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
+    <value>هذه الأداة غير متاحة لهذا الوكيل.</value>
+  </data>
+  <data name="Agent.Tool.forbidden" xml:space="preserve">
+    <value>لا يملك المستخدم صلاحية القيام بذلك.</value>
+  </data>
+  <data name="Agent.Tool.autonomy_exceeded" xml:space="preserve">
+    <value>لا يُسمح لهذا الوكيل بتنفيذ هذا النوع من الإجراءات.</value>
+  </data>
+  <data name="Agent.Tool.approval_required" xml:space="preserve">
+    <value>يحتاج هذا الإجراء إلى موافقة شخص ولم يُنفَّذ.</value>
+  </data>
+  <data name="Agent.Tool.arguments_too_large" xml:space="preserve">
+    <value>المعطيات كبيرة جداً.</value>
+  </data>
+  <data name="Agent.Tool.invalid_arguments" xml:space="preserve">
+    <value>المعطيات غير صالحة.</value>
+  </data>
+  <data name="Agent.Tool.result_too_large" xml:space="preserve">
+    <value>النتيجة أكبر من أن تُعاد. اطلب بيانات أقل.</value>
+  </data>
+  <data name="Agent.Tool.timeout" xml:space="preserve">
+    <value>لم تستجب الأداة في الوقت المحدد.</value>
+  </data>
+  <data name="Agent.Tool.conflict" xml:space="preserve">
+    <value>تم تغيير البيانات من قبل شخص آخر في هذه الأثناء. اقرأها مرة أخرى قبل إعادة المحاولة.</value>
+  </data>
+  <data name="Agent.Tool.skipped" xml:space="preserve">
+    <value>لم يُنفَّذ: تم تسليم النتيجة بالفعل.</value>
+  </data>
+  <data name="Validation.Id.Required" xml:space="preserve">
+    <value>المعرّف مطلوب.</value>
+  </data>
+  <data name="Validation.Version.Min" xml:space="preserve">
+    <value>يجب ألا تكون النسخة سالبة.</value>
+  </data>
+  <data name="Agent.Tool.arguments_not_object" xml:space="preserve">
+    <value>يجب أن تكون المعطيات كائن JSON.</value>
+  </data>
+  <data name="Agent.Tool.result_not_object" xml:space="preserve">
+    <value>يجب أن تكون النتيجة كائن JSON.</value>
+  </data>
+  <data name="Agent.Tool.result_omitted" xml:space="preserve">
+    <value>تم تنفيذ التغيير. نتيجته أكبر من أن تُعاد.</value>
+  </data>
+</root>

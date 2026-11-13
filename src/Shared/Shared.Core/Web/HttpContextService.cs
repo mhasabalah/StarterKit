@@ -121,8 +121,9 @@ public class HttpContextService : IHttpContextService
 
     public string? GetCorrelationId()
     {
+        // Outside any HTTP request: the origin of an explicit ActingUser scope (e.g. "agent-run:<id>"), else null.
         if (Context == null)
-            return null;
+            return ActingUser.CorrelationId;
 
         return Context.Items.TryGetValue(CorrelationExtensions.ItemKey, out var id) && id is string s
             ? s

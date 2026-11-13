@@ -42,6 +42,9 @@ public static class EntitlementKeys
     /// Counted per batch by the DataTransfer jobs; a job stops with <c>quota_exceeded</c> when it runs out.
     /// </summary>
     public const string DataTransferRows = "data_transfer_rows";
+
+    /// <summary>Plan feature: AI agents (Agentic module).</summary>
+    public const string Agents = "agents";
 }
 
 /// <summary>Default when no billing module is installed: everything is allowed, nothing is limited.</summary>

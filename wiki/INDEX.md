@@ -77,6 +77,8 @@ wiki/
 - [0021](Decisions/0021-aggregate-version-covers-child-collections.md): the aggregate version covers its child collections
 - [0022](Decisions/0022-production-message-transport.md): PostgreSQL is the default production message transport
 - [0023](Decisions/0023-durable-sagas-on-module-dbcontexts.md): saga state is durable, in the owning module's DbContext
+- [0025](Decisions/0025-agentic-module-and-model-seam.md): AI agents in one module, behind typed tools and an owned model seam
+- [0026](Decisions/0026-durable-agent-runs-on-hangfire.md): agent runs are leased, step-checkpointed Hangfire jobs
 
 ## Modules
 
@@ -90,6 +92,7 @@ wiki/
   - [Notification-Email-Design-System](Modules/Notification-Email-Design-System.md): tokens, components, dark mode, branding, plain text
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
+- [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (model seam, tool gateway, adding an agent)
 
 ## Multi-tenancy
 
@@ -190,6 +193,7 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | Same-save audit trail, ignored secrets and retention | [Database conventions](Architecture/DatabaseConventions.md) |
 | Fail-closed malware scanning and degraded health | [Attachment security](Attachment/Security.md) |
 | Bulk definitions, replayable batches, dry runs, worker queues and requester scope | [DataTransfer](Modules/DataTransfer.md) |
+| Agents, typed tools, the tool gateway, model providers and durable runs | [Agentic](Modules/Agentic.md), [ADR 0025](Decisions/0025-agentic-module-and-model-seam.md), [ADR 0026](Decisions/0026-durable-agent-runs-on-hangfire.md) |
 | Distributed caching, tenant keys and explicit invalidation | [Redis](Infrastructure/Redis.md) |
 | HTTP context, Carter injection and ActingUser | [Shared projects](Shared/README.md) |
 | Tenant entities, tenant-first indexes, filters last, interceptors and forced RLS | [Isolation and dedicated databases](MultiTenancy/Isolation-and-Dedicated-Databases.md), [Adding a tenant-aware module](MultiTenancy/Adding-a-Tenant-Aware-Module.md) |

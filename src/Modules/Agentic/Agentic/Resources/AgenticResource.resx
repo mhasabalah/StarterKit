@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.AgentKey.Required" xml:space="preserve">
+    <value>The agent key is required.</value>
+  </data>
+  <data name="Validation.AgentKey.MaxLength" xml:space="preserve">
+    <value>The agent key is too long.</value>
+  </data>
+  <data name="Validation.Prompt.MaxLength" xml:space="preserve">
+    <value>The prompt must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Input.Required" xml:space="preserve">
+    <value>A prompt or an input is required.</value>
+  </data>
+  <data name="Validation.Input.TooLarge" xml:space="preserve">
+    <value>The input must not exceed {0} bytes.</value>
+  </data>
+  <data name="Validation.Input.NotJsonObject" xml:space="preserve">
+    <value>The input must be a JSON object.</value>
+  </data>
+  <data name="Validation.Status.Invalid" xml:space="preserve">
+    <value>The status is not valid.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>The page number must be at least 1.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>The page size must be between 1 and 100.</value>
+  </data>
+  <data name="Agent.Error.agent_not_found" xml:space="preserve">
+    <value>The agent '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Error.run_not_found" xml:space="preserve">
+    <value>The agent run '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Error.disabled" xml:space="preserve">
+    <value>Agents are not available.</value>
+  </data>
+  <data name="Agent.Error.authentication_required" xml:space="preserve">
+    <value>Authentication is required.</value>
+  </data>
+  <data name="Agent.Error.trigger_not_allowed" xml:space="preserve">
+    <value>The agent '{0}' cannot be started this way ({1}).</value>
+  </data>
+  <data name="Agent.State.agent_required" xml:space="preserve">
+    <value>An agent is required.</value>
+  </data>
+  <data name="Agent.State.model_required" xml:space="preserve">
+    <value>A model is required.</value>
+  </data>
+  <data name="Agent.State.initiator_required" xml:space="preserve">
+    <value>The run needs a user to act for.</value>
+  </data>
+  <data name="Agent.State.input_required" xml:space="preserve">
+    <value>A prompt or an input is required.</value>
+  </data>
+  <data name="Agent.State.budget_invalid" xml:space="preserve">
+    <value>The run limits are not valid.</value>
+  </data>
+  <data name="Agent.State.trigger_key_too_long" xml:space="preserve">
+    <value>The trigger key is too long.</value>
+  </data>
+  <data name="Agent.State.already_finished" xml:space="preserve">
+    <value>The run has already finished.</value>
+  </data>
+  <data name="Agent.State.not_running" xml:space="preserve">
+    <value>The run is not running.</value>
+  </data>
+  <data name="Agent.State.step_closed" xml:space="preserve">
+    <value>The step has already been handled.</value>
+  </data>
+  <data name="Agent.Failure.internal_error" xml:space="preserve">
+    <value>The run could not be completed because of an internal error.</value>
+  </data>
+  <data name="Agent.Failure.model_unavailable" xml:space="preserve">
+    <value>The AI model could not be reached. Try again later.</value>
+  </data>
+  <data name="Agent.Failure.agents_disabled" xml:space="preserve">
+    <value>Agents are switched off.</value>
+  </data>
+  <data name="Agent.Failure.agent_not_found" xml:space="preserve">
+    <value>The agent '{0}' no longer exists.</value>
+  </data>
+  <data name="Agent.Failure.agent_version_retired" xml:space="preserve">
+    <value>The agent changed since this run started, so the run cannot continue. Start a new run.</value>
+  </data>
+  <data name="Agent.Failure.initiator_no_longer_authorized" xml:space="preserve">
+    <value>The user who started the run no longer has access.</value>
+  </data>
+  <data name="Agent.Failure.budget_exceeded" xml:space="preserve">
+    <value>The run reached its limit ({0}) and was stopped.</value>
+  </data>
+  <data name="Agent.Failure.tool_outcome_unknown" xml:space="preserve">
+    <value>The action '{0}' was interrupted and it is not known whether it took effect. Check it before starting a new run.</value>
+  </data>
+  <data name="Agent.Tool.refused" xml:space="preserve">
+    <value>The call was refused.</value>
+  </data>
+  <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
+    <value>This tool is not available to this agent.</value>
+  </data>
+  <data name="Agent.Tool.forbidden" xml:space="preserve">
+    <value>The user is not permitted to do this.</value>
+  </data>
+  <data name="Agent.Tool.autonomy_exceeded" xml:space="preserve">
+    <value>This agent is not allowed to perform this kind of action.</value>
+  </data>
+  <data name="Agent.Tool.approval_required" xml:space="preserve">
+    <value>This action needs a person's approval and was not performed.</value>
+  </data>
+  <data name="Agent.Tool.arguments_too_large" xml:space="preserve">
+    <value>The arguments are too large.</value>
+  </data>
+  <data name="Agent.Tool.invalid_arguments" xml:space="preserve">
+    <value>The arguments are not valid.</value>
+  </data>
+  <data name="Agent.Tool.result_too_large" xml:space="preserve">
+    <value>The result is too large to return. Ask for less data.</value>
+  </data>
+  <data name="Agent.Tool.timeout" xml:space="preserve">
+    <value>The tool did not answer in time.</value>
+  </data>
+  <data name="Agent.Tool.conflict" xml:space="preserve">
+    <value>The data was changed by someone else in the meantime. Read it again before retrying.</value>
+  </data>
+  <data name="Agent.Tool.skipped" xml:space="preserve">
+    <value>Not executed: the result had already been handed in.</value>
+  </data>
+  <data name="Validation.Id.Required" xml:space="preserve">
+    <value>The id is required.</value>
+  </data>
+  <data name="Validation.Version.Min" xml:space="preserve">
+    <value>The version must not be negative.</value>
+  </data>
+  <data name="Agent.Tool.arguments_not_object" xml:space="preserve">
+    <value>The arguments must be a JSON object.</value>
+  </data>
+  <data name="Agent.Tool.result_not_object" xml:space="preserve">
+    <value>The result must be a JSON object.</value>
+  </data>
+  <data name="Agent.Tool.result_omitted" xml:space="preserve">
+    <value>The change was made. Its result was too large to return.</value>
+  </data>
+</root>

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Carter" />
+        <PackageReference Include="FluentValidation" />
+        <PackageReference Include="MassTransit" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="Hangfire.Core" />
+        <!-- Model providers: only this module references them (ThirdPartyIsolationTests). -->
+        <PackageReference Include="Microsoft.Extensions.AI" />
+        <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+        <PackageReference Include="Anthropic" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
+        <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+        <ProjectReference Include="..\Agentic.Contracts\Agentic.Contracts.csproj" />
+        <!-- Other modules: ONLY their .Contracts (architecture test). Users: only through the UserDirectory port. -->
+        <ProjectReference Include="..\..\Identity\UserDirectory.Contracts\UserDirectory.Contracts.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Agentic.Tests" />
+        <InternalsVisibleTo Include="Agentic.IntegrationTests" />
+        <!-- Moq proxies for internal types -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    </ItemGroup>
+
+</Project>
