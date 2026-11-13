@@ -27,7 +27,8 @@ public class PendingModelChangesTests(E2ETestFixture fixture)
         "CatalogDbContext",
 #endif
         "SubscriptionsDbContext",
-        "NotificationDbContext"
+        "NotificationDbContext",
+        "AgenticDbContext"
     ];
 
     [Fact]

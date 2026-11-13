@@ -15,21 +15,35 @@ namespace Shared.Core.Web;
 public static class ActingUser
 {
     private static readonly AsyncLocal<Guid?> Ambient = new();
+    private static readonly AsyncLocal<string?> AmbientCorrelation = new();
 
     /// <summary>The user the current background flow acts for, or null.</summary>
     public static Guid? Current => Ambient.Value;
 
-    public static IDisposable Begin(Guid userId)
+    /// <summary>
+    /// What the background flow is (e.g. <c>agent-run:&lt;id&gt;</c>), or null. Outside an HTTP request it is the
+    /// correlation id of <see cref="IHttpContextService.GetCorrelationId"/>, so the audit trail of a change made on
+    /// someone's behalf points at the work that made it.
+    /// </summary>
+    public static string? CorrelationId => AmbientCorrelation.Value;
+
+    public static IDisposable Begin(Guid userId) => Begin(userId, null);
+
+    /// <param name="userId">The user the work acts for.</param>
+    /// <param name="correlationId">Optional origin of the work, recorded as the correlation id of its audit entries.</param>
+    public static IDisposable Begin(Guid userId, string? correlationId)
     {
         if (userId == Guid.Empty)
             throw new ArgumentException("An acting user is required.", nameof(userId));
 
         var previous = Ambient.Value;
+        var previousCorrelation = AmbientCorrelation.Value;
         Ambient.Value = userId;
-        return new Restore(previous);
+        AmbientCorrelation.Value = correlationId ?? previousCorrelation;
+        return new Restore(previous, previousCorrelation);
     }
 
-    private sealed class Restore(Guid? previous) : IDisposable
+    private sealed class Restore(Guid? previous, string? previousCorrelation) : IDisposable
     {
         private bool _disposed;
 
@@ -39,6 +53,7 @@ public static class ActingUser
                 return;
             _disposed = true;
             Ambient.Value = previous;
+            AmbientCorrelation.Value = previousCorrelation;
         }
     }
 }

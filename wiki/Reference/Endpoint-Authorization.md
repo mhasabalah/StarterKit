@@ -1154,6 +1154,22 @@ Source: [WebhookEndpointsModule](../../src/Modules/Webhooks/Webhooks/Domains/End
 | POST | `/api/v{version:apiVersion}/webhooks/endpoints/{id:guid}/rotate-secret` | `RequireTenantPermission(TenantPermissions.WebhooksManage)` | `DisallowImpersonation()` | — |
 | POST | `/api/v{version:apiVersion}/webhooks/endpoints/{id:guid}/ping` | `RequireTenantPermission(TenantPermissions.WebhooksManage)` | — | — |
 
+### Agentic
+
+Source: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs). Every route answers 404 while `Agentic:Enabled` is false.
+
+| Method | Route | Authorization / tenant scope | Restrictions | Filters |
+|---|---|---|---|---|
+| GET | `/api/v{version:apiVersion}/agents` | `RequireTenantMember()` | — | `RequireFeature(EntitlementKeys.Agents)` |
+| GET | `/api/v{version:apiVersion}/agents/{key}` | `RequireTenantMember()` | — | `RequireFeature(EntitlementKeys.Agents)` |
+| POST | `/api/v{version:apiVersion}/agent-runs` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | `RequireFeature(EntitlementKeys.Agents)`; `RequireRateLimiting("create")`; `WithIdempotency()` |
+| GET | `/api/v{version:apiVersion}/agent-runs` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-runs/{id:guid}` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-runs/{id:guid}/steps` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/agent-runs/{id:guid}/cancel` | `RequireTenantMember()` | `DisallowImpersonation()` | — |
+
+The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`. Anything else is 404.
+
 ### DataTransfer
 
 Source: [TransferJobsModule](../../src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Features/TransferJobsModule.cs).
@@ -1426,6 +1442,9 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 | `TenantPermissions.SsoManage` | `tenant.sso.manage` | Owner; Administrator |
 | `TenantPermissions.DataImport` | `datatransfer.import` | Owner; Administrator |
 | `TenantPermissions.DataExport` | `datatransfer.export` | Owner; Administrator |
+| `TenantPermissions.AgentRunsStart` | `agentic.runs.start` | Owner; Administrator |
+| `TenantPermissions.AgentRunsRead` | `agentic.runs.read` | Owner; Administrator |
+| `TenantPermissions.AgentsManage` | `agentic.manage` | Owner; Administrator |
 
 ## Configuration
 

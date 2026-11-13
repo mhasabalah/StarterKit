@@ -17,6 +17,12 @@
     <Project Path="src/Aspire/ServiceDefaults/ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Agentic/">
+    <Project Path="src/Modules/Agentic/Agentic.Contracts/Agentic.Contracts.csproj" />
+    <Project Path="src/Modules/Agentic/Agentic.IntegrationTests/Agentic.IntegrationTests.csproj" />
+    <Project Path="src/Modules/Agentic/Agentic.Tests/Agentic.Tests.csproj" />
+    <Project Path="src/Modules/Agentic/Agentic/Agentic.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Attachment/">
     <Project Path="src/Modules/Attachment/Attachment.Contracts/Attachment.Contracts.csproj" />
     <Project Path="src/Modules/Attachment/Attachment/Attachment.csproj" />

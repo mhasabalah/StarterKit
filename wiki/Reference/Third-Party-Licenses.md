@@ -66,8 +66,8 @@ commercial major never arrives by an automated PR.
 
 | License | Packages |
 |---|---|
-| MIT | SkiaSharp (+ `NativeAssets.Linux.NoDependencies`), Sylvan.Data.Csv + Sylvan.Data.Excel (DataTransfer only), ASP.NET Core / EF Core / Microsoft.Extensions.* 10.x (incl. `Microsoft.AspNetCore.SignalR.StackExchangeRedis`, `.SignalR.Client`, `.TestHost`), Aspire 13.x, Asp.Versioning, Carter, Swashbuckle, Scalar, Mapster, Scrutor, MailKit, Fluid.Core, System.IdentityModel.Tokens.Jwt, Microsoft.IdentityModel.Protocols.OpenIdConnect, Azure.Storage.Blobs, Roslyn (Microsoft.CodeAnalysis.*), Testcontainers, coverlet, Microsoft.NET.Test.Sdk, Bogus |
-| Apache-2.0 | FirebaseAdmin, Google.Apis / Google.Apis.Auth / Google.Apis.Core (FCM, Notification module only), FluentValidation, OpenTelemetry.*, Grafana.OpenTelemetry, AspNetCore.HealthChecks.*, EFCore.NamingConventions, libphonenumber-csharp, Figgle, AWSSDK.*, KubernetesClient, xunit |
+| MIT | SkiaSharp (+ `NativeAssets.Linux.NoDependencies`), Sylvan.Data.Csv + Sylvan.Data.Excel (DataTransfer only), Microsoft.Extensions.AI (+ `.Abstractions`, `.OpenAI`) and the OpenAI SDK (Agentic only), ASP.NET Core / EF Core / Microsoft.Extensions.* 10.x (incl. `Microsoft.AspNetCore.SignalR.StackExchangeRedis`, `.SignalR.Client`, `.TestHost`), Aspire 13.x, Asp.Versioning, Carter, Swashbuckle, Scalar, Mapster, Scrutor, MailKit, Fluid.Core, System.IdentityModel.Tokens.Jwt, Microsoft.IdentityModel.Protocols.OpenIdConnect, Azure.Storage.Blobs, Roslyn (Microsoft.CodeAnalysis.*), Testcontainers, coverlet, Microsoft.NET.Test.Sdk, Bogus |
+| Apache-2.0 | Anthropic (official C# SDK, Agentic only), FirebaseAdmin, Google.Apis / Google.Apis.Auth / Google.Apis.Core (FCM, Notification module only), FluentValidation, OpenTelemetry.*, Grafana.OpenTelemetry, AspNetCore.HealthChecks.*, EFCore.NamingConventions, libphonenumber-csharp, Figgle, AWSSDK.*, KubernetesClient, xunit |
 | BSD-3-Clause | ITfoxtec.Identity.Saml2 (SAML 2.0 SP, Identity module only), Polly, Moq, Google.Protobuf, Google.Api.Gax / Google.Api.Gax.Rest (transitive, via FirebaseAdmin) |
 | PostgreSQL | Npgsql, Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.OpenTelemetry |
 | Apache-2.0 OR MPL-2.0 | RabbitMQ.Client (transitive) |
@@ -174,6 +174,11 @@ This is the complete `PackageVersion` inventory in `Directory.Packages.props`, i
 | `Microsoft.Extensions.Hosting.Abstractions` | `10.0.14` |
 | `Sylvan.Data.Csv` | `1.4.4` |
 | `Sylvan.Data.Excel` | `0.5.8` |
+| `Microsoft.Extensions.AI` | `10.11.0` |
+| `Microsoft.Extensions.AI.Abstractions` | `10.11.0` |
+| `Microsoft.Extensions.AI.OpenAI` | `10.11.0` |
+| `OpenAI` | `2.14.0` |
+| `Anthropic` | `13.8.0` |
 | `Azure.Extensions.AspNetCore.DataProtection.Keys` | `1.6.5` |
 | `Azure.Identity` | `1.21.0` |
 | `AWSSDK.KeyManagementService` | `4.0.101.4` |
@@ -224,7 +229,7 @@ An assembly boundary does not establish license eligibility, vendor support or s
 
 ## Guardrails
 
-`ThirdPartyIsolationTests` checks production assembly references: no MediatR or SixLabors references; SkiaSharp only in Attachment; QuestPDF only in Subscriptions; Sylvan only in DataTransfer; FirebaseAdmin/Google.Apis only in Notification; and SignalR Redis backplane references confined to Notification. Contracts may reference `MassTransit.Abstractions`, not the bus packages. Notification handlers must target concrete event types because the owned mediator dispatches exact runtime types.
+`ThirdPartyIsolationTests` checks production assembly references: no MediatR or SixLabors references; SkiaSharp only in Attachment; QuestPDF only in Subscriptions; Sylvan only in DataTransfer; Microsoft.Extensions.AI and the model-provider SDKs (OpenAI, Anthropic) only in Agentic; FirebaseAdmin/Google.Apis only in Notification; and SignalR Redis backplane references confined to Notification. Contracts may reference `MassTransit.Abstractions`, not the bus packages. Notification handlers must target concrete event types because the owned mediator dispatches exact runtime types.
 
 The test **does not check license text, versions, or FluentAssertions' test-only use**. MassTransit 8.x and FluentAssertions 7.x pins are maintained in `Directory.Packages.props`; `.github/dependabot.yml` suppresses their automatic major bumps. [Architecture guardrails](Architecture-Guardrails.md) describes the exact assertions.
 
