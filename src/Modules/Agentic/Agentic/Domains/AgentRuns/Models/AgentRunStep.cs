@@ -69,7 +69,9 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
     public DateTime? StartedAt { get; private set; }
     public DateTime? FinishedAt { get; private set; }
 
-    public bool IsOpen => Status is AgentRunStepStatus.Pending or AgentRunStepStatus.Executing;
+    /// <summary>Not handled to the end yet: the run cannot ask the model again before it is.</summary>
+    public bool IsOpen => Status is AgentRunStepStatus.Pending or AgentRunStepStatus.Executing
+        or AgentRunStepStatus.AwaitingApproval;
 
     private AgentRunStep()
     {
@@ -118,6 +120,18 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
         Executions++;
         StartedAt ??= now;
     }
+
+    /// <summary>The call is allowed only after a person approved it: the run is suspended on this step.</summary>
+    public void AwaitApproval(int toolVersion)
+    {
+        EnsureOpen();
+        Status = AgentRunStepStatus.AwaitingApproval;
+        ToolVersion = toolVersion;
+    }
+
+    /// <summary>A person rejected the action; <paramref name="resultJson"/> is what the model is told.</summary>
+    public void Reject(string resultJson, DateTime now) =>
+        Close(AgentRunStepStatus.Rejected, "rejected", resultJson, 0, now);
 
     public void Succeed(string resultJson, long durationMs, DateTime now) =>
         Close(AgentRunStepStatus.Succeeded, null, resultJson, durationMs, now);

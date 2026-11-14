@@ -29,6 +29,16 @@ public sealed class AgentAccessDeniedException : ForbiddenException
         : base(AgenticText.Get("Agent.Error." + code, args)) => ErrorCode = code;
 }
 
+/// <summary>
+/// A capacity or rate limit of agent runs was reached (429): <c>too_many_concurrent_runs</c> or
+/// <c>automatic_run_limit</c>. Try again later.
+/// </summary>
+public sealed class AgentRunLimitException : CustomException
+{
+    public AgentRunLimitException(string code, params object?[] args)
+        : base(AgenticText.Get("Agent.Error." + code, args), System.Net.HttpStatusCode.TooManyRequests) => ErrorCode = code;
+}
+
 /// <summary>Another worker took the run over (its lease expired): this attempt stops without touching the row.</summary>
 public sealed class AgentRunLeaseLostException(Guid runId)
     : InvalidOperationException($"Agent run {runId} is now owned by another worker.");

@@ -29,6 +29,7 @@
         <ProjectReference Include="..\Agentic.Contracts\Agentic.Contracts.csproj" />
         <!-- Other modules: ONLY their .Contracts (architecture test). Users: only through the UserDirectory port. -->
         <ProjectReference Include="..\..\Identity\UserDirectory.Contracts\UserDirectory.Contracts.csproj" />
+        <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup>

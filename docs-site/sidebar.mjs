@@ -610,9 +610,14 @@ export const sections = [
         "order": 26
       },
       {
+        "source": "Decisions/0027-agent-approvals-triggers-and-policies.md",
+        "label": "0027 agent approvals triggers and policies",
+        "order": 27
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 27
+        "order": 28
       }
     ]
   }

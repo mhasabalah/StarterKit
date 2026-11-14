@@ -35,3 +35,4 @@ link it here.
 | [0023](0023-durable-sagas-on-module-dbcontexts.md) | Saga state is durable, in the owning module's DbContext | Accepted | 2026-11-08 |
 | [0025](0025-agentic-module-and-model-seam.md) | Run AI agents in one module, behind typed tools and an owned model seam | Accepted | 2026-11-13 |
 | [0026](0026-durable-agent-runs-on-hangfire.md) | Run agents as leased, step-checkpointed Hangfire jobs | Accepted | 2026-11-13 |
+| [0027](0027-agent-approvals-triggers-and-policies.md) | Govern agents with payload-bound approvals, explicit triggers and tighten-only tenant policies | Accepted | 2026-11-13 |

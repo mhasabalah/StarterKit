@@ -1,5 +1,6 @@
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Services;
+using Agentic.Domains.Approvals.Jobs;
 using Agentic.Runtime.Execution;
 using Agentic.Runtime.Models;
 using Agentic.Runtime.Security;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Notification.Contracts.Realtime;
 using Shared.Core.Entitlements;
 using Shared.Core.Messaging.Outbox;
 
@@ -24,6 +26,8 @@ namespace Agentic;
 public static class AgenticModule
 {
     public const string SweepJobId = "agentic-requeue-stalled";
+    public const string ApprovalExpiryJobId = "agentic-expire-approvals";
+    public const string AuditPurgeJobId = "agentic-purge-audit-entries";
 
     public static IServiceCollection AddAgenticModule(this IServiceCollection services, IConfiguration configuration)
     {
@@ -37,11 +41,16 @@ public static class AgenticModule
         services.TryAddSingleton(TimeProvider.System);
         services.AddHttpContextAccessor();
         services.AddMetrics();
-        // Plan gates: permissive defaults unless a billing module registers the real ones.
+        // Plan gates and quotas: permissive defaults unless a billing module registers the real ones.
         services.AddEntitlements();
+        services.AddQuotaDefaults();
 
         services.AddScoped<IAgentRunRepository, AgentRunRepository>();
+        services.AddScoped<IAgentApprovalRepository, AgentApprovalRepository>();
+        services.AddScoped<IAgentPolicyRepository, AgentPolicyRepository>();
+        services.AddScoped<AgentRunStarter>();
         services.AddScoped<AgentAccess>();
+        services.AddScoped<Domains.Approvals.Features.AgentApprovalDecision>();
         services.AddScoped<AgentPrincipalResolver>();
 
         // Runtime. The registry reads what every module registered (AddAgent / AddAgentTool) and is validated at startup.
@@ -49,6 +58,9 @@ public static class AgenticModule
         services.AddSingleton<AgentChatClientFactory>();
         services.AddSingleton<IAgentModelGateway, ChatClientModelGateway>();
         services.AddSingleton<AgenticMetrics>();
+        services.AddSingleton<AgentRunProgressPublisher>();
+        // Live progress goes through the Notification hub; without that module (or with real time off) it is a no-op.
+        services.TryAddSingleton<IUserEventPublisher, NullUserEventPublisher>();
         services.AddTransient<AgentRunExecutor>();
 
         services.AddMediator(AgenticRoot.AssemblyName);
@@ -60,6 +72,8 @@ public static class AgenticModule
         // Hangfire jobs
         services.AddTransient<ExecuteAgentRunJob>();
         services.AddTransient<RequeueStalledAgentRunsJob>();
+        services.AddTransient<ExpireAgentApprovalsJob>();
+        services.AddTransient<PurgeAgentAuditEntriesJob>();
 
         return services;
     }
@@ -77,10 +91,19 @@ public static class AgenticModule
 
         // Safety net: runs whose Hangfire job was lost (a crash between the commit and the enqueue, a dead worker).
         using var scope = app.ApplicationServices.CreateScope();
-        scope.ServiceProvider.GetRequiredService<IRecurringJobManager>().AddOrUpdate<RequeueStalledAgentRunsJob>(
+        var recurring = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+        recurring.AddOrUpdate<RequeueStalledAgentRunsJob>(
             SweepJobId,
             x => x.ExecuteAsync(JobCancellationToken.Null),
             options.SweepCron);
+        recurring.AddOrUpdate<ExpireAgentApprovalsJob>(
+            ApprovalExpiryJobId,
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            options.Approvals.ExpiryCron);
+        recurring.AddOrUpdate<PurgeAgentAuditEntriesJob>(
+            AuditPurgeJobId,
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            Cron.Daily(4));
 
         return app;
     }

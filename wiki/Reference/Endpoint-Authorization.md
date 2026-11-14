@@ -1156,7 +1156,7 @@ Source: [WebhookEndpointsModule](../../src/Modules/Webhooks/Webhooks/Domains/End
 
 ### Agentic
 
-Source: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs). Every route answers 404 while `Agentic:Enabled` is false.
+Sources: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs), [AgentApprovalsModule](../../src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalsModule.cs), [AgentPoliciesModule](../../src/Modules/Agentic/Agentic/Domains/Policies/Features/AgentPoliciesModule.cs). Every route answers 404 while `Agentic:Enabled` is false.
 
 | Method | Route | Authorization / tenant scope | Restrictions | Filters |
 |---|---|---|---|---|
@@ -1167,8 +1167,15 @@ Source: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/Fe
 | GET | `/api/v{version:apiVersion}/agent-runs/{id:guid}` | `RequireTenantMember()` | — | — |
 | GET | `/api/v{version:apiVersion}/agent-runs/{id:guid}/steps` | `RequireTenantMember()` | — | — |
 | POST | `/api/v{version:apiVersion}/agent-runs/{id:guid}/cancel` | `RequireTenantMember()` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/agent-approvals` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-approvals/{id:guid}` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/agent-approvals/{id:guid}/approve` | `RequireTenantPermission(TenantPermissions.AgentApprovalsDecide)` | `DisallowImpersonation()`; `DisallowApiKey()` | — |
+| POST | `/api/v{version:apiVersion}/agent-approvals/{id:guid}/reject` | `RequireTenantPermission(TenantPermissions.AgentApprovalsDecide)` | `DisallowImpersonation()`; `DisallowApiKey()` | — |
+| GET | `/api/v{version:apiVersion}/agent-policies/{agentKey}` | `RequireTenantPermission(TenantPermissions.AgentsManage)` | — | — |
+| PUT | `/api/v{version:apiVersion}/agent-policies/{agentKey}` | `RequireTenantPermission(TenantPermissions.AgentsManage)` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/agent-usage` | `RequireTenantPermission(TenantPermissions.AgentRunsRead)` | — | — |
 
-The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`. Anything else is 404.
+The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`; approval requests are listed for deciders and for the user the run acts for; an approver must also hold the proposed tool's own permission. Anything else is 404.
 
 ### DataTransfer
 
@@ -1444,6 +1451,7 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 | `TenantPermissions.DataExport` | `datatransfer.export` | Owner; Administrator |
 | `TenantPermissions.AgentRunsStart` | `agentic.runs.start` | Owner; Administrator |
 | `TenantPermissions.AgentRunsRead` | `agentic.runs.read` | Owner; Administrator |
+| `TenantPermissions.AgentApprovalsDecide` | `agentic.approvals.decide` | Owner; Administrator |
 | `TenantPermissions.AgentsManage` | `agentic.manage` | Owner; Administrator |
 
 ## Configuration

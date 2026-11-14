@@ -20,7 +20,11 @@ public class AgentEndpointsTests(E2ETestFixture fixture)
         "/api/v1/agents/shipping.shipment-preparation",
         "/api/v1/agent-runs",
         $"/api/v1/agent-runs/{Guid.NewGuid()}",
-        $"/api/v1/agent-runs/{Guid.NewGuid()}/steps");
+        $"/api/v1/agent-runs/{Guid.NewGuid()}/steps",
+        "/api/v1/agent-approvals",
+        $"/api/v1/agent-approvals/{Guid.NewGuid()}",
+        "/api/v1/agent-policies/any.agent",
+        "/api/v1/agent-usage");
 
     [Theory]
     [MemberData(nameof(ReadRoutes))]
@@ -62,6 +66,30 @@ public class AgentEndpointsTests(E2ETestFixture fixture)
 
         anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         admin.StatusCode.Should().Be(HttpStatusCode.NotFound, await admin.Content.ReadAsStringAsync());
+    }
+
+    public static TheoryData<string, string> DecisionRoutes => new()
+    {
+        { "POST", $"/api/v1/agent-approvals/{Guid.NewGuid()}/approve" },
+        { "POST", $"/api/v1/agent-approvals/{Guid.NewGuid()}/reject" },
+        { "PUT", "/api/v1/agent-policies/any.agent" }
+    };
+
+    [Theory]
+    [MemberData(nameof(DecisionRoutes))]
+    public async Task Governance_routes_reject_anonymous_callers_and_users_without_the_permission(string method, string route)
+    {
+        var body = JsonContent.Create(new { payloadHash = new string('0', 64), enabled = true });
+
+        var anonymous = await fixture.CreateAnonymousClient().SendAsync(new HttpRequestMessage(new HttpMethod(method), route) { Content = body });
+        var user = await fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User)
+            .SendAsync(new HttpRequestMessage(new HttpMethod(method), route) { Content = JsonContent.Create(new { payloadHash = new string('0', 64), enabled = true }) });
+        var admin = await fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.Admin)
+            .SendAsync(new HttpRequestMessage(new HttpMethod(method), route) { Content = JsonContent.Create(new { payloadHash = new string('0', 64), enabled = true }) });
+
+        anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        user.StatusCode.Should().Be(HttpStatusCode.Forbidden, await user.Content.ReadAsStringAsync());
+        admin.StatusCode.Should().Be(HttpStatusCode.NotFound, "the module is switched off: " + await admin.Content.ReadAsStringAsync());
     }
 
     [Fact]

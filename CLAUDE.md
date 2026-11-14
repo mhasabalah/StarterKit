@@ -282,7 +282,7 @@ Notification is the exception: its context is in `Persistence/`.
     `EmailDesignTokens`), never hex in a `.liquid` file (`EmailDesignSystemTests`). Preheader via `| set_preheader`;
     never a secret in it. Guide: `wiki/Modules/Notification-Email-Design-System.md`.
   - Categories are `<group>.<event>` (`NotificationCategoryGroups`: billing, security, membership, catalog,
-    data-transfer, webhooks, system). Users mute per group and channel and set quiet hours; fixed channels (all of
+    data-transfer, webhooks, agents, system). Users mute per group and channel and set quiet hours; fixed channels (all of
     `security`, `billing` email) cannot be muted and `security` ignores quiet hours. No category means never muted. Email-only
     sends name the category with `.InCategory(...)`.
   - Push goes only through `IPushProvider` (FCM adapter; FirebaseAdmin stays in Notification). Devices are bound to
@@ -317,7 +317,8 @@ Notification is the exception: its context is in `Persistence/`.
   - Live progress goes through `IUserEventPublisher` (`Notification.Contracts.Realtime`), throttled; the job row stays
     the source of truth.
 - **AI agents** (Agentic, [ADR-0025](wiki/Decisions/0025-agentic-module-and-model-seam.md),
-  [ADR-0026](wiki/Decisions/0026-durable-agent-runs-on-hangfire.md); guide: `wiki/Modules/Agentic.md`):
+  [ADR-0026](wiki/Decisions/0026-durable-agent-runs-on-hangfire.md),
+  [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`):
   - A module adds an agent with `AddAgent(new AgentDefinition { ... })` and tools with `AddAgentTool<T>()`
     (`Agentic.Contracts`). Never reference the Agentic implementation, `Microsoft.Extensions.AI` or a provider SDK
     outside the Agentic module.
@@ -335,6 +336,13 @@ Notification is the exception: its context is in `Persistence/`.
   - Business rules stay in commands, never in agent instructions. Prompts and tool content are not logged or traced
     unless `Agentic:Telemetry:CaptureContent` is on. Provider keys come from configuration or Docker secrets.
   - Runs execute on the Hangfire queue `agentic` (`Hangfire:Servers:Agentic`); nothing runs in the request. The
+  - Approval is consent to ONE payload (tool, tool version, arguments, bound by a hash) and is used once. It never
+    replaces a check: the executor decides the call again after a decision, and consumes the approval in the same
+    save that marks the step executing. Never execute an approved action from the decision handler.
+  - Automatic runs go through `RequestAgentRunCommand` from the owning module's consumer or job, with a stable
+    `TriggerKey` and a real `OnBehalfOfUserId`. Never add a system identity for agents.
+  - `AgentPolicy` only tightens (the stricter of policy and definition wins). Start every run through
+    `AgentRunStarter`, which applies policy, capacity and the `agent_runs` quota.
     scripted provider (`IAgentScript`) is for tests and demos and is refused in Production.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
@@ -384,6 +392,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
 | Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
+| Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |

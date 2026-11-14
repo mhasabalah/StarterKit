@@ -129,6 +129,27 @@ public sealed record StartAgentRunCommand(
     Guid? SessionId = null) : ICommand<AgentRunDto>;
 
 /// <summary>
+/// Starts a run for an AUTOMATIC trigger: sent by a consumer or a recurring job of the module that owns the agent,
+/// never bound to an endpoint (trusted callers only). The run acts for <paramref name="OnBehalfOfUserId"/>, who must be
+/// allowed to start the agent right now; there is no system identity. Idempotent per
+/// <paramref name="TriggerKey"/>: the same trigger returns the run that already exists.
+/// </summary>
+/// <param name="AgentKey">A registered agent whose definition allows <paramref name="Trigger"/>.</param>
+/// <param name="Trigger"><c>Event</c> or <c>Schedule</c>.</param>
+/// <param name="TriggerKey">Stable key of what caused the run, e.g. <c>shipment:&lt;id&gt;:ready-for-clearance</c>.</param>
+/// <param name="OnBehalfOfUserId">The user the run acts for (the user who caused the event, or a designated member).</param>
+public sealed record RequestAgentRunCommand(
+    string AgentKey,
+    AgentTriggerKind Trigger,
+    string TriggerKey,
+    Guid OnBehalfOfUserId,
+    string? Prompt = null,
+    string? InputJson = null) : ICommand<RequestAgentRunResult>;
+
+/// <param name="Created">False when the trigger had already started this run.</param>
+public sealed record RequestAgentRunResult(Guid RunId, bool Created);
+
+/// <summary>
 /// Cancels a run. A waiting run is cancelled at once; a running one stops at its next checkpoint (what its tools
 /// already committed stays committed). Only the initiator or a holder of <c>agentic.manage</c>.
 /// </summary>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Agentic.Contracts.Approvals;
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Runtime.Models;
 using Agentic.Runtime.Security;
@@ -8,6 +9,7 @@ using Agentic.Telemetry;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Shared.Core.Entitlements;
 
 namespace Agentic.Runtime.Execution;
 
@@ -43,6 +45,7 @@ public sealed class AgentRunExecutor(
     TimeProvider timeProvider,
     IOptions<AgenticOptions> options,
     AgenticMetrics metrics,
+    AgentRunProgressPublisher progress,
     ILogger<AgentRunExecutor> logger)
 {
     private const int UpdateRetries = 3;
@@ -191,6 +194,17 @@ public sealed class AgentRunExecutor(
         });
 
         metrics.RecordModelTurn(run, response.InputTokens, response.OutputTokens);
+
+        // Plan quota "agent_tokens": every saved turn is counted, the last one of a run included. When the plan cannot
+        // cover a turn, nothing is deducted for it (the quota service consumes all or nothing) and the run stops
+        // before its next step; a run that just finished stays finished.
+        var tokens = response.InputTokens + response.OutputTokens;
+        if (tokens > 0 && !await ConsumeTokensAsync(tokens) && goOn)
+        {
+            await FailAsync(run.Id, owner, QuotaExceededException.ErrorCodeValue);
+            return false;
+        }
+
         return goOn;
     }
 
@@ -238,7 +252,7 @@ public sealed class AgentRunExecutor(
         }
 
         var arguments = step.ArgumentsJson ?? "{}";
-        var decision = ToolPolicy.Decide(agent, tool, run.Autonomy, run.Tainted, principal.Permissions);
+        var decision = ToolPolicy.Decide(agent, tool, run.Autonomy, run.ChangesNeedApproval, principal.Permissions);
         if (decision.Kind == ToolDecisionKind.Refuse || tool is null)
         {
             await RefuseAsync(run, step, owner, tool, decision.Code ?? ToolPolicy.ToolNotAllowed);
@@ -260,22 +274,137 @@ public sealed class AgentRunExecutor(
             return true;
         }
 
+        var executing = false;
         if (decision.Kind == ToolDecisionKind.RequireApproval)
         {
-            // Fail closed: an action that needs a person is never executed without one.
-            await RefuseAsync(run, step, owner, tool, "approval_required");
-            return true;
+            // An action that needs a person is never executed without one: the gate suspends the run until a decision
+            // exists, and lets the tool start only under an approval that covers exactly this payload.
+            switch (await ApprovalGateAsync(snapshot, step, tool, arguments, owner))
+            {
+                case ApprovalGate.Suspended:
+                    logger.LogInformation("Agent run {RunId}: waiting for approval of {Tool} (step {StepId})", run.Id,
+                        tool.Name, step.Id);
+                    return false;
+                case ApprovalGate.Cancelled:
+                    return false;
+                case ApprovalGate.Closed:
+                    return true;
+            }
+
+            executing = true; // the gate already saved the step as Executing, together with using up the approval
         }
 
-        return await ExecuteToolAsync(run, step, tool, principal, arguments, owner, cancellationToken);
+        return await ExecuteToolAsync(run, step, tool, principal, arguments, owner, executing, cancellationToken);
+    }
+
+    private enum ApprovalGate
+    {
+        /// <summary>A valid approval was used up and the step is saved as Executing: run the tool now.</summary>
+        Approved,
+
+        /// <summary>No decision yet: the run is suspended and this attempt ends.</summary>
+        Suspended,
+
+        /// <summary>The step was closed without running the tool (rejected, or the approval is gone).</summary>
+        Closed,
+
+        /// <summary>A cancel request arrived meanwhile: the run was cancelled instead of being suspended or executed.</summary>
+        Cancelled
+    }
+
+    /// <summary>
+    /// One save decides what the approval of this step allows, so there is no window between checking an approval and
+    /// using it: the same transaction that marks the step as executing moves the approval to <c>Consumed</c>, under
+    /// the run's lease and the approval's own version.
+    /// </summary>
+    private async Task<ApprovalGate> ApprovalGateAsync(Snapshot snapshot, AgentRunStep step, AgentToolDescriptor tool,
+        string arguments, string owner)
+    {
+        var rationale = snapshot.Steps
+            .FirstOrDefault(s => s.Kind == AgentRunStepKind.ModelTurn && s.Sequence == step.TurnSequence)?.Text;
+        var timeToLive = TimeSpan.FromHours(Settings.Approvals.ExpireAfterHours);
+
+        var gate = await SaveUnderLeaseAsync(snapshot.Run.Id, owner, async (run, repository) =>
+        {
+            var now = Now;
+
+            // The run row is read again here, under the lease. A cancel that arrived since the loop last looked must
+            // win: otherwise the run would be parked waiting for a person, with nobody left to confirm the cancel.
+            if (run.CancelRequested)
+            {
+                run.ConfirmCancelled(now);
+                return ApprovalGate.Cancelled;
+            }
+
+            var current = await repository.GetStepAsync(run.Id, step.Id)
+                          ?? throw new InvalidOperationException($"Agent run {run.Id} has no step {step.Id}.");
+            var approval = await repository.FindApprovalAsync(step.Id);
+
+            switch (approval?.Status)
+            {
+                case null:
+                    repository.AddApproval(AgentApproval.Request(run, current, tool.Name, tool.Version, tool.Risk,
+                        tool.Permission, arguments, rationale, now, timeToLive));
+                    current.AwaitApproval(tool.Version);
+                    run.Suspend();
+                    return ApprovalGate.Suspended;
+
+                case AgentApprovalStatus.Pending:
+                    run.Suspend();
+                    return ApprovalGate.Suspended;
+
+                case AgentApprovalStatus.Approved when approval.Covers(tool.Name, tool.Version, arguments):
+                    approval.Consume();
+                    current.MarkExecuting(tool.Version, now);
+                    return ApprovalGate.Approved;
+
+                case AgentApprovalStatus.Approved:
+                    // The tool was changed after the decision: consent given for the old version does not carry over.
+                    approval.Repropose(tool.Version, tool.Risk, tool.Permission, now, timeToLive);
+                    current.AwaitApproval(tool.Version);
+                    run.Suspend();
+                    return ApprovalGate.Suspended;
+
+                // The approved action had started when a worker stopped. Only an idempotent tool gets here (an
+                // interrupted non-idempotent one already stopped the run): it runs again under the SAME approval, for
+                // the same payload and with the same idempotency key.
+                case AgentApprovalStatus.Consumed when current.Status == AgentRunStepStatus.Executing &&
+                                                       approval.Covers(tool.Name, tool.Version, arguments):
+                    current.MarkExecuting(tool.Version, now);
+                    return ApprovalGate.Approved;
+
+                case AgentApprovalStatus.Rejected:
+                    var message = AgenticText.Get("Agent.Tool.rejected");
+                    if (!string.IsNullOrWhiteSpace(approval.DecisionNote))
+                        message = $"{message} {approval.DecisionNote}";
+                    current.Reject(AgentJson.Error("rejected", message), now);
+                    run.RecordToolCall(current, executed: false, untrustedContent: false);
+                    return ApprovalGate.Closed;
+
+                default:
+                    current.FailWith("approval_unavailable",
+                        AgentJson.Error("approval_unavailable", AgenticText.Get("Agent.Tool.approval_unavailable")), 0, now,
+                        tool.Version);
+                    run.RecordToolCall(current, executed: false, untrustedContent: false);
+                    return ApprovalGate.Closed;
+            }
+        }, LeaseFor(tool.Timeout));
+
+        if (gate == ApprovalGate.Closed)
+            metrics.RecordToolCall(tool.Name, "not_approved");
+        return gate;
     }
 
     private async Task<bool> ExecuteToolAsync(AgentRun run, AgentRunStep step, AgentToolDescriptor tool,
-        AgentPrincipal principal, string arguments, string owner, CancellationToken cancellationToken)
+        AgentPrincipal principal, string arguments, string owner, bool alreadyExecuting,
+        CancellationToken cancellationToken)
     {
         // Checkpoint BEFORE the side effect, with a lease that outlives the tool's own timeout.
-        await UpdateStepUnderLeaseAsync(run.Id, step.Id, owner, (_, current) => current.MarkExecuting(tool.Version, Now),
-            LeaseFor(tool.Timeout));
+        if (!alreadyExecuting)
+        {
+            await UpdateStepUnderLeaseAsync(run.Id, step.Id, owner,
+                (_, current) => current.MarkExecuting(tool.Version, Now), LeaseFor(tool.Timeout));
+        }
 
         var context = new AgentToolContext(tenantContext.TenantId, run.InitiatedBy, run.Id, step.Id, run.AgentKey,
             run.CorrelationId, $"{run.Id:N}:{step.Id:N}", run.Culture);
@@ -433,6 +562,17 @@ public sealed class AgentRunExecutor(
         metrics.RecordToolCall(tool?.Name ?? "unknown", code);
     }
 
+    /// <summary>
+    /// False when the subscriber's plan has no tokens left. The subscriber is the tenant (multi-tenant mode) or the
+    /// acting user. Fails open when the counter store is down (<see cref="IQuotaService"/> contract).
+    /// </summary>
+    private async Task<bool> ConsumeTokensAsync(long tokens)
+    {
+        var result = await unitOfWork.RunAsync((services, ct) => services.GetRequiredService<IQuotaService>()
+            .TryConsumeAsync(EntitlementKeys.AgentTokens, tokens, ct), CancellationToken.None);
+        return result.Allowed;
+    }
+
     // ----- trusted context --------------------------------------------------------------------------------------
 
     private Task<AgentPrincipal?> ResolvePrincipalAsync(AgentRun run) =>
@@ -479,6 +619,7 @@ public sealed class AgentRunExecutor(
                     return null;
 
                 await repository.SaveChangesAsync(ct);
+                await progress.PublishAsync(run); // started, or resumed after an approval or a retry
                 return run;
             }, CancellationToken.None);
         }
@@ -522,7 +663,9 @@ public sealed class AgentRunExecutor(
                     var result = await change(run, repository);
                     await repository.SaveChangesAsync(ct);
                     if (run.IsTerminal)
-                        metrics.RecordFinished(run);
+                        metrics.RecordFinished(run); // the final state is pushed by AgentRunFinishedEventHandler
+                    else
+                        await progress.PublishAsync(run, repository.LastTouchedStep);
                     return result;
                 }, CancellationToken.None);
             }

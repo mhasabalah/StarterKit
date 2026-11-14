@@ -62,6 +62,12 @@ public static class TenantPermissions
     /// <summary>Read every agent run of the tenant (without it, members see only the runs they started).</summary>
     public const string AgentRunsRead = "agentic.runs.read";
 
+    /// <summary>
+    /// Approve or reject actions an agent proposed. The approver must ALSO hold the proposed tool's own permission:
+    /// nobody approves what they could not do themselves.
+    /// </summary>
+    public const string AgentApprovalsDecide = "agentic.approvals.decide";
+
     /// <summary>Manage the tenant's agent runs: cancel a run someone else started.</summary>
     public const string AgentsManage = "agentic.manage";
 
@@ -69,7 +75,7 @@ public static class TenantPermissions
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
         AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport,
-        AgentRunsStart, AgentRunsRead, AgentsManage
+        AgentRunsStart, AgentRunsRead, AgentApprovalsDecide, AgentsManage
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

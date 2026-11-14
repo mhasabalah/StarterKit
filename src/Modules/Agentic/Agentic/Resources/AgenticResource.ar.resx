@@ -117,9 +117,6 @@
   <data name="Agent.Tool.autonomy_exceeded" xml:space="preserve">
     <value>لا يُسمح لهذا الوكيل بتنفيذ هذا النوع من الإجراءات.</value>
   </data>
-  <data name="Agent.Tool.approval_required" xml:space="preserve">
-    <value>يحتاج هذا الإجراء إلى موافقة شخص ولم يُنفَّذ.</value>
-  </data>
   <data name="Agent.Tool.arguments_too_large" xml:space="preserve">
     <value>المعطيات كبيرة جداً.</value>
   </data>
@@ -152,5 +149,98 @@
   </data>
   <data name="Agent.Tool.result_omitted" xml:space="preserve">
     <value>تم تنفيذ التغيير. نتيجته أكبر من أن تُعاد.</value>
+  </data>
+  <data name="Validation.PayloadHash.Required" xml:space="preserve">
+    <value>رمز تحقق الإجراء المعروض عليك مطلوب.</value>
+  </data>
+  <data name="Validation.Note.MaxLength" xml:space="preserve">
+    <value>يجب ألا تتجاوز الملاحظة {0} حرفاً.</value>
+  </data>
+  <data name="Agent.Error.approval_not_found" xml:space="preserve">
+    <value>طلب الموافقة '{0}' غير موجود.</value>
+  </data>
+  <data name="Agent.State.not_suspended" xml:space="preserve">
+    <value>التشغيل لا ينتظر موافقة.</value>
+  </data>
+  <data name="Agent.Approval.already_used" xml:space="preserve">
+    <value>تم استخدام الموافقة بالفعل.</value>
+  </data>
+  <data name="Agent.Approval.not_approved" xml:space="preserve">
+    <value>لم تتم الموافقة على الطلب.</value>
+  </data>
+  <data name="Agent.Approval.not_pending" xml:space="preserve">
+    <value>الطلب لا ينتظر قراراً.</value>
+  </data>
+  <data name="Agent.Approval.approver_required" xml:space="preserve">
+    <value>يحتاج القرار إلى مستخدم.</value>
+  </data>
+  <data name="Agent.Approval.approval_not_pending" xml:space="preserve">
+    <value>تم البت في هذا الطلب بالفعل أو لم يعد مفتوحاً.</value>
+  </data>
+  <data name="Agent.Approval.approval_expired" xml:space="preserve">
+    <value>انتهت صلاحية هذا الطلب.</value>
+  </data>
+  <data name="Agent.Approval.approval_payload_mismatch" xml:space="preserve">
+    <value>الإجراء المسجَّل ليس الإجراء المعروض عليك. أعد تحميل الطلب وراجعه مرة أخرى.</value>
+  </data>
+  <data name="Agent.Approval.approver_lacks_permission" xml:space="preserve">
+    <value>لا يمكنك الموافقة على هذا الإجراء لأنك لا تملك الصلاحية التي يتطلبها ({0}).</value>
+  </data>
+  <data name="Agent.Approval.approver_must_differ" xml:space="preserve">
+    <value>يجب أن يوافق شخص آخر على إجراءات التشغيل الخاص بك.</value>
+  </data>
+  <data name="Agent.Approval.decide_permission_required" xml:space="preserve">
+    <value>غير مسموح لك بالبت في طلبات الموافقة.</value>
+  </data>
+  <data name="Agent.Tool.rejected" xml:space="preserve">
+    <value>رفض أحد الأشخاص هذا الإجراء. لم يتم تنفيذه.</value>
+  </data>
+  <data name="Agent.Tool.approval_unavailable" xml:space="preserve">
+    <value>لم تعد الموافقة على هذا الإجراء صالحة. لم يتم تنفيذه.</value>
+  </data>
+  <data name="Agent.Failure.approval_expired" xml:space="preserve">
+    <value>لم يبتّ أحد في الإجراء '{0}' في الوقت المحدد، لذا تم إيقاف التشغيل.</value>
+  </data>
+  <data name="Validation.Autonomy.Invalid" xml:space="preserve">
+    <value>مستوى الاستقلالية غير صالح.</value>
+  </data>
+  <data name="Validation.Limit.Positive" xml:space="preserve">
+    <value>يجب أن يكون الحد رقماً موجباً.</value>
+  </data>
+  <data name="Validation.Trigger.Automatic" xml:space="preserve">
+    <value>لا يمكن طلب التشغيل بهذه الطريقة إلا من حدث أو جدولة.</value>
+  </data>
+  <data name="Validation.TriggerKey.Required" xml:space="preserve">
+    <value>مفتاح المشغِّل مطلوب.</value>
+  </data>
+  <data name="Validation.TriggerKey.MaxLength" xml:space="preserve">
+    <value>مفتاح المشغِّل طويل جداً.</value>
+  </data>
+  <data name="Validation.Period.Invalid" xml:space="preserve">
+    <value>يجب أن تبدأ الفترة قبل نهايتها وألا تتجاوز {0} يوماً.</value>
+  </data>
+  <data name="Agent.Error.agent_disabled" xml:space="preserve">
+    <value>الوكيل '{0}' متوقف لهذه المؤسسة.</value>
+  </data>
+  <data name="Agent.Error.automatic_triggers_disabled" xml:space="preserve">
+    <value>لا يُسمح بتشغيل الوكيل '{0}' تلقائياً في هذه المؤسسة.</value>
+  </data>
+  <data name="Agent.Error.on_behalf_of_not_authorized" xml:space="preserve">
+    <value>المستخدم الذي سيعمل هذا التشغيل بالنيابة عنه لا يملك صلاحية تشغيل الوكيل '{0}'.</value>
+  </data>
+  <data name="Agent.Error.too_many_concurrent_runs" xml:space="preserve">
+    <value>عدد كبير من تشغيلات الوكلاء قيد التنفيذ (الحد: {0}). حاول مرة أخرى بعد انتهاء أحدها.</value>
+  </data>
+  <data name="Agent.Error.automatic_run_limit" xml:space="preserve">
+    <value>تم تشغيل هذا الوكيل تلقائياً مرات كثيرة خلال الساعة الماضية (الحد: {0}).</value>
+  </data>
+  <data name="Agent.Failure.quota_exceeded" xml:space="preserve">
+    <value>تم استنفاد حصة استخدام الذكاء الاصطناعي في الخطة، لذا تم إيقاف التشغيل.</value>
+  </data>
+  <data name="Validation.Limit.NotNegative" xml:space="preserve">
+    <value>يجب ألا يكون الحد سالباً.</value>
+  </data>
+  <data name="Agent.Approval.run_not_waiting" xml:space="preserve">
+    <value>التشغيل لم يعد ينتظر هذا القرار.</value>
   </data>
 </root>

@@ -46,7 +46,37 @@ public sealed class AgenticOptions
 
     public string SweepCron { get; set; } = "*/5 * * * *";
 
+    /// <summary>Live progress (hub event <c>agentic.run-progress</c>): at most one per run per this interval, plus every change of status.</summary>
+    public int ProgressIntervalMilliseconds { get; set; } = 1_000;
+
+    public AgentApprovalOptions Approvals { get; set; } = new();
+
+    public AgentTriggerOptions Triggers { get; set; } = new();
+
     public AgentTelemetryOptions Telemetry { get; set; } = new();
+}
+
+public sealed class AgentTriggerOptions
+{
+    /// <summary>
+    /// Runs one agent may be started by events and schedules per tenant and hour. Bounds a loop of events that keep
+    /// triggering each other. 0 = no limit.
+    /// </summary>
+    public int MaxAutomaticRunsPerHour { get; set; } = 60;
+}
+
+public sealed class AgentApprovalOptions
+{
+    /// <summary>A request nobody decided within this time expires, and its run fails with <c>approval_expired</c>.</summary>
+    public int ExpireAfterHours { get; set; } = 72;
+
+    /// <summary>
+    /// Four-eyes rule: the user a run acts for may not approve that run's own actions. Off by default, because the
+    /// usual flow is an employee reviewing what their own agent prepared.
+    /// </summary>
+    public bool RequireDifferentApprover { get; set; }
+
+    public string ExpiryCron { get; set; } = "*/10 * * * *";
 }
 
 public sealed class AgentModelOptions
@@ -112,6 +142,12 @@ public sealed class AgentRunLimitOptions
     /// <summary>Active processing time (waiting for an approval does not count).</summary>
     public int MaxDurationSeconds { get; set; } = 600;
 
+    /// <summary>
+    /// Runs of ONE tenant that may be queued, running or waiting at the same time (a plan may lower it with the limit
+    /// <c>max_concurrent_agent_runs</c>). 0 = no limit.
+    /// </summary>
+    public int MaxConcurrentRunsPerTenant { get; set; } = 20;
+
     public int MaxPromptLength { get; set; } = 8_000;
 
     public int MaxInputBytes { get; set; } = 32 * 1024;
@@ -176,6 +212,12 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:StalledAfterMinutes must be at least 1.");
         if (string.IsNullOrWhiteSpace(options.SweepCron))
             errors.Add("Agentic:SweepCron is required.");
+        if (limits.MaxConcurrentRunsPerTenant < 0 || options.Triggers.MaxAutomaticRunsPerHour < 0)
+            errors.Add("Agentic: MaxConcurrentRunsPerTenant and MaxAutomaticRunsPerHour must not be negative.");
+        if (options.Approvals.ExpireAfterHours < 1)
+            errors.Add("Agentic:Approvals:ExpireAfterHours must be at least 1.");
+        if (string.IsNullOrWhiteSpace(options.Approvals.ExpiryCron))
+            errors.Add("Agentic:Approvals:ExpiryCron is required.");
 
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }

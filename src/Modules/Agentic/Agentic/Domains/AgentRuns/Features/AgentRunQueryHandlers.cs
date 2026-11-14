@@ -4,15 +4,19 @@ namespace Agentic.Domains.AgentRuns.Features;
 
 // ----- agents ---------------------------------------------------------------------------------------------------
 
-public class GetAgentsHandler(AgentRegistry registry, AgentAccess access)
+public class GetAgentsHandler(AgentRegistry registry, AgentAccess access, AgenticDbContext dbContext)
     : IQueryHandler<GetAgentsQuery, IReadOnlyList<AgentDto>>
 {
     public async Task<IReadOnlyList<AgentDto>> Handle(GetAgentsQuery query, CancellationToken cancellationToken)
     {
+        // Agents the tenant switched off are not offered.
+        var disabled = await dbContext.Policies.AsNoTracking()
+            .Where(p => !p.Enabled).Select(p => p.AgentKey).ToListAsync(cancellationToken);
+
         var agents = new List<AgentDto>();
         foreach (var agent in registry.Agents.OrderBy(a => a.Definition.Key, StringComparer.Ordinal))
         {
-            if (await access.CanStartAsync(agent.Definition))
+            if (!disabled.Contains(agent.Definition.Key) && await access.CanStartAsync(agent.Definition))
                 agents.Add(AgentRunProjections.Map(agent.Definition));
         }
 

@@ -1,3 +1,4 @@
+using Shared.Core.Auditing;
 using Shared.Core.Messaging.Outbox;
 
 namespace Agentic.Data;
@@ -12,6 +13,8 @@ public class AgenticDbContext(DbContextOptions<AgenticDbContext> options)
 {
     public DbSet<AgentRun> Runs => Set<AgentRun>();
     public DbSet<AgentRunStep> Steps => Set<AgentRunStep>();
+    public DbSet<AgentApproval> Approvals => Set<AgentApproval>();
+    public DbSet<AgentPolicy> Policies => Set<AgentPolicy>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -20,6 +23,7 @@ public class AgenticDbContext(DbContextOptions<AgenticDbContext> options)
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
         builder.AddTenantOutbox(); // integration events raised by aggregates, same transaction
+        builder.AddTenantAuditTrail(); // who approved or rejected what (IAuditable aggregates), same transaction
 
         builder.ToSnakeCaseTables();
         builder.ConfigureVersionConcurrencyTokens();
