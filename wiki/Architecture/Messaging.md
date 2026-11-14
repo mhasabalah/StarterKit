@@ -55,6 +55,7 @@ flowchart TB
 | `TenantDataPurgeRequestedEvent` | In-process orchestration | Attachment `TenantDataPurgeRequestedEventHandler` and Notification `NotificationTenantPurgeHandler` participate in `PurgeDeletedTenantsJob`; failure stops that attempt and the job retries. |
 | Tenancy cache invalidation, Subscriptions emails; optional sample logging | Same-module domain events | In-process side effects, with the commit/dispatch limitations above. |
 
+| Optional sample: `ShipmentReadyForClearanceIntegrationEvent` (Shipping) | Integration | Shipping `ShipmentReadyForClearanceConsumer` starts the shipment preparation agent through `RequestAgentRunCommand` (trigger key per shipment, on behalf of the user who handed it over). |
 ### Outbox
 
 The outbox lives in the publishing module's database, not in a separate shared business-state store. `OutboxInterceptor` inserts the event row in the same `SaveChanges` transaction as the aggregate and stages `OutboxMessagesSaved` for post-commit dispatch.

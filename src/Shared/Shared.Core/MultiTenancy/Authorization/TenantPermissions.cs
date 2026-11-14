@@ -38,6 +38,14 @@ public static class TenantPermissions
     /// <summary>Category CRUD and bulk import/export (Catalog module). Owner and Administrator hold it by default.</summary>
     public const string CategoriesManage = "catalog.categories.manage";
 
+#if (SAMPLE)
+    /// <summary>Create shipments, hand them to customs preparation and prepare declarations (Shipping sample).</summary>
+    public const string ShipmentsManage = "shipping.shipments.manage";
+
+    /// <summary>Submit a customs declaration: an external, irreversible action (Shipping sample).</summary>
+    public const string DeclarationsSubmit = "shipping.declarations.submit";
+#endif
+
     /// <summary>Outbound webhooks: endpoints, secrets, deliveries (Webhooks module).</summary>
     public const string WebhooksManage = "webhooks.manage";
 
@@ -75,7 +83,10 @@ public static class TenantPermissions
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
         AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport,
-        AgentRunsStart, AgentRunsRead, AgentApprovalsDecide, AgentsManage
+        AgentRunsStart, AgentRunsRead, AgentApprovalsDecide, AgentsManage,
+#if (SAMPLE)
+        ShipmentsManage, DeclarationsSubmit
+#endif
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

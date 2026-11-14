@@ -127,6 +127,7 @@ dotnet run -- Observability:FullStack=true          # + Grafana, Prometheus, Tem
 The Aspire dashboard shows logs, traces and metrics. Each module migrates its schema and seeds on startup. Details:
 [wiki/Infrastructure/Aspire](wiki/Infrastructure/Aspire.md).
 
+| **Shipping** (sample) | The AI agent proof of concept: shipments, customs declarations, deterministic duties, a mock customs gateway, and the shipment preparation agent (event trigger, typed tools, approval before submission) | [wiki/Modules/Shipping](wiki/Modules/Shipping.md) |
 ### Option 2: Docker Compose
 
 ```bash
@@ -172,7 +173,7 @@ dotnet test StarterKit.slnx            # needs Docker (Testcontainers)
 | Level | Where | Run |
 |---|---|---|
 | Unit | `src/Modules/<M>/<M>.Tests` | `dotnet test src/Modules/Catalog/Catalog.Tests` |
-| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Agentic, Catalog, DataTransfer, Identity, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
+| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Agentic, Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
 | Architecture guardrails | `src/Api.Tests/Architecture` | `dotnet test src/Api.Tests` |
 | HTTP end-to-end (+ multi-tenant) | `src/Api.E2ETests` | `dotnet test src/Api.E2ETests` |
 | Shared kernel / Aspire | `src/Shared/Shared.Core.Tests`, `src/Aspire/AppHost.Tests` | `dotnet test <project>` |

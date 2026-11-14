@@ -335,6 +335,9 @@ A provider API key may come from a Docker secret named `agentic_<provider>_api_k
    services.AddAgentTool<GetOrderTool>();
    services.AddAgent(new AgentDefinition
    {
+A complete, runnable example is the [Shipping sample](Shipping.md) (when the template's `sample` switch is on): five
+tools, a typed result, an event trigger and a scripted scenario.
+
        Key = "orders.order-assistant",
        Name = new LocalizedText("Order assistant", "مساعد الطلبات"),
        Instructions = "Answer questions about orders using the tools.",

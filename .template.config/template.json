@@ -36,7 +36,7 @@
       "type": "parameter",
       "datatype": "bool",
       "defaultValue": "true",
-      "description": "Include the Catalog reference module (products, categories, tags, wishlist) and everything that uses it."
+      "description": "Include the sample modules (Catalog: products, categories, tags, wishlist; Shipping: the AI agent proof of concept) and everything that uses them."
     },
     "multitenancy": {
       "type": "parameter",
@@ -282,11 +282,14 @@
             "src/Modules/Catalog/**",
             "src/Api.E2ETests/Catalog/**",
             "src/Api.E2ETests/MultiTenancy/CategoryAuthorizationTests.cs",
+            "src/Modules/Shipping/**",
             "src/Api.E2ETests/MultiTenancy/TenantIsolationFlowTests.cs",
+            "src/Api.E2ETests/Shipping/**",
             "src/Api.E2ETests/MultiTenancy/DataTransferTenantTests.cs",
             "src/Api.E2ETests/DataTransfer/DataTransferFlowTests.cs",
             "src/Api.E2ETests/Infrastructure/TestData.cs",
-            "wiki/Modules/Catalog.md"
+            "wiki/Modules/Catalog.md",
+            "wiki/Modules/Shipping.md"
           ]
         },
         {

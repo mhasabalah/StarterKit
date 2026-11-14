@@ -69,7 +69,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 |---|---|
 | `src/Api` | Host: `Program.cs`, appsettings, Dockerfile, host-level endpoints |
 | `src/Modules/<M>/<M>`, `<M>.Contracts` | Module implementation + its public contracts |
-| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Agentic, Catalog, DataTransfer, Identity, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
+| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Agentic, Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
 | `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
 | `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
@@ -93,6 +93,8 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 <!--#if (sample)-->
 - **Catalog**: the sample; products, categories, tags, wishlist.
 <!--#endif-->
+- **Shipping**: the agent sample; shipments, customs declarations and the shipment preparation agent (the reference for
+  adding an agent and its tools to a module).
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
@@ -342,9 +344,8 @@ Notification is the exception: its context is in `Persistence/`.
     `TriggerKey` and a real `OnBehalfOfUserId`. Never add a system identity for agents.
   - `AgentPolicy` only tightens (the stricter of policy and definition wins). Start every run through
     `AgentRunStarter`, which applies policy, capacity and the `agent_runs` quota.
-    scripted provider (`IAgentScript`) is for tests and demos and is refused in Production.
   - Runs execute on the Hangfire queue `agentic` (`Hangfire:Servers:Agentic`); nothing runs in the request. The
-- **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
+    scripted provider (`IAgentScript`) is for tests and demos and is refused in Production.
   - Knowledge ([ADR-0028](wiki/Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)): only what a module indexes
     is searchable. Register a source with `AddKnowledgeSource` (a `RequiredPermission`, or explicitly
     `AllowAnyMember`; optional `IKnowledgeSourcePolicy` for per-document access) and send
@@ -354,6 +355,7 @@ Notification is the exception: its context is in `Persistence/`.
   - Memory is written by a person or proposed by `memory.remember` (`RequiresApproval`), and recalled only through
     the read tool `memory.recall`. Never inject memories or retrieved text into agent instructions.
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
+- **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
   Invalidate explicitly from domain event handlers.
   Cache failures must never fail the request.

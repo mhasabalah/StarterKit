@@ -185,6 +185,11 @@ export const sections = [
         "order": 9
       },
       {
+        "source": "Modules/Shipping.md",
+        "label": "Shipping (agent sample)",
+        "order": 10
+      },
+      {
         "label": "Identity",
         "items": [
           {

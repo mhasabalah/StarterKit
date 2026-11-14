@@ -95,6 +95,9 @@ wiki/
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
 - [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (model seam, tool gateway, adding an agent)
+<!--#if (sample)-->
+- [Shipping](Modules/Shipping.md): the agent **proof of concept** (shipment preparation: typed tools, event trigger, approval before submission)
+<!--#endif-->
 
 ## Multi-tenancy
 
