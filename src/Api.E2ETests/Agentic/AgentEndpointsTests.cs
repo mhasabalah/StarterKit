@@ -24,7 +24,9 @@ public class AgentEndpointsTests(E2ETestFixture fixture)
         "/api/v1/agent-approvals",
         $"/api/v1/agent-approvals/{Guid.NewGuid()}",
         "/api/v1/agent-policies/any.agent",
-        "/api/v1/agent-usage");
+        "/api/v1/agent-usage",
+        "/api/v1/knowledge-documents",
+        "/api/v1/agent-memories");
 
     [Theory]
     [MemberData(nameof(ReadRoutes))]
@@ -72,7 +74,9 @@ public class AgentEndpointsTests(E2ETestFixture fixture)
     {
         { "POST", $"/api/v1/agent-approvals/{Guid.NewGuid()}/approve" },
         { "POST", $"/api/v1/agent-approvals/{Guid.NewGuid()}/reject" },
-        { "PUT", "/api/v1/agent-policies/any.agent" }
+        { "PUT", "/api/v1/agent-policies/any.agent" },
+        { "POST", "/api/v1/agent-memories" },
+        { "DELETE", $"/api/v1/agent-memories/{Guid.NewGuid()}" }
     };
 
     [Theory]

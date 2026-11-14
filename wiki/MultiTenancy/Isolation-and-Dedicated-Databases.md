@@ -140,6 +140,12 @@ parallelism. Boot execution requires both migration switches below; production u
 That command invokes dedicated migration directly and fails the run if any selected tenant fails.
 See [Operations](Operations.md) and [Database conventions](../Architecture/DatabaseConventions.md#migrations-at-deploy).
 
+Every database that holds tenant data, dedicated ones and the target of a tenant move included, needs the `vector`
+extension (pgvector) before its migrations run, and both sides of a move need the same pgvector version: the
+Agentic knowledge passages carry a `vector` column that the mover copies in binary form
+([ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)). The repository's PostgreSQL image has
+it; on a managed server, create it as an administrator (`deployment/postgres/scripts/init-rls-roles.sql`).
+
 ### Storage (attachments)
 
 `StoragePaths.TenantRoot` prefixes blob keys with `t/{tenantId:N}/`.

@@ -286,7 +286,8 @@ public class AgentRunSecurityTests
 
         // Row-level security, under the EF filter: tenant B's connection cannot see the rows even with raw SQL.
         var visibleToB = await _fx.InTenantAsync(TenantB, sp => sp.GetRequiredService<Data.AgenticDbContext>().Database
-            .SqlQuery<int>($"select count(*)::int as \"Value\" from agentic.agent_run_steps").SingleAsync());
+            .SqlQuery<int>($"select count(*)::int as \"Value\" from agentic.agent_run_steps where run_id = {started.Id}")
+            .SingleAsync());
         visibleToB.Should().Be(0);
         (await _fx.AdminScalarAsync<long>(
             $"select count(*) from agentic.agent_run_steps where run_id = '{started.Id}'")).Should().BeGreaterThan(0);

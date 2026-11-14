@@ -59,6 +59,14 @@ public sealed class SendEmailTool : IAgentTool<NoteInput, NoteOutput>
         Task.FromResult(new NoteOutput(Guid.NewGuid()));
 }
 
+[AgentTool("test.remember", "Remembers a fact.", Risk = AgentToolRisk.LowRiskMutation, Permission = TestPermissions.NotesWrite,
+    RequiresApproval = true)]
+public sealed class RememberTool : IAgentTool<NoteInput, NoteOutput>
+{
+    public Task<NoteOutput> ExecuteAsync(NoteInput input, AgentToolContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(new NoteOutput(Guid.NewGuid()));
+}
+
 public static class TestPermissions
 {
     public const string NotesRead = "notes.read";
@@ -73,7 +81,8 @@ public sealed record Summary(string Title, int Items);
 public static class TestAgents
 {
     public static readonly Type[] AllTools =
-        [typeof(EchoTool), typeof(ReadDocumentTool), typeof(CreateNoteTool), typeof(PublishNoteTool), typeof(SendEmailTool)];
+        [typeof(EchoTool), typeof(ReadDocumentTool), typeof(CreateNoteTool), typeof(PublishNoteTool), typeof(SendEmailTool),
+            typeof(RememberTool)];
 
     public static AgentDefinition Definition(string key = "test.assistant", AgentAutonomy autonomy = AgentAutonomy.Execute,
         Type? outputType = null, params string[] tools)

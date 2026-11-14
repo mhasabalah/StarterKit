@@ -154,6 +154,7 @@ public sealed record AgentToolDescriptor(
     TimeSpan Timeout,
     bool Idempotent,
     bool ReturnsUntrustedContent,
+    bool RequiresApproval,
     Type ToolType,
     Type InputType,
     Type OutputType,

@@ -155,6 +155,14 @@ deploy() {
     
     log "Deploying image tag: $IMAGE_TAG"
     
+    # The database image is built here (infra/postgres): rebuild it and recreate postgres when it changed, BEFORE
+    # migrating, because migrations may need what the new image adds (the pgvector extension, ADR-0028).
+    log "Updating the database image..."
+    if ! docker compose -f "$COMPOSE_FILE" build postgres || ! docker compose -f "$COMPOSE_FILE" up -d --no-deps --wait postgres; then
+        error "The database could not be updated - the running API was not touched"
+        return 1
+    fi
+
     # Apply migrations first (one-shot migrator, advisory-locked). Abort before touching the API if it fails.
     log "Running database migrator..."
     if ! docker compose -f "$COMPOSE_FILE" run --rm migrator; then

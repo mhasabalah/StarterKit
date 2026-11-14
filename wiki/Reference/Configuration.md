@@ -455,6 +455,26 @@ Options: [AgenticOptions](../../src/Modules/Agentic/Agentic/Options/AgenticOptio
 | `Agentic:Approvals:ExpiryCron` | `"*/10 * * * *"` | Schedule of `ExpireAgentApprovalsJob`. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Telemetry:CaptureContent` | `false` | Adds prompts, tool arguments and results to model spans. Leave off unless the trace store may hold business data. | [Guide](../Modules/Agentic.md) |
 
+| `Agentic:Knowledge:Enabled` | `false` | Knowledge indexing and the `knowledge.search` tool; index commands do nothing while off. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:EmbeddingProvider` | `"scripted"` | Provider (one of `Agentic:Providers`) of the embedding model: `OpenAiCompatible`, or `Scripted` (word hashing, tests only). Anthropic has no embeddings API. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:EmbeddingModelId` | `"hashing"` | The provider's embedding model id. Changing it needs a re-index of the documents. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:Dimensions` | unset | Vector length to request; unset = the model's default. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:EmbeddingBatchSize` | `64` | Passages per embedding request. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxDocumentBytes` | `10485760` | Largest file read for indexing. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxPdfPages` | `500` | Largest PDF indexed. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxTextLength` | `1000000` | Largest extracted or given text, in characters. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:ChunkSize` | `1200` | Passage length in characters. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:ChunkOverlap` | `150` | Overlap of consecutive passages (at most half of `ChunkSize`). | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxAttempts` | `4` | Indexing attempts of a revision when the provider fails, before the document is `Failed`. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:SearchCandidates` | `40` | Candidates from each of the keyword and vector searches before they are merged. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxResults` | `8` | Most passages one search returns. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:StalledAfterMinutes` | `15` | A pending document not queued for this long is queued again. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Memory:RetentionDays` | `365` | A memory expires this many days after it was written; 0 = never. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Memory:MaxPerUser` | `100` | Personal memories per user. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Memory:MaxPerTenant` | `500` | Tenant memories per tenant. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Memory:MaxRecalled` | `50` | Most memories `memory.recall` returns. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Content:RetentionDays` | `90` | Content of finished runs is erased this many days after they finished; 0 = keep. | [Guide](../Modules/Agentic.md#erasure-and-retention) |
+
 The section is validated at startup only when `Agentic:Enabled` is true.
 
 ### Webhooks

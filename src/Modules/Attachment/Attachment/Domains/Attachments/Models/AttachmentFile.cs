@@ -251,6 +251,8 @@ public class AttachmentFile : Aggregate<Guid>, IMustHaveTenant
         NextDeletionAttemptAt = utcNow;
 
         AddDomainEvent(new AttachmentDeletedEvent(Id, StoragePath, ThumbnailPath));
+        // Modules that derived something from the file (e.g. a searchable knowledge document) drop it.
+        AddIntegrationEvent(new AttachmentDeletedIntegrationEvent { AttachmentId = Id });
         return true;
     }
 

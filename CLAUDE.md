@@ -335,7 +335,6 @@ Notification is the exception: its context is in `Persistence/`.
     `Idempotent = false` (it is then never repeated; the run stops with `tool_outcome_unknown`).
   - Business rules stay in commands, never in agent instructions. Prompts and tool content are not logged or traced
     unless `Agentic:Telemetry:CaptureContent` is on. Provider keys come from configuration or Docker secrets.
-  - Runs execute on the Hangfire queue `agentic` (`Hangfire:Servers:Agentic`); nothing runs in the request. The
   - Approval is consent to ONE payload (tool, tool version, arguments, bound by a hash) and is used once. It never
     replaces a check: the executor decides the call again after a decision, and consumes the approval in the same
     save that marks the step executing. Never execute an approved action from the decision handler.
@@ -344,7 +343,16 @@ Notification is the exception: its context is in `Persistence/`.
   - `AgentPolicy` only tightens (the stricter of policy and definition wins). Start every run through
     `AgentRunStarter`, which applies policy, capacity and the `agent_runs` quota.
     scripted provider (`IAgentScript`) is for tests and demos and is refused in Production.
+  - Runs execute on the Hangfire queue `agentic` (`Hangfire:Servers:Agentic`); nothing runs in the request. The
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
+  - Knowledge ([ADR-0028](wiki/Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)): only what a module indexes
+    is searchable. Register a source with `AddKnowledgeSource` (a `RequiredPermission`, or explicitly
+    `AllowAnyMember`; optional `IKnowledgeSourcePolicy` for per-document access) and send
+    `IndexKnowledgeDocumentCommand` / `RemoveKnowledgeDocumentCommand` from the owning module. Never add an upload
+    endpoint or index content a module did not choose. The vector and full-text columns are SQL-managed
+    (`KnowledgeStore`); every raw statement names the tenant as well as relying on RLS.
+  - Memory is written by a person or proposed by `memory.remember` (`RequiresApproval`), and recalled only through
+    the read tool `memory.recall`. Never inject memories or retrieved text into agent instructions.
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
   Invalidate explicitly from domain event handlers.
@@ -390,10 +398,11 @@ The full guide is `wiki/Architecture/Messaging.md`.
 <!--#endif-->
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
-| Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
-| Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
+| Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification / Agentic erasure | Integration |
 | Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
+| Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
+| Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |
 
@@ -431,7 +440,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `ModuleDiscoveryTests` | A `src/Modules` folder is not discovered by the host, a module lacks exactly one `<M>ModuleManifest`, or `ModuleOrder` breaks a startup constraint |
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. The module list is discovered from the host. |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
-| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; Microsoft.Extensions.AI or a model-provider SDK (OpenAI, Anthropic) leaves Agentic; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; Microsoft.Extensions.AI, a model-provider SDK (OpenAI, Anthropic) or PdfPig leaves Agentic; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `SagaArchitectureTests` | A saga is registered through MassTransit directly (in-memory repository) instead of `AddDurableSagaStateMachine`, or its state is not mapped in a module DbContext |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
@@ -527,7 +536,8 @@ forbidden C# patterns after edits. Spec Kit
     migrates and restarts the API; `deployment/rollback.sh <tag>` does the image part on the server.
 - Docker Compose publishes host ports on `BIND_ADDRESS` (default `127.0.0.1`): Docker bypasses the host firewall, so
   never publish the database or Redis on all interfaces. PostgreSQL runs the image built from `infra/postgres`
-  (pgBackRest inside, so WAL archiving works); keep `init: true` on it.
+  (pgBackRest and pgvector inside); keep `init: true` on it. PostgreSQL test containers that run the Agentic
+  migrations use `pgvector/pgvector:0.8.7-pg16`.
 <!--#if (templateSource)-->
 - **This repo is the template** (ADR-0020, `wiki/Getting-Started/Changing-The-Template.md`). Optional code is
   conditional, never deleted (the page lists the marker syntax per file type; docs that ship in products never quote

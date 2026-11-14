@@ -81,6 +81,12 @@ public sealed class AgentToolAttribute(string name, string description) : Attrib
     /// is the deterministic defence against instructions hidden in content.
     /// </summary>
     public bool ReturnsUntrustedContent { get; init; }
+
+    /// <summary>
+    /// Every call needs a human approval of its exact payload, whatever the risk and the autonomy level (e.g. writing
+    /// a long-term memory). Sensitive and external tools need one anyway.
+    /// </summary>
+    public bool RequiresApproval { get; init; }
 }
 
 /// <summary>

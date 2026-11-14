@@ -36,3 +36,4 @@ link it here.
 | [0025](0025-agentic-module-and-model-seam.md) | Run AI agents in one module, behind typed tools and an owned model seam | Accepted | 2026-11-13 |
 | [0026](0026-durable-agent-runs-on-hangfire.md) | Run agents as leased, step-checkpointed Hangfire jobs | Accepted | 2026-11-13 |
 | [0027](0027-agent-approvals-triggers-and-policies.md) | Govern agents with payload-bound approvals, explicit triggers and tighten-only tenant policies | Accepted | 2026-11-13 |
+| [0028](0028-agent-knowledge-and-memory-on-pgvector.md) | Give agents knowledge and memory on PostgreSQL with pgvector, behind the same permissions | Accepted | 2026-11-14 |

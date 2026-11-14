@@ -6,7 +6,8 @@ Agentic is the **runtime**. The module that owns a use case plugs in an **agent*
 references a business module and a business module never references a model SDK. Design rationale:
 [ADR-0025](../Decisions/0025-agentic-module-and-model-seam.md) (module, tools, model seam),
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md) (durability) and
-[ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md) (approvals, triggers, policies).
+[ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md) (approvals, triggers, policies) and
+[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -17,7 +18,8 @@ executed.
 
 `AgentRun` owns lifecycle, lease, budgets and counters; `AgentRunStep` is the append-only transcript and the
 checkpoint; `AgentApproval` is one request for a person's decision; `AgentPolicy` is a tenant's settings for one
-agent. `AgenticDbContext` maps schema `agentic`. `AgenticModuleManifest.Order` is `ModuleOrder.Agentic` (800).
+agent; `KnowledgeDocument` + `KnowledgeChunk` are what modules made searchable; `AgentMemory` is a fact agents may
+recall. `AgenticDbContext` maps schema `agentic`. `AgenticModuleManifest.Order` is `ModuleOrder.Agentic` (800).
 Source: `src/Modules/Agentic/`.
 
 ### Layout
@@ -31,6 +33,9 @@ Agentic.Contracts/           references Shared.Contracts only, no AI package
   Approvals/  approve / reject commands, approval queries, AgentApprovalDto, AgentApprovalStatus
   Policies/   UpdateAgentPolicyCommand, GetAgentPolicyQuery, AgentPolicyDto
   Usage/      GetAgentUsageQuery, AgentUsageDto
+  Knowledge/  KnowledgeSourceDefinition, AddKnowledgeSource, IKnowledgeSourcePolicy, IndexKnowledgeDocumentCommand,
+              RemoveKnowledgeDocumentCommand, GetKnowledgeDocumentsQuery
+  Memory/     GetAgentMemoriesQuery (paged), AgentMemoryDto, AgentMemoryScope (writes are internal to the module)
   Scripting/  IAgentScript, ScriptedReply, AddAgentScript (the deterministic model for tests and demos)
 Agentic/
   AgenticModule.cs        Add/UseAgenticModule (options, registry check)
@@ -40,6 +45,10 @@ Agentic/
                           handlers, AgentRunsModule (routes), AgentAccess, notification handlers
   Domains/Approvals/      AgentApproval, decision handlers, AgentApprovalsModule (routes), ExpireAgentApprovalsJob
   Domains/Policies/       AgentPolicy, handlers, AgentPoliciesModule (policy and usage routes)
+  Domains/Knowledge/      KnowledgeDocument + KnowledgeChunk, index/remove handlers, search (internal query),
+                          IndexKnowledgeDocumentJob, the stall sweep, knowledge.search, AttachmentDeletedKnowledgeConsumer
+  Domains/Memory/         AgentMemory, handlers, AgentMemoriesModule (routes), memory.recall, memory.remember
+  Runtime/Knowledge/      KnowledgeSourceRegistry, text extraction, chunking, embeddings, KnowledgeStore (pgvector SQL)
   Runtime/Tools/          AgentRegistry, AgentToolDescriptor + typed invoker, ToolPolicy, AgentJson
   Runtime/Security/       AgentPrincipalResolver (the initiator's CURRENT permissions)
   Runtime/Models/         IAgentModelGateway, ChatClientModelGateway, AgentChatClientFactory, ScriptedChatClient
@@ -173,6 +182,55 @@ agent's definition by taking the stricter value, so it can never widen an agent;
 
 None of these carries prompts, tool arguments or results.
 
+### Knowledge
+
+A module makes content searchable for agents; nothing else is indexed.
+
+1. Register a source in the module: `services.AddKnowledgeSource(new KnowledgeSourceDefinition { Key =
+   "shipping.documents", Name = ..., RequiredPermission = TenantPermissions.X })` (or `AllowAnyMember = true`).
+   Optionally `AddKnowledgeSourcePolicy<T>()`: an `IKnowledgeSourcePolicy` that returns, as the user a run acts for,
+   which of the found documents they may read.
+2. Index from the module's own handler or consumer: `IndexKnowledgeDocumentCommand(source, externalRef, title, Text:
+   ...)` or `AttachmentId: ...`. The same content again is a no-op (unless the embedding model changed); new content is a new revision. Remove with
+   `RemoveKnowledgeDocumentCommand`. Both are trusted commands (never bound to an endpoint) and do nothing while
+   `Agentic:Knowledge:Enabled` is false.
+3. `IndexKnowledgeDocumentJob` (queue `agentic`) extracts the text (plain text, Markdown, CSV, JSON, HTML without
+   markup, PDF text layer), splits it into overlapping passages, embeds them and swaps old and new passages in one
+   transaction, only while its revision is still current. Until then searches keep using the last indexed revision. Unreadable content fails at once (`unsupported_content_type`,
+   `document_too_large`, `no_text`, `pdf_encrypted`, `pdf_unreadable`, `attachment_not_found`); a provider failure is
+   retried with backoff and then fails (`indexing_failed`). `RequeueStalledKnowledgeDocumentsJob` re-queues lost jobs.
+4. An agent that lists the built-in tool `knowledge.search` gets passages with citations
+   (`<source>/<externalRef>#<passage>`). Sources come from the run's CURRENT permissions (narrowed by an API-key
+   ceiling); the model can only narrow them further. SQL names the tenant and runs under RLS; then the source's policy
+   filters per document. Keyword (`tsvector`, `'simple'`) and exact vector (pgvector, cosine) results are merged by
+   reciprocal rank fusion; without a query embedding the search uses keywords only. The tool returns untrusted
+   content, so the run is tainted and later changes need a person.
+
+Vectors of different embedding models are never compared: a document stores the model identity of its passages.
+After changing `Agentic:Knowledge:EmbeddingModelId`, have the owning modules send their documents again: unchanged
+content is then indexed again with the new model.
+
+### Memory
+
+`agent_memories` holds personal memories (visible to one user) and tenant memories (everyone; written only with
+`agentic.manage`). People manage them at `/api/v1/agent-memories`. Agents use two built-in tools:
+
+- `memory.recall` (read, untrusted content): the user's and the tenant's memories that have not expired. Memory is
+  data in the transcript, never part of the instructions.
+- `memory.remember` (`RequiresApproval`, permission `agentic.runs.start`): proposes a personal memory for the user the
+  run acts for. Every call waits for a person to approve the exact text, at any autonomy level from `Prepare`.
+
+Memories expire after `Agentic:Memory:RetentionDays` and are limited per user and per tenant.
+
+### Erasure and retention
+
+- Account erasure (`UserDeletedIntegrationEvent`): the user's personal memories are deleted, their open runs are
+  cancelled, and the content of their finished runs (prompt, input, output, transcript text, tool arguments and
+  results, approval payloads) is erased in every tenant. Facts, counters and audit entries stay.
+- `PurgeAgentContentJob` (daily) erases the content of runs that finished more than `Agentic:Content:RetentionDays`
+  ago (0 = keep) and deletes expired memories.
+- A deleted attachment (`AttachmentDeletedIntegrationEvent`) removes the documents indexed from it.
+
 ### Acting user and tenant
 
 A tool runs exactly like a request of the initiating user: inside `TenantScope.Begin(tenant, membership:)` (their
@@ -207,6 +265,8 @@ executes a tool. Provider kinds (`Agentic:Providers:<name>:Kind`):
 | `POST /api/v1/agent-approvals/{id}/approve`, `/reject` | `agentic.approvals.decide` + the tool's permission; no API key, no impersonation |
 | `GET`, `PUT /api/v1/agent-policies/{agentKey}` | `agentic.manage` (PUT: no impersonation) |
 | `GET /api/v1/agent-usage` | `agentic.runs.read` |
+| `GET /api/v1/knowledge-documents` | `agentic.manage`; status, revision and passage count, no content |
+| `GET`, `POST /api/v1/agent-memories`, `DELETE /{id}` | `agentic.runs.start` (POST and DELETE: no impersonation); a tenant memory needs `agentic.manage`; someone else's memory is 404 |
 
 ### Metrics, traces, permissions
 
@@ -236,6 +296,14 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Triggers:MaxAutomaticRunsPerHour` | 60 | Automatic runs per agent, tenant and hour; 0 = no limit |
 | `Approvals:ExpireAfterHours` / `RequireDifferentApprover` / `ExpiryCron` | 72 / false / every 10 min | Approval expiry and the four-eyes rule |
 | `Telemetry:CaptureContent` | `false` | Adds prompts and tool content to model spans |
+| `Knowledge:Enabled` | `false` | Knowledge indexing and `knowledge.search` |
+| `Knowledge:EmbeddingProvider` / `EmbeddingModelId` / `Dimensions` | scripted / hashing / model default | Embedding model (an OpenAI-compatible provider; `Scripted` hashes words, for tests) |
+| `Knowledge:ChunkSize` / `ChunkOverlap` | 1200 / 150 | Passage length and overlap, in characters |
+| `Knowledge:MaxDocumentBytes` / `MaxPdfPages` / `MaxTextLength` | 10 MB / 500 / 1,000,000 | Bounds of one document |
+| `Knowledge:MaxAttempts` / `StalledAfterMinutes` | 4 / 15 | Indexing retries of a provider failure; stall sweep |
+| `Knowledge:SearchCandidates` / `MaxResults` / `EmbeddingBatchSize` | 40 / 8 / 64 | Search breadth and size; embedding batch |
+| `Memory:RetentionDays` / `MaxPerUser` / `MaxPerTenant` / `MaxRecalled` | 365 / 100 / 500 / 50 | Memory lifetime and limits |
+| `Content:RetentionDays` | 90 | Content of finished runs is erased after this many days; 0 = keep |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
 A provider API key may come from a Docker secret named `agentic_<provider>_api_key` (provider name in lower case).
@@ -302,21 +370,27 @@ id or a permission in the input; make changes idempotent for `AgentToolContext.I
 | A decision replayed, or a job delivered again after the approval was used | Nothing happens: an approval is used once |
 | Nobody decides in time | The request expires and the run fails with `approval_expired` |
 | The same trigger delivered twice | One run |
+| A document's content changes while it is indexed | The older job's result is dropped; the newer revision is indexed |
+| Embedding provider down while indexing | Retried with backoff; after `Knowledge:MaxAttempts` the document is `Failed` and not searchable |
+| Embedding provider down while searching | Keyword search only |
+| A user without the source's permission searches | No passage of that source, whatever sources the model asks for |
 
 Failure messages on a run are localized texts chosen by code. Provider and exception details go to the log only.
 
 ## Guardrails
 
-- `ThirdPartyIsolationTests`: Microsoft.Extensions.AI and the provider SDKs are referenced only by Agentic.
+- `ThirdPartyIsolationTests`: Microsoft.Extensions.AI, the provider SDKs and PdfPig are referenced only by Agentic.
 - `AgentToolArchitectureTests`: tools reach data only through the mediator.
 - `ModuleBoundaryTests`, `TenantIsolationArchitectureTests`, `TenantRowLevelSecurityCoverageTests`,
   `BackgroundJobEventDispatchTests`, `PendingModelChangesTests`.
 - `Agentic.IntegrationTests`: `AgentRunExecutionTests`, `AgentRunSecurityTests`, `AgentRunRecoveryTests`,
-  `AgentRunCancellationTests`, `AgentApprovalTests`, `AgentGovernanceTests`, `AgentRunEventsTests`.
+  `AgentRunCancellationTests`, `AgentApprovalTests`, `AgentGovernanceTests`, `AgentRunEventsTests`,
+  `KnowledgeTests`, `AgentMemoryTests` (on `pgvector/pgvector`).
 
 ## Related
 
 [ADR-0025](../Decisions/0025-agentic-module-and-model-seam.md),
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md),
-[ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md), [DataTransfer](DataTransfer.md) (the same job
+[ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
+[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md), [DataTransfer](DataTransfer.md) (the same job
 pattern), [Shared projects](../Shared/README.md) (`ActingUser`).

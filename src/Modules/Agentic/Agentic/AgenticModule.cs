@@ -1,7 +1,12 @@
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Services;
 using Agentic.Domains.Approvals.Jobs;
+using Agentic.Domains.Knowledge.Jobs;
+using Agentic.Domains.Knowledge.Tools;
+using Agentic.Domains.Memory.Features;
+using Agentic.Domains.Memory.Tools;
 using Agentic.Runtime.Execution;
+using Agentic.Runtime.Knowledge;
 using Agentic.Runtime.Models;
 using Agentic.Runtime.Security;
 using Agentic.Telemetry;
@@ -28,6 +33,8 @@ public static class AgenticModule
     public const string SweepJobId = "agentic-requeue-stalled";
     public const string ApprovalExpiryJobId = "agentic-expire-approvals";
     public const string AuditPurgeJobId = "agentic-purge-audit-entries";
+    public const string ContentPurgeJobId = "agentic-purge-content";
+    public const string KnowledgeSweepJobId = "agentic-requeue-stalled-knowledge";
 
     public static IServiceCollection AddAgenticModule(this IServiceCollection services, IConfiguration configuration)
     {
@@ -52,6 +59,10 @@ public static class AgenticModule
         services.AddScoped<AgentAccess>();
         services.AddScoped<Domains.Approvals.Features.AgentApprovalDecision>();
         services.AddScoped<AgentPrincipalResolver>();
+        services.AddScoped<AgentCallScope>();
+        services.AddScoped<IKnowledgeDocumentRepository, KnowledgeDocumentRepository>();
+        services.AddScoped<IAgentMemoryRepository, AgentMemoryRepository>();
+        services.AddScoped<AgentMemoryWriter>();
 
         // Runtime. The registry reads what every module registered (AddAgent / AddAgentTool) and is validated at startup.
         services.AddSingleton<AgentRegistry>();
@@ -62,6 +73,13 @@ public static class AgenticModule
         // Live progress goes through the Notification hub; without that module (or with real time off) it is a no-op.
         services.TryAddSingleton<IUserEventPublisher, NullUserEventPublisher>();
         services.AddTransient<AgentRunExecutor>();
+
+        // Knowledge and memory (ADR-0028): sources come from the modules (AddKnowledgeSource), validated at startup.
+        services.AddSingleton<KnowledgeSourceRegistry>();
+        services.AddSingleton<IKnowledgeEmbedder, KnowledgeEmbedder>();
+        services.AddAgentTool<KnowledgeSearchTool>();
+        services.AddAgentTool<MemoryRecallTool>();
+        services.AddAgentTool<MemoryRememberTool>();
 
         services.AddMediator(AgenticRoot.AssemblyName);
         services.AddCarterWithAssemblies(AgenticRoot.AssemblyName);
@@ -74,6 +92,9 @@ public static class AgenticModule
         services.AddTransient<RequeueStalledAgentRunsJob>();
         services.AddTransient<ExpireAgentApprovalsJob>();
         services.AddTransient<PurgeAgentAuditEntriesJob>();
+        services.AddTransient<PurgeAgentContentJob>();
+        services.AddTransient<IndexKnowledgeDocumentJob>();
+        services.AddTransient<RequeueStalledKnowledgeDocumentsJob>();
 
         return services;
     }
@@ -85,6 +106,7 @@ public static class AgenticModule
         // Fail fast on a wiring mistake in any module: duplicate names, a tool without an authorization decision, an
         // agent that lists an unknown tool or names a model that is not configured.
         var registry = app.ApplicationServices.GetRequiredService<AgentRegistry>();
+        _ = app.ApplicationServices.GetRequiredService<KnowledgeSourceRegistry>();
         var options = app.ApplicationServices.GetRequiredService<IOptions<AgenticOptions>>().Value;
         if (options.Enabled)
             EnsureModelsConfigured(registry, options);
@@ -104,6 +126,14 @@ public static class AgenticModule
             AuditPurgeJobId,
             x => x.ExecuteAsync(JobCancellationToken.Null),
             Cron.Daily(4));
+        recurring.AddOrUpdate<PurgeAgentContentJob>(
+            ContentPurgeJobId,
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            Cron.Daily(3));
+        recurring.AddOrUpdate<RequeueStalledKnowledgeDocumentsJob>(
+            KnowledgeSweepJobId,
+            x => x.ExecuteAsync(JobCancellationToken.Null),
+            options.SweepCron);
 
         return app;
     }

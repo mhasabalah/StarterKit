@@ -615,9 +615,14 @@ export const sections = [
         "order": 27
       },
       {
+        "source": "Decisions/0028-agent-knowledge-and-memory-on-pgvector.md",
+        "label": "0028 agent knowledge and memory on pgvector",
+        "order": 28
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 28
+        "order": 29
       }
     ]
   }

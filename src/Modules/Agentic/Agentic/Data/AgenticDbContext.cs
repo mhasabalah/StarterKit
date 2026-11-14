@@ -15,6 +15,9 @@ public class AgenticDbContext(DbContextOptions<AgenticDbContext> options)
     public DbSet<AgentRunStep> Steps => Set<AgentRunStep>();
     public DbSet<AgentApproval> Approvals => Set<AgentApproval>();
     public DbSet<AgentPolicy> Policies => Set<AgentPolicy>();
+    public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
+    public DbSet<KnowledgeChunk> KnowledgeChunks => Set<KnowledgeChunk>();
+    public DbSet<AgentMemory> Memories => Set<AgentMemory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

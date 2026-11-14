@@ -31,6 +31,8 @@ global using Agentic.Domains.AgentRuns.Exceptions;
 global using Agentic.Domains.AgentRuns.Models;
 global using Agentic.Domains.Approvals.Exceptions;
 global using Agentic.Domains.Approvals.Models;
+global using Agentic.Domains.Knowledge.Models;
+global using Agentic.Domains.Memory.Models;
 global using Agentic.Domains.Policies.Models;
 global using Agentic.Options;
 global using Agentic.Resources;

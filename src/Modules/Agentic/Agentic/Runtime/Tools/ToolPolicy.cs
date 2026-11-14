@@ -53,10 +53,11 @@ public static class ToolPolicy
         if (tool.RequiredAutonomy > autonomy)
             return ToolDecision.Refuse(AutonomyExceeded);
 
-        // 4. Human approval: always for sensitive and external actions, and for ANY change once the run has read
-        //    content the platform does not control (instructions hidden in a document must not move data).
+        // 4. Human approval: always for sensitive and external actions and for tools that demand it, and for ANY
+        //    change once the run has read content the platform does not control (instructions hidden in a document
+        //    must not move data).
         if (tool.Risk is AgentToolRisk.SensitiveMutation or AgentToolRisk.ExternalOrIrreversible ||
-            (tainted && tool.IsMutation))
+            tool.RequiresApproval || (tainted && tool.IsMutation))
         {
             return ToolDecision.RequireApproval;
         }
