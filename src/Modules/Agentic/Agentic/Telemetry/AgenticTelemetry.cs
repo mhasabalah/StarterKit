@@ -52,12 +52,25 @@ public static class AgenticTelemetry
     }
 }
 
-/// <summary>Metrics of the Agentic module (meter <c>StarterKit.Agentic</c>).</summary>
+/// <summary>
+/// Metrics of the Agentic module (meter <c>StarterKit.Agentic</c>).
+/// <para>
+/// The backlog gauges (<c>agent.approvals.pending</c>, <c>agent.approvals.oldest_pending.age</c>,
+/// <c>agent.runs.queued.oldest.age</c>) only read a snapshot CACHED here: the metrics callback never touches the database.
+/// <c>RequeueStalledAgentRunsJob</c> refreshes it on every pass over all tenants. A snapshot older than
+/// <see cref="BacklogStaleAfter"/> is not reported, so an instance that no longer runs the sweep drops its series instead
+/// of exporting a frozen number (the outbox gauges work the same way).
+/// </para>
+/// </summary>
 public sealed class AgenticMetrics : IDisposable
 {
     public const string MeterName = "StarterKit.Agentic";
+    public static readonly TimeSpan BacklogStaleAfter = TimeSpan.FromMinutes(20);
 
     private readonly Meter _meter;
+    private readonly TimeProvider _time;
+    private readonly Counter<long> _requeued;
+    private BacklogSnapshot? _backlog;
     private readonly Counter<long> _started;
     private readonly Counter<long> _finished;
     private readonly Counter<long> _turns;
@@ -65,9 +78,18 @@ public sealed class AgenticMetrics : IDisposable
     private readonly Counter<long> _toolCalls;
     private readonly Histogram<double> _duration;
 
-    public AgenticMetrics(IMeterFactory meterFactory)
+    public AgenticMetrics(IMeterFactory meterFactory, TimeProvider time)
     {
+        _time = time;
         _meter = meterFactory.Create(MeterName);
+        _requeued = _meter.CreateCounter<long>("agent.runs.requeued", "{run}",
+            "Runs the stall sweep queued again: no live lease and not queued recently (a worker died or a job was lost).");
+        _meter.CreateObservableGauge("agent.approvals.pending", () => ReadBacklog(b => b.PendingApprovals), "{approval}",
+            "Actions waiting for a person's decision, over all tenants.");
+        _meter.CreateObservableGauge("agent.approvals.oldest_pending.age", () => ReadBacklog(b => b.OldestApprovalAgeSeconds), "s",
+            "Age of the oldest action waiting for a decision (0 when none).");
+        _meter.CreateObservableGauge("agent.runs.queued.oldest.age", () => ReadBacklog(b => b.OldestQueuedAgeSeconds), "s",
+            "How long the oldest queued run has waited for a worker (0 when none).");
         _started = _meter.CreateCounter<long>("agent.runs.started", "{run}", "Agent runs started.");
         _finished = _meter.CreateCounter<long>("agent.runs.finished", "{run}", "Agent runs finished, by status and failure code.");
         _turns = _meter.CreateCounter<long>("agent.model.turns", "{turn}", "Model requests answered.");
@@ -97,7 +119,26 @@ public sealed class AgenticMetrics : IDisposable
     public void RecordToolCall(string tool, string outcome) =>
         _toolCalls.Add(1, Tag("tool", tool), Tag("outcome", outcome));
 
+    public void RecordRequeued(int runs)
+    {
+        if (runs > 0)
+            _requeued.Add(runs);
+    }
+
+    public void RecordBacklog(long pendingApprovals, TimeSpan oldestApproval, TimeSpan oldestQueued) =>
+        _backlog = new BacklogSnapshot(pendingApprovals, Math.Max(0, oldestApproval.TotalSeconds),
+            Math.Max(0, oldestQueued.TotalSeconds), _time.GetUtcNow());
+
+    private IEnumerable<Measurement<double>> ReadBacklog(Func<BacklogSnapshot, double> value)
+    {
+        if (_backlog is { } snapshot && _time.GetUtcNow() - snapshot.At <= BacklogStaleAfter)
+            yield return new Measurement<double>(value(snapshot));
+    }
+
     private static KeyValuePair<string, object?> Tag(string key, object? value) => new(key, value);
+
+    private sealed record BacklogSnapshot(long PendingApprovals, double OldestApprovalAgeSeconds, double OldestQueuedAgeSeconds,
+        DateTimeOffset At);
 
     public void Dispose() => _meter.Dispose();
 }

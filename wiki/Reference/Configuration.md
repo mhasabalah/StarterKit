@@ -441,12 +441,13 @@ Options: [AgenticOptions](../../src/Modules/Agentic/Agentic/Options/AgenticOptio
 | `Agentic:Limits:MaxDurationSeconds` | `600` | Active processing time per run. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Limits:MaxPromptLength` | `8000` | Characters of the prompt of a new run. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Limits:MaxInputBytes` | `32768` | Size of the structured input of a new run. | [Guide](../Modules/Agentic.md) |
-| `Agentic:Limits:MaxToolArgumentsBytes` | `32768` | Size of the arguments of one tool call; larger calls are refused. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxToolArgumentsBytes` | `32768` | Size of the arguments of one tool call (the typed result included); larger calls are refused when the model's answer is saved, and their arguments are not stored. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxModelTextBytes` | `65536` | Size of the text of one model answer; a larger answer is not stored and the run fails with `output_too_large`. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Limits:MaxToolResultBytes` | `65536` | Size of one tool result; a larger one is withheld from the model. | [Guide](../Modules/Agentic.md) |
 | `Agentic:LeaseSeconds` | `300` | Lease of a running run, renewed at every checkpoint and extended to cover a longer model request or tool timeout. | [Guide](../Modules/Agentic.md) |
 | `Agentic:MaxAttempts` | `3` | Consecutive failed attempts (no checkpoint in between) before a run is marked `Failed`. | [Guide](../Modules/Agentic.md) |
 | `Agentic:StalledAfterMinutes` | `10` | A run without a live lease that was not queued for this long is queued again by the sweep. | [Guide](../Modules/Agentic.md) |
-| `Agentic:SweepCron` | `"*/5 * * * *"` | Schedule of `RequeueStalledAgentRunsJob`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:SweepCron` | `"*/5 * * * *"` | Schedule of `RequeueStalledAgentRunsJob`, which also refreshes the backlog gauges; keep it under 20 minutes or the gauges (and their alerts) go silent. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Limits:MaxConcurrentRunsPerTenant` | `20` | Runs of one tenant that may be queued, running or waiting at once (a plan may lower it); 0 = no limit. | [Guide](../Modules/Agentic.md) |
 | `Agentic:ProgressIntervalMilliseconds` | `1000` | Live progress (`agentic.run-progress`): at most one event per run per interval, plus every change of status. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Triggers:MaxAutomaticRunsPerHour` | `60` | Runs one agent may be started by events and schedules per tenant and hour; 0 = no limit. | [Guide](../Modules/Agentic.md) |

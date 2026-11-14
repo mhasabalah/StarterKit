@@ -313,6 +313,7 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Limits.MaxTokens = defaults.MaxTokens;
         Options.Limits.MaxToolResultBytes = defaults.MaxToolResultBytes;
         Options.Limits.MaxToolArgumentsBytes = defaults.MaxToolArgumentsBytes;
+        Options.Limits.MaxModelTextBytes = defaults.MaxModelTextBytes;
         Options.MaxAttempts = 3;
         Options.StalledAfterMinutes = 10;
         Options.Approvals.ExpireAfterHours = 72;

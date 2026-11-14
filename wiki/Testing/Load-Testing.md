@@ -106,6 +106,19 @@ stays one closed-loop VU. Tag: `load_scenario`.
 the API allows one active import per definition and tenant (409 `import_already_running`). The budgets are regression
 tripwires with a wide margin, not SLAs.
 
+<!--#if (sample)-->
+
+**`agents` (opt-in, 2 closed-loop VUs).** The agent demo of the Shipping sample: create a shipment with its documents,
+hand it over (the outbox event starts the run), wait for the declaration draft, approve the requested submission with
+its `payloadHash`, and wait until it is submitted (admin bearer). It is not in the default set: start the stack with
+`LOAD_AGENTS=true` (sets `Agentic__Enabled`; scripted model, so no provider, no API key, no token cost) and run
+`SCENARIOS=agents` (alone or in a list). `LOAD_AGENT_TIMEOUT` (90 s) bounds each wait. Its p95 budget (800 ms) covers
+the API calls only; the agent's own latency (outbox, `agentic` queue, two worker attempts) is in the trends
+`agent_flow_ms` (hand-over to submitted) and `agent_draft_ms`, which have no threshold yet: record a baseline on your
+hardware first.
+
+<!--#endif-->
+
 Each run adds users, products and import rows, so `run.sh run` refuses a second run on the same stack (marker
 `tests/load/results/.ran`) unless you pass `--reuse`. Run `make loadtest-down` between runs you want to compare.
 

@@ -17,6 +17,7 @@ StarterKit composes the runtime from a base file and optional overlays, with a s
 | `docker-compose.rabbitmq-worker.yml` | Combination overlay | Required when `docker-compose.rabbitmq.yml` and `docker-compose.worker.yml` are both on: switches the worker to RabbitMQ too |
 | `docker-compose.clamav.yml` | Malware-scanning overlay | `clamav` (clamd, ~1.5 GB RAM, healthy after 1-2 min) + turns on upload scanning with `RequireVirusScanning=true` ([details](../Attachment/Security.md#malware-scanning)) |
 | `docker-compose.worker.yml` | Worker overlay | Moves `data-transfer` processing from `api` to `worker`; same image, no published worker ports. |
+| `docker-compose.agents.yml` | AI agents overlay (optional) | Turns on the Agentic module with an OpenAI-compatible provider: secret `secrets/agentic_openai_api_key.txt`, `AGENTIC_MODEL_ID` (and `AGENTIC_ENDPOINT` for Azure OpenAI or a self-hosted server) in `.env` ([operations](Agentic-Operations.md)) |
 | `docker-compose.apns.yml` | Direct iOS push | APNs key `secrets/apns_auth_key.p8`; API `Push:Apns:Enabled=true`, with `APNS_KEY_ID`, `APNS_TEAM_ID` and `APNS_BUNDLE_ID`. |
 | `docker-compose.loadtest.yml` | Standalone load-test stack | PostgreSQL, Redis, API and profile-gated k6; never merge with the base file. |
 | `docker-compose.dataprotection.yml` | Security overlay (**recommended in production**) | Encrypts the Data Protection key ring with `secrets/dataprotection_cert.pfx`; the API refuses to start without it |

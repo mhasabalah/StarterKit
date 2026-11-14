@@ -102,6 +102,9 @@
   <data name="Agent.Failure.budget_exceeded" xml:space="preserve">
     <value>بلغ التشغيل حدّه ({0}) وتم إيقافه.</value>
   </data>
+  <data name="Agent.Failure.output_too_large" xml:space="preserve">
+    <value>أجاب النموذج بنص أطول من المسموح به، لذلك أُوقف التشغيل.</value>
+  </data>
   <data name="Agent.Failure.tool_outcome_unknown" xml:space="preserve">
     <value>تمت مقاطعة الإجراء '{0}' ولا يُعرف ما إذا كان قد نُفِّذ. تحقق منه قبل بدء تشغيل جديد.</value>
   </data>

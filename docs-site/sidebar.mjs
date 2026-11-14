@@ -101,6 +101,11 @@ export const sections = [
             "source": "Architecture/TechnologyStack.md",
             "label": "Technology Stack",
             "order": 13
+          },
+          {
+            "source": "Architecture/Agent-Security.md",
+            "label": "Agent Security Model",
+            "order": 14
           }
         ]
       },
@@ -391,6 +396,11 @@ export const sections = [
             "source": "deployment/Production-Testing.md",
             "label": "Production Testing",
             "order": 12
+          },
+          {
+            "source": "deployment/Agentic-Operations.md",
+            "label": "Agentic Operations",
+            "order": 13
           }
         ]
       },

@@ -101,7 +101,44 @@ public class AgentRunSecurityTests
 
         var (_, calls) = await RunToEndAsync(started.Id);
 
-        calls.Should().ContainSingle().Which.ErrorCode.Should().Be("arguments_too_large");
+        var call = calls.Should().ContainSingle().Subject;
+        call.ErrorCode.Should().Be("arguments_too_large");
+        call.ArgumentsJson.Should().BeNull("oversized model output is refused when it arrives, never stored");
+        _fx.World.Notes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ATypedResult_LargerThanTheLimit_IsRefused_AndNeverBecomesTheRunsResult()
+    {
+        _fx.Options.Limits.MaxToolArgumentsBytes = 64;
+        _fx.Board.Play(
+            ScriptedReply.Submit($$"""{"title":"{{new string('x', 500)}}","items":0}"""),
+            ScriptedReply.Submit("""{"title":"short","items":1}"""));
+        var started = await _fx.StartAsync(TenantA, TestAgents.Typed);
+
+        var (status, calls) = await RunToEndAsync(started.Id);
+
+        status.Should().Be(AgentRunStatus.Completed, "the model was told and handed in a result within the limit");
+        calls[0].ErrorCode.Should().Be("arguments_too_large");
+        calls[0].ArgumentsJson.Should().BeNull();
+        (await _fx.RunOfAsync(TenantA, started.Id)).OutputJson.Should().Contain("short").And.NotContain("xxxxx");
+    }
+
+    [Fact]
+    public async Task AModelAnswer_LargerThanTheLimit_IsNotStored_AndStopsTheRun()
+    {
+        _fx.Options.Limits.MaxModelTextBytes = 64;
+        _fx.Board.Play(new ScriptedReply(new string('y', 500), [new ScriptedToolCall(CreateNoteTool.Name, """{"title":"x"}""")]));
+        var started = await _fx.StartAsync(TenantA);
+
+        var (status, calls) = await RunToEndAsync(started.Id);
+
+        status.Should().Be(AgentRunStatus.Failed);
+        var run = await _fx.RunOfAsync(TenantA, started.Id);
+        run.FailureCode.Should().Be("output_too_large");
+        run.OutputText.Should().BeNull();
+        calls.Should().BeEmpty("nothing the oversized answer asked for is planned or run");
+        (await _fx.StepsOfAsync(TenantA, started.Id)).Should().OnlyContain(step => step.Text == null || !step.Text.Contains("yyyy"));
         _fx.World.Notes.Should().BeEmpty();
     }
 

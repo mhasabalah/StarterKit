@@ -92,9 +92,9 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
 <!--#if (sample)-->
 - **Catalog**: the sample; products, categories, tags, wishlist.
-<!--#endif-->
 - **Shipping**: the agent sample; shipments, customs declarations and the shipment preparation agent (the reference for
   adding an agent and its tools to a module).
+<!--#endif-->
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
@@ -354,8 +354,8 @@ Notification is the exception: its context is in `Persistence/`.
     (`KnowledgeStore`); every raw statement names the tenant as well as relying on RLS.
   - Memory is written by a person or proposed by `memory.remember` (`RequiresApproval`), and recalled only through
     the read tool `memory.recall`. Never inject memories or retrieved text into agent instructions.
-  the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
+  the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
   Invalidate explicitly from domain event handlers.
   Cache failures must never fail the request.
@@ -402,9 +402,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
 | Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification / Agentic erasure | Integration |
 | Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
-| Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
+| Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |
 
@@ -482,6 +482,7 @@ change. **Use the matching skill instead of improvising.**
 | New endpoint / command / query / CRUD | `/starterkit:add-feature` |
 | Schema change / migration | `/starterkit:add-migration` |
 | Cross-module event + consumer | `/starterkit:add-integration-event` |
+| AI agent / agent tool in a module | `/starterkit:add-agent-tool` |
 | Scheduled / background job | `/starterkit:add-background-job` |
 | Permission / endpoint authorization | `/starterkit:add-permission` |
 | Email / WhatsApp message | `/starterkit:add-email-template` |

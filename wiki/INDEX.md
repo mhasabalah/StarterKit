@@ -48,6 +48,7 @@ wiki/
 - [Observability](Architecture/Observability.md): logs, traces, metrics for developers
 - [TechnologyStack](Architecture/TechnologyStack.md): libraries and versions
 - [Feature-Flags](Architecture/Feature-Flags.md): runtime flags, evaluation order, `.RequireFlag`, admin API
+- [Agent security model](Architecture/Agent-Security.md): trust boundaries of AI agents, and each threat with its control and the test that proves it
 
 ## Decisions (ADRs)
 
@@ -163,6 +164,7 @@ wiki/
 - [Secrets](deployment/Secrets.md) · [Backups](deployment/Backups.md) · [Docker Compose](deployment/Docker-Compose.md)
 - [Database migrations](deployment/Database-Migrations.md): one-shot migrator, advisory lock, least-privilege roles
 - [Nginx](deployment/Nginx.md) · [Observability stack](deployment/Observability.md) · [Seq security](deployment/Seq-Security.md) · [Production testing](deployment/Production-Testing.md)
+- [Agentic operations](deployment/Agentic-Operations.md): switching agents on with a real provider, sizing workers, signals, and what to do for each agent alert
 
 ## Rulebook coverage
 
@@ -201,6 +203,7 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | Agents, typed tools, the tool gateway, model providers and durable runs | [Agentic](Modules/Agentic.md), [ADR 0025](Decisions/0025-agentic-module-and-model-seam.md), [ADR 0026](Decisions/0026-durable-agent-runs-on-hangfire.md) |
 | Agent approvals, automatic triggers, tenant policies, quotas and usage | [Agentic](Modules/Agentic.md#human-approval), [ADR 0027](Decisions/0027-agent-approvals-triggers-and-policies.md) |
 | Agent knowledge (indexing, hybrid search, citations), memory, content erasure and retention | [Agentic](Modules/Agentic.md#knowledge), [ADR 0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) |
+| Agent threats (prompt injection, approval bypass, oversized output), alerts and runbook | [Agent security model](Architecture/Agent-Security.md), [Agentic operations](deployment/Agentic-Operations.md) |
 | Distributed caching, tenant keys and explicit invalidation | [Redis](Infrastructure/Redis.md) |
 | HTTP context, Carter injection and ActingUser | [Shared projects](Shared/README.md) |
 | Tenant entities, tenant-first indexes, filters last, interceptors and forced RLS | [Isolation and dedicated databases](MultiTenancy/Isolation-and-Dedicated-Databases.md), [Adding a tenant-aware module](MultiTenancy/Adding-a-Tenant-Aware-Module.md) |
@@ -231,6 +234,7 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | New endpoint or slice | `/starterkit:add-feature` | [ApiGuidelines](Architecture/ApiGuidelines.md) |
 | Migration | `/starterkit:add-migration` | [Migrations](Reference/Migrations.md) |
 | Cross-module event | `/starterkit:add-integration-event` | [Messaging](Architecture/Messaging.md) |
+| AI agent or agent tool | `/starterkit:add-agent-tool` | [Agentic](Modules/Agentic.md), [Agent security model](Architecture/Agent-Security.md) |
 | Background job | `/starterkit:add-background-job` | [Messaging](Architecture/Messaging.md), CLAUDE.md |
 | Permission | `/starterkit:add-permission` | [Permissions-2FA](Identity/Permissions-2FA-and-Admin-Audit.md) |
 | Email | `/starterkit:add-email-template` | [Notification](Modules/Notification.md) |

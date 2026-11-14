@@ -119,6 +119,12 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// <summary>Last time a Hangfire job was queued for this row (start, resume, retry, stall sweep).</summary>
     public DateTime? LastEnqueuedAt { get; private set; }
 
+    /// <summary>
+    /// When the run became (or, after a retry back-off, becomes) ready for a worker; null = since it was created. Unlike
+    /// <see cref="LastEnqueuedAt"/>, the stall sweep never moves it, so the age of the oldest queued run is real.
+    /// </summary>
+    public DateTime? ReadyAt { get; private set; }
+
     /// <summary>Groups the runs of one conversation.</summary>
     public Guid? SessionId { get; private set; }
 
@@ -256,16 +262,21 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         ReleaseLease();
         ConsecutiveFailures++;
         LastEnqueuedAt = now;
+        ReadyAt = now;
         return ConsecutiveFailures;
     }
 
+    /// <summary>The retry is scheduled after a back-off: until then the run is not waiting for a worker.</summary>
+    public void DelayReadiness(DateTime readyAt) => ReadyAt = readyAt;
+
     /// <summary>Server shutdown in the middle of an attempt: back to the queue, not counted as a failure.</summary>
-    public void ReleaseForShutdown()
+    public void ReleaseForShutdown(DateTime now)
     {
         if (IsTerminal)
             return;
         Status = AgentRunStatus.Queued;
         ReleaseLease();
+        ReadyAt = now;
     }
 
     /// <summary>
@@ -286,6 +297,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             throw new InvalidAgentRunStateException("not_suspended");
         Status = AgentRunStatus.Queued;
         LastEnqueuedAt = now;
+        ReadyAt = now;
     }
 
     private void ReleaseLease()
@@ -330,6 +342,20 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     {
         EnsureRunning();
         return AgentRunStep.ToolCall(Id, NextSequence++, turn.Sequence, callId, toolName, argumentsJson);
+    }
+
+    /// <summary>
+    /// A tool call refused as soon as the model asked for it (arguments over the limit): saved WITHOUT its arguments,
+    /// already failed, so the model is told and nothing oversized reaches the database.
+    /// </summary>
+    public AgentRunStep RefuseToolCall(AgentRunStep turn, string callId, string toolName, string errorCode,
+        string resultJson, DateTime now)
+    {
+        EnsureRunning();
+        var step = AgentRunStep.ToolCall(Id, NextSequence++, turn.Sequence, callId, toolName, argumentsJson: null);
+        step.FailWith(errorCode, resultJson, 0, now);
+        RecordToolCall(step, executed: false, untrustedContent: false);
+        return step;
     }
 
     /// <summary>A tool call reached a final state (executed, refused or skipped): counters and taint.</summary>

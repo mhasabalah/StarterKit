@@ -201,6 +201,10 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("prompt");
 
+                    b.Property<DateTime?>("ReadyAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ready_at");
+
                     b.Property<Guid?>("SessionId")
                         .HasColumnType("uuid")
                         .HasColumnName("session_id");
