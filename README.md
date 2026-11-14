@@ -99,6 +99,7 @@ area: [feature catalog](wiki/Reference/Features.md).
 | **Notification** | Every email (Liquid templates on a token-based design system: components, dark mode, branding, plain-text part, en/ar) and WhatsApp delivery with fallback, email or WhatsApp one-time codes, the in-app inbox with real-time SignalR events (Redis backplane), push to session-bound devices through FCM (Android, iOS, Web), user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md), [Realtime and push](wiki/Modules/Notification-Realtime-and-Push.md), [Email design system](wiki/Modules/Notification-Email-Design-System.md) |
 <!--#if (sample)-->
 | **Catalog** (sample) | Products (moderation workflow, gallery, attributes, soft delete), categories, tags, wishlist: the **reference vertical slice** | [wiki/Modules/Catalog](wiki/Modules/Catalog.md) |
+| **Shipping** (sample) | The AI agent proof of concept: shipments, customs declarations, deterministic duties, a mock customs gateway, and the shipment preparation agent (event trigger, typed tools, approval before submission) | [wiki/Modules/Shipping](wiki/Modules/Shipping.md) |
 <!--#endif-->
 
 **Tech stack:** .NET 10, ASP.NET Core minimal APIs (Carter), an owned mediator (`Shared.Contracts.Mediation`), FluentValidation, Mapster, EF Core 10 + Npgsql
@@ -127,7 +128,6 @@ dotnet run -- Observability:FullStack=true          # + Grafana, Prometheus, Tem
 The Aspire dashboard shows logs, traces and metrics. Each module migrates its schema and seeds on startup. Details:
 [wiki/Infrastructure/Aspire](wiki/Infrastructure/Aspire.md).
 
-| **Shipping** (sample) | The AI agent proof of concept: shipments, customs declarations, deterministic duties, a mock customs gateway, and the shipment preparation agent (event trigger, typed tools, approval before submission) | [wiki/Modules/Shipping](wiki/Modules/Shipping.md) |
 ### Option 2: Docker Compose
 
 ```bash
@@ -221,6 +221,7 @@ wiki/                         # developer documentation
 | `/starterkit:add-aggregate` · `/starterkit:add-feature` | entities, then command/query slices with endpoints |
 | `/starterkit:add-migration` | EF migrations with tenant RLS |
 | `/starterkit:add-integration-event` · `/starterkit:add-background-job` | outbox events and consumers; tenant-aware Hangfire jobs |
+| `/starterkit:add-agent-tool` | an AI agent or typed agent tool in a module (risk, permission, idempotency, triggers) |
 | `/starterkit:add-permission` · `/starterkit:add-email-template` | authorization; notifications |
 | `/starterkit:write-tests` · `/starterkit:review` | tests at every level; interactive senior review |
 | `/starterkit:new-project` · `/starterkit:update-docs` | bootstrapping from the template; docs hygiene |

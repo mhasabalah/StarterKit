@@ -30,10 +30,14 @@ export const SCENARIOS = {
   inbox: { rate: 12, vus: 6, maxVus: 30, p95: 400, exec: 'inboxScenario' },
   // One active import per definition and tenant (409 otherwise): exactly one VU, closed loop (submit, then poll).
   import: { vus: 1, p95: 1000, exec: 'importScenario', closed: true },
+  // Opt-in (needs agents on and the Shipping sample): a few VUs, each walking the whole agent demo (closed loop). The
+  // p95 is the API's; the agent's own latency is the agent_flow_ms trend.
+  agents: { vus: 2, p95: 800, exec: 'agentsScenario', closed: true, optIn: true },
 };
 
 export function selectedScenarios() {
-  const wanted = (__ENV.SCENARIOS || Object.keys(SCENARIOS).join(',')).split(',').map((s) => s.trim());
+  const defaults = Object.keys(SCENARIOS).filter((name) => !SCENARIOS[name].optIn);
+  const wanted = (__ENV.SCENARIOS || defaults.join(',')).split(',').map((s) => s.trim());
   return Object.keys(SCENARIOS).filter((name) => wanted.includes(name));
 }
 

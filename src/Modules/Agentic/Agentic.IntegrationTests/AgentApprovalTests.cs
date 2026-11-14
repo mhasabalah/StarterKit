@@ -2,7 +2,10 @@ using Agentic.Contracts.Approvals;
 using Agentic.Contracts.Runs;
 using Agentic.Contracts.Scripting;
 using Agentic.Domains.AgentRuns.Exceptions;
+using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.Approvals.Exceptions;
+using Microsoft.Extensions.DependencyInjection;
+using Shared.Core.MultiTenancy;
 using Shared.Core.Exceptions;
 using Shared.Core.MultiTenancy.Authorization;
 using static Agentic.IntegrationTests.AgenticPostgresFixture;
@@ -74,6 +77,43 @@ public class AgentApprovalTests
         _fx.Board.Turns.Should().Be(turns);
         _fx.Jobs.For(runId).Should().HaveCount(jobs, "a run that waits for a person is not stalled");
         _fx.World.Mail.Should().BeEmpty();
+    }
+
+    private Task<RequeueStalledAgentRunsJob.Backlog> BacklogOfAsync(TenantInfo tenant) =>
+        _fx.InTenantAsync(tenant, sp => sp.GetRequiredService<RequeueStalledAgentRunsJob>().MeasureCurrentTenantAsync());
+
+    [Fact]
+    public async Task TheBacklogGauges_CountAWaitingRequest_InItsTenantOnly_AndReportTheOldest()
+    {
+        var beforeA = await BacklogOfAsync(TenantA);
+        var beforeB = await BacklogOfAsync(TenantB);
+
+        var runId = await SuspendedRunAsync();
+        var approval = await _fx.ApprovalOfAsync(TenantA, runId);
+
+        var afterA = await BacklogOfAsync(TenantA);
+        afterA.PendingApprovals.Should().Be(beforeA.PendingApprovals + 1);
+        afterA.OldestApproval.Should().NotBeNull();
+        afterA.OldestApproval!.Value.Should().BeOnOrBefore(approval.RequestedAt);
+        (await BacklogOfAsync(TenantB)).PendingApprovals.Should().Be(beforeB.PendingApprovals);
+    }
+
+    [Fact]
+    public async Task TheQueuedAge_KeepsGrowing_WhileNoWorkerTakesTheRun_AlthoughTheSweepQueuesItAgain()
+    {
+        var started = await _fx.StartAsync(TenantA); // queued, and no worker ever runs it
+        var created = (await _fx.RunOfAsync(TenantA, started.Id)).CreatedAt!.Value;
+
+        _fx.Clock.Advance(TimeSpan.FromMinutes(30));
+        await _fx.SweepAsync(TenantA);
+        _fx.Clock.Advance(TimeSpan.FromMinutes(30));
+        await _fx.SweepAsync(TenantA);
+
+        var run = await _fx.RunOfAsync(TenantA, started.Id);
+        run.LastEnqueuedAt.Should().BeAfter(created, "the sweep queued the stalled run again");
+        var backlog = await BacklogOfAsync(TenantA);
+        backlog.OldestQueued.Should().NotBeNull();
+        backlog.OldestQueued!.Value.Should().BeOnOrBefore(created, "re-enqueueing must not reset the age the alert reads");
     }
 
     [Fact]

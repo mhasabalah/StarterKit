@@ -97,7 +97,7 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
         };
 
     internal static AgentRunStep ToolCall(Guid runId, int sequence, int turnSequence, string callId, string toolName,
-        string argumentsJson) =>
+        string? argumentsJson) =>
         new()
         {
             Id = Guid.CreateVersion7(),

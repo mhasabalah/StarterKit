@@ -102,6 +102,9 @@
   <data name="Agent.Failure.budget_exceeded" xml:space="preserve">
     <value>The run reached its limit ({0}) and was stopped.</value>
   </data>
+  <data name="Agent.Failure.output_too_large" xml:space="preserve">
+    <value>The model answered with more text than allowed, so the run was stopped.</value>
+  </data>
   <data name="Agent.Failure.tool_outcome_unknown" xml:space="preserve">
     <value>The action '{0}' was interrupted and it is not known whether it took effect. Check it before starting a new run.</value>
   </data>

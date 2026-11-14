@@ -86,3 +86,75 @@ groups:
         annotations:
           summary: "Real-time notification events are failing"
           description: "{{ $value }} hub send(s) failed in 10m. Check Redis (the SignalR backplane) and the API log 'Real-time ... failed'. Inbox data is unaffected; users see updates only after a refresh/reconnect."
+
+  - name: agents
+    # Agentic module (meter StarterKit.Agentic). Every series exists only when Agentic:Enabled=true, so these rules
+    # stay silent in products that do not use agents. Names are matched with and without the unit/_total suffixes the
+    # collector may add. Runbook: wiki/deployment/Agentic-Operations.md.
+    rules:
+      - alert: AgentRunFailureRateHigh
+        # agent.runs.finished{status,failure}: more than a quarter of the runs that finished in 30m failed, with volume.
+        expr: |
+          (
+            sum(increase({__name__=~"agent_runs_finished(_total)?", status="Failed"}[30m]))
+            / sum(increase({__name__=~"agent_runs_finished(_total)?"}[30m]))
+          ) > 0.25
+          and sum(increase({__name__=~"agent_runs_finished(_total)?"}[30m])) > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 25% of agent runs are failing"
+          description: "Group the failures by the failure label (sum by (failure, agent) (increase(agent_runs_finished_total{status=\"Failed\"}[30m]))). model_unavailable = provider down or key invalid; budget_exceeded = limits too low or a looping prompt; initiator_no_longer_authorized is expected after membership changes (wiki/deployment/Agentic-Operations.md)."
+
+      - alert: AgentModelUnavailable
+        # A run fails with model_unavailable only after Agentic:MaxAttempts provider errors in a row.
+        expr: sum by (agent) (increase({__name__=~"agent_runs_finished(_total)?", failure="model_unavailable"}[15m])) > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent {{ $labels.agent }} cannot reach its model provider"
+          description: "{{ $value }} run(s) gave up on the model in 15m. Check the provider status, the API key (Docker secret agentic_<provider>_api_key) and the API log 'did not answer' (wiki/deployment/Agentic-Operations.md)."
+
+      - alert: AgentToolOutcomeUnknown
+        # A non-idempotent tool was interrupted mid-call: whether it took effect is unknown and a person must check.
+        expr: sum by (agent) (increase({__name__=~"agent_runs_finished(_total)?", failure="tool_outcome_unknown"}[1h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "An agent action of {{ $labels.agent }} may or may not have taken effect"
+          description: "Find the run (GET /api/v1/agent-runs?status=Failed), read its last tool step, and check the business record before anyone retries (wiki/deployment/Agentic-Operations.md)."
+
+      - alert: AgentRunsStalling
+        # agent.runs.requeued: the sweep found runs without a live lease that were not queued recently.
+        expr: sum(increase({__name__=~"agent_runs_requeued(_total)?"}[30m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent runs keep stalling"
+          description: "{{ $value }} run(s) were queued again in 30m: workers die mid-run (OOM, restarts) or jobs are lost. Check the replicas running Hangfire:Servers:Agentic and their restarts (wiki/deployment/Agentic-Operations.md)."
+
+      - alert: AgentRunQueueBacklog
+        # agent.runs.queued.oldest.age: a queued run nobody picked up. No replica runs the agentic queue, or all
+        # its workers are busy with long model calls.
+        expr: max({__name__=~"agent_runs_queued_oldest_age(_seconds)?"}) > 600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent runs wait more than 10 minutes for a worker"
+          description: "Enable Hangfire:Servers:Agentic on a replica or raise its WorkerCount; check the Hangfire dashboard for the agentic queue (wiki/deployment/Agentic-Operations.md)."
+
+      - alert: AgentApprovalBacklog
+        # agent.approvals.oldest_pending.age: a proposed action has waited a day for a person. It expires after
+        # Agentic:Approvals:ExpireAfterHours (72 by default) and fails its run.
+        expr: max({__name__=~"agent_approvals_oldest_pending_age(_seconds)?"}) > 86400
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent actions wait more than a day for approval"
+          description: "{{ $value }}s for the oldest. Approvers need agentic.approvals.decide AND the tool's own permission; check that someone holds both and receives the in-app notices (GET /api/v1/agent-approvals) (wiki/deployment/Agentic-Operations.md)."

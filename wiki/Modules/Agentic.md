@@ -271,9 +271,11 @@ executes a tool. Provider kinds (`Agentic:Providers:<name>:Kind`):
 ### Metrics, traces, permissions
 
 - Activity source and meter `StarterKit.Agentic`: spans `agent.run`, `agent.model_turn` (the provider's `gen_ai`
-  span is its child) and `agent.tool`; counters `agent.runs.started`, `agent.runs.finished`, `agent.model.turns`,
-  `agent.model.tokens`, `agent.tool.calls`; histogram `agent.run.active.duration`. A run's spans join the trace of
-  the request that started it.
+  span is its child) and `agent.tool`; counters `agent.runs.started`, `agent.runs.finished`, `agent.runs.requeued`,
+  `agent.model.turns`, `agent.model.tokens`, `agent.tool.calls`; histogram `agent.run.active.duration`; gauges
+  `agent.approvals.pending`, `agent.approvals.oldest_pending.age` and `agent.runs.queued.oldest.age` (refreshed by
+  the stall sweep). A run's spans join the trace of the request that started it. The Prometheus alerts on them and
+  what to do when one fires: [Agentic operations](../deployment/Agentic-Operations.md).
 - Tenant permissions: `agentic.runs.start`, `agentic.runs.read`, `agentic.approvals.decide`, `agentic.manage`
   (policies, cancel someone else's run).
 - Entitlement keys: `agents` (plan feature), `agent_runs` and `agent_tokens` (quotas), `max_concurrent_agent_runs`
@@ -289,7 +291,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `DefaultModel` | `default` | Model key of agents that name none |
 | `Models:<key>` | scripted | `Provider`, `ModelId`, `MaxOutputTokens`, prices per million tokens |
 | `Providers:<name>` | scripted | `Kind`, `Endpoint`, `ApiKey`, `TimeoutSeconds`, `MaxRetries` |
-| `Limits` | see `AgentRunLimitOptions` | Per-run ceilings: model turns, tool calls, calls per turn, tokens, active seconds, sizes |
+| `Limits` | see `AgentRunLimitOptions` | Per-run ceilings: model turns, tool calls, calls per turn, tokens, active seconds, sizes (prompt, input, tool arguments and results, model text) |
 | `LeaseSeconds` / `MaxAttempts` | 300 / 3 | Lease length (extended to cover a model request or tool timeout that is longer); consecutive failed attempts before the run fails |
 | `StalledAfterMinutes` / `SweepCron` | 10 / every 5 min | `RequeueStalledAgentRunsJob` queues again a run without a live lease that was not queued recently |
 | `ProgressIntervalMilliseconds` | 1000 | Throttle of live progress events |
@@ -307,10 +309,18 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
 A provider API key may come from a Docker secret named `agentic_<provider>_api_key` (provider name in lower case).
+`docker-compose.agents.yml` turns agents on with an OpenAI-compatible provider and mounts that secret.
 
 ## Usage
 
 ### Adding an agent to your module
+
+<!--#if (sample)-->
+
+A complete, runnable example is the [Shipping sample](Shipping.md): five tools, a typed result, an event trigger and a
+scripted scenario.
+
+<!--#endif-->
 
 1. Reference `Agentic.Contracts` from the module (never the Agentic implementation).
 2. Write one class per operation. The input holds only what a model may choose:
@@ -335,9 +345,6 @@ A provider API key may come from a Docker secret named `agentic_<provider>_api_k
    services.AddAgentTool<GetOrderTool>();
    services.AddAgent(new AgentDefinition
    {
-A complete, runnable example is the [Shipping sample](Shipping.md) (when the template's `sample` switch is on): five
-tools, a typed result, an event trigger and a scripted scenario.
-
        Key = "orders.order-assistant",
        Name = new LocalizedText("Order assistant", "مساعد الطلبات"),
        Instructions = "Answer questions about orders using the tools.",
@@ -365,6 +372,8 @@ id or a permission in the input; make changes idempotent for `AgentToolContext.I
 | Server shutdown | The run returns to `Queued` without counting a failure |
 | Lost Hangfire job, dead worker | `RequeueStalledAgentRunsJob` queues the run again once its lease expired and the quiet period passed |
 | A change whose result is too large | Stays a success with the payload withheld (a read-only tool gets `result_too_large`) |
+| The model sends arguments over `MaxToolArgumentsBytes` (a typed result included) | Refused with `arguments_too_large` as the answer is saved; the arguments are never stored and the model is told |
+| The model answers with more than `MaxModelTextBytes` of text | Nothing of the answer is stored or run; the run fails with `output_too_large` |
 | Business error from a tool (4xx, conflict) | Returned to the model with its code; the run goes on |
 | Budget reached | The run fails with `budget_exceeded` and the name of the limit |
 | Initiator removed or deactivated | The run fails with `initiator_no_longer_authorized` |
@@ -388,12 +397,23 @@ Failure messages on a run are localized texts chosen by code. Provider and excep
   `BackgroundJobEventDispatchTests`, `PendingModelChangesTests`.
 - `Agentic.IntegrationTests`: `AgentRunExecutionTests`, `AgentRunSecurityTests`, `AgentRunRecoveryTests`,
   `AgentRunCancellationTests`, `AgentApprovalTests`, `AgentGovernanceTests`, `AgentRunEventsTests`,
-  `KnowledgeTests`, `AgentMemoryTests` (on `pgvector/pgvector`).
+  `AgentRunTracingTests`, `KnowledgeTests`, `AgentMemoryTests` (on `pgvector/pgvector`).
+- `Agentic.Tests/ModelEvaluationTests` (category `ModelEvaluation`): whether a REAL model uses the tools as agents need.
+  Skipped unless `AGENTIC_EVAL_PROVIDER`, `AGENTIC_EVAL_MODEL` and `AGENTIC_EVAL_API_KEY` are set; run them when choosing
+  or upgrading a model. They measure the model only: no safety rule depends on them.
+- The threats and the control and test that answer each: [Agent security model](../Architecture/Agent-Security.md).
+
+<!--#if (sample)-->
+
+Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testing](../Testing/Load-Testing.md)).
+
+<!--#endif-->
 
 ## Related
 
 [ADR-0025](../Decisions/0025-agentic-module-and-model-seam.md),
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md),
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
-[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md), [DataTransfer](DataTransfer.md) (the same job
-pattern), [Shared projects](../Shared/README.md) (`ActingUser`).
+[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md), [Agent security model](../Architecture/Agent-Security.md),
+[Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
+[Shared projects](../Shared/README.md) (`ActingUser`).

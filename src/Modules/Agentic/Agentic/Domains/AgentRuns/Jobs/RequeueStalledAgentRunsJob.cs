@@ -1,3 +1,5 @@
+using Agentic.Contracts.Approvals;
+using Agentic.Telemetry;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -11,6 +13,10 @@ namespace Agentic.Domains.AgentRuns.Jobs;
 /// saving the run and enqueueing its job, a retry that was recorded but never scheduled, a worker that died holding the
 /// lease, and a failure that could not be recorded. Duplicate jobs are harmless (the lease lets only one proceed).
 /// Runs suspended for an approval are not touched: they wait for a person, not for a worker.
+/// <para>
+/// Each full pass also refreshes the backlog gauges of <see cref="AgenticMetrics"/> (pending approvals, the oldest one,
+/// the oldest queued run) that the Prometheus alerts read.
+/// </para>
 /// </summary>
 [DisableConcurrentExecution(60)]
 public sealed class RequeueStalledAgentRunsJob(
@@ -19,6 +25,7 @@ public sealed class RequeueStalledAgentRunsJob(
     IBackgroundJobClient jobs,
     TimeProvider timeProvider,
     IOptions<AgenticOptions> options,
+    AgenticMetrics metrics,
     ILogger<RequeueStalledAgentRunsJob> logger)
 {
     internal const int BatchSize = 100;
@@ -29,9 +36,41 @@ public sealed class RequeueStalledAgentRunsJob(
             return 0;
 
         var total = 0;
-        await tenantJobs.ForEachTenantScopeAsync(async (_, _) => total += await RequeueCurrentTenantAsync(cancellationToken),
-            nameof(RequeueStalledAgentRunsJob));
+        var backlog = new Backlog(0, null, null);
+        await tenantJobs.ForEachTenantScopeAsync(async (_, _) =>
+        {
+            total += await RequeueCurrentTenantAsync(cancellationToken);
+            backlog = backlog.Add(await MeasureCurrentTenantAsync());
+        }, nameof(RequeueStalledAgentRunsJob));
+
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        metrics.RecordBacklog(backlog.PendingApprovals, now - (backlog.OldestApproval ?? now), now - (backlog.OldestQueued ?? now));
         return total;
+    }
+
+    /// <summary>Pending approvals and the oldest waiting approval and queued run of the current tenant.</summary>
+    public Task<Backlog> MeasureCurrentTenantAsync() =>
+        unitOfWork.RunAsync(async (services, ct) =>
+        {
+            var db = services.GetRequiredService<AgenticDbContext>();
+            var pending = db.Approvals.Where(a => a.Status == AgentApprovalStatus.Pending);
+            var count = await pending.LongCountAsync(ct);
+            var oldestApproval = count == 0 ? null : await pending.MinAsync(a => (DateTime?)a.RequestedAt, ct);
+            // ReadyAt, not LastEnqueuedAt: the sweep re-enqueues stalled runs and would reset the age it measures. A retry
+            // still in its back-off is not waiting for a worker yet.
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            var oldestQueued = await db.Runs
+                .Where(r => r.Status == AgentRunStatus.Queued && (r.ReadyAt ?? r.CreatedAt) <= now)
+                .MinAsync(r => r.ReadyAt ?? r.CreatedAt, ct);
+            return new Backlog(count, oldestApproval, oldestQueued);
+        }, CancellationToken.None);
+
+    public sealed record Backlog(long PendingApprovals, DateTime? OldestApproval, DateTime? OldestQueued)
+    {
+        public Backlog Add(Backlog other) => new(PendingApprovals + other.PendingApprovals,
+            Earliest(OldestApproval, other.OldestApproval), Earliest(OldestQueued, other.OldestQueued));
+
+        private static DateTime? Earliest(DateTime? a, DateTime? b) => a is null ? b : b is null ? a : a < b ? a : b;
     }
 
     public async Task<int> RequeueCurrentTenantAsync(IJobCancellationToken? cancellationToken)
@@ -64,6 +103,8 @@ public sealed class RequeueStalledAgentRunsJob(
             AgentRunQueue.Enqueue(jobs, id);
             logger.LogWarning("Agent run {RunId} was stalled and has been queued again", id);
         }
+
+        metrics.RecordRequeued(stalled.Count);
 
         return stalled.Count;
     }

@@ -222,7 +222,17 @@ public sealed class AgentRunLimitOptions
 
     public int MaxInputBytes { get; set; } = 32 * 1024;
 
+    /// <summary>
+    /// Arguments of one tool call (the typed result included). Larger arguments are refused when the model's answer
+    /// is saved, and never stored.
+    /// </summary>
     public int MaxToolArgumentsBytes { get; set; } = 32 * 1024;
+
+    /// <summary>
+    /// Text of one model answer. A larger answer is not stored and stops the run with <c>output_too_large</c>, whatever
+    /// the provider's own output limit is (an OpenAI-compatible server may ignore it).
+    /// </summary>
+    public int MaxModelTextBytes { get; set; } = 64 * 1024;
 
     /// <summary>A larger tool result is replaced by a <c>result_too_large</c> error the model can act on.</summary>
     public int MaxToolResultBytes { get; set; } = 64 * 1024;
@@ -269,7 +279,7 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
         var limits = options.Limits;
         if (limits.MaxModelTurns < 1 || limits.MaxToolCalls < 0 || limits.MaxToolCallsPerTurn < 1 || limits.MaxTokens < 1 ||
             limits.MaxDurationSeconds < 1 || limits.MaxPromptLength < 1 || limits.MaxInputBytes < 1 ||
-            limits.MaxToolArgumentsBytes < 1 || limits.MaxToolResultBytes < 1)
+            limits.MaxToolArgumentsBytes < 1 || limits.MaxToolResultBytes < 1 || limits.MaxModelTextBytes < 1)
         {
             errors.Add("Agentic:Limits: every limit must be positive.");
         }

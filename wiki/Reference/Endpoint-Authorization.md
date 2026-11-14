@@ -1181,9 +1181,7 @@ Sources: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/F
 
 The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`; approval requests are listed for deciders and for the user the run acts for; an approver must also hold the proposed tool's own permission; a tenant memory needs `agentic.manage` (403 `memory_tenant_scope_forbidden`) and someone else's personal memory is 404. Anything else is 404.
 
-### DataTransfer
-
-Source: [TransferJobsModule](../../src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Features/TransferJobsModule.cs).
+<!--#if (sample)-->
 
 ### Shipping (sample)
 
@@ -1199,6 +1197,19 @@ Source: [ShipmentsModule](../../src/Modules/Shipping/Shipping/Domains/Shipments/
 | GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/declaration` | `RequireTenantMember()` | — | — |
 | POST | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/declaration` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | — | — |
 | POST | `/api/v{version:apiVersion}/shipping/declarations/{id:guid}/submit` | `RequireTenantPermission(TenantPermissions.DeclarationsSubmit)` | `DisallowImpersonation()` | — |
+
+Its tenant permissions:
+
+| Constant | Value | Default tenant grants |
+|---|---|---|
+| `TenantPermissions.ShipmentsManage` | `shipping.shipments.manage` | Owner; Administrator |
+| `TenantPermissions.DeclarationsSubmit` | `shipping.declarations.submit` | Owner; Administrator |
+
+<!--#endif-->
+
+### DataTransfer
+
+Source: [TransferJobsModule](../../src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Features/TransferJobsModule.cs).
 
 | Method | Route | Authorization / tenant scope | Restrictions | Filters |
 |---|---|---|---|---|
@@ -1476,8 +1487,6 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 ## Configuration
 
 See [Configuration](Configuration.md) for JSON defaults. Human verification is inert while `BotProtection:Enabled=false`. Entitlements can be permissive until configured for enforcement. Runtime flags are distinct from plan features. Idempotency is opt-in on the listed routes and uses an optional client `Idempotency-Key`.
-| `TenantPermissions.ShipmentsManage` | `shipping.shipments.manage` | Owner; Administrator |
-| `TenantPermissions.DeclarationsSubmit` | `shipping.declarations.submit` | Owner; Administrator |
 
 ## Failure modes and guarantees
 

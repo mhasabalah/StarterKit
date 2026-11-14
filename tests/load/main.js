@@ -1,6 +1,7 @@
 // k6 entry point: every scenario runs concurrently against the stack seeded by seed.js.
 //   k6 run /scripts/main.js                        (all scenarios)
 //   SCENARIOS=auth,catalog k6 run /scripts/main.js  (a subset)
+//   SCENARIOS=agents k6 run /scripts/main.js        (opt-in: the agent demo; stack started with LOAD_AGENTS=true)
 // Env: BASE_URL, LOAD_DURATION (30s), LOAD_VU_SCALE (1), LOAD_USER_PASSWORD, RESULTS_DIR. See wiki/Testing/Load-Testing.md.
 import { RESULTS_DIR, buildOptions, selectedScenarios } from './lib/config.js';
 
@@ -9,6 +10,7 @@ export { catalogScenario } from './scenarios/catalog.js';
 export { productsScenario } from './scenarios/products.js';
 export { importScenario } from './scenarios/import.js';
 export { inboxScenario } from './scenarios/inbox.js';
+export { agentsScenario } from './scenarios/agents.js';
 
 export const options = buildOptions();
 

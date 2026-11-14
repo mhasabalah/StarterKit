@@ -175,13 +175,34 @@ public sealed class AgentRunExecutor(
         var calls = response.ToolCalls.Take(Settings.Limits.MaxToolCallsPerTurn).ToList();
         var typed = agent.OutputSchema is not null;
 
+        // Model output is untrusted, its size included: an oversized answer is never stored (it stops the run below),
+        // and a call with oversized arguments is saved without them, already refused.
+        var textTooLarge = response.Text is { } text && Encoding.UTF8.GetByteCount(text) > Settings.Limits.MaxModelTextBytes;
+        if (textTooLarge)
+            calls.Clear();
+        var oversized = calls
+            .Where(call => Encoding.UTF8.GetByteCount(call.ArgumentsJson) > Settings.Limits.MaxToolArgumentsBytes)
+            .ToHashSet();
+        var tooLargeMessage = AgenticText.GetOrDefault("Agent.Tool.arguments_too_large", "Agent.Tool.refused");
+
         var goOn = await UpdateUnderLeaseAsync(run.Id, owner, (current, repository) =>
         {
-            var turn = current.RecordModelTurn(response.Text, response.ModelId, response.FinishReason,
+            var turn = current.RecordModelTurn(textTooLarge ? null : response.Text, response.ModelId, response.FinishReason,
                 response.InputTokens, response.OutputTokens, response.EstimatedCost, elapsedMs, Now);
             var added = new List<AgentRunStep>(calls.Count + 1) { turn };
-            added.AddRange(calls.Select(call => current.PlanToolCall(turn, call.CallId, call.ToolName, call.ArgumentsJson)));
+            added.AddRange(calls.Select(call => oversized.Contains(call)
+                ? current.RefuseToolCall(turn, call.CallId, call.ToolName, "arguments_too_large",
+                    AgentJson.Error("arguments_too_large", tooLargeMessage), Now)
+                : current.PlanToolCall(turn, call.CallId, call.ToolName, call.ArgumentsJson)));
             repository.AddSteps(added);
+
+            // Stopped in the same save as the turn: no attempt ever replays an answer whose text was not kept.
+            if (textTooLarge)
+            {
+                current.Fail("output_too_large",
+                    AgenticText.GetOrDefault("Agent.Failure.output_too_large", "Agent.Failure.internal_error"), Now);
+                return false;
+            }
 
             // A free-text agent is finished when the model answers without asking for a tool.
             if (calls.Count == 0 && !typed)
@@ -194,6 +215,13 @@ public sealed class AgentRunExecutor(
         });
 
         metrics.RecordModelTurn(run, response.InputTokens, response.OutputTokens);
+        foreach (var call in oversized)
+        {
+            var tool = call.ToolName == AgentToolNames.SubmitResult
+                ? AgentToolNames.SubmitResult
+                : registry.FindTool(call.ToolName)?.Name ?? "unknown";
+            metrics.RecordToolCall(tool, "arguments_too_large");
+        }
 
         // Plan quota "agent_tokens": every saved turn is counted, the last one of a run included. When the plan cannot
         // cover a turn, nothing is deducted for it (the quota service consumes all or nothing) and the run stops
@@ -203,6 +231,12 @@ public sealed class AgentRunExecutor(
         {
             await FailAsync(run.Id, owner, QuotaExceededException.ErrorCodeValue);
             return false;
+        }
+
+        if (textTooLarge)
+        {
+            logger.LogWarning("Agent run {RunId}: the model answered with more than {Limit} bytes; the run is stopped",
+                run.Id, Settings.Limits.MaxModelTextBytes);
         }
 
         return goOn;
@@ -736,7 +770,7 @@ public sealed class AgentRunExecutor(
         {
             await UpdateUnderLeaseAsync(runId, owner, run =>
             {
-                run.ReleaseForShutdown();
+                run.ReleaseForShutdown(Now);
                 run.MarkEnqueued(Now);
             });
             // Hangfire re-runs the aborted job when the server comes back; RequeueStalledAgentRunsJob is the safety net.
@@ -759,7 +793,9 @@ public sealed class AgentRunExecutor(
                     return 0;
                 }
 
-                return run.ReleaseForRetry(Now);
+                var failures = run.ReleaseForRetry(Now);
+                run.DelayReadiness(Now + RetryDelay(failures));
+                return failures;
             });
 
             if (failures > 0)
