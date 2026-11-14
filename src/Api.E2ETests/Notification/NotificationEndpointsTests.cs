@@ -82,7 +82,9 @@ public class NotificationEndpointsTests(E2ETestFixture fixture)
         response.StatusCode.Should().Be(HttpStatusCode.OK, body);
         var groups = JsonDocument.Parse(body).RootElement.GetProperty("data").EnumerateArray()
             .ToDictionary(g => g.GetProperty("key").GetString()!);
-        groups.Keys.Should().BeEquivalentTo("billing", "security", "membership", "catalog", "data-transfer", "webhooks", "system");
+        groups.Keys.Should().BeEquivalentTo("billing", "security", "membership", "catalog", "data-transfer", "webhooks", "agents",
+            "system");
+        groups["agents"].GetProperty("inAppMutable").GetBoolean().Should().BeTrue();
         groups["security"].GetProperty("inAppMutable").GetBoolean().Should().BeFalse();
         groups["security"].GetProperty("pushMutable").GetBoolean().Should().BeFalse();
         groups["security"].GetProperty("emailMutable").GetBoolean().Should().BeFalse();

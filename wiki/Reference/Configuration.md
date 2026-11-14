@@ -447,6 +447,12 @@ Options: [AgenticOptions](../../src/Modules/Agentic/Agentic/Options/AgenticOptio
 | `Agentic:MaxAttempts` | `3` | Consecutive failed attempts (no checkpoint in between) before a run is marked `Failed`. | [Guide](../Modules/Agentic.md) |
 | `Agentic:StalledAfterMinutes` | `10` | A run without a live lease that was not queued for this long is queued again by the sweep. | [Guide](../Modules/Agentic.md) |
 | `Agentic:SweepCron` | `"*/5 * * * *"` | Schedule of `RequeueStalledAgentRunsJob`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxConcurrentRunsPerTenant` | `20` | Runs of one tenant that may be queued, running or waiting at once (a plan may lower it); 0 = no limit. | [Guide](../Modules/Agentic.md) |
+| `Agentic:ProgressIntervalMilliseconds` | `1000` | Live progress (`agentic.run-progress`): at most one event per run per interval, plus every change of status. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Triggers:MaxAutomaticRunsPerHour` | `60` | Runs one agent may be started by events and schedules per tenant and hour; 0 = no limit. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Approvals:ExpireAfterHours` | `72` | A request nobody decided within this time expires and its run fails with `approval_expired`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Approvals:RequireDifferentApprover` | `false` | Four-eyes rule: the user a run acts for may not approve its actions. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Approvals:ExpiryCron` | `"*/10 * * * *"` | Schedule of `ExpireAgentApprovalsJob`. | [Guide](../Modules/Agentic.md) |
 | `Agentic:Telemetry:CaptureContent` | `false` | Adds prompts, tool arguments and results to model spans. Leave off unless the trace store may hold business data. | [Guide](../Modules/Agentic.md) |
 
 The section is validated at startup only when `Agentic:Enabled` is true.

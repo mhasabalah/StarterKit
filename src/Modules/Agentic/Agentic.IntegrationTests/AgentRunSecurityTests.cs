@@ -144,8 +144,8 @@ public class AgentRunSecurityTests
 
         var (status, calls) = await RunToEndAsync(started.Id);
 
-        status.Should().Be(AgentRunStatus.Completed);
-        calls.Should().ContainSingle().Which.ErrorCode.Should().Be("approval_required");
+        status.Should().Be(AgentRunStatus.AwaitingApproval, "the run waits for a person instead of acting");
+        calls.Should().ContainSingle().Which.Status.Should().Be(AgentRunStepStatus.AwaitingApproval);
         _fx.World.Mail.Should().BeEmpty();
         _fx.World.Executions(SendMailTool.Name).Should().Be(0);
     }
@@ -161,12 +161,13 @@ public class AgentRunSecurityTests
 
         var (status, calls) = await RunToEndAsync(started.Id);
 
-        status.Should().Be(AgentRunStatus.Completed);
-        calls.Select(c => (c.ToolName, c.ErrorCode)).Should().Equal(
-            (ReadDocumentTool.Name, null),
-            (CreateNoteTool.Name, "approval_required"));
+        status.Should().Be(AgentRunStatus.AwaitingApproval);
+        calls.Select(c => (c.ToolName, c.Status)).Should().Equal(
+            (ReadDocumentTool.Name, AgentRunStepStatus.Succeeded),
+            (CreateNoteTool.Name, AgentRunStepStatus.AwaitingApproval));
         (await _fx.RunOfAsync(TenantA, started.Id)).Tainted.Should().BeTrue();
         _fx.World.Notes.Should().BeEmpty();
+        _fx.World.Executions(CreateNoteTool.Name).Should().Be(0);
     }
 
     [Fact]

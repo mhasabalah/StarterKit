@@ -1,12 +1,15 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Agentic.Contracts.Agents;
+using Agentic.Contracts.Approvals;
 using Agentic.Contracts.Runs;
 using Agentic.Contracts.Scripting;
 using Agentic.Contracts.Tools;
 using Agentic.Data;
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Models;
+using Agentic.Domains.Approvals.Jobs;
+using Agentic.Domains.Approvals.Models;
 using Agentic.Options;
 using FluentValidation;
 using Hangfire;
@@ -18,11 +21,17 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Notification.Contracts;
+using Notification.Contracts.Email;
+using Notification.Contracts.Enums;
+using Notification.Contracts.InApp;
+using Notification.Contracts.Realtime;
 using Npgsql;
 using Shared.Contracts.Localization;
 using Shared.Contracts.Mediation;
 using Shared.Core.Authorization;
 using Shared.Core.Data;
+using Shared.Core.Entitlements;
 using Shared.Core.MultiTenancy;
 using Shared.Core.MultiTenancy.Authorization;
 using Shared.Core.Web;
@@ -58,6 +67,10 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
     public TestCaller Caller { get; } = new();
     public TestWorld World { get; } = new();
     public ScriptBoard Board { get; } = new();
+    public RecordingNotifications Notifications { get; } = new();
+    public RecordingUserEvents Events { get; } = new();
+    public TestQuota Quota { get; } = new();
+    public TestEntitlements Entitlements { get; } = new();
 
     /// <summary>The module's live options (tests lower limits temporarily; <see cref="Reset"/> restores them).</summary>
     public AgenticOptions Options => Services.GetRequiredService<IOptions<AgenticOptions>>().Value;
@@ -112,6 +125,7 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         services.AddHttpContextAccessor();
         services.AddScoped<IHttpContextService, HttpContextService>();
         services.AddSingleton(Caller);
+        services.AddSingleton<INotificationSender>(Notifications);
         services.AddSingleton(World);
         FakeUserDirectory.Register(services, Caller);
 
@@ -133,6 +147,12 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
 
         services.RemoveAll<IBackgroundJobClient>();
         services.AddSingleton<IBackgroundJobClient>(Jobs);
+        services.RemoveAll<IUserEventPublisher>();
+        services.AddSingleton<IUserEventPublisher>(Events);
+        services.RemoveAll<IQuotaService>();
+        services.AddSingleton<IQuotaService>(Quota);
+        services.RemoveAll<IEntitlementService>();
+        services.AddSingleton<IEntitlementService>(Entitlements);
         services.RemoveAll<IAuthorizationService>();
         services.AddSingleton<IAuthorizationService>(new CallerAuthorization(Caller));
 
@@ -166,6 +186,10 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>A command sent by a consumer or a job: the tenant is set, there is no HTTP request and no caller.</summary>
+    public Task<T> SendWithoutRequestAsync<T>(TenantInfo tenant, IRequest<T> request) =>
+        InTenantAsync(tenant, sp => sp.GetRequiredService<ISender>().Send(request));
+
     public async Task<T> InTenantAsync<T>(TenantInfo tenant, Func<IServiceProvider, Task<T>> work)
     {
         using (TenantScope.Begin(tenant))
@@ -191,6 +215,24 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
     public Task<int> SweepAsync(TenantInfo tenant) =>
         InTenantAsync(tenant, sp => sp.GetRequiredService<RequeueStalledAgentRunsJob>().RequeueCurrentTenantAsync(null));
 
+    /// <summary>The recurring approval-expiry job, for one tenant.</summary>
+    public Task<int> ExpireApprovalsAsync(TenantInfo tenant) =>
+        InTenantAsync(tenant, sp => sp.GetRequiredService<ExpireAgentApprovalsJob>().ExpireCurrentTenantAsync(null));
+
+    /// <summary>The approval request of a run (the one request a suspended run waits for).</summary>
+    public Task<AgentApproval> ApprovalOfAsync(TenantInfo tenant, Guid runId) =>
+        InTenantAsync(tenant, sp => sp.GetRequiredService<AgenticDbContext>().Approvals.AsNoTracking()
+            .SingleAsync(a => a.RunId == runId));
+
+    /// <summary>A person approves exactly the payload on record, then the queued job runs.</summary>
+    public async Task<AgentApprovalDto> ApproveAndRunAsync(TenantInfo tenant, Guid runId, Guid? approver = null)
+    {
+        var approval = await ApprovalOfAsync(tenant, runId);
+        var decided = await SendAsync(tenant, new ApproveAgentActionCommand(approval.Id, approval.PayloadDigest), approver);
+        await RunAsync(tenant, runId);
+        return decided;
+    }
+
     public Task<AgentRun> RunOfAsync(TenantInfo tenant, Guid id) =>
         InTenantAsync(tenant, sp => sp.GetRequiredService<AgenticDbContext>().Runs.AsNoTracking().SingleAsync(r => r.Id == id));
 
@@ -204,6 +246,14 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Caller.Reset();
         World.Reset();
         Board.Reset();
+        Notifications.Clear();
+        Events.Clear();
+        Quota.Reset();
+        Entitlements.Limits.Clear();
+        // The tests share one database, so runs other tests left waiting must not count against these two guards.
+        Options.Limits.MaxConcurrentRunsPerTenant = 0;
+        Options.Triggers.MaxAutomaticRunsPerHour = 0;
+        Options.ProgressIntervalMilliseconds = 0; // every checkpoint is sent unless a test asks for throttling
         var defaults = new AgentRunLimitOptions();
         Options.Limits.MaxModelTurns = defaults.MaxModelTurns;
         Options.Limits.MaxToolCalls = defaults.MaxToolCalls;
@@ -213,7 +263,25 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Limits.MaxToolArgumentsBytes = defaults.MaxToolArgumentsBytes;
         Options.MaxAttempts = 3;
         Options.StalledAfterMinutes = 10;
+        Options.Approvals.ExpireAfterHours = 72;
+        Options.Approvals.RequireDifferentApprover = false;
         Options.Enabled = true;
+    }
+
+    /// <summary>Integration events of a run, as written to the transactional outbox (message types, oldest first).</summary>
+    public async Task<List<string>> OutboxEventsAsync(Guid runId)
+    {
+        await using var connection = new NpgsqlConnection(AdminConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            "select message_type from agentic.outbox_messages where payload::text like @run order by occurred_on, id", connection);
+        command.Parameters.AddWithValue("run", $"%{runId}%");
+        var types = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            types.Add(reader.GetString(0));
+
+        return types;
     }
 
     /// <summary>SQL as the database owner (bypasses RLS): verification across tenants.</summary>
@@ -417,6 +485,7 @@ public static class TestAgents
     public const string Assistant = "test.assistant";
     public const string Typed = "test.typed";
     public const string Restricted = "test.restricted";
+    public const string Automatic = "test.automatic";
 
     public static readonly AgentDefinition[] All =
     [
@@ -448,6 +517,15 @@ public static class TestAgents
             Instructions = "Only for webhook managers.",
             RequiredPermission = TenantPermissions.WebhooksManage,
             Tools = [GetItemTool.Name]
+        },
+        new()
+        {
+            Key = Automatic,
+            Name = new LocalizedText("Automatic", "تلقائي"),
+            Instructions = "React to events.",
+            Autonomy = AgentAutonomy.Prepare,
+            AllowedTriggers = [AgentTriggerKind.Event, AgentTriggerKind.Schedule],
+            Tools = [GetItemTool.Name, CreateNoteTool.Name]
         }
     ];
 }
@@ -637,4 +715,116 @@ public sealed class RecordingJobClient : IBackgroundJobClient
     }
 
     public bool ChangeState(string jobId, IState state, string expectedState) => true;
+}
+
+/// <summary>The notification module stand-in: every in-app notification sent, in order.</summary>
+public sealed class RecordingNotifications : INotificationSender
+{
+    private readonly ConcurrentQueue<(Guid User, InAppContent Content, Guid? CorrelationId)> _sent = new();
+
+    public IReadOnlyList<(Guid User, InAppContent Content, Guid? CorrelationId)> InApp => _sent.ToList();
+
+    public void Clear() => _sent.Clear();
+
+    public INotificationBuilder For(Guid userId, NotificationCulture culture = NotificationCulture.En) => new Builder(this, userId);
+
+    public INotificationBuilder ToEmail(string email, NotificationCulture culture = NotificationCulture.En, Guid? userId = null) =>
+        new Builder(this, userId ?? Guid.Empty);
+
+    private sealed class Builder(RecordingNotifications owner, Guid user) : INotificationBuilder
+    {
+        private InAppContent? _content;
+        private Guid? _correlationId;
+
+        public INotificationBuilder WithEmail(EmailTemplate template, Dictionary<string, object>? model = null,
+            EmailAttachment[]? attachments = null) => this;
+
+        public INotificationBuilder WithWhatsApp(WhatsAppTemplate template, Dictionary<string, object>? model = null) => this;
+
+        public INotificationBuilder WithInApp(InAppContent content)
+        {
+            _content = content;
+            return this;
+        }
+
+        public INotificationBuilder WithPush(Notification.Contracts.Push.PushContent content) => this;
+
+        public INotificationBuilder WithPush(bool sensitive = false) => this;
+
+        public INotificationBuilder WithCorrelationId(Guid correlationId)
+        {
+            _correlationId = correlationId;
+            return this;
+        }
+
+        public Task<Guid> SendAsync(NotificationChannel? forcedChannel = null, CancellationToken ct = default)
+        {
+            if (_content is not null)
+                owner._sent.Enqueue((user, _content, _correlationId));
+            return Task.FromResult(_correlationId ?? Guid.NewGuid());
+        }
+    }
+}
+
+/// <summary>The hub stand-in: every live event sent, in order.</summary>
+public sealed class RecordingUserEvents : IUserEventPublisher
+{
+    private readonly ConcurrentQueue<(Guid User, UserEvent Event)> _events = new();
+
+    public IReadOnlyList<(Guid User, UserEvent Event)> For(Guid runId) =>
+        _events.Where(e => e.Event.Data.TryGetValue("runId", out var id) && Equals(id, runId)).ToList();
+
+    public Task PublishAsync(Guid userId, UserEvent userEvent, CancellationToken cancellationToken = default)
+    {
+        _events.Enqueue((userId, userEvent));
+        return Task.CompletedTask;
+    }
+
+    public void Clear() => _events.Clear();
+}
+
+/// <summary>Plan quotas of the current subscriber: unlimited unless a limit is set for the key.</summary>
+public sealed class TestQuota : IQuotaService
+{
+    private readonly Dictionary<string, long> _used = new(StringComparer.Ordinal);
+
+    public Dictionary<string, long> Limits { get; } = new(StringComparer.Ordinal);
+
+    public long Used(string key)
+    {
+        lock (_used)
+            return _used.GetValueOrDefault(key);
+    }
+
+    public Task<QuotaResult> TryConsumeAsync(string key, long quantity = 1, CancellationToken cancellationToken = default)
+    {
+        lock (_used)
+        {
+            var used = _used.GetValueOrDefault(key);
+            if (Limits.TryGetValue(key, out var limit) && used + quantity > limit)
+                return Task.FromResult(new QuotaResult(false, used, limit));
+            _used[key] = used + quantity;
+            return Task.FromResult(new QuotaResult(true, used + quantity, Limits.TryGetValue(key, out var l) ? l : null));
+        }
+    }
+
+    public void Reset()
+    {
+        lock (_used)
+        {
+            _used.Clear();
+            Limits.Clear();
+        }
+    }
+}
+
+/// <summary>The plan of the current subscriber: every feature, and the numeric limits a test sets.</summary>
+public sealed class TestEntitlements : IEntitlementService
+{
+    public Dictionary<string, int> Limits { get; } = new(StringComparer.Ordinal);
+
+    public Task<bool> HasFeatureAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<int?> GetLimitAsync(string key, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Limits.TryGetValue(key, out var limit) ? limit : (int?)null);
 }

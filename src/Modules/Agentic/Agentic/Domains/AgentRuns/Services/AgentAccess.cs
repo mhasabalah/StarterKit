@@ -72,6 +72,20 @@ public sealed class AgentAccess(
     public bool Owns(AgentRun run) => run.InitiatedBy == UserId && (!IsApiKey || run.ApiKeyId == ApiKeyId);
 
     public async Task<bool> CanCancelAsync(AgentRun run) => Owns(run) || await HasAsync(TenantPermissions.AgentsManage);
+
+    /// <summary>
+    /// Read filter of approval requests: every request for holders of <c>agentic.approvals.decide</c>, otherwise the
+    /// ones of the caller's own runs. An API key without that scope sees none (a decision is for a person).
+    /// </summary>
+    public async Task<Expression<Func<AgentApproval, bool>>> ReadableApprovalsAsync()
+    {
+        if (await HasAsync(TenantPermissions.AgentApprovalsDecide))
+            return _ => true;
+        if (IsApiKey)
+            return _ => false;
+        var userId = UserId;
+        return approval => approval.RequestedBy == userId;
+    }
 }
 
 /// <summary>SQL projections of runs and steps.</summary>
@@ -85,6 +99,15 @@ public static class AgentRunProjections
     public static readonly Expression<Func<AgentRunStep, AgentRunStepDto>> StepToDto = s => new AgentRunStepDto(
         s.Id, s.Sequence, s.Kind, s.Status, s.ToolName, s.ToolVersion, s.Text, s.ArgumentsJson, s.ResultJson,
         s.ErrorCode, s.InputTokens, s.OutputTokens, s.DurationMs, s.StartedAt, s.FinishedAt);
+
+    public static readonly Expression<Func<AgentApproval, Contracts.Approvals.AgentApprovalDto>> ApprovalToDto = a =>
+        new Contracts.Approvals.AgentApprovalDto(a.Id, a.RunId, a.StepId, a.AgentKey, a.ToolName, a.ToolVersion, a.Risk,
+            a.RequiredPermission, a.ArgumentsJson, a.PayloadDigest, a.ModelRationale, a.Status, a.RequestedBy,
+            a.RequestedAt, a.ExpiresAt, a.DecidedBy, a.DecidedAt, a.DecisionNote, a.Version);
+
+    private static readonly Func<AgentApproval, Contracts.Approvals.AgentApprovalDto> CompiledApproval = ApprovalToDto.Compile();
+
+    public static Contracts.Approvals.AgentApprovalDto Map(AgentApproval approval) => CompiledApproval(approval);
 
     private static readonly Func<AgentRun, AgentRunDto> Compiled = ToDto.Compile();
 

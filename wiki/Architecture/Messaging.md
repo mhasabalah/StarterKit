@@ -45,6 +45,7 @@ flowchart TB
 | Event / flow | Kind | Current reaction |
 |---|---|---|
 | `SubscriptionActivatedIntegrationEvent`, `SubscriptionExpiredIntegrationEvent` | Integration | Tenancy `TenantBillingStatusConsumer` re-reads current billing status to suspend/reactivate; Webhooks `SubscriptionActivatedWebhookConsumer` / `SubscriptionExpiredWebhookConsumer` forward public events. |
+| `AgentRunCompletedIntegrationEvent`, `AgentRunFailedIntegrationEvent` (Agentic) | Integration | For the module that owns the agent: it consumes them and re-reads the run with `GetAgentRunByIdQuery`. No consumer ships in the template. |
 | `UserAvatarChangedIntegrationEvent` (Attachment) | Integration | Identity `UserAvatarChangedConsumer` re-reads the current avatar and updates `ProfilePictureUrl`. |
 | `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | Identity persists a `SessionRevocation` tombstone and outbox fact for session revocation; Notification `UserSessionsRevokedConsumer` closes revoked hub sessions across replicas. Sign-out does not wait for Notification. |
 | `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer` clean up module-owned data. |

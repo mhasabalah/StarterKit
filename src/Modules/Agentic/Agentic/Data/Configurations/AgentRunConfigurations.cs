@@ -30,6 +30,7 @@ public class AgentRunConfiguration : IEntityTypeConfiguration<AgentRun>
         builder.Ignore(r => r.TotalTokens);
         builder.Ignore(r => r.CorrelationId);
         builder.Ignore(r => r.ToolCallBudgetExhausted);
+        builder.Ignore(r => r.ChangesNeedApproval);
 
         builder.HasIndex(r => new { r.TenantId, r.AgentKey, r.TriggerKey })
             .IsUnique()

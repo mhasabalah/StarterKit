@@ -1,3 +1,4 @@
+using Agentic.Contracts.Runs.IntegrationEvents;
 using Agentic.Domains.AgentRuns.Events;
 
 namespace Agentic.Domains.AgentRuns.Models;
@@ -97,6 +98,14 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// </summary>
     public bool Tainted { get; private set; }
 
+    /// <summary>
+    /// The tenant's policy demands a person for every change this run proposes, whatever the risk (fixed at start).
+    /// </summary>
+    public bool ApproveAllChanges { get; private set; }
+
+    /// <summary>Every change needs a person: the tenant asked for it, or the run has read untrusted content.</summary>
+    public bool ChangesNeedApproval => Tainted || ApproveAllChanges;
+
     /// <summary>Times a worker claimed the run.</summary>
     public int Attempts { get; private set; }
 
@@ -155,7 +164,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         string? triggerKey = null,
         Guid? sessionId = null,
         string? traceParent = null,
-        Guid? apiKeyId = null)
+        Guid? apiKeyId = null,
+        bool approveAllChanges = false)
     {
         if (string.IsNullOrWhiteSpace(agentKey) || agentKey.Length > AgentKeyMaxLength)
             throw new InvalidAgentRunStateException("agent_required");
@@ -191,6 +201,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             MaxDurationSeconds = budget.MaxDurationSeconds,
             SessionId = sessionId,
             ApiKeyId = apiKeyId,
+            ApproveAllChanges = approveAllChanges,
             TraceParent = TextLimits.ClipOrNull(traceParent, TraceParentMaxLength)
         };
     }
@@ -252,6 +263,26 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             return;
         Status = AgentRunStatus.Queued;
         ReleaseLease();
+    }
+
+    /// <summary>
+    /// Waits for a person: the worker lets go and the run holds no lease until a decision queues it again. Time spent
+    /// here counts against no budget.
+    /// </summary>
+    public void Suspend()
+    {
+        EnsureRunning();
+        Status = AgentRunStatus.AwaitingApproval;
+        ReleaseLease();
+    }
+
+    /// <summary>A decision was made: back to the queue.</summary>
+    public void Resume(DateTime now)
+    {
+        if (Status != AgentRunStatus.AwaitingApproval)
+            throw new InvalidAgentRunStateException("not_suspended");
+        Status = AgentRunStatus.Queued;
+        LastEnqueuedAt = now;
     }
 
     private void ReleaseLease()
@@ -336,6 +367,14 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         OutputJson = outputJson;
         OutputText = outputText;
         Finish(AgentRunStatus.Completed, now);
+        AddIntegrationEvent(new AgentRunCompletedIntegrationEvent
+        {
+            RunId = Id,
+            AgentKey = AgentKey,
+            InitiatedBy = InitiatedBy,
+            TriggerKey = TriggerKey,
+            HasTypedOutput = outputJson is not null
+        });
     }
 
     public void Fail(string code, string message, DateTime now)
@@ -343,6 +382,14 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         FailureCode = TextLimits.Clip(code, FailureCodeMaxLength);
         FailureMessage = TextLimits.Clip(message, FailureMessageMaxLength);
         Finish(AgentRunStatus.Failed, now);
+        AddIntegrationEvent(new AgentRunFailedIntegrationEvent
+        {
+            RunId = Id,
+            AgentKey = AgentKey,
+            InitiatedBy = InitiatedBy,
+            TriggerKey = TriggerKey,
+            FailureCode = FailureCode
+        });
     }
 
     private void Finish(AgentRunStatus status, DateTime now)

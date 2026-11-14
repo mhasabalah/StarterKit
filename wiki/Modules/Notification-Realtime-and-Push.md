@@ -174,7 +174,7 @@ subscription is retried in the background (and after a reconnect), so a replica 
 ### Which events notify
 
 In-app inbox entries (and push where it is actionable) accompany the existing emails and events. Category =
-`<group>.<event>` (groups in use today: `billing`, `membership`, `data-transfer`, `webhooks`; reserved: `security`,
+`<group>.<event>` (groups in use today: `billing`, `membership`, `data-transfer`, `webhooks`, `agents`; reserved: `security`,
 `system`); text is in both languages from the owning module's resx (`InApp.<group>.<event>.Title/.Body`, read with
 `Shared.Core.Localization.BilingualResource`). Amounts are kept out of the text; webhook endpoints show only their host.
 Send a STABLE correlation id (`.WithCorrelationId(...)`, e.g. the integration event's message id) from consumers: the inbox
@@ -190,6 +190,7 @@ Membership notifications are not sent to the person who made the change.
 | `membership.joined` (non-owner members added by someone else), `membership.role-changed` (the role SET changed) | Tenancy (to the member) | no |
 | `webhooks.endpoint-disabled` | Webhooks (to the tenant owner) | yes (sensitive) |
 | `data-transfer.job-finished` | DataTransfer | yes |
+| `agents.approval-required`, `agents.run-finished` | Agentic (to the user the run acts for) | yes |
 
 ### Browser client
 
@@ -294,7 +295,7 @@ INotificationBuilder WithPush(bool sensitive = false);
 ### Mutes and quiet hours
 
 A category is `<group>.<event>` (`billing.invoice-issued`); the group is the part before the first dot. Groups:
-`billing`, `security`, `membership`, `catalog`, `data-transfer`, `webhooks`, `system` (no dot or an unknown group =
+`billing`, `security`, `membership`, `catalog`, `data-transfer`, `webhooks`, `agents`, `system` (no dot or an unknown group =
 `system`). The list, with `en`/`ar` names, is `NotificationCategoryGroups` (Notification.Contracts) and the
 `category-groups` endpoint.
 

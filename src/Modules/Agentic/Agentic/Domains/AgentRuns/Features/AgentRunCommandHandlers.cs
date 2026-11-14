@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Services;
@@ -33,27 +32,15 @@ public class StartAgentRunCommandValidator : AbstractValidator<StartAgentRunComm
 }
 
 /// <summary>
-/// Creates the run for the current user and queues it on <c>agentic</c>. Nothing runs inside the request. What is
-/// fixed here and never changed later: the agent version, the model, the autonomy ceiling, the budgets and (for an API
-/// key) the permission ceiling. What is deliberately NOT stored: the user's permissions, which are read again for
-/// every tool call.
+/// Starts a run for the current caller. Who may start is decided here (the endpoint already required
+/// <c>agentic.runs.start</c>; the agent may need its own permission, and it must allow this kind of caller); what the
+/// run is allowed to be is decided by <see cref="AgentRunStarter"/>. Nothing runs inside the request.
 /// </summary>
-public class StartAgentRunHandler(
-    IAgentRunRepository repository,
-    AgentRegistry registry,
-    AgentAccess access,
-    IBackgroundJobClient jobs,
-    TimeProvider timeProvider,
-    IOptions<AgenticOptions> options,
-    AgenticMetrics metrics,
-    ILogger<StartAgentRunHandler> logger) : ICommandHandler<StartAgentRunCommand, AgentRunDto>
+public class StartAgentRunHandler(AgentRegistry registry, AgentAccess access, AgentRunStarter starter)
+    : ICommandHandler<StartAgentRunCommand, AgentRunDto>
 {
     public async Task<AgentRunDto> Handle(StartAgentRunCommand command, CancellationToken cancellationToken)
     {
-        var settings = options.Value;
-        if (!settings.Enabled)
-            throw new AgenticDisabledException();
-
         var agent = registry.GetAgent(command.AgentKey);
         var definition = agent.Definition;
 
@@ -65,41 +52,11 @@ public class StartAgentRunHandler(
         if (!definition.AllowedTriggers.Contains(trigger))
             throw new AgentAccessDeniedException("trigger_not_allowed", definition.Key, trigger);
 
-        var run = AgentRun.Start(
-            definition.Key,
-            definition.Version,
-            definition.Model ?? settings.DefaultModel,
-            definition.Autonomy,
-            trigger,
-            access.UserId,
-            command.Prompt?.Trim(),
-            command.InputJson,
-            Budget(settings.Limits, definition.Limits),
-            AgenticText.CurrentCulture,
-            access.PermissionCeiling,
-            sessionId: command.SessionId,
-            traceParent: Activity.Current?.Id,
-            apiKeyId: access.ApiKeyId);
-        run.MarkEnqueued(timeProvider.GetUtcNow().UtcDateTime);
-
-        await repository.AddAsync(run, cancellationToken);
-        AgentRunQueue.Enqueue(jobs, run.Id);
-
-        metrics.RecordStarted(run);
-        logger.LogInformation("Agent run {RunId} of {Agent} v{Version} queued ({Trigger})", run.Id, run.AgentKey,
-            run.AgentVersion, run.TriggerKind);
+        var run = await starter.StartAsync(new AgentRunStart(agent, trigger, access.UserId, command.Prompt,
+            command.InputJson, AgenticText.CurrentCulture, access.PermissionCeiling, access.ApiKeyId,
+            SessionId: command.SessionId), cancellationToken);
         return AgentRunProjections.Map(run);
     }
-
-    /// <summary>The module's ceilings, lowered (never raised) by what the agent asks for.</summary>
-    internal static AgentRunBudget Budget(AgentRunLimitOptions limits, AgentLimits? agent) => new(
-        Lower(limits.MaxModelTurns, agent?.MaxModelTurns),
-        Lower(limits.MaxToolCalls, agent?.MaxToolCalls),
-        Math.Min(limits.MaxTokens, agent?.MaxTokens is > 0 and var tokens ? tokens : limits.MaxTokens),
-        Lower(limits.MaxDurationSeconds, agent?.MaxDurationSeconds));
-
-    private static int Lower(int ceiling, int? requested) =>
-        requested is > 0 and var value ? Math.Min(ceiling, value) : ceiling;
 }
 
 // ----- cancel ---------------------------------------------------------------------------------------------------
@@ -138,9 +95,12 @@ public class CancelAgentRunHandler(
 
         dbContext.ExpectVersion(run, command.Version);
 
+        // A run that waits for a person is cancelled at once. Its open approval requests are closed right after the
+        // save, by CloseApprovalsOnRunFinishedEventHandler (every way a run can finish goes through that handler).
         for (var attempt = 1; ; attempt++)
         {
             run.RequestCancel(timeProvider.GetUtcNow().UtcDateTime);
+
             try
             {
                 await repository.SaveChangesAsync(cancellationToken);
