@@ -54,7 +54,7 @@ public sealed class MessagingArchitectureTests
         IntegrationEvents().Select(t => t.Name).Should().Contain(
         [
 #if (SAMPLE)
-            "ProductPublishedIntegrationEvent",
+            "ProductPublishedIntegrationEvent", "ShipmentReadyForClearanceIntegrationEvent",
 #endif
             "UserAvatarChangedIntegrationEvent", "AttachmentDeletedIntegrationEvent", "UserDeletedIntegrationEvent",
             "UserSessionsRevokedIntegrationEvent",
@@ -192,7 +192,7 @@ public sealed class MessagingArchitectureTests
 
         mapping.Select(t => t.Name).Should().Contain([
 #if (SAMPLE)
-                "CatalogDbContext",
+                "CatalogDbContext", "ShippingDbContext",
 #endif
                 "AttachmentDbContext", "SubscriptionsDbContext", "DataTransferDbContext", "AgenticDbContext"],
             "these modules raise integration events");

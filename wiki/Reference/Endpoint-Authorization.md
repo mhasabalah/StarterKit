@@ -1185,6 +1185,21 @@ The handlers narrow further: an agent with a `RequiredPermission` exists only fo
 
 Source: [TransferJobsModule](../../src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Features/TransferJobsModule.cs).
 
+### Shipping (sample)
+
+Source: [ShipmentsModule](../../src/Modules/Shipping/Shipping/Domains/Shipments/Features/ShipmentsModule.cs). Present only when the template's `sample` switch is on.
+
+| Method | Route | Authorization / tenant scope | Restrictions | Filters |
+|---|---|---|---|---|
+| POST | `/api/v{version:apiVersion}/shipping/shipments` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | — | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/ready-for-clearance` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/duties` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/declaration` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/declaration` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | — | — |
+| POST | `/api/v{version:apiVersion}/shipping/declarations/{id:guid}/submit` | `RequireTenantPermission(TenantPermissions.DeclarationsSubmit)` | `DisallowImpersonation()` | — |
+
 | Method | Route | Authorization / tenant scope | Restrictions | Filters |
 |---|---|---|---|---|
 | GET | `/api/v{version:apiVersion}/data-transfer/definitions` | `RequireTenantMember()` | — | — |
@@ -1461,6 +1476,8 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 ## Configuration
 
 See [Configuration](Configuration.md) for JSON defaults. Human verification is inert while `BotProtection:Enabled=false`. Entitlements can be permissive until configured for enforcement. Runtime flags are distinct from plan features. Idempotency is opt-in on the listed routes and uses an optional client `Idempotency-Key`.
+| `TenantPermissions.ShipmentsManage` | `shipping.shipments.manage` | Owner; Administrator |
+| `TenantPermissions.DeclarationsSubmit` | `shipping.declarations.submit` | Owner; Administrator |
 
 ## Failure modes and guarantees
 
