@@ -243,4 +243,70 @@
   <data name="Agent.Approval.run_not_waiting" xml:space="preserve">
     <value>التشغيل لم يعد ينتظر هذا القرار.</value>
   </data>
+  <data name="Validation.Knowledge.SourceKey.Required" xml:space="preserve">
+    <value>مصدر المعرفة مطلوب.</value>
+  </data>
+  <data name="Validation.Knowledge.SourceKey.MaxLength" xml:space="preserve">
+    <value>مفتاح مصدر المعرفة طويل جدًا.</value>
+  </data>
+  <data name="Validation.Knowledge.ExternalRef.Required" xml:space="preserve">
+    <value>مرجع المستند مطلوب.</value>
+  </data>
+  <data name="Validation.Knowledge.ExternalRef.MaxLength" xml:space="preserve">
+    <value>مرجع المستند طويل جدًا.</value>
+  </data>
+  <data name="Validation.Knowledge.Title.Required" xml:space="preserve">
+    <value>عنوان المستند مطلوب.</value>
+  </data>
+  <data name="Validation.Knowledge.Title.MaxLength" xml:space="preserve">
+    <value>عنوان المستند طويل جدًا.</value>
+  </data>
+  <data name="Validation.Knowledge.Content.OneOf" xml:space="preserve">
+    <value>أدخل النص أو مرفقًا، وليس كليهما.</value>
+  </data>
+  <data name="Validation.Knowledge.Text.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز النص {0} حرفًا.</value>
+  </data>
+  <data name="Validation.Knowledge.Query.Required" xml:space="preserve">
+    <value>نص البحث مطلوب.</value>
+  </data>
+  <data name="Validation.Knowledge.Query.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز نص البحث {0} حرفًا.</value>
+  </data>
+  <data name="Validation.Knowledge.Top.Range" xml:space="preserve">
+    <value>يجب أن يكون عدد النتائج بين 1 و20.</value>
+  </data>
+  <data name="Validation.Knowledge.Sources.Max" xml:space="preserve">
+    <value>يمكن البحث في 10 مصادر على الأكثر في المرة الواحدة.</value>
+  </data>
+  <data name="Validation.Memory.Content.Required" xml:space="preserve">
+    <value>نص الذاكرة مطلوب.</value>
+  </data>
+  <data name="Validation.Memory.Content.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز نص الذاكرة {0} حرفًا.</value>
+  </data>
+  <data name="Validation.Memory.Scope.Invalid" xml:space="preserve">
+    <value>نطاق الذاكرة غير صالح.</value>
+  </data>
+  <data name="Agent.Knowledge.source_not_found" xml:space="preserve">
+    <value>مصدر المعرفة '{0}' غير مسجل.</value>
+  </data>
+  <data name="Agent.Knowledge.unavailable" xml:space="preserve">
+    <value>البحث في المعرفة غير متاح.</value>
+  </data>
+  <data name="Agent.Knowledge.run_only" xml:space="preserve">
+    <value>البحث في المعرفة متاح لتشغيلات الوكلاء فقط.</value>
+  </data>
+  <data name="Agent.Memory.not_found" xml:space="preserve">
+    <value>الذاكرة '{0}' غير موجودة.</value>
+  </data>
+  <data name="Agent.Memory.limit_reached" xml:space="preserve">
+    <value>تم بلوغ الحد الأقصى وهو {0} من الذكريات. احذف بعضها أولًا.</value>
+  </data>
+  <data name="Agent.Error.memory_tenant_scope_forbidden" xml:space="preserve">
+    <value>يمكن لمديري الوكلاء فقط كتابة ذكريات للمؤسسة بأكملها.</value>
+  </data>
+  <data name="Agent.Error.memory_person_only" xml:space="preserve">
+    <value>يكتب الأشخاص الذكريات؛ ويمكن للوكيل فقط اقتراح ذكرى للموافقة عليها.</value>
+  </data>
 </root>

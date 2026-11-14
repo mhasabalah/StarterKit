@@ -2,6 +2,7 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Collections.Concurrent;
 using Agentic.Contracts.Scripting;
+using Agentic.Runtime.Knowledge;
 using Agentic.Telemetry;
 using Anthropic;
 using Microsoft.Extensions.AI;
@@ -32,6 +33,7 @@ public sealed class AgentChatClientFactory : IDisposable
     private readonly ILoggerFactory _loggerFactory;
     private readonly ConcurrentDictionary<string, Lazy<IChatClient>> _clients = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lazy<HttpClient> _http = new(CreateHttpClient);
+    private readonly Lazy<IEmbeddingGenerator<string, Embedding<float>>> _embeddings;
 
     public AgentChatClientFactory(IOptions<AgenticOptions> options, IEnumerable<IAgentScript> scripts,
         ILoggerFactory loggerFactory)
@@ -39,6 +41,36 @@ public sealed class AgentChatClientFactory : IDisposable
         _options = options;
         _scripts = scripts;
         _loggerFactory = loggerFactory;
+        _embeddings = new Lazy<IEmbeddingGenerator<string, Embedding<float>>>(CreateEmbeddingGenerator);
+    }
+
+    /// <summary>The embedding generator of knowledge (<c>Agentic:Knowledge</c>), created once.</summary>
+    public IEmbeddingGenerator<string, Embedding<float>> GetEmbeddingGenerator() => _embeddings.Value;
+
+    /// <summary>Vector length of the deterministic embeddings of the scripted provider when none is configured.</summary>
+    public const int DefaultHashingDimensions = 256;
+
+    private IEmbeddingGenerator<string, Embedding<float>> CreateEmbeddingGenerator()
+    {
+        var settings = _options.Value;
+        var knowledge = settings.Knowledge;
+        if (!settings.Providers.TryGetValue(knowledge.EmbeddingProvider, out var provider))
+            throw new InvalidOperationException($"Agentic:Providers has no provider '{knowledge.EmbeddingProvider}' (knowledge embeddings).");
+
+        var inner = provider.Kind switch
+        {
+            AgentProviderKind.Scripted =>
+                (IEmbeddingGenerator<string, Embedding<float>>)new HashingEmbeddingGenerator(knowledge.Dimensions ?? DefaultHashingDimensions),
+            AgentProviderKind.OpenAiCompatible => new OpenAI.Embeddings.EmbeddingClient(knowledge.EmbeddingModelId,
+                    Credential(provider), ClientOptions(provider))
+                .AsIEmbeddingGenerator(knowledge.Dimensions),
+            _ => throw new InvalidOperationException($"The provider kind '{provider.Kind}' has no embeddings API.")
+        };
+
+        var captureContent = settings.Telemetry.CaptureContent;
+        return new EmbeddingGeneratorBuilder<string, Embedding<float>>(inner)
+            .UseOpenTelemetry(_loggerFactory, AgenticTelemetry.SourceName, generator => generator.EnableSensitiveData = captureContent)
+            .Build();
     }
 
     public IChatClient Get(string modelKey) =>
@@ -66,7 +98,10 @@ public sealed class AgentChatClientFactory : IDisposable
             .Build();
     }
 
-    private IChatClient CreateOpenAiCompatible(AgentModelOptions model, AgentProviderOptions provider)
+    private IChatClient CreateOpenAiCompatible(AgentModelOptions model, AgentProviderOptions provider) =>
+        new OpenAI.Chat.ChatClient(model.ModelId, Credential(provider), ClientOptions(provider)).AsIChatClient();
+
+    private OpenAIClientOptions ClientOptions(AgentProviderOptions provider)
     {
         var clientOptions = new OpenAIClientOptions
         {
@@ -76,11 +111,12 @@ public sealed class AgentChatClientFactory : IDisposable
         };
         if (!string.IsNullOrWhiteSpace(provider.Endpoint))
             clientOptions.Endpoint = new Uri(provider.Endpoint);
-
-        // A self-hosted server may need no key, but the client requires a non-empty credential.
-        var credential = new ApiKeyCredential(string.IsNullOrWhiteSpace(provider.ApiKey) ? "unused" : provider.ApiKey);
-        return new OpenAI.Chat.ChatClient(model.ModelId, credential, clientOptions).AsIChatClient();
+        return clientOptions;
     }
+
+    // A self-hosted server may need no key, but the client requires a non-empty credential.
+    private static ApiKeyCredential Credential(AgentProviderOptions provider) =>
+        new(string.IsNullOrWhiteSpace(provider.ApiKey) ? "unused" : provider.ApiKey);
 
     private IChatClient CreateAnthropic(AgentModelOptions model, AgentProviderOptions provider)
     {

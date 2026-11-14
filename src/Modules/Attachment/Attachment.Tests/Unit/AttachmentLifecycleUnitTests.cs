@@ -1,5 +1,6 @@
 using Attachment.Contracts.Attachments.Commands;
 using Attachment.Contracts.Attachments.Dtos;
+using Attachment.Contracts.Attachments.IntegrationEvents;
 using Attachment.Contracts.Authorization;
 using Attachment.Data.Repository.Attachments;
 using Attachment.Domains.Attachments.Events;
@@ -101,6 +102,9 @@ public sealed class AttachmentLifecycleUnitTests
         attachment.DeletionRequestedAt.Should().Be(Now);
         attachment.NextDeletionAttemptAt.Should().Be(Now);
         attachment.DomainEvents.Should().ContainSingle().Which.Should().BeOfType<AttachmentDeletedEvent>();
+        // Other modules learn about it through the outbox, once.
+        attachment.IntegrationEvents.OfType<AttachmentDeletedIntegrationEvent>().Should().ContainSingle()
+            .Which.AttachmentId.Should().Be(attachment.Id);
     }
 
     [Fact]

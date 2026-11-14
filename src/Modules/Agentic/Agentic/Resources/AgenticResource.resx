@@ -243,4 +243,70 @@
   <data name="Agent.Approval.run_not_waiting" xml:space="preserve">
     <value>The run is no longer waiting for this decision.</value>
   </data>
+  <data name="Validation.Knowledge.SourceKey.Required" xml:space="preserve">
+    <value>The knowledge source is required.</value>
+  </data>
+  <data name="Validation.Knowledge.SourceKey.MaxLength" xml:space="preserve">
+    <value>The knowledge source key is too long.</value>
+  </data>
+  <data name="Validation.Knowledge.ExternalRef.Required" xml:space="preserve">
+    <value>The document reference is required.</value>
+  </data>
+  <data name="Validation.Knowledge.ExternalRef.MaxLength" xml:space="preserve">
+    <value>The document reference is too long.</value>
+  </data>
+  <data name="Validation.Knowledge.Title.Required" xml:space="preserve">
+    <value>The document title is required.</value>
+  </data>
+  <data name="Validation.Knowledge.Title.MaxLength" xml:space="preserve">
+    <value>The document title is too long.</value>
+  </data>
+  <data name="Validation.Knowledge.Content.OneOf" xml:space="preserve">
+    <value>Give either the text or an attachment, not both.</value>
+  </data>
+  <data name="Validation.Knowledge.Text.MaxLength" xml:space="preserve">
+    <value>The text must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Knowledge.Query.Required" xml:space="preserve">
+    <value>The search query is required.</value>
+  </data>
+  <data name="Validation.Knowledge.Query.MaxLength" xml:space="preserve">
+    <value>The search query must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Knowledge.Top.Range" xml:space="preserve">
+    <value>The number of results must be between 1 and 20.</value>
+  </data>
+  <data name="Validation.Knowledge.Sources.Max" xml:space="preserve">
+    <value>At most 10 sources can be searched at once.</value>
+  </data>
+  <data name="Validation.Memory.Content.Required" xml:space="preserve">
+    <value>The memory text is required.</value>
+  </data>
+  <data name="Validation.Memory.Content.MaxLength" xml:space="preserve">
+    <value>The memory text must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Memory.Scope.Invalid" xml:space="preserve">
+    <value>The memory scope is not valid.</value>
+  </data>
+  <data name="Agent.Knowledge.source_not_found" xml:space="preserve">
+    <value>The knowledge source '{0}' is not registered.</value>
+  </data>
+  <data name="Agent.Knowledge.unavailable" xml:space="preserve">
+    <value>Knowledge search is not available.</value>
+  </data>
+  <data name="Agent.Knowledge.run_only" xml:space="preserve">
+    <value>Knowledge search is available only to agent runs.</value>
+  </data>
+  <data name="Agent.Memory.not_found" xml:space="preserve">
+    <value>The memory '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Memory.limit_reached" xml:space="preserve">
+    <value>The limit of {0} memories has been reached. Delete some first.</value>
+  </data>
+  <data name="Agent.Error.memory_tenant_scope_forbidden" xml:space="preserve">
+    <value>Only agent managers can write memories for the whole organization.</value>
+  </data>
+  <data name="Agent.Error.memory_person_only" xml:space="preserve">
+    <value>Memories are written by people; an agent can only propose one for approval.</value>
+  </data>
 </root>

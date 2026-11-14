@@ -590,7 +590,11 @@ public sealed class AgentRunExecutor(
             ? TenantScope.Begin(tenant, membership: membership)
             : null;
         using var actingUser = ActingUser.Begin(run.InitiatedBy, run.CorrelationId);
-        return await unitOfWork.RunAsync(work, cancellationToken);
+        return await unitOfWork.RunAsync((services, ct) =>
+        {
+            services.GetRequiredService<AgentCallScope>().Enter(principal, run.Id);
+            return work(services, ct);
+        }, cancellationToken);
     }
 
     /// <summary>The lease an operation of this length needs (never shorter than the configured lease).</summary>

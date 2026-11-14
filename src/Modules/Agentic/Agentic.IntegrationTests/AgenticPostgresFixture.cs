@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using Agentic.Contracts.Agents;
 using Agentic.Contracts.Approvals;
+using Agentic.Contracts.Knowledge;
 using Agentic.Contracts.Runs;
 using Agentic.Contracts.Scripting;
 using Agentic.Contracts.Tools;
@@ -10,7 +11,12 @@ using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Models;
 using Agentic.Domains.Approvals.Jobs;
 using Agentic.Domains.Approvals.Models;
+using Agentic.Domains.Knowledge.Jobs;
+using Agentic.Domains.Knowledge.Models;
 using Agentic.Options;
+using Agentic.Runtime.Knowledge;
+using Agentic.Runtime.Models;
+using Attachment.Contracts.Attachments.Queries;
 using FluentValidation;
 using Hangfire;
 using Hangfire.Common;
@@ -53,7 +59,10 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
     private const string AppRole = "agentic_app";
     private const string AppPassword = "agentic_app_password";
 
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder(PgvectorImage).Build();
+
+    /// <summary>PostgreSQL 16 with pgvector: the migrations create the extension (knowledge search).</summary>
+    public const string PgvectorImage = "pgvector/pgvector:0.8.7-pg16";
     private ServiceProvider? _provider;
 
     public static readonly TenantInfo TenantA = new(Guid.Parse("aaaaaaaa-1111-0000-0000-000000000001"), "acme", "Acme");
@@ -71,6 +80,7 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
     public RecordingUserEvents Events { get; } = new();
     public TestQuota Quota { get; } = new();
     public TestEntitlements Entitlements { get; } = new();
+    public KnowledgeWorld Knowledge { get; } = new();
 
     /// <summary>The module's live options (tests lower limits temporarily; <see cref="Reset"/> restores them).</summary>
     public AgenticOptions Options => Services.GetRequiredService<IOptions<AgenticOptions>>().Value;
@@ -110,7 +120,12 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
                 ["Agentic:DefaultModel"] = "default",
                 ["Agentic:Models:default:Provider"] = "scripted",
                 ["Agentic:Models:default:ModelId"] = "scripted",
-                ["Agentic:Providers:scripted:Kind"] = "Scripted"
+                ["Agentic:Providers:scripted:Kind"] = "Scripted",
+                ["Agentic:Knowledge:Enabled"] = "true",
+                ["Agentic:Knowledge:EmbeddingProvider"] = "scripted",
+                ["Agentic:Knowledge:EmbeddingModelId"] = "hashing",
+                ["Agentic:Knowledge:ChunkSize"] = "400",
+                ["Agentic:Knowledge:ChunkOverlap"] = "40"
             })
             .Build();
 
@@ -139,6 +154,13 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         services.AddAgentTool<SendMailTool>();
         services.AddAgentTool<SlowLookupTool>();
         services.AddScoped<IValidator<NoteInput>, NoteInputValidator>();
+
+        // The owning module's knowledge: two sources, a document policy, its files (the attachment port).
+        services.AddSingleton(Knowledge);
+        foreach (var source in KnowledgeWorld.Sources)
+            services.AddKnowledgeSource(source);
+        services.AddKnowledgeSourcePolicy<ContractsPolicy>();
+        services.AddTransient<IRequestHandler<OpenAttachmentContentQuery, OpenAttachmentContentResult>, FakeAttachmentContent>();
         foreach (var agent in TestAgents.All)
         {
             services.AddAgent(agent);
@@ -155,6 +177,10 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         services.AddSingleton<IEntitlementService>(Entitlements);
         services.RemoveAll<IAuthorizationService>();
         services.AddSingleton<IAuthorizationService>(new CallerAuthorization(Caller));
+        services.RemoveAll<IKnowledgeEmbedder>();
+        services.AddSingleton<IKnowledgeEmbedder>(sp => new FlakyEmbedder(
+            new KnowledgeEmbedder(sp.GetRequiredService<IOptions<AgenticOptions>>(), sp.GetRequiredService<AgentChatClientFactory>()),
+            Knowledge));
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -240,9 +266,35 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         InTenantAsync(tenant, sp => sp.GetRequiredService<AgenticDbContext>().Steps.AsNoTracking()
             .Where(s => s.RunId == runId).OrderBy(s => s.Sequence).ToListAsync());
 
+    /// <summary>The owning module indexes a document; the queued indexing job runs (when one was queued).</summary>
+    public async Task<IndexKnowledgeDocumentResult> IndexAsync(TenantInfo tenant, IndexKnowledgeDocumentCommand command)
+    {
+        var result = await SendWithoutRequestAsync(tenant, command);
+        if (result is { Queued: true, DocumentId: { } id })
+            await RunIndexJobAsync(tenant, id, result.Revision);
+        return result;
+    }
+
+    public Task RunIndexJobAsync(TenantInfo tenant, Guid documentId, int revision) =>
+        InTenantAsync(tenant, async sp =>
+        {
+            await sp.GetRequiredService<IndexKnowledgeDocumentJob>().ExecuteAsync(documentId, revision, CancellationToken.None);
+            return true;
+        });
+
+    public Task<KnowledgeDocument> DocumentOfAsync(TenantInfo tenant, string sourceKey, string externalRef) =>
+        InTenantAsync(tenant, sp => sp.GetRequiredService<AgenticDbContext>().KnowledgeDocuments.AsNoTracking()
+            .SingleAsync(d => d.SourceKey == sourceKey && d.ExternalRef == externalRef));
+
     /// <summary>Test isolation: the tests share one database and the fakes.</summary>
     public void Reset()
     {
+        Knowledge.Reset();
+        Options.Knowledge.Enabled = true;
+        Options.Knowledge.MaxAttempts = 4;
+        Options.Knowledge.EmbeddingModelId = "hashing";
+        Options.Content.RetentionDays = 90;
+        Options.Memory.MaxPerUser = 100;
         Caller.Reset();
         World.Reset();
         Board.Reset();
@@ -486,6 +538,7 @@ public static class TestAgents
     public const string Typed = "test.typed";
     public const string Restricted = "test.restricted";
     public const string Automatic = "test.automatic";
+    public const string Researcher = "test.researcher";
 
     public static readonly AgentDefinition[] All =
     [
@@ -526,6 +579,14 @@ public static class TestAgents
             Autonomy = AgentAutonomy.Prepare,
             AllowedTriggers = [AgentTriggerKind.Event, AgentTriggerKind.Schedule],
             Tools = [GetItemTool.Name, CreateNoteTool.Name]
+        },
+        new()
+        {
+            Key = Researcher,
+            Name = new LocalizedText("Researcher", "باحث"),
+            Instructions = "Answer from the organization's documents and remember the user's preferences.",
+            Autonomy = AgentAutonomy.Prepare,
+            Tools = ["knowledge.search", "memory.recall", "memory.remember", CreateNoteTool.Name]
         }
     ];
 }

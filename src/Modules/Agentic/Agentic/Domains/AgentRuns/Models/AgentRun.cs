@@ -136,6 +136,9 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     public DateTime? StartedAt { get; private set; }
     public DateTime? FinishedAt { get; private set; }
 
+    /// <summary>When the run's content was erased (retention or account erasure); its facts stay.</summary>
+    public DateTime? ContentErasedAt { get; private set; }
+
     public bool IsTerminal => Status is AgentRunStatus.Completed or AgentRunStatus.Failed or AgentRunStatus.Cancelled;
 
     public long TotalTokens => InputTokens + OutputTokens;

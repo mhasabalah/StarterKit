@@ -11,7 +11,10 @@ var settings = AppHostSettings.From(builder.Configuration);
 
 // Host port is random unless Postgres:HostPort is set (e.g. for a desktop SQL client); a fixed 5432 would clash
 // with a locally installed PostgreSQL. The password is generated once and kept in the AppHost user secrets.
+// The pgvector image of the PostgreSQL major Aspire uses (18): the Agentic module's knowledge search needs the extension,
+// and keeping the major version lets existing data volumes start.
 var postgres = builder.AddPostgres("postgres", port: settings.PostgresHostPort)
+    .WithImage("pgvector/pgvector", "0.8.7-pg18")
     .WithLifetime(ContainerLifetime.Persistent)
     .WithDataVolume()
     .WithPgAdmin(pgAdmin => pgAdmin.WithLifetime(ContainerLifetime.Session));

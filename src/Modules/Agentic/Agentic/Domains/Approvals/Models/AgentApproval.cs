@@ -70,6 +70,9 @@ public class AgentApproval : Aggregate<Guid>, IMustHaveTenant, IAuditable
 
     public Guid? DecidedBy { get; private set; }
     public DateTime? DecidedAt { get; private set; }
+
+    /// <summary>Free text a person wrote: kept out of the audit trail so erasure and retention can remove it.</summary>
+    [AuditIgnore]
     public string? DecisionNote { get; private set; }
 
     /// <summary>UI culture of the requester (notifications).</summary>

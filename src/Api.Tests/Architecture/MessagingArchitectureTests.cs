@@ -56,10 +56,11 @@ public sealed class MessagingArchitectureTests
 #if (SAMPLE)
             "ProductPublishedIntegrationEvent",
 #endif
-            "UserAvatarChangedIntegrationEvent", "UserDeletedIntegrationEvent", "UserSessionsRevokedIntegrationEvent",
+            "UserAvatarChangedIntegrationEvent", "AttachmentDeletedIntegrationEvent", "UserDeletedIntegrationEvent",
+            "UserSessionsRevokedIntegrationEvent",
             "SubscriptionActivatedIntegrationEvent", "SubscriptionExpiredIntegrationEvent",
             "DataImportCompletedIntegrationEvent",
-    "AgentRunCompletedIntegrationEvent", "AgentRunFailedIntegrationEvent"
+            "AgentRunCompletedIntegrationEvent", "AgentRunFailedIntegrationEvent"
         ]);
     }
 

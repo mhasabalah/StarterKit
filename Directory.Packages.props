@@ -132,6 +132,8 @@
     <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
     <PackageVersion Include="OpenAI" Version="2.14.0" />
     <PackageVersion Include="Anthropic" Version="13.8.0" />
+    <!-- PDF text layer for knowledge indexing (Apache-2.0). -->
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
   </ItemGroup>
   <ItemGroup Label="Key management (Data Protection key encryption, KMS)">
     <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.5" />

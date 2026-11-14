@@ -21,6 +21,8 @@
         <PackageReference Include="Microsoft.Extensions.AI" />
         <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
         <PackageReference Include="Anthropic" />
+        <!-- PDF text extraction for knowledge indexing (Apache-2.0; only this module: ThirdPartyIsolationTests). -->
+        <PackageReference Include="PdfPig" />
     </ItemGroup>
 
     <ItemGroup>
@@ -30,6 +32,7 @@
         <!-- Other modules: ONLY their .Contracts (architecture test). Users: only through the UserDirectory port. -->
         <ProjectReference Include="..\..\Identity\UserDirectory.Contracts\UserDirectory.Contracts.csproj" />
         <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
+        <ProjectReference Include="..\..\Attachment\Attachment.Contracts\Attachment.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup>

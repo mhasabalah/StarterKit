@@ -15,7 +15,7 @@ namespace Api.Tests.Architecture;
 /// Redis backplane.</item>
 /// <item>Model providers (Microsoft.Extensions.AI and the OpenAI / Anthropic SDKs) stay behind
 /// <c>IAgentModelGateway</c> in Agentic: business modules add agents and tools through <c>Agentic.Contracts</c>, which
-/// references no AI package at all.</item>
+/// references no AI package at all. PdfPig (PDF text for knowledge indexing) stays in Agentic too.</item>
 /// </list>
 /// </summary>
 public sealed class ThirdPartyIsolationTests
@@ -94,6 +94,11 @@ public sealed class ThirdPartyIsolationTests
             .Should().Equal(["Agentic"],
                 "agents reach a model only through IAgentModelGateway; a business module (and Agentic.Contracts) never " +
                 "couples to an AI framework or a provider SDK (ADR-0025)");
+
+    [Fact]
+    public void PdfPig_is_used_only_by_the_Agentic_module() =>
+        Production.Where(a => References(a).Any(r => r.StartsWith("UglyToad.PdfPig", StringComparison.Ordinal)))
+            .Should().Equal(["Agentic"], "PDF text extraction for knowledge indexing stays in one module");
 
     private static readonly string[] ModelProviderPrefixes =
         ["Microsoft.Extensions.AI", "OpenAI", "Anthropic", "System.ClientModel", "Microsoft.SemanticKernel", "Microsoft.Agents"];

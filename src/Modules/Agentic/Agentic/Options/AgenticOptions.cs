@@ -54,6 +54,76 @@ public sealed class AgenticOptions
     public AgentTriggerOptions Triggers { get; set; } = new();
 
     public AgentTelemetryOptions Telemetry { get; set; } = new();
+
+    public KnowledgeOptions Knowledge { get; set; } = new();
+
+    public AgentMemoryOptions Memory { get; set; } = new();
+
+    public AgentContentOptions Content { get; set; } = new();
+}
+
+/// <summary>Retrieval over documents the modules index (ADR-0028). Off by default; needs an embedding model.</summary>
+public sealed class KnowledgeOptions
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>A key of <see cref="AgenticOptions.Providers"/> (OpenAI-compatible, or Scripted for tests). Anthropic has no embeddings API.</summary>
+    public string EmbeddingProvider { get; set; } = string.Empty;
+
+    /// <summary>The provider's embedding model id, e.g. <c>text-embedding-3-small</c>.</summary>
+    public string EmbeddingModelId { get; set; } = string.Empty;
+
+    /// <summary>Vector length to request (models that support shortening); null = the model's default.</summary>
+    public int? Dimensions { get; set; }
+
+    public int EmbeddingBatchSize { get; set; } = 64;
+
+    /// <summary>Largest file read for indexing.</summary>
+    public long MaxDocumentBytes { get; set; } = 10 * 1024 * 1024;
+
+    public int MaxPdfPages { get; set; } = 500;
+
+    /// <summary>Largest extracted text, in characters (also the limit of text given directly).</summary>
+    public int MaxTextLength { get; set; } = 1_000_000;
+
+    /// <summary>Passage length in characters, and the overlap between consecutive passages.</summary>
+    public int ChunkSize { get; set; } = 1_200;
+
+    public int ChunkOverlap { get; set; } = 150;
+
+    /// <summary>Attempts of one revision (a provider outage) before the document is marked <c>Failed</c>.</summary>
+    public int MaxAttempts { get; set; } = 4;
+
+    /// <summary>Candidates taken from each of the keyword and the vector search before they are merged.</summary>
+    public int SearchCandidates { get; set; } = 40;
+
+    /// <summary>Most passages one search returns.</summary>
+    public int MaxResults { get; set; } = 8;
+
+    /// <summary>A document still pending after this long without being queued is queued again.</summary>
+    public int StalledAfterMinutes { get; set; } = 15;
+}
+
+public sealed class AgentMemoryOptions
+{
+    /// <summary>A memory expires this many days after it was written. 0 = never.</summary>
+    public int RetentionDays { get; set; } = 365;
+
+    public int MaxPerUser { get; set; } = 100;
+
+    public int MaxPerTenant { get; set; } = 500;
+
+    /// <summary>Most memories <c>memory.recall</c> returns (newest first).</summary>
+    public int MaxRecalled { get; set; } = 50;
+}
+
+public sealed class AgentContentOptions
+{
+    /// <summary>
+    /// Prompts, inputs, outputs, transcript text, tool arguments and results of FINISHED runs are erased this many days
+    /// after the run finished (counters, statuses and audit entries stay). 0 = keep them.
+    /// </summary>
+    public int RetentionDays { get; set; } = 90;
 }
 
 public sealed class AgentTriggerOptions
@@ -218,8 +288,37 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:Approvals:ExpireAfterHours must be at least 1.");
         if (string.IsNullOrWhiteSpace(options.Approvals.ExpiryCron))
             errors.Add("Agentic:Approvals:ExpiryCron is required.");
+        if (options.Content.RetentionDays < 0 || options.Memory.RetentionDays < 0)
+            errors.Add("Agentic: Content:RetentionDays and Memory:RetentionDays must not be negative.");
+        if (options.Memory.MaxPerUser < 1 || options.Memory.MaxPerTenant < 1 || options.Memory.MaxRecalled < 1)
+            errors.Add("Agentic:Memory: MaxPerUser, MaxPerTenant and MaxRecalled must be positive.");
+        ValidateKnowledge(options, errors);
 
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
+    }
+
+    private static void ValidateKnowledge(AgenticOptions options, List<string> errors)
+    {
+        var knowledge = options.Knowledge;
+        if (!knowledge.Enabled)
+            return;
+
+        if (!options.Providers.TryGetValue(knowledge.EmbeddingProvider, out var provider))
+            errors.Add($"Agentic:Knowledge:EmbeddingProvider '{knowledge.EmbeddingProvider}' is not one of Agentic:Providers.");
+        else if (provider.Kind == AgentProviderKind.Anthropic)
+            errors.Add("Agentic:Knowledge:EmbeddingProvider: Anthropic has no embeddings API; use an OpenAI-compatible provider.");
+        if (string.IsNullOrWhiteSpace(knowledge.EmbeddingModelId))
+            errors.Add("Agentic:Knowledge:EmbeddingModelId is required.");
+        if (knowledge.Dimensions is < 1 or > 16_000)
+            errors.Add("Agentic:Knowledge:Dimensions must be between 1 and 16000.");
+        if (knowledge.ChunkSize < 200 || knowledge.ChunkOverlap < 0 || knowledge.ChunkOverlap > knowledge.ChunkSize / 2)
+            errors.Add("Agentic:Knowledge: ChunkSize must be at least 200 and ChunkOverlap at most half of it.");
+        if (knowledge.EmbeddingBatchSize < 1 || knowledge.MaxDocumentBytes < 1 || knowledge.MaxPdfPages < 1 ||
+            knowledge.MaxTextLength < 1 || knowledge.MaxAttempts < 1 || knowledge.SearchCandidates < 1 ||
+            knowledge.MaxResults < 1 || knowledge.StalledAfterMinutes < 1)
+        {
+            errors.Add("Agentic:Knowledge: every limit must be positive.");
+        }
     }
 
     private static void ValidateProvider(string name, AgentProviderOptions provider, List<string> errors)
@@ -265,6 +364,12 @@ public sealed class AgenticStartupCheck(IOptions<AgenticOptions> options, IHostE
             .Where(m => settings.Providers.TryGetValue(m.Value.Provider, out var p) && p.Kind == AgentProviderKind.Scripted)
             .Select(m => m.Key)
             .ToList();
+        if (settings.Knowledge.Enabled && settings.Providers.TryGetValue(settings.Knowledge.EmbeddingProvider, out var embeddings) &&
+            embeddings.Kind == AgentProviderKind.Scripted)
+        {
+            scripted.Add("Knowledge:EmbeddingProvider");
+        }
+
         if (scripted.Count > 0)
         {
             throw new InvalidOperationException(

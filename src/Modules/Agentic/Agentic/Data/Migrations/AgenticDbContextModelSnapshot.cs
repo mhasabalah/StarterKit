@@ -69,6 +69,10 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("consecutive_failures");
 
+                    b.Property<DateTime?>("ContentErasedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("content_erased_at");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -547,6 +551,289 @@ namespace Agentic.Data.Migrations
                     b.ToTable("agent_approvals", "agentic");
                 });
 
+            modelBuilder.Entity("Agentic.Domains.Knowledge.Models.KnowledgeChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<int>("StartOffset")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_offset");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_knowledge_chunks");
+
+                    b.HasIndex("DocumentId")
+                        .HasDatabaseName("ix_knowledge_chunks_document_id");
+
+                    b.HasIndex("TenantId", "DocumentId", "Revision", "Ordinal")
+                        .IsUnique()
+                        .HasDatabaseName("ix_knowledge_chunks_tenant_id_document_id_revision_ordinal");
+
+                    b.ToTable("knowledge_chunks", "agentic");
+                });
+
+            modelBuilder.Entity("Agentic.Domains.Knowledge.Models.KnowledgeDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AttachmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attachment_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<int>("ChunkCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("chunk_count");
+
+                    b.Property<string>("ContentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("content_hash")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("EmbeddingModel")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("embedding_model");
+
+                    b.Property<string>("ExternalRef")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("external_ref");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<DateTime?>("IndexedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("indexed_at");
+
+                    b.Property<int?>("IndexedRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("indexed_revision");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastEnqueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_enqueued_at");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source_key");
+
+                    b.Property<string>("SourceText")
+                        .HasColumnType("text")
+                        .HasColumnName("source_text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("title");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_knowledge_documents");
+
+                    b.HasIndex("TenantId", "AttachmentId")
+                        .HasDatabaseName("ix_knowledge_documents_tenant_id_attachment_id");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("ix_knowledge_documents_tenant_id_status");
+
+                    b.HasIndex("TenantId", "SourceKey", "ExternalRef")
+                        .IsUnique()
+                        .HasDatabaseName("ux_knowledge_documents_external_ref");
+
+                    b.ToTable("knowledge_documents", "agentic");
+                });
+
+            modelBuilder.Entity("Agentic.Domains.Memory.Models.AgentMemory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("scope");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("source");
+
+                    b.Property<Guid?>("SourceRunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_run_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_agent_memories");
+
+                    b.HasIndex("TenantId", "ExpiresAt")
+                        .HasDatabaseName("ix_agent_memories_tenant_id_expires_at");
+
+                    b.HasIndex("TenantId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_agent_memories_idempotency")
+                        .HasFilter("idempotency_key IS NOT NULL");
+
+                    b.HasIndex("TenantId", "Scope", "OwnerUserId")
+                        .HasDatabaseName("ix_agent_memories_tenant_id_scope_owner_user_id");
+
+                    b.ToTable("agent_memories", "agentic");
+                });
+
             modelBuilder.Entity("Agentic.Domains.Policies.Models.AgentPolicy", b =>
                 {
                     b.Property<Guid>("Id")
@@ -792,6 +1079,16 @@ namespace Agentic.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_agent_approvals_runs_run_id");
+                });
+
+            modelBuilder.Entity("Agentic.Domains.Knowledge.Models.KnowledgeChunk", b =>
+                {
+                    b.HasOne("Agentic.Domains.Knowledge.Models.KnowledgeDocument", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_knowledge_chunks_knowledge_documents_document_id");
                 });
 #pragma warning restore 612, 618
         }

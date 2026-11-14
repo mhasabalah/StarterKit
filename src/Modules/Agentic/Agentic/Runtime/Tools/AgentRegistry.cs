@@ -118,6 +118,7 @@ public sealed partial class AgentRegistry
             TimeSpan.FromSeconds(attribute.TimeoutSeconds),
             attribute.Idempotent,
             attribute.ReturnsUntrustedContent,
+            attribute.RequiresApproval,
             toolType,
             inputType,
             outputType,
