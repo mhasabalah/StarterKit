@@ -12,6 +12,11 @@
 
 # StarterKit
 
+<!--#if (templateSource)-->
+Documentation Website V2 is available locally in `apps/docs-v2`; the existing Starlight site remains intact.
+See [development, validation and deployment guidance](wiki/Decisions/0024-documentation-site.md#v2-development-and-validation).
+<!--#endif-->
+
 [![CI/CD](https://github.com/mhasabalah/StarterKit/actions/workflows/hybrid-ci-cd.yml/badge.svg)](https://github.com/mhasabalah/StarterKit/actions/workflows/hybrid-ci-cd.yml)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1)
@@ -31,49 +36,70 @@ tests the way this codebase expects them.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    client[Web · mobile · integrations] -- "HTTPS (REST)" --> nginx[Nginx · TLS · rate limits]
-    client <-- "WebSocket /hubs/notifications" --> nginx
-    nginx --> api
-
-    subgraph api[API host - src/Api · N replicas]
-        direction TB
-        mw[Forwarded headers · CORS · errors · auth → tenant resolution · rate limiting]
-        subgraph modules[Modules - vertical slices, own schema each]
-            identity[Identity]
-            tenancy[Tenancy]
-            attachment[Attachment]
-            subscriptions[Subscriptions]
-            webhooks[Webhooks]
-            datatransfer[DataTransfer]
-            agentic[Agentic]
-            catalog[Catalog · sample]
-            subgraph notification[Notification]
-                direction TB
-                chain[Email → WhatsApp fallback chain]
-                inapp[In-app inbox]
-                push[Push · IPushProvider]
-                hub[SignalR NotificationHub]
-            end
-        end
-        shared[Shared.Contracts · Shared.Core · Shared.Messaging]
-    end
-
-    modules -- ISender + .Contracts --> modules
-    modules -- "INotificationSender (.WithEmail · .WithInApp · .WithPush)" --> notification
-    modules -- integration events via outbox --> bus[(MassTransit: InMemory · PostgreSql · RabbitMq)]
-    bus --> modules
-    api --> pg[(PostgreSQL 16 - one schema per module, RLS for tenant data)]
-    api --> redis[(Redis - cache, token blacklist, SignalR backplane)]
-    api --> hangfire[Hangfire jobs - one job per channel]
-    api --> otel[OpenTelemetry → Seq · Aspire · Grafana/Tempo/Loki]
-    attachment --> blob[(Local · Azure Blob · S3)]
-    inapp --> hub
-    hub <-. backplane across replicas .-> redis
-    push --> fcm[FCM → Android · iOS via APNs · Web]
-    chain --> smtp[SMTP · WhatsApp Cloud API]
-    webhooks --> customers[Customer endpoints · signed]
+flowchart TB
+  accTitle: Architecture
+  accDescr: This view covers architecture; see the surrounding documentation for scope and operational details.
+  client[Web, mobile and integrations] -->|HTTPS REST and WebSocket| nginx[Nginx: TLS and rate limits]
+  subgraph api[API host: one deployable, multiple replicas]
+    direction TB
+    mw[Headers, CORS and errors] --> auth[Authentication, tenant resolution and authorization]
+    auth --> modules[Module endpoints and handlers]
+    shared[Shared.Contracts, Shared.Core, Shared.Messaging]
+  end
+  nginx --> mw
+  modules -->|EF Core: module schemas and tenant RLS| pg[(PostgreSQL 16)]
+  modules -->|cache, revocation and backplane| redis[(Redis)]
+  modules -->|Attachment storage port| blob[(Local, Azure Blob or S3)]
+  api -->|telemetry| otel[Seq, Aspire or configured OTLP stack]
+  class client external
+  class nginx,shared,otel infrastructure
+  class mw,auth api
+  class modules application
+  class pg,redis,blob data
 ```
+
+*Figure: Runtime traffic and persistence in one API deployment; modules and provider choices are detailed below.*
+
+```mermaid
+flowchart TB
+  accTitle: Background delivery boundaries
+  accDescr: The outbox connects modules through at-least-once delivery; Hangfire runs jobs and Webhooks sends signed HTTP requests.
+  M[Module handler] -->|same transaction| O[(Module outbox)]
+  O -.->|publish| B[MassTransit transport]
+  B -.->|at-least-once delivery| C[Subscribed consumer]
+  M -->|enqueue| J[Hangfire jobs]
+  M -->|Webhooks: signed HTTP| E[Customer endpoint]
+  class M application
+  class O,B,C event
+  class J infrastructure
+  class E external
+```
+*Figure: Runtime delivery paths are separate from compile-time module dependencies.*
+
+```mermaid
+flowchart TB
+  accTitle: Notification delivery
+  accDescr: Channel jobs share a correlation id; email and WhatsApp form a fallback chain, while inbox and push are additive.
+  M[Calling module] -->|recipient and content| N[INotificationSender]
+  N -->|enqueue per channel| J[Hangfire channel jobs]
+  J --> C[Email then WhatsApp fallback]
+  J --> I[In-app inbox]
+  J --> P[Push via IPushProvider]
+  C --> E[SMTP or WhatsApp Cloud API]
+  I -.->|realtime hints| H[SignalR NotificationHub]
+  H <-.->|backplane across replicas| R[(Redis)]
+  P --> F[FCM: Android, iOS via APNs, Web]
+  class M,N application
+  class N port
+  class J,C,I,P,H infrastructure
+  class R data
+  class E,F external
+```
+*Figure: Delivery channels remain independent of the host topology; clients resynchronize the inbox through REST.*
+
+MassTransit uses InMemory in development/tests, PostgreSql by default in production, or RabbitMq when configured.
+The host middleware applies forwarded headers, CORS, error handling, authentication, tenant resolution,
+authorization and rate limiting. Module calls use `ISender` plus contracts; integration events use the outbox.
 
 **Key ideas:**
 - Modules talk only through `.Contracts` (`ISender`) or integration events delivered at-least-once through the
@@ -84,6 +110,8 @@ flowchart LR
 
 The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md). Everything the template ships, by
 area: [feature catalog](wiki/Reference/Features.md).
+Architecture visuals follow the [diagram conventions](wiki/Reference/Diagram-Style.md), with portable Mermaid sources
+and shared light/dark presentation in Documentation V2.
 
 ## Modules
 

@@ -38,10 +38,15 @@ dotnet tool restore
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Migration review covers schema changes and RLS before the deploy-time migrator applies them.
   M[Module model] --> E[EF migration and snapshot]
   E --> R[Tenant RLS review]
   R --> D[Deploy-time migrator]
   D --> S[Shared and dedicated databases]
+  class M domain
+  class E,R,D infrastructure
+  class S data
 ```
 *Figure: Migration review covers schema changes and RLS before the deploy-time migrator applies them.*
 

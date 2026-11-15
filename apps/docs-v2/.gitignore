@@ -1,0 +1,15 @@
+node_modules/
+.env.local
+.env.*.local
+.next/
+.source/
+.generated/
+content/docs/
+public/
+*.tsbuildinfo
+next-env.d.ts
+playwright-report/
+test-results/
+.vale/styles/*
+!.vale/styles/StarterKit/
+!.vale/styles/StarterKit/**

@@ -21,6 +21,8 @@ Subscriptions creates provider-hosted checkouts and settles verified callbacks t
 
 ```mermaid
 sequenceDiagram
+  accTitle: Checkout and settlement
+  accDescr: The provider callback settles money; browser return URLs are navigation signals and cannot prove payment.
   autonumber
   actor C as Subscriber
   participant A as API
@@ -61,6 +63,8 @@ Return URLs must be absolute HTTP(S) and match `Subscriptions:OnlinePaymentRetur
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Verified webhook inbox
+  accDescr: InboundWebhookStatus has Pending, Processed and Failed; retry exhaustion leaves a Failed row for investigation.
   Pending --> Processed: handled
   Pending --> Failed: processing error
   Failed --> Processed: recovery succeeds
@@ -74,6 +78,8 @@ The inbox is a durable record, not a bus consumer. Normal application failures d
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Session status
+  accDescr: OnlinePaymentSessionStatus records an attempt, independently of PaymentStatus; a partial refund leaves the session Succeeded.
   [*] --> Created
   Created --> Succeeded: verified settlement
   Created --> Failed: provider failure

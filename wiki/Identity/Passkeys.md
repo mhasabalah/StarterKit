@@ -27,6 +27,8 @@ passkey flow: the client submits a `ceremonyId` alongside the serialized browser
 
 ```mermaid
 sequenceDiagram
+  accTitle: Registration ceremony
+  accDescr: Registration options require recent authentication; completion consumes the user-bound state before verifying and storing the credential.
   autonumber
   actor App
   participant API
@@ -54,6 +56,8 @@ across instances; its non-Redis implementation is process-local.
 
 ```mermaid
 sequenceDiagram
+  accTitle: Sign-in ceremony
+  accDescr: Usernameless sign-in verifies the assertion before account, SSO and session-completion checks.
   autonumber
   actor App
   participant API

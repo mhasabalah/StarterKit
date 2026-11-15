@@ -1,0 +1,14 @@
+max_concurrency = 4
+max_retries = 3
+retry_wait_time = 3
+timeout = 30
+accept = [200, 201, 202, 204, 206]
+exclude = [
+  '^https?://localhost',
+  '^https?://[^/]*\.example\.com',
+  '^https?://example\.com',
+  '^https?://YOUR_SERVER_IP',
+  '^https://github\.com/mhasabalah/StarterKit/(blob|tree|edit)/',
+  # Repository issue links require repository access; retain them in the content.
+  '^https://github\.com/mhasabalah/StarterKit/issues(/|$)',
+]

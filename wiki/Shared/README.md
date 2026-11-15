@@ -19,12 +19,17 @@ The Shared projects provide contracts and infrastructure used by every module wh
 
 ```mermaid
 flowchart TB
+  accTitle: Dependencies
+  accDescr: Arrows mean project dependencies; the Shared chain points toward contracts and never back into a module.
   H[API host] --> M[Shared.Messaging]
   M --> C[Shared.Core]
   C --> S[Shared.Contracts]
   I[Module implementation] --> C
   I --> P[Module Contracts]
   P --> S
+  class H api
+  class M,C infrastructure
+  class I,P,S application
 ```
 *Figure: Arrows mean project dependencies; the Shared chain points toward contracts and never back into a module.*
 

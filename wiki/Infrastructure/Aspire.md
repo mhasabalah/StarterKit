@@ -63,6 +63,8 @@ in `infra/observability/configs`:
 
 ```mermaid
 flowchart TB
+  accTitle: Telemetry
+  accDescr: The optional Aspire observability stack routes telemetry through the collector.
   A[api] -->|OTLP| O[otel-collector]
   O --> T[tempo and jaeger traces]
   O --> P[prometheus metrics]
@@ -70,6 +72,8 @@ flowchart TB
   T --> G[grafana]
   P --> G
   L --> G
+  class A api
+  class O,T,P,L,G infrastructure
 ```
 *Figure: The optional Aspire observability stack routes telemetry through the collector.*
 

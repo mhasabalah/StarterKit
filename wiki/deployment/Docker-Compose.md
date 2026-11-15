@@ -31,11 +31,14 @@ include every required development/combination overlay yourself.
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Explicit file order selects the runtime model; the load-test file is independent.
   B[Base compose] --> D[Development override]
   B --> P[Production selection]
   D --> O[Optional overlays in order]
   P --> O
   O --> C[Resolved Compose model]
+  class B,D,P,O,C infrastructure
 ```
 *Figure: Explicit file order selects the runtime model; the load-test file is independent.*
 

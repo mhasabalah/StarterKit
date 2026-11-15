@@ -44,7 +44,10 @@ Its freshness, reconciliation and deletion semantics become part of the adapter'
 
 ```mermaid
 flowchart TB
+  accTitle: 1. Preserve the user-directory port
+  accDescr: The replacement supplies user projections and an authenticated principal while business modules keep their contracts.
   subgraph Business[Business modules]
+    direction TB
     C[ISender callers] --> P[UserDirectory.Contracts]
   end
   P --> H[Adapter query handlers]
@@ -52,6 +55,9 @@ flowchart TB
   E[Provider events] --> D
   T[Provider access token] --> V[Host authentication]
   V --> R[PermissionClaimsTransformation]
+  class C,P,H,D application
+  class E event
+  class T,V,R api
 ```
 *Figure: The replacement supplies user projections and an authenticated principal while business modules keep their contracts.*
 

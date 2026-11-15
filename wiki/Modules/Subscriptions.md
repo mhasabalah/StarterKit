@@ -19,6 +19,8 @@ A subscriber is a user in single-tenant mode and a tenant in multi-tenant mode. 
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How it works
+  accDescr: This SubscriptionStatus subset shows approval and overdue renewal; Billing documents trials, cancellation and reactivation.
   PendingApproval --> Active: approve
   PendingApproval --> Rejected: reject
   Active --> PastDue: renewal overdue

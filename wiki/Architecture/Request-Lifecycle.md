@@ -21,6 +21,8 @@ The following order is explicit in `Program.cs` and the extensions it calls. Ngi
 
 ```mermaid
 sequenceDiagram
+  accTitle: HTTP pipeline
+  accDescr: A business request enters the endpoint only after identity, tenant and host policies allow it.
   autonumber
   participant C as Client
   participant N as Nginx
@@ -72,6 +74,8 @@ Carter endpoints have an `ApiResponseMarkerFilter` and deny-by-default authoriza
 
 ```mermaid
 flowchart TB
+  accTitle: Mediator and handler
+  accDescr: The shared mediator pipeline validates and observes a request before its handler and dispatches committed events on return.
   E[Carter endpoint] --> S[ISender]
   S --> T[RequestTelemetryBehavior]
   T --> V[ValidationBehavior]
@@ -79,6 +83,8 @@ flowchart TB
   C --> L[LoggingBehavior]
   L --> D[DispatchDomainEventsBehavior]
   D --> H[Handler]
+  class E api
+  class S,T,V,C,L,D,H application
 ```
 *Figure: The shared mediator pipeline validates and observes a request before its handler and dispatches committed events on return.*
 
@@ -102,6 +108,8 @@ Tenant-data contexts also register `TenantSessionConnectionInterceptor` for conn
 
 ```mermaid
 sequenceDiagram
+  accTitle: Save, commit and dispatch
+  accDescr: A committed save makes events eligible for dispatch, but the outermost successful handler controls when dispatch runs.
   autonumber
   participant H as Handler
   participant D as DbContext

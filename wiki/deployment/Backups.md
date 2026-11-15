@@ -23,12 +23,16 @@ Work from the deployment checkout (`DEPLOY_DIR`); the examples assume the defaul
 ### How it is wired
 
 ```mermaid
-flowchart LR
+flowchart TB
+  accTitle: How it is wired
+  accDescr: Both services run the same infra/postgres image; PostgreSQL pushes WAL, the backup service takes and restores backups.
   PG[postgres service] -->|archive_command| AW[pgbackrest-archive-wal]
   AW -->|archive-push| S3[(S3 repository)]
   BK[pgbackrest service] -->|backup, info, check| S3
   BK -->|socket + data volume| PG
   RS[restore.sh] -->|run --rm pgbackrest ... restore| BK
+  class PG,S3 data
+  class AW,BK,RS infrastructure
 ```
 *Figure: Both services run the same infra/postgres image; PostgreSQL pushes WAL, the backup service takes and restores backups.*
 

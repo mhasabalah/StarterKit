@@ -1,0 +1,3218 @@
+{
+  "reviewed": 112,
+  "renderers": {
+    "v2": "Mermaid 12.3.0",
+    "v1": "Mermaid 12.2.0; unchanged renderer"
+  },
+  "diagrams": [
+    {
+      "file": "README.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Architecture",
+      "after": "a6b1c3316f381a0a98533c989706d9ab2f804f87a8a6f600514954e55a2b4715",
+      "review": "Split the host overview from notification delivery; preserve detailed module and transport choices in adjacent prose. Runtime arrows are labelled; outbox delivery is asynchronous. Rechecked the host, proxy, persistence and telemetry boundaries against src/Api/Program.cs before normalizing line endings.",
+      "roles": {
+        "external": [
+          "client"
+        ],
+        "infrastructure": [
+          "nginx",
+          "shared",
+          "otel"
+        ],
+        "api": [
+          "mw",
+          "auth"
+        ],
+        "application": [
+          "modules"
+        ],
+        "data": [
+          "pg",
+          "redis",
+          "blob"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "README.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Background delivery boundaries",
+      "after": "c14c34fa92c19a6e0585d80bc369925b7cff3a599891932acbd6cc2516336042",
+      "review": "Reviewed focused topology against surrounding documentation and listed source evidence; added accessible summaries and shared presentation.",
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs"
+      ],
+      "status": "reviewed",
+      "roles": {
+        "application": [
+          "M"
+        ],
+        "event": [
+          "O",
+          "B",
+          "C"
+        ],
+        "infrastructure": [
+          "J"
+        ],
+        "external": [
+          "E"
+        ]
+      }
+    },
+    {
+      "file": "README.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "Notification delivery",
+      "after": "751bbeceec2569c9dcfeb9cea79490aba13111c7a33a9105f46160c05a218740",
+      "review": "New focused example; checked against existing module services, contracts and integration-event behavior.",
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs"
+      ],
+      "status": "reviewed",
+      "roles": {
+        "application": [
+          "M",
+          "N"
+        ],
+        "port": [
+          "N"
+        ],
+        "infrastructure": [
+          "J",
+          "C",
+          "I",
+          "P",
+          "H"
+        ],
+        "data": [
+          "R"
+        ],
+        "external": [
+          "E",
+          "F"
+        ]
+      }
+    },
+    {
+      "file": "wiki/Architecture/ApiGuidelines.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "8edfd1a67c92f19d70b7c4e5812d2bdb0bdb990e161814f283ba0c734fc1c322",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "R",
+          "A",
+          "F",
+          "E"
+        ],
+        "application": [
+          "S",
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/CodingStandards.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "3d67bf72cbe98c8313060a50fbd88bd73bea8e5ccc5fc802b7edf2e40e11f9c2",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "C",
+          "V",
+          "H"
+        ],
+        "domain": [
+          "A"
+        ],
+        "infrastructure": [
+          "P",
+          "I"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Concurrency-and-Versions.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "How it works",
+      "after": "85db0e06073e563c4d052e550ae0de031c56a58c2dcbb5e7c938f0b412a49851",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/DatabaseConventions.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "One database, one schema per module",
+      "after": "ca3d6c8258ebe06f0999349a94231d75b03b0c0e63c021a45e409c77cd833466",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "M",
+          "C",
+          "O",
+          "N",
+          "T",
+          "S",
+          "R"
+        ],
+        "data": [
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/DesignPatterns.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Request and unit-of-work lifecycle",
+      "after": "488b2870c29f19d89d0522a7d3f4d7a6e08184e1a6dfd7984a2b0ae798f90d6b",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "C",
+          "Q",
+          "P"
+        ],
+        "infrastructure": [
+          "R",
+          "D",
+          "S"
+        ],
+        "event": [
+          "E",
+          "O",
+          "B"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Errors-and-Responses.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "c24d0ccff02b1317e984c4dbce906aa584ae4192292ff8e97a247eb35f0dae6e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "R",
+          "S",
+          "A",
+          "W",
+          "M",
+          "G",
+          "P",
+          "C"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Feature-Flags.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Evaluation order",
+      "after": "4f5b949d9cf2444d4d296810b4ed15689018f667dc2c480c68ba2fd33b7f8db9",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "F",
+          "D",
+          "K",
+          "OFF",
+          "U",
+          "UV",
+          "T",
+          "TV",
+          "R",
+          "B",
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "1. Which kind of event?",
+      "after": "a015dc28460be113d55e993373591af28f1e306bf2ace653943139872e438999",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "R",
+          "S",
+          "C"
+        ],
+        "domain": [
+          "D",
+          "N"
+        ],
+        "event": [
+          "I"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Data",
+        "src/Shared/Shared.Messaging"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "Outbox",
+      "after": "a2c4012545f381cd29219e07c51e5667a1ccf62c18af30f20b6fd29cad0b2ab7",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Shared/Shared.Core/Data",
+        "src/Shared/Shared.Messaging"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Outbox",
+      "after": "55c0023d94488ccd36fe7338ff16fcf92c8949eea4b5c1d8e72a0c9fc9558e1b",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Shared/Shared.Core/Data",
+        "src/Shared/Shared.Messaging"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 4,
+      "type": "sequenceDiagram",
+      "title": "Outbox",
+      "after": "46b2e88cc0f2faca956d30656b4613e0214e035516b45cd3d056bf11b91e4eb3",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Shared/Shared.Core/Data",
+        "src/Shared/Shared.Messaging"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 5,
+      "type": "flowchart",
+      "title": "Durable saga persistence",
+      "after": "fa92cf23f650a4bfd3d24e5d4a2dd5bdeddfee8632c9500d379391cfaec46398",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "M",
+          "A",
+          "C",
+          "L",
+          "D",
+          "O",
+          "P"
+        ],
+        "event": [
+          "T"
+        ],
+        "domain": [
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Data",
+        "src/Shared/Shared.Messaging"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Observability.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "26e2c868e9e51003288fc41a992ff75cfa3d51ee002de415a4e87941c41487bc",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "R",
+          "L",
+          "A",
+          "M"
+        ],
+        "infrastructure": [
+          "O",
+          "S",
+          "P",
+          "G"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "2. Clean Architecture Layers",
+      "after": "64f7000fbea9f6ba60fcdf78fa0bf25a2842b9ff8246bf8e8e3a4feb8c3fd7e6",
+      "review": "Identify FluentValidation as ValidationBehavior, distinguish command mutation from query projections, and remove the misleading DbContext-to-domain runtime call. Ports are labels; this is a runtime view, not a project reference graph.",
+      "roles": {
+        "api": [
+          "C"
+        ],
+        "application": [
+          "M",
+          "V",
+          "H"
+        ],
+        "domain": [
+          "A",
+          "O"
+        ],
+        "infrastructure": [
+          "R",
+          "D",
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "System context",
+      "after": "bfa613bfa2ac91028138688317be9d1b5b23a3301369e818274344d369bb7fbc",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "C",
+          "P"
+        ],
+        "infrastructure": [
+          "N",
+          "S"
+        ],
+        "api": [
+          "A"
+        ],
+        "data": [
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "Contract ownership and user boundary",
+      "after": "9b505f6a7dd73a69f5caf8b7ff904d99b36e5322b9d1226fdb6f7bf3a0a329ca",
+      "review": "Replace repeated module/contract pairs with a compact compile-time view of ownership, the public user port, private Identity contracts and the explicit Tenancy shared-core exception; use ELK for layout.",
+      "roles": {
+        "application": [
+          "M",
+          "C",
+          "S",
+          "I",
+          "U",
+          "IC",
+          "T"
+        ],
+        "infrastructure": [
+          "CORE"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 4,
+      "type": "flowchart",
+      "title": "Allowed module dependencies",
+      "after": "cefffbed95b7ef626944510fa17a2b685fa8eb934fa3137f4481211182fca248",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "A",
+          "N",
+          "U",
+          "AI",
+          "AC",
+          "SC"
+        ],
+        "event": [
+          "E",
+          "C"
+        ],
+        "infrastructure": [
+          "CORE"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 5,
+      "type": "flowchart",
+      "title": "Module initialization order",
+      "after": "34a5f5a97fd9b9c71073a7ef3919cec507a3489a5da5f15d9e2ddfc5c1dbad2f",
+      "review": "Restore Agentic 800 between Default 700 (including Shipping) and Notification 900.",
+      "roles": {
+        "application": [
+          "I",
+          "T",
+          "A",
+          "C",
+          "S",
+          "W",
+          "D",
+          "M",
+          "G",
+          "N"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Modularity/ModuleOrder.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/ProjectStructure.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Dependency Flow",
+      "after": "5d50366c49a78e4219a06222e68a4ce1bb4b257c9e67d160ffe34b790ca7d49f",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A"
+        ],
+        "application": [
+          "F",
+          "C"
+        ],
+        "domain": [
+          "D"
+        ],
+        "infrastructure": [
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Request-Lifecycle.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "HTTP pipeline",
+      "after": "6dfe29ba5f3140213c284a95b1d83e568ac3ae5d69478c4920e2476f2f2fe19b",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Request-Lifecycle.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Mediator and handler",
+      "after": "9d6dac132dafbcb04d5b36db39f63843b5877e68da53b32450b6d5e543924eff",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "E"
+        ],
+        "application": [
+          "S",
+          "T",
+          "V",
+          "C",
+          "L",
+          "D",
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Request-Lifecycle.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Save, commit and dispatch",
+      "after": "07c6deb26c5a3bb0dfcf6d9d81ae716592f2494427437b244705ce06e179f8ec",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/TechnologyStack.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "d4440c6ec29cc68540e4f517326b1db7e3262b44aebd18f3306c88f28b03e6cb",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "H",
+          "A"
+        ],
+        "application": [
+          "M"
+        ],
+        "infrastructure": [
+          "D",
+          "R",
+          "T"
+        ],
+        "data": [
+          "P"
+        ],
+        "event": [
+          "O",
+          "B"
+        ]
+      },
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Shared/Shared.Core",
+        "src/Api.Tests/Architecture"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/Configuration.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "77bf02895a34805efe505f0c2d3c3ca79ff132bb52544f79f245ae4743722947",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "C",
+          "B",
+          "D",
+          "V",
+          "P",
+          "J"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Attachment/Attachment"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/Image-Processing.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "c0f7ab72e74b8feda8b7d716343af62cba3df34d41841fda4492d3e004d45381",
+      "review": "Separate runtime port calls from the adapter implementation dependency.",
+      "roles": {
+        "application": [
+          "F",
+          "T"
+        ],
+        "infrastructure": [
+          "I",
+          "S"
+        ],
+        "port": [
+          "I"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Attachment/Attachment/AttachmentModule.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/README.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "7ed2e38e2ae366724b35356656d092a8060fdbb1901f0c6ff3935e85c9e41760",
+      "review": "Show the handler, not DbContext, enqueueing thumbnail work; mark outbox avatar-event delivery as asynchronous.",
+      "roles": {
+        "api": [
+          "C"
+        ],
+        "application": [
+          "A",
+          "V",
+          "J",
+          "I"
+        ],
+        "infrastructure": [
+          "D",
+          "S"
+        ],
+        "event": [
+          "O"
+        ],
+        "port": [
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Attachment/Attachment/Domains/Attachments/Features/UploadAttachment/UploadAttachmentHandler.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/BackgroundJobs/AttachmentBackgroundJobs.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/Reliability.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "How it works",
+      "after": "e2c10d0b63672990e8143bb221cc18e252428034e57b5b6de6c3e5dbd3c3e534",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Attachment/Attachment"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/Security.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "9f5d740d839086aeb9b2828c492af318f329ed2df35542a88e20fed0287b8d39",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "U",
+          "A",
+          "E",
+          "T",
+          "I",
+          "M",
+          "B",
+          "F"
+        ],
+        "infrastructure": [
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Attachment/Attachment"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/Storage-Providers.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "bd9a6f0e5f68d87e8a964fc3428886050eea9c9800c5cce105821bbf4b6fd394",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A",
+          "P",
+          "R"
+        ],
+        "infrastructure": [
+          "L",
+          "Z",
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Attachment/Attachment"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Attachment/Uploads.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "Pending sessions and association",
+      "after": "c7f16cd4c889fc0e92a85c294f532bb14b7ccb9ea274ea4dd684d01209efb669",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Attachment/Attachment"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Bot-Protection.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "91db63b2411c92099602812ae37a56cd699660051054b7a3dd8a373482ca3a71",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "C",
+          "F",
+          "H",
+          "E"
+        ],
+        "infrastructure": [
+          "V",
+          "N",
+          "T"
+        ],
+        "port": [
+          "V"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Enterprise-SSO.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "Sign-in flow",
+      "after": "5f2fe115c5722a4133a86e3791f2b1cd302c6f55b3a137eb35d46b80c6999f84",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Frontend-Integration.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "4a677eb7f6ded24f0e2377e5558f87addf7ff0ff1f4e2d4ce7e20af346c73ab1",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "U"
+        ],
+        "api": [
+          "D",
+          "S",
+          "P",
+          "L",
+          "M",
+          "T",
+          "V"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Passkeys.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "Registration ceremony",
+      "after": "e1497daaee8f3f6c42948f41bbc9a6dc66f735f57104cdd717a0ba54a4e3d41e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Passkeys.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "Sign-in ceremony",
+      "after": "5bc3d0056e5b6a3f06d4cc784fa9ae7cbbe7b932103a649a89522d582b24f330",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Permissions-2FA-and-Admin-Audit.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Roles and permissions",
+      "after": "7f3951a7e7827e7086f763dce749d428c43cdfc987092043de07c4f02fdb767d",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "R",
+          "T",
+          "P",
+          "G",
+          "F"
+        ],
+        "application": [
+          "M",
+          "H",
+          "U"
+        ],
+        "data": [
+          "D"
+        ],
+        "port": [
+          "U"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/README.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "9ff9445d628292af0b48382b7092c6db12e6d45a7fbafc9ca5ba8f02fc46b940",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "C"
+        ],
+        "api": [
+          "P",
+          "J",
+          "K",
+          "T",
+          "A",
+          "I"
+        ],
+        "application": [
+          "S",
+          "U",
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/Replacing-the-Identity-Provider.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "1. Preserve the user-directory port",
+      "after": "1b2a5d0e305e2505e2f253ca4049b606a43d912a3b4de95b1926221504359367",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "C",
+          "P",
+          "H",
+          "D"
+        ],
+        "event": [
+          "E"
+        ],
+        "api": [
+          "T",
+          "V",
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/SCIM.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "a65c1ed050ab90b7459932f7c8534eb5aa123520a28ef3036ad8d81a093091d9",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "I"
+        ],
+        "api": [
+          "A",
+          "G"
+        ],
+        "application": [
+          "P",
+          "U",
+          "R",
+          "C",
+          "M",
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "2. Process login results",
+      "after": "672590762753603722b3899ba09cd11f56a0a8ac7b106570dda50e47ff90197e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "L",
+          "E",
+          "C",
+          "M",
+          "T"
+        ],
+        "application": [
+          "S",
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Access and refresh tokens",
+      "after": "5ad805dffa2d989a4932cb98f5d2b928122fd64589cb61fbcd24e61949d4a408",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A",
+          "V",
+          "R"
+        ],
+        "infrastructure": [
+          "T",
+          "H"
+        ],
+        "data": [
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "Initial sign-in",
+      "after": "55bf078bf1304beca255068482c60b18c014ad21defc8d60c6c14d86bd0b0a34",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Rotation and reuse detection",
+      "after": "3c6ffc3b823e0d08ff3ef6ca261481f0cb6e2ee5009fb14778445a54041b903f",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 4,
+      "type": "flowchart",
+      "title": "Storage and revocation",
+      "after": "c82c5ebe89849034760625442791613484a0fa8977d19c5e9839e618ebadef89",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "domain": [
+          "T",
+          "E"
+        ],
+        "event": [
+          "O"
+        ],
+        "data": [
+          "B",
+          "U",
+          "S",
+          "X"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 5,
+      "type": "sequenceDiagram",
+      "title": "Logout flows",
+      "after": "60b34072c8c25638f4aaef3681153903e4c57e95b1d62367a84d34c56c82a647",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 6,
+      "type": "sequenceDiagram",
+      "title": "Logout flows",
+      "after": "9bf562ed70c318314a25f5e62b72b9167a82817a1a719379fbd682a78f8ec928",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Strategy 1 — Reactive refresh (401 response)",
+      "after": "ef06e84d0c1c3c796628933738e89989fb296450d1e628b6f58521e223b18d45",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "U",
+          "I",
+          "R"
+        ],
+        "api": [
+          "A",
+          "V",
+          "D",
+          "S",
+          "T",
+          "Q",
+          "L"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Strategy 2 — Proactive refresh (before expiration)",
+      "after": "65410b9cf9e61ec1dc09fea35a4b5b53b6aeff22a187c2e896cc3fca9ba55ecd",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "U",
+          "E",
+          "R",
+          "W",
+          "N",
+          "A"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Strategy 3 — Silent refresh with hidden iframe",
+      "after": "d0b3f8b7ea812f81d902da38aaab1e5b325a3104e91ecb33454d75a60cba6a1e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 4,
+      "type": "flowchart",
+      "title": "Strategy 5 — Hybrid approach",
+      "after": "48d3ab6c2ca4441f47a561cc23d92b0c074e16bd0262986374c54246315e695c",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "P",
+          "R",
+          "F",
+          "T",
+          "D",
+          "L"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 5,
+      "type": "flowchart",
+      "title": "Choosing a strategy",
+      "after": "d50ec4f03b1bcb0628367e6c8c5b3c274e24614b571b9ead1841b740f62376be",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "P",
+          "R",
+          "U",
+          "A",
+          "H",
+          "F",
+          "C"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Infrastructure/Aspire.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Telemetry",
+      "after": "97ce5d4906757f0a189a46f3f594923ab235d642622b549f179d81e916a7bb4d",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A"
+        ],
+        "infrastructure": [
+          "O",
+          "T",
+          "P",
+          "L",
+          "G"
+        ]
+      },
+      "evidence": [
+        "src/Aspire/AppHost",
+        "infra"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Infrastructure/Redis.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "a7ff222c72edf9acf2844617be8f49bd510671872827f37fb80f6d3c5f8c19b4",
+      "review": "Move Redis outside the application-instance boundary and label asynchronous pub/sub delivery; AddRedisCache shares the cache multiplexer, while SignalR owns its backplane integration.",
+      "roles": {
+        "application": [
+          "C",
+          "E",
+          "Q"
+        ],
+        "infrastructure": [
+          "M",
+          "B",
+          "O"
+        ],
+        "data": [
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/Extensions/RedisExtensions.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How a run executes",
+      "after": "c22bf5868e149b7d153fa8a368db6b837930b9242307358a855a33c8fb219723",
+      "review": "Split model/executor control flow from tool authorization and checkpointing; preserve refusal, approval suspension, executing-before-call and saved-result semantics.",
+      "roles": {
+        "api": [
+          "U"
+        ],
+        "data": [
+          "Q",
+          "S1"
+        ],
+        "application": [
+          "J",
+          "P",
+          "F1",
+          "L",
+          "M",
+          "D",
+          "C"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Agent tool gateway",
+      "after": "ce858f900ca37aa969875b6d3310001346001f97c01c3fd4e177d73889987bae",
+      "review": "Split model/executor control flow from tool authorization and checkpointing; preserve refusal, approval suspension, executing-before-call and saved-result semantics.",
+      "roles": {
+        "application": [
+          "D",
+          "T",
+          "L"
+        ],
+        "data": [
+          "F",
+          "P",
+          "X",
+          "R"
+        ],
+        "infrastructure": [
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Human approval",
+      "after": "d2ba85215c1ce34f091bbe54c8eb499f94e1243918ba8226c983f65aa39eaf4b",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Catalog.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "How it works",
+      "after": "1390c9ccdeb60f4555fa64ee9f736e2ee08d7acf7a920ba26ea7e9f48a0b1f2d",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Catalog"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Catalog.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "How it works",
+      "after": "898d110db10d0340fbc800632c7b6687a08650d1459c60ccf011e52d0e71f9df",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Catalog"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/DataTransfer.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How a job runs",
+      "after": "a5bcd8219b0c2030ce9f4dc8a653f9d1655222840a3fe10214ac25d0e799fc06",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "U"
+        ],
+        "application": [
+          "A",
+          "J",
+          "R",
+          "S",
+          "F",
+          "V",
+          "X",
+          "B",
+          "C",
+          "D"
+        ],
+        "data": [
+          "P",
+          "E"
+        ],
+        "event": [
+          "Q",
+          "N"
+        ]
+      },
+      "evidence": [
+        "src/Modules/DataTransfer"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/DataTransfer.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "How a job runs",
+      "after": "8256df976e44074b4b7a482c8d0af399435c7706c53f83e54b109b8f64417399",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/DataTransfer"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Notification-Email-Design-System.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "af66405dc34430b9870de8d243518bdfabaf2ab51eab6e0ff063c23b7c414027",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "O",
+          "T",
+          "M",
+          "C",
+          "R",
+          "H",
+          "P",
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Notification"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Notification-Realtime-and-Push.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "Delivery",
+      "after": "a074c07746f65ea143e681d4b3147bed283a81b8fa4c504fe0be03cfbdd7bf44",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Notification"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Notification-Realtime-and-Push.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "Delivery",
+      "after": "001cbf13c175e4863866c22147a38de901105762a3834f2276d498a19932798c",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Notification"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Notification-Realtime-and-Push.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Delivery",
+      "after": "8301ead15a9ef714d39a920a5bba776c9a5a9f0eece968a2e2d7fb834f7afed4",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Notification"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Notification.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Delivery pipeline",
+      "after": "f566c5bfcf637b5e87d21ee0e6f93edd19abc5fee6ace8b30a92bbb83b93b082",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "S",
+          "E",
+          "C",
+          "I",
+          "P"
+        ],
+        "data": [
+          "L"
+        ],
+        "port": [
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Notification"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Notification.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "Failure modes and guarantees",
+      "after": "66c679d48de18bbd5d7babb0c6668079facc3dbcc32a963cbd052cd1ac6cc0f4",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Notification"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Shipping.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "How the agent works",
+      "after": "c3a11d596f37a0051102ca021836df29cf85323d3557a760e8a6b14bd6b7d339",
+      "review": "Shorten sequence messages, fix the semicolon parse error, mark asynchronous consumer delivery and approval notification, and expose completion through run APIs.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Shipping/Shipping/Domains/Shipments/Consumers/ShipmentReadyForClearanceConsumer.cs",
+        "src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationTools.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/EventHandlers/AgentNotificationHandlers.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Subscriptions.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "How it works",
+      "after": "96b2803e036fc7351ce44cf4d6551bea517311a8f653f96ac8b09675eab34e3d",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Tenancy.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "How it works",
+      "after": "4db004cb801bb577bb1d48f2d1106edb8255f1b52c11a828b31e0808a4371dcb",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Webhooks.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "How it works",
+      "after": "89a5cbe61579a24273e38a3e03dc4c59116e95aeae9fca18cdacb0534d4715df",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Webhooks"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "6. Scope caches, files and seed identities",
+      "after": "274fea78d8b971fd1e725e90c69c7538bfd354460d5fd2a8d9bb975048546882",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "C",
+          "E",
+          "M",
+          "F",
+          "R",
+          "V",
+          "L"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Branches-and-Scoping.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Assignments and scope",
+      "after": "743a51d23ca7bfb05bdd5a4dcb6ac8751486cfd8731ca417a0a0b4320e2fe55e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "M",
+          "E",
+          "S",
+          "O",
+          "U",
+          "F",
+          "R",
+          "A"
+        ],
+        "api": [
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Isolation-and-Dedicated-Databases.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Control plane vs data plane",
+      "after": "f663033e23bdd373674e209f93cb46a23e48f9276f2b9bf5ab68ed2af41b7ae1",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "C",
+          "R",
+          "I",
+          "H"
+        ],
+        "data": [
+          "S",
+          "D",
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Operations.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Moving a tenant between shared and dedicated (automated)",
+      "after": "7b07bb7753716d2a1131fb7e689025444e81774806d35cbdea4c222a9735748e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "R"
+        ],
+        "application": [
+          "M",
+          "W",
+          "C",
+          "S",
+          "P",
+          "F",
+          "X"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Resolution and data access",
+      "after": "4fce7bbd3fa440554803308e429483dcbcc6421b15719dcee62002fdbca417e9",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A",
+          "R",
+          "Z"
+        ],
+        "application": [
+          "S",
+          "M",
+          "T"
+        ],
+        "infrastructure": [
+          "F",
+          "I",
+          "V",
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Shared and dedicated topology",
+      "after": "0759b9a8ae0e0686f6dfb2d8c90ea8f4b65b634d1fd908d5c6a8fd463f57d6d9",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "C"
+        ],
+        "infrastructure": [
+          "R",
+          "F"
+        ],
+        "data": [
+          "H",
+          "S",
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 3,
+      "type": "stateDiagram-v2",
+      "title": "Tenant status lifecycle",
+      "after": "9ed411b889c9556f6f063f2a1a2b9a3f545cec82be983bf6d0d72300fc4b6e82",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 4,
+      "type": "stateDiagram-v2",
+      "title": "Tenant status lifecycle",
+      "after": "2123dd8649fcef7b03904c1a0413c232790190ab4c98e33cc41399dd640fa73f",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 5,
+      "type": "stateDiagram-v2",
+      "title": "Tenant status lifecycle",
+      "after": "2e221e0781687aeeb47f5c4af8945d8425afef445831b947fa86b41e29af16d6",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Shared/Shared.Core/MultiTenancy",
+        "src/Modules/Tenancy/Tenancy"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Architecture-Guardrails.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "5d3da5e6ed86cece3eba6c87d8b786d9e397389eff011e587274f130496055ac",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "S",
+          "A",
+          "H",
+          "F"
+        ],
+        "data": [
+          "M",
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Configuration.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "1de1a53478a61d7d9abf099e74fd5467723ebf182f06823984a65c418c2b6e21",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "B",
+          "E",
+          "V",
+          "S",
+          "O"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Flow",
+      "after": "bb852710b42ba6b93e48baed0fff0d98f7ef1d3f0c1748d6aae9fce9b790a80e",
+      "review": "Distinguish IAuthSessionService from AuthSessionService and label the implementation relationship.",
+      "roles": {
+        "application": [
+          "H",
+          "S",
+          "A"
+        ],
+        "infrastructure": [
+          "R"
+        ],
+        "port": [
+          "S",
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Layers",
+      "after": "301f3866a1110d3702f4e6e4052ff7ac466a6ad2ae6a2ce59d37cb03ec81a7cb",
+      "review": "Reverse implementation arrow: SkiaImageProcessingService implements the image-processing port; callers never invoke the port as a factory.",
+      "roles": {
+        "application": [
+          "V",
+          "J"
+        ],
+        "infrastructure": [
+          "P",
+          "A"
+        ],
+        "port": [
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "title": "Interactions",
+      "after": "eaa434b58871462222ca77ba0101e635f9dddff961632e6ca6edae43b64d2185",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 4,
+      "type": "stateDiagram-v2",
+      "title": "Lifecycles",
+      "after": "e98ae13d0a93d8c625a76e63c008b9468932d5d2252dbce99233178ed6464eec",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 5,
+      "type": "erDiagram",
+      "title": "Data relationships",
+      "after": "9c60269464d13a68d5dca37ce0a63f74c34ceb934ffe51f0ec2b4f7bf2a9b10f",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 6,
+      "type": "flowchart",
+      "title": "Command and query responsibilities",
+      "after": "a4d963f3fa7432eae4bc2735bd898cb5821b9a12d8b32b2ec33380df4866b0df",
+      "review": "New focused example; checked against existing module services, contracts and integration-event behavior.",
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed",
+      "roles": {
+        "api": [
+          "E"
+        ],
+        "application": [
+          "M",
+          "V",
+          "C",
+          "Q"
+        ],
+        "domain": [
+          "A"
+        ],
+        "infrastructure": [
+          "R",
+          "D"
+        ]
+      }
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 7,
+      "type": "flowchart",
+      "title": "Transactional integration-event delivery",
+      "after": "49cde2ac62f3787d59641028ff30e48ab1f7f964b280609f486e5a3a46ae07eb",
+      "review": "New focused example; checked against existing module services, contracts and integration-event behavior.",
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Sessions/AuthSessionService.cs",
+        "src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/IImageProcessingService.cs",
+        "src/Modules/Tenancy/Tenancy/Domains/Tenants/Models/Tenant.cs",
+        "src/Shared/Shared.Core/Extensions/MediatorExtensions.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs"
+      ],
+      "status": "reviewed",
+      "roles": {
+        "domain": [
+          "A"
+        ],
+        "infrastructure": [
+          "S"
+        ],
+        "data": [
+          "D"
+        ],
+        "event": [
+          "R",
+          "T",
+          "C",
+          "F"
+        ]
+      }
+    },
+    {
+      "file": "wiki/Reference/Endpoint-Authorization.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "13056eefa2f649ac93829525d47a5fd02b3895aa04e3323dbaa9de88c8bddfa0",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A",
+          "T",
+          "P",
+          "F"
+        ],
+        "application": [
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Features.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "4f26bab3f2d83773f083053486b6e60db0bc87d0f298780453b054839504eb36",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "P",
+          "M",
+          "C",
+          "H"
+        ],
+        "infrastructure": [
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Migrations.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "62ce6c0b5b692c8a1cd615648ab2b96e226e4800ccb944926a2d58807f816b30",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "domain": [
+          "M"
+        ],
+        "infrastructure": [
+          "E",
+          "R",
+          "D"
+        ],
+        "data": [
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/README.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "5ebb25870ab786cf30b838487a4edc82b1b15585ed37e54aeabe804629597be0",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "Q",
+          "R",
+          "C",
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Reference/Third-Party-Licenses.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "5c4555888ff3ec10f76c91a03bc040f5cadb3d6cfdb1dc083996fc3f6e967da8",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "F",
+          "P",
+          "T"
+        ],
+        "infrastructure": [
+          "A"
+        ],
+        "external": [
+          "V"
+        ],
+        "port": [
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Shared",
+        "src/Modules",
+        "src/Api.Tests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Shared/README.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Dependencies",
+      "after": "adda66851cd399ac8bd6fb0746aacdd0cd2bc1c25d3f5dd933ebc04d7f261fb6",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "H"
+        ],
+        "infrastructure": [
+          "M",
+          "C"
+        ],
+        "application": [
+          "I",
+          "P",
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Shared"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/Billing.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "Lifecycle",
+      "after": "237679df775bc366431a210ed118274fed2502ad5047ed0fc24463b6672ea80e",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/Billing.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "Payments and approvals",
+      "after": "9e52f00ebc63c2ecd371a592da992a5c6bb24b1f6f194382423f81b724278612",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/Billing.md",
+      "diagram": 3,
+      "type": "stateDiagram-v2",
+      "title": "Invoices and credit notes",
+      "after": "4bc897bebd0677c7ccaba35bb0dd9a36ca683e5254b42394bad5f894d69224cb",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/Online-Payments.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "Checkout and settlement",
+      "after": "35bad2085a485941d8d7133bbe39d2a40c64be2c175ab0f61af8876d5cf75e73",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/Online-Payments.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "Verified webhook inbox",
+      "after": "6c56bc50bead7f60ef7e339d9f34cad7157c17a3bcfc91985667b569f92a3c44",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/Online-Payments.md",
+      "diagram": 3,
+      "type": "stateDiagram-v2",
+      "title": "Session status",
+      "after": "3520d35d6707eb02ee8d967d0b6d43477f302d830b538c18c5f6d64860bd794b",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Subscriptions/PaymentMethods-Frontend-Integration.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "2. Render destination details",
+      "after": "a6d60dcc38893d3da0cd909dd89777e62731c2cd6e52fa571fb16d3e6a8e3f80",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "M"
+        ],
+        "application": [
+          "C",
+          "V",
+          "J",
+          "F",
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Testing/Testing-Strategy.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "cb92c28c8bad1704c242eed06996c4f614bfb3b32fccfede0b329e58e1f98ab2",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "application": [
+          "U",
+          "I",
+          "H",
+          "B",
+          "A",
+          "C",
+          "L"
+        ]
+      },
+      "evidence": [
+        "src/Api.Tests",
+        "src/Api.E2ETests"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/deployment/Backups.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it is wired",
+      "after": "deb83c2030091040169864901947e8f1ea588a082dfe1748c9289a7c699475d3",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "data": [
+          "PG",
+          "S3"
+        ],
+        "infrastructure": [
+          "AW",
+          "BK",
+          "RS"
+        ]
+      },
+      "evidence": [
+        "deployment",
+        "infra",
+        ".github/workflows"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/deployment/CI-CD.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "87cae4b42057bef6d1b4d97b295cd85f130ca3c11a10f92e016b26c48f495925",
+      "review": "Show the workflow branch/event gate: an ordinary PR does not publish or deploy an image.",
+      "roles": {
+        "infrastructure": [
+          "E",
+          "T",
+          "G",
+          "V",
+          "B",
+          "I",
+          "P",
+          "D",
+          "K",
+          "M",
+          "A",
+          "H"
+        ]
+      },
+      "evidence": [
+        ".github/workflows/hybrid-ci-cd.yml"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/deployment/Docker-Compose.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "17eb09a85a6725d3c912fded5bacb317e834ec5f35d8a00968eb262fe98b0950",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "infrastructure": [
+          "B",
+          "D",
+          "P",
+          "O",
+          "C"
+        ]
+      },
+      "evidence": [
+        "deployment",
+        "infra",
+        ".github/workflows"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/deployment/Nginx.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Host Nginx routing",
+      "after": "0563c307859906de4994c1d725d46ddf7c6734f4de00d2ef724f397e3c4e1641",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "external": [
+          "C"
+        ],
+        "infrastructure": [
+          "N",
+          "T"
+        ],
+        "api": [
+          "A",
+          "H"
+        ]
+      },
+      "evidence": [
+        "deployment",
+        "infra",
+        ".github/workflows"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/deployment/Observability.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "98498ead32efb70f43f924e15d5f8c515734cc0fbec14c5dea4dba99b6f71e0d",
+      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
+      "roles": {
+        "api": [
+          "A"
+        ],
+        "infrastructure": [
+          "S",
+          "O",
+          "T",
+          "L",
+          "P",
+          "D",
+          "G"
+        ]
+      },
+      "evidence": [
+        "deployment",
+        "infra",
+        ".github/workflows"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/deployment/README.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "How it works",
+      "after": "6d4a21bb6ba43fe6ce9de5c9e113920a33a5b26f11d14f6be6f3b8a944bdca2b",
+      "review": "Keep host Nginx outside the Compose runtime: the root Compose files do not declare an Nginx service.",
+      "roles": {
+        "external": [
+          "C"
+        ],
+        "infrastructure": [
+          "N",
+          "W",
+          "S"
+        ],
+        "api": [
+          "A"
+        ],
+        "data": [
+          "P",
+          "R"
+        ]
+      },
+      "evidence": [
+        "docker-compose.yml",
+        "deployment/nginx/nginx.conf",
+        "wiki/deployment/Nginx.md"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Architecture/Agent-Security.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Agent trust boundaries",
+      "after": "8a8c417823dd565a4318d572b74e65578316cf67193b39c21b01dbeadb1b10ad",
+      "review": "Verified model output, untrusted content, approval and initiator boundaries against the executor, ToolPolicy and security tests; top-to-bottom layout keeps trust-boundary labels within the shared width budget.",
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic.IntegrationTests/AgentRunSecurityTests.cs"
+      ],
+      "status": "reviewed",
+      "roles": {
+        "external": [
+          "U",
+          "P",
+          "M"
+        ],
+        "application": [
+          "R",
+          "G",
+          "T"
+        ],
+        "domain": [
+          "B"
+        ],
+        "data": [
+          "D"
+        ]
+      }
+    }
+  ],
+  "originalCount": 106,
+  "discoveries": {
+    "canonical": "README.md and wiki; generated copies excluded",
+    "otherAssets": "Brand SVGs only; no authored drawio or Excalidraw architecture assets found",
+    "duplication": "Repeated lifecycle and port examples intentionally serve different scopes; no copied replacement source tree",
+    "elk": "Bundled in Mermaid 12; contract map opts in using portable Mermaid frontmatter"
+  },
+  "rendering": {
+    "lightAndDark": true,
+    "fonts": "Bundled Inter 400, 600 and 700",
+    "widthBudget": 860,
+    "layout": "Dagre default; ELK for contract map and SCIM"
+  },
+  "fileCount": 69,
+  "originalInventory": [
+    {
+      "file": "README.md",
+      "diagram": 1,
+      "type": "flowchart LR",
+      "hash": "eeb637842eb371e46ddbd40535f0bfad902c162eae9d564aa7f72ab9458d6f8a"
+    },
+    {
+      "file": "wiki/Testing/Testing-Strategy.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "7993376ade05acd080c3c3e4e2f6c86a60ff0c4685c90f987049e7ceee90019d"
+    },
+    {
+      "file": "wiki/Subscriptions/Billing.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "hash": "f5a7c682c9b5dd2840a047cfe679e6594e48e5a98e9a8bf439f817e58e3135ec"
+    },
+    {
+      "file": "wiki/Subscriptions/Billing.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "hash": "eb37b291ab4bbdaaca932abbbea81a00e7eb07306ed0ecd25f28bdaa334fa9ea"
+    },
+    {
+      "file": "wiki/Subscriptions/Billing.md",
+      "diagram": 3,
+      "type": "stateDiagram-v2",
+      "hash": "b4573b0be40ea26acbf6b98a4dd54fcaa700239f4d921d079d158aab8e3aa5fc"
+    },
+    {
+      "file": "wiki/Subscriptions/Online-Payments.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "c2e8d91dd947cc05b231df19ea67961754057397078d2e80ab93c104a87846a6"
+    },
+    {
+      "file": "wiki/Subscriptions/Online-Payments.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "hash": "2f74a0f92c1f47aada550aa94acc9d2d4929bec6d66fd0bd7250cb231c5ae519"
+    },
+    {
+      "file": "wiki/Subscriptions/Online-Payments.md",
+      "diagram": 3,
+      "type": "stateDiagram-v2",
+      "hash": "79308dc131f4b9aa4c1458d7feb0a76c50ee71a4ae937d3b93c987a7c497e0c0"
+    },
+    {
+      "file": "wiki/Subscriptions/PaymentMethods-Frontend-Integration.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "f1d0a5a88cea237490dcab02bb5fa150138cb925c6d2477d0a28054d22199f7f"
+    },
+    {
+      "file": "wiki/Shared/README.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "8290ec0bb730414bdb2497e2261d14858a29f7a762eab01c26034e8b717e4d54"
+    },
+    {
+      "file": "wiki/Reference/Architecture-Guardrails.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "bb69a0889111c3be602bc2de5d3de68e599d5748b87b1f818017c3a5248798dc"
+    },
+    {
+      "file": "wiki/Reference/Configuration.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "93401ef86e32b762c92a3b8f3e11cad2d5eef63cae821761e691961751f7b02e"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "1d78cb6747992822950c5fd84bf5af4c8eeb69e00ee3de9abf196e73647b9f9f"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 2,
+      "type": "flowchart TB",
+      "hash": "822f5df7edc5ade28d4cb48619f48f04f1b8a53d089356a164035bccb17fc36b"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "hash": "7ed08f96cb12cbf424980d617652d63b85c8c243a38bb84509f34d4f81ce5927"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 4,
+      "type": "stateDiagram-v2",
+      "hash": "3c9f3d4ded701580445cd13c130b1847b001253a63598eb2022a3bb65ec4cee4"
+    },
+    {
+      "file": "wiki/Reference/Diagram-Style.md",
+      "diagram": 5,
+      "type": "erDiagram",
+      "hash": "ca1e630527c13e63b549eab635c87ad4a194cd0948bbdf5602f1774fba231cd0"
+    },
+    {
+      "file": "wiki/Reference/Endpoint-Authorization.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "042bed26fe10e177e155b969442207a2d9628b1a5e7e4438b390dd9aa23450df"
+    },
+    {
+      "file": "wiki/Reference/Features.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "7f024c351fc6831486320cd7942e8449fdf3f6cc99e592ede56823d9dd66cb98"
+    },
+    {
+      "file": "wiki/Reference/Migrations.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "4d5f74ca8c2618267fe351fcd1837bceacd0747931fb99e1972416fd4041c5a1"
+    },
+    {
+      "file": "wiki/Reference/README.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "9187a4ba2dd956d0364e9bd7ddfb25a0e664605417161115fce46cdd9b8ff8fd"
+    },
+    {
+      "file": "wiki/Reference/Third-Party-Licenses.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "30a1bf9f02208886f8ae7beca5abb176a2ff904c5cf39a6afdac19296934d940"
+    },
+    {
+      "file": "wiki/MultiTenancy/Adding-a-Tenant-Aware-Module.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "41200e491c51b4a083a0fb89f58b6f73b06d60440c076d1abcc014894dcb7fb8"
+    },
+    {
+      "file": "wiki/MultiTenancy/Branches-and-Scoping.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "9c27c4ce24b252d0b98913e9b47f5b7dd8dd433cc6fc842241060b11b532a084"
+    },
+    {
+      "file": "wiki/MultiTenancy/Isolation-and-Dedicated-Databases.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "5afbd096bda14486b523128be4a118f0b8c2fb3c4571352f4ebb23f378e9f388"
+    },
+    {
+      "file": "wiki/MultiTenancy/Operations.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "0908f357bfd609929b54a40c857c3a6c6a2ebc50c507e6ac9c83ca3bcd8205a1"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "1ac1c0c5958186b67838e103c4f2b5fc274e04eb6195eec012a94ce572cd995b"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 2,
+      "type": "flowchart TB",
+      "hash": "e3e4caed5e6e24ab8dd522b90466a0eddce92ca59ff3045c0e692b581709447a"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 3,
+      "type": "stateDiagram-v2",
+      "hash": "aa9425763cfdd05a23cb82a357979a81821fd56275de22f4164b8f462ea63008"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 4,
+      "type": "stateDiagram-v2",
+      "hash": "c85f8aa827815373ad7879325243043b6571d5819c3deff9c9ebf1a8dd50fad7"
+    },
+    {
+      "file": "wiki/MultiTenancy/Overview.md",
+      "diagram": 5,
+      "type": "stateDiagram-v2",
+      "hash": "24a6b82eae4ced43d2b35ffc91d285df6584ee04698f6b05b97ebfe4bfbe2bb5"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "78ba40c85106786937a4077f0ade4d3e29ba75023be7186fc0c3b6381cbcbb9f"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "hash": "d743b83060c41604c905c2631e4cf9f21debf6b5e1ff7296d08ffb75995ce6ca"
+    },
+    {
+      "file": "wiki/Modules/Catalog.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "hash": "87bab758f1d655bfd1de4c6c27d01f6ead3ecefdcd5eb84ad9ce8b279910394a"
+    },
+    {
+      "file": "wiki/Modules/Catalog.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "hash": "3bf3aafd3572a68dd14eeb9e1d448becce2cadb66debbe8455f7a0502e26558c"
+    },
+    {
+      "file": "wiki/Modules/DataTransfer.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "bce54daf75ac37c2de8bdb5923743a0991a298cdb904d3dc27f254744eb9dd12"
+    },
+    {
+      "file": "wiki/Modules/DataTransfer.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "hash": "dc47a71ac31754c5ac590aae00b6fedd6a6e4d2b671099a1b81d8dda0bbbb9ff"
+    },
+    {
+      "file": "wiki/Modules/Notification-Email-Design-System.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "2ea92bfae6565adbb8850fa9a7f4bb20fca3634f59e48c5cc6f336bf956363c7"
+    },
+    {
+      "file": "wiki/Modules/Notification-Realtime-and-Push.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "6ed4efed1e9b398a2b7a22dbd6cb295e381a762d34b30e99f409e135f5d089f2"
+    },
+    {
+      "file": "wiki/Modules/Notification-Realtime-and-Push.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "hash": "e1eb7798fee4fab570ae54c638896a41c2bca1eb027949acb2ec4b3667202658"
+    },
+    {
+      "file": "wiki/Modules/Notification-Realtime-and-Push.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "hash": "f34a87fad597800585b04978ea880a8a94eaa44c57f0b4195db09982fb6ad000"
+    },
+    {
+      "file": "wiki/Modules/Notification.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "65bc7de1db1c08cc161a16df4770b87254a6f503c5d585344bbd7bd4744e274b"
+    },
+    {
+      "file": "wiki/Modules/Notification.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "hash": "943730e86a5f9e71bb3cb3caaf72d99a59780dbcc94ee3ee4138d479268331ca"
+    },
+    {
+      "file": "wiki/Modules/Shipping.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "2ba69260191d0176e570f48ffb07043bb82f93b23aeff0bed810d421350e1aa8"
+    },
+    {
+      "file": "wiki/Modules/Subscriptions.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "hash": "7b081e414e6d31eb07afd20f4aa6c85c76bf24281209392c29587dfd00ca62fd"
+    },
+    {
+      "file": "wiki/Modules/Tenancy.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "hash": "043c11a2f579767342e561609ace061be6ca15d72b0f29133a27fe421001cc0b"
+    },
+    {
+      "file": "wiki/Modules/Webhooks.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "hash": "25a49331efd1cdad32fddef62d050d6e7adc1b31c5d5f7769eb4a8b504e11e44"
+    },
+    {
+      "file": "wiki/Infrastructure/Aspire.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "ab50e19dfeede7876130d8341d0895ef3083fd550c23eaaf46968458ff93366e"
+    },
+    {
+      "file": "wiki/Infrastructure/Redis.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "dbe3dee321adcf0bf51dc41c3966fbe14181660500ea4da66d78a46071f51ad8"
+    },
+    {
+      "file": "wiki/Identity/Bot-Protection.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "06f121df51d82285ee564c45fb6a6c3c8cd20ee37dfa22c72741c38cc1546bba"
+    },
+    {
+      "file": "wiki/Identity/Enterprise-SSO.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "d37501d7352d537d0c88fa5d012e4c285c2e041bdaf9f24e42b817915dbcfe03"
+    },
+    {
+      "file": "wiki/Identity/Frontend-Integration.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "1d5686f2a7fa29af9ac4b6a86c6e4608c70b97deeb8aed8e77b8c6e301efc985"
+    },
+    {
+      "file": "wiki/Identity/Passkeys.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "c3c3ac5145c6a41c37cd4ddc3175bd40d398c2325862f11bf17a78f2234b78cb"
+    },
+    {
+      "file": "wiki/Identity/Passkeys.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "hash": "6488ad4a529616273641d0c069b93cfda8851c3cbfdf5d0431e072a75d45017c"
+    },
+    {
+      "file": "wiki/Identity/Permissions-2FA-and-Admin-Audit.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "0f9a39e3fbd4c2c3b7b267e5b7cc2464b6879031bb2ef44c05c8eacae31bdb33"
+    },
+    {
+      "file": "wiki/Identity/README.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "ae0b8677d74a6c5dd90b451d3a136015b79a9b7407f7b07c0122def72eb6dbd6"
+    },
+    {
+      "file": "wiki/Identity/Replacing-the-Identity-Provider.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "0d366ea6cd8fe6f53bfce18cf518c473cff0b0bf441d959a421a736828b99993"
+    },
+    {
+      "file": "wiki/Identity/SCIM.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "154b47b44da1a6050283f6b64fadb0c9381c8c8684fb74f4dcef62b356ac2f8e"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "b8cb4207491574a0e7dedae92d193fe404c6a59104e79fb4671a94d32dc71c9b"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "6c43a21c273935382ebed9022bb6d829d3951202abcb8a0ba78e380d75127921"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "hash": "eea7e6f41912d51d796d1ec4905e4cff0a960d40709b44fa0c3587288d1ccf68"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "hash": "f45381f32efc614b174d19e54f9395d6079d6f2b329e423db7e826152fa2bcd6"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 4,
+      "type": "flowchart TB",
+      "hash": "464018633ea43924e329b8b53d6f1fac606394fe82edce9f2d1d470303e5f70e"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 5,
+      "type": "sequenceDiagram",
+      "hash": "fe939c335aa9959bbe25e0f1424a85c74bddde713b22b3967e4d9b4797296dba"
+    },
+    {
+      "file": "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+      "diagram": 6,
+      "type": "sequenceDiagram",
+      "hash": "ad329aa5c23ae395b7e1bf269cc64c840598c13df4adbddd55356d416fcbd058"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "dbccbe089341c62cf76fd8b3977ae0a4491cd618568190dd50ed04b4ff010a82"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 2,
+      "type": "flowchart TB",
+      "hash": "de7809818f3edc5243a19668badee141efe8e157a6f3618637a0d30ed7d238e1"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "hash": "456bb5fc381a5b94a0daf87a4e532bf1e82a31cdecdf0fed4a33bfb0425dd09e"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 4,
+      "type": "flowchart TB",
+      "hash": "62a840cbb5e49920d5658ca9edfa2ad8fb4e0022d7b729a5ff0a55187fd6ef20"
+    },
+    {
+      "file": "wiki/Identity/jwt/TokenRefreshStrategies.md",
+      "diagram": 5,
+      "type": "flowchart TB",
+      "hash": "50006fa74629a65836392c86e4046231e9a9204437c9700248af44fc8b6ab723"
+    },
+    {
+      "file": "wiki/deployment/Backups.md",
+      "diagram": 1,
+      "type": "flowchart LR",
+      "hash": "f62513671261c1c6b7f533fcf683331e058d89859b72cde2e11db2a42b1e7c62"
+    },
+    {
+      "file": "wiki/deployment/CI-CD.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "2ed83b483e8efc9977373757c32a03154b38e78edc546bce34d37337d0f85069"
+    },
+    {
+      "file": "wiki/deployment/Docker-Compose.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "6687930f73abcf8a1e89ac8a0583597832cd0603daf404602e117b08d5a09021"
+    },
+    {
+      "file": "wiki/deployment/Nginx.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "c5617ed6edec8f97c0ee6ea0968a9f6023fd408bb89a7ce650b7224c59eb2d0e"
+    },
+    {
+      "file": "wiki/deployment/Observability.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "9982834573bfdd819bc69f2ff073f512b5ef2f9bfc6c1559d21eab1b9b4b1d5e"
+    },
+    {
+      "file": "wiki/deployment/README.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "618d6da574edb7b2f5245e475be68c83f893766b778e143f4fed6e30677bcafc"
+    },
+    {
+      "file": "wiki/Attachment/Configuration.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "0e7c990523a7fe239e3e90e700f5e49b28eb3428ca5c47bac91d2bb5722b7eff"
+    },
+    {
+      "file": "wiki/Attachment/Image-Processing.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "ac510986232542db6411b75745af2f222f66952596ff128b570d17163ad135e1"
+    },
+    {
+      "file": "wiki/Attachment/README.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "d938c7ae951a341062b45dc47760b614c5161b2235917b2f7f931d61e315d029"
+    },
+    {
+      "file": "wiki/Attachment/Reliability.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "hash": "4beca9cb1025f4cfcea0156fc88d52f0536d6d86b5a10f1d11971b6ee9cebd2f"
+    },
+    {
+      "file": "wiki/Attachment/Security.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "1ac2837eb4393c0aba7d851ce6f055ee33af5e963c9f710685ab0f346f5a0929"
+    },
+    {
+      "file": "wiki/Attachment/Storage-Providers.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "4278750873c59ae062611defc17301648155ce8aa825bb63f4046df8c36a9db5"
+    },
+    {
+      "file": "wiki/Attachment/Uploads.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "17e7932fb03eae0c9c0f04795f47c4b175d50bbffa6a724db32f5ded0c6d01c2"
+    },
+    {
+      "file": "wiki/Architecture/ApiGuidelines.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "e979e3060c561709acfed1fa8f1e7f8f335ead4b6963acfb869d0f2a49bcfff2"
+    },
+    {
+      "file": "wiki/Architecture/CodingStandards.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "22741128747d0f42ded2645f4408ca4d524260db03e8b9280fe98e8fd1579fc6"
+    },
+    {
+      "file": "wiki/Architecture/Concurrency-and-Versions.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "51e8167bf318737f216952e91a0b8596fe9c0dddde62b999f49da077654aca8d"
+    },
+    {
+      "file": "wiki/Architecture/DatabaseConventions.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "9f733a4df7f218dfd7e44e6e93c0d3519ef5c0058fdb0290a46088625d1e1213"
+    },
+    {
+      "file": "wiki/Architecture/DesignPatterns.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "3c8c7418c7c1e32858340ff637bfa6d435482eeec3b679c593b5e1b7035efc9c"
+    },
+    {
+      "file": "wiki/Architecture/Errors-and-Responses.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "e8944de636554894d732a381589443b3b18957a5ac57307321f84e8d13eedf89"
+    },
+    {
+      "file": "wiki/Architecture/Feature-Flags.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "9d8ae48dfcd8bbad0bf6987c9a6ae91e9ddd9446c280043953ceff0657e5da39"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "35590aea228118e34923b2ed8e88bc557834c4862ec37686a6a87d4ebfc36c56"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "hash": "207afc23178f4626c2c9fc37bf44ef125fe5d5963d33acb4ff1ace4edd4a27ac"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "hash": "069d838a51aed158c847ec39c11fee4ce766b122097e89ca3eda57bab5ea362b"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 4,
+      "type": "sequenceDiagram",
+      "hash": "8bf80321bd8202cc684404f81cb174bd1f3e9639914314f5fdbcddb0991f0533"
+    },
+    {
+      "file": "wiki/Architecture/Messaging.md",
+      "diagram": 5,
+      "type": "flowchart TB",
+      "hash": "6dc7e4b73dd93624a1e4aa194fc6ff0a9cc26894c8a9eb7fc7f69255832d457a"
+    },
+    {
+      "file": "wiki/Architecture/Observability.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "3f24ab63d41cbcf7803a609c02ace0eafd57ceff5acc6b2bf675d5cec2681beb"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "9f32548a0bbb628252a5550a1db72f354e1274d213f7cf4864e780767892b712"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 2,
+      "type": "flowchart TB",
+      "hash": "d9c966073406ce687d9280dd2d1348af85af5b58e44ac3cc98bdebc0362ff91c"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 3,
+      "type": "flowchart TB",
+      "hash": "ab79fb6903e2feaf3b794bc7c845f281ec106b6a0cbf4a1526e16350e70142b8"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 4,
+      "type": "flowchart TB",
+      "hash": "d07e5789e6beee449a9b6d54a5fc0d6d03f33b05cd9bdd645712214b77deffe1"
+    },
+    {
+      "file": "wiki/Architecture/Overview.md",
+      "diagram": 5,
+      "type": "flowchart TB",
+      "hash": "7766e567fd4f5228e724e59534b366429c50c17af3d669ad5fffef73d8b59533"
+    },
+    {
+      "file": "wiki/Architecture/ProjectStructure.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "1137e4cc3ef1f2429da3db1e4fd975d4404dd303fed18e5d52041d132f99dc95"
+    },
+    {
+      "file": "wiki/Architecture/Request-Lifecycle.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "hash": "8f57dd25408fc61c24d4afff30f007e3b13706396074f1cbae59d0a63ed6c688"
+    },
+    {
+      "file": "wiki/Architecture/Request-Lifecycle.md",
+      "diagram": 2,
+      "type": "flowchart TB",
+      "hash": "83ac29a92cfe422d99009ac87bf0fcfc5bf0fd240ece61036b6d3491edcd8f28"
+    },
+    {
+      "file": "wiki/Architecture/Request-Lifecycle.md",
+      "diagram": 3,
+      "type": "sequenceDiagram",
+      "hash": "378e52f6375b7bca270c6d3e181ddc8987d179c2d619aa00a52383a1c3d058ef"
+    },
+    {
+      "file": "wiki/Architecture/TechnologyStack.md",
+      "diagram": 1,
+      "type": "flowchart TB",
+      "hash": "7321f08f6d65023b8635e872d51c61b79a2ab39ebd714974e5e02887342cd57b"
+    }
+  ],
+  "hashNormalization": "LF line endings"
+}

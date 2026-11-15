@@ -16,6 +16,8 @@ Attachment validates untrusted content and checks file access independently of s
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Enabled scanning runs after content checks and rejects uploads without a clean verdict unless fail-open is explicitly configured.
   U[Upload] --> A[Caller and entity access]
   A --> E[Extension and content signature]
   E --> T[Declared MIME and real length]
@@ -24,6 +26,8 @@ flowchart TB
   M -->|Clean or scanning disabled| S[Store file]
   M -->|Infected| B[400 malware_detected]
   M -->|Unavailable, default policy| F[503 malware_scanner_unavailable]
+  class U,A,E,T,I,M,B,F api
+  class S infrastructure
 ```
 *Figure: Enabled scanning runs after content checks and rejects uploads without a clean verdict unless fail-open is explicitly configured.*
 

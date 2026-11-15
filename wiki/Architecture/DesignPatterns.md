@@ -65,13 +65,18 @@ commit together.
 
 ```mermaid
 flowchart TB
+  accTitle: Request and unit-of-work lifecycle
+  accDescr: Commands persist aggregate changes while queries project directly; domain and integration events have different dispatch boundaries.
   C[Command] --> R[Repository and aggregate]
   Q[Query] --> D[DbContext projection]
   R --> S[SaveChanges]
   S --> E[Committed domain events]
   E --> P[Outermost dispatch]
   S --> O[Transactional outbox]
-  O --> B[Eventual consumers]
+  O -.->|at-least-once delivery| B[Eventual consumers]
+  class C,Q,P application
+  class R,D,S infrastructure
+  class E,O,B event
 ```
 *Figure: Commands persist aggregate changes while queries project directly; domain and integration events have different dispatch boundaries.*
 

@@ -35,6 +35,8 @@ src/Api.E2ETests/Catalog/   HTTP end-to-end flows against the booted Api
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How it works
+  accDescr: The review half of ProductStatus permits resubmission from Rejected and ChangesRequested.
   Draft --> PendingReview: submit
   PendingReview --> Approved: approve
   PendingReview --> Rejected: reject
@@ -46,6 +48,8 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How it works
+  accDescr: The publication half returns archived products to Draft before another review.
   Approved --> Published: publish
   Published --> Archived: archive
   Archived --> Draft: return to draft

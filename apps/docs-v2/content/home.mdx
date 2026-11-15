@@ -1,0 +1,66 @@
+# StarterKit
+
+Production-ready ASP.NET Core 10 modular monolith starter. Isolated modules, enforced boundaries, production defaults.
+
+## Your next product starts here
+
+A working foundation, with space for your domain. Install the template, create your project, and run the stack with Aspire.
+
+1. Complete the [GitHub Packages feed setup](/getting-started/templates/#install), then install the templates:
+
+   ```bash
+   dotnet new install StarterKit.Templates
+   ```
+
+2. Create your product:
+
+   ```bash
+   dotnet new starterkit -n Acme
+   ```
+
+3. With the .NET 10 SDK and Docker available, run with Aspire:
+
+   ```bash
+   cd Acme/src/Aspire/AppHost && dotnet run
+   ```
+
+Continue with the [configuration and verification checklist](/getting-started/new-project/) before deployment.
+
+## Choose your path
+
+- [Start a new product](/getting-started/new-project/): generate, configure and verify the local environment.
+- [Understand the architecture](/architecture/overview/): follow requests, layers and module contracts.
+- [Extend with confidence](/getting-started/new-project/#6-build-your-first-module): build a module using the repository conventions.
+
+## Explore the platform
+
+Each module owns its data and exposes explicit contracts.
+
+- [Identity and authentication](/identity/): JWT, permissions, 2FA, passkeys, enterprise SSO and SCIM.
+- [Multi-tenancy](/multitenancy/overview/): tenants, branches, memberships, named EF filters and PostgreSQL row-level security.
+- [Billing and subscriptions](/modules/subscriptions/): plans, invoices, refunds, ledger, trials, coupons and quotas.
+- [Notifications](/modules/notification/): email, WhatsApp, SignalR inbox and FCM push.
+- [Outbox and sagas](/architecture/messaging/): transactional events, idempotent consumers and durable sagas.
+- [Attachments](/attachment/): validated uploads, malware scanning and storage providers.
+- [Bulk import and export](/modules/datatransfer/): CSV and Excel jobs with dry runs, error reports and resume.
+- [Webhooks](/modules/webhooks/): signed deliveries, retries and delivery logs.
+- [Observability](/architecture/observability/): traces, metrics, logs and Aspire.
+- [Deployment](/deployment/): Docker, Nginx, GitHub Actions, migrations, backups and rollback.
+- [Architecture guardrails](/testing/testing-strategy/): enforced boundaries, isolation and authorization.
+- [Claude Code plugin](/getting-started/new-project/#6-build-your-first-module): repository-aware skills.
+
+## Why StarterKit
+
+Boundaries you can enforce. A modular monolith with explicit contracts and integration events. One host, independently owned schemas.
+
+Tests that protect decisions. Architecture tests turn conventions into checks. Extend the system without silently eroding its boundaries.
+
+Production defaults, made explicit. Durable messaging, tenant isolation and deployment-time migrations, with documented configuration for your environment.
+
+The API reference is generated from the application's [OpenAPI specification](/api-reference/v1/openapi.json).
+
+## Build your first vertical slice
+
+Generate a product, understand its boundaries, then add the module your business needs.
+
+[Start your project](/getting-started/new-project/).
