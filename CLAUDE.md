@@ -488,8 +488,9 @@ forbidden C# patterns after edits. Spec Kit
   `YOUR_SERVER_IP`. Secrets come from `./secrets/*.txt` (Docker secrets, git-ignored) or environment variables.
 - CI/CD:
   - `.github/workflows/hybrid-ci-cd.yml` runs build and test on pushes to `master`/`develop` and on PRs.
-  - Pushes to `master` additionally build the GHCR image, wait for manual approval (the `production`
-    environment), then deploy on the self-hosted runner.
+  - The GHCR image and the deploy run only from **Run workflow** (manual `workflow_dispatch`): build, wait for
+    approval (the `production` environment), then deploy on the self-hosted runner. A merge to `master` does not
+    deploy.
   - `rollback.yml` runs a previous API image (`image_tag`) and/or restores the pre-deploy database dump, then
     migrates and restarts the API; `deployment/rollback.sh <tag>` does the image part on the server.
 - Docker Compose publishes host ports on `BIND_ADDRESS` (default `127.0.0.1`): Docker bypasses the host firewall, so

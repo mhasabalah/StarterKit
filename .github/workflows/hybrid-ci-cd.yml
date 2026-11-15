@@ -4,6 +4,7 @@
 # Architecture: GitHub-hosted builds + Self-hosted VPS deployment
 # Runner: Host-based on VPS (migrated 2026-02-02)
 # Deployment: Zero-downtime rolling updates with health checks
+# Triggers: build and test on PRs and pushes; the image and the deploy run ONLY from "Run workflow" (manual).
 # ==============================================
 
 name: Hybrid CI/CD
@@ -14,6 +15,7 @@ on:
     paths-ignore: ['**.md', 'docs/**', 'wiki/**']
   pull_request:
     branches: [master]
+    paths-ignore: ['**.md', 'docs/**', 'wiki/**', 'docs-site/**']
   workflow_dispatch:
     inputs:
       environment:
@@ -39,6 +41,11 @@ env:
   POSTGRES_USER: ${{ vars.POSTGRES_USER || 'starterkit_user' }}
   POSTGRES_DB: ${{ vars.POSTGRES_DB || 'starterkit' }}
   BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'your-backup-bucket' }}
+
+# A newer push to the same PR cancels its running build; a manual deploy is never cancelled.
+concurrency:
+  group: hybrid-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ==============================================
@@ -93,7 +100,7 @@ jobs:
     if: |
       always() &&
       (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
-      (github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch')
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       packages: write
@@ -169,7 +176,7 @@ jobs:
     if: |
       always() &&
       needs.build-and-push.result == 'success' &&
-      (github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch')
+      github.event_name == 'workflow_dispatch'
     environment:
       name: production
       url: ${{ vars.PUBLIC_API_URL || 'https://api.example.com' }}
