@@ -18,12 +18,16 @@ Local suits development and deployments that provide durable shared storage and 
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: The stable download endpoint checks access before streaming Local bytes or redirecting to a short-lived provider URL.
   A[Authorized attachment read] --> P{Provider}
   P --> L[Local stream]
   P --> Z[Azure read-only SAS]
   P --> S[S3 presigned GET]
   Z --> R[302 redirect]
   S --> R
+  class A,P,R api
+  class L,Z,S infrastructure
 ```
 *Figure: The stable download endpoint checks access before streaming Local bytes or redirecting to a short-lived provider URL.*
 

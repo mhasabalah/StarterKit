@@ -17,7 +17,10 @@ This is the application developer view. Collector deployment, dashboards, ports,
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Application code emits backend-neutral signals; provider configuration selects the destinations for each signal.
   subgraph Application
+    direction TB
     R[Request or background work] --> L[ILogger]
     R --> A[ActivitySource]
     R --> M[Meter instruments]
@@ -28,6 +31,8 @@ flowchart TB
   O --> S[Seq / Aspire / configured OTLP]
   M --> P[Prometheus exporter]
   P --> G[Metrics scrape and dashboards]
+  class R,L,A,M application
+  class O,S,P,G infrastructure
 ```
 *Figure: Application code emits backend-neutral signals; provider configuration selects the destinations for each signal.*
 

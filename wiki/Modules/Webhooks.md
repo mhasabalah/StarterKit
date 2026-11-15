@@ -31,6 +31,8 @@ Webhooks.IntegrationTests/ Testcontainers Postgres, real module + RLS app role, 
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How it works
+  accDescr: WebhookDeliveryStatus records one delivery; manual redelivery creates a new Pending row with the same event id.
   [*] --> Pending
   Pending --> Pending: retry scheduled
   Pending --> Succeeded: receiver returns 2xx

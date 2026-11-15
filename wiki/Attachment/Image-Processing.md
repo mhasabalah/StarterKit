@@ -17,11 +17,17 @@ Source: `src/Modules/Attachment/Attachment/Infrastructure/ImageProcessing/`; job
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Validation and thumbnail generation share one image port; only its adapter depends on SkiaSharp.
   subgraph Attachment
-    F[FileValidationService] --> I[IImageProcessingService]
-    T[GenerateThumbnailJob] --> I
-    I --> S[SkiaImageProcessingService]
+    direction TB
+    F[FileValidationService] -->|IdentifyAsync| I[IImageProcessingService]
+    T[GenerateThumbnailJob] -->|GenerateThumbnailAsync| I
+    S[SkiaImageProcessingService] -.->|implements| I
   end
+  class F,T application
+  class I,S infrastructure
+  class I port
 ```
 *Figure: Validation and thumbnail generation share one image port; only its adapter depends on SkiaSharp.*
 

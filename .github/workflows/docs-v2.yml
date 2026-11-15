@@ -1,0 +1,154 @@
+name: Documentation V2
+
+on:
+  pull_request:
+    paths: ['apps/docs-v2/**', 'wiki/**', 'docs-site/sidebar.mjs', 'docs-site/public/**', 'docs-site/src/assets/**', 'src/**', 'Directory.*', 'global.json', '.template.config/template.json', 'templates/StarterKit.Templates.csproj', '.github/workflows/docs-v2.yml']
+  push:
+    branches: [master]
+    paths: ['apps/docs-v2/**', 'wiki/**', 'docs-site/sidebar.mjs', 'src/**', '.github/workflows/docs-v2.yml']
+  workflow_dispatch:
+    inputs:
+      verify_api:
+        description: Build the backend and verify the OpenAPI snapshot
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: 1
+  DOCS_SITE: https://docs.example.com
+  DOCS_PRODUCTION: 'false'
+
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.changes.outputs.api }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          VERIFY_API: ${{ inputs.verify_api || false }}
+        shell: bash
+        run: |
+          api=false
+          if [ "$VERIFY_API" = true ]; then
+            api=true
+          elif [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git diff --name-only "$BASE_SHA" HEAD > "$RUNNER_TEMP/docs-changed-files"
+            if grep -Eq '^src/.*(\.(cs|csproj|props|targets|resx|json)$|/Dockerfile$)|^(\.editorconfig|Directory\.[^/]+|global\.json|nuget\.config)$' "$RUNNER_TEMP/docs-changed-files"; then
+              api=true
+            fi
+          fi
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/docs-v2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/docs-v2/package-lock.json
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            apps/docs-v2/.next/cache
+          key: docs-v2-${{ runner.os }}-${{ hashFiles('apps/docs-v2/package-lock.json') }}-${{ github.sha }}
+          restore-keys: docs-v2-${{ runner.os }}-${{ hashFiles('apps/docs-v2/package-lock.json') }}-
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Install pinned prose and link checkers
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/docs-tools"
+          cd "$RUNNER_TEMP/docs-tools"
+          curl -fsSLO https://github.com/vale-cli/vale/releases/download/v3.27.0/vale_3.27.0_Linux_64-bit.tar.gz
+          curl -fsSLO https://github.com/vale-cli/vale/releases/download/v3.27.0/vale_3.27.0_checksums.txt
+          grep 'vale_3.27.0_Linux_64-bit.tar.gz$' vale_3.27.0_checksums.txt | sha256sum -c -
+          tar -xzf vale_3.27.0_Linux_64-bit.tar.gz
+          curl -fsSLO https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
+          curl -fsSLO https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz.sha256
+          sha256sum -c lychee-x86_64-unknown-linux-gnu.tar.gz.sha256
+          tar -xzf lychee-x86_64-unknown-linux-gnu.tar.gz
+          find "$RUNNER_TEMP/docs-tools" -type f \( -name vale -o -name lychee \) -exec dirname {} \; >> "$GITHUB_PATH"
+      - run: npm run check
+      - run: npm run check:vale
+      - run: npm run check:external
+      - run: npm run check:mermaid
+      - run: bash scripts/check-docs.sh
+        working-directory: .
+      - run: npm run build
+      - run: npm run test:browser
+      - name: Crawl all rendered links and anchors
+        run: |
+          HOSTNAME=localhost node .next/standalone/server.js > .generated/server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do curl -fsS http://localhost:3000/ >/dev/null && break || sleep 1; done
+          npm run check:links
+      - name: Verify deployment under a URL prefix
+        env:
+          NEXT_PUBLIC_DOCS_BASE: /preview
+        run: |
+          npm run build
+          npx playwright test --grep 'homepage|search returns|AI routes'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: docs-v2-validation
+          include-hidden-files: true
+          path: |
+            apps/docs-v2/.generated/
+            apps/docs-v2/playwright-report/
+            apps/docs-v2/test-results/
+
+  contracts:
+    needs: scope
+    if: needs.scope.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: dotnet build StarterKit.slnx
+      - run: dotnet test src/Api.Tests --no-build
+      - run: node apps/docs-v2/scripts/export-openapi.mjs --check
+
+  template-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet pack templates/StarterKit.Templates.csproj -o artifacts/docs-v2-template
+      - name: Verify V2 stays outside generated products
+        shell: bash
+        run: |
+          if unzip -l artifacts/docs-v2-template/*.nupkg | grep -E 'content/starterkit/(apps/docs-v2/|\.github/workflows/docs-v2.yml)'; then
+            echo 'Documentation V2 leaked into the template package'; exit 1
+          fi

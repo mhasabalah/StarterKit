@@ -17,6 +17,8 @@ The API uses an ApiResponse envelope and typed exceptions to give clients stable
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Success wrapping, exception mapping and empty-status handling converge on the envelope where applicable.
   R[Request outcome] --> S{Success?}
   S -->|Yes| A[Explicit ApiResponse or raw result]
   A --> W[Wrap eligible API JSON once]
@@ -26,6 +28,7 @@ flowchart TB
   W --> C[Client]
   G --> C
   P --> C
+  class R,S,A,W,M,G,P,C api
 ```
 *Figure: Success wrapping, exception mapping and empty-status handling converge on the envelope where applicable.*
 

@@ -33,6 +33,8 @@ The SAML adapter uses `ITfoxtec.Identity.Saml2` (BSD-3); the OIDC adapter valida
 
 ```mermaid
 sequenceDiagram
+  accTitle: Sign-in flow
+  accDescr: A successful callback redirects with a one-time code; only the POST exchange returns the application login result.
   autonumber
   actor App
   participant API

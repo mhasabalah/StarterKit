@@ -36,7 +36,7 @@
        file inside it (templates.yml guards this). -->
   <ItemGroup>
     <Content Include="..\**\*"
-             Exclude="..\docs-site\**;..\.git\**;..\.vs\**;..\**\bin\**;..\**\obj\**;..\**\node_modules\**;..\templates\**;..\postgres\**;..\redis\**;..\.artifacts*\**;..\artifacts\**;..\**\TestResults\**;..\**\*.user;..\**\*.build.log;..\.env;..\secrets\*.txt;..\.claude\settings.local.json;..\src\Api\uploads\**;..\tests\load\results\**;..\tests\e2e\test-results\**;..\tests\e2e\playwright-report\**"
+             Exclude="..\apps\docs-v2\**;..\.github\workflows\docs-v2.yml;..\docs-site\**;..\.git\**;..\.vs\**;..\**\bin\**;..\**\obj\**;..\**\node_modules\**;..\templates\**;..\postgres\**;..\redis\**;..\.artifacts*\**;..\artifacts\**;..\**\TestResults\**;..\**\*.user;..\**\*.build.log;..\.env;..\secrets\*.txt;..\.claude\settings.local.json;..\src\Api\uploads\**;..\tests\load\results\**;..\tests\e2e\test-results\**;..\tests\e2e\playwright-report\**"
              PackagePath="content\starterkit"
              Pack="true" />
     <Content Include="module\**\*"

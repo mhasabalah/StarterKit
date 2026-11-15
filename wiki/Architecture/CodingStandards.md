@@ -17,11 +17,16 @@ Use `dotnet new starterkit-module` for a reference aggregate that is available w
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Contracts carry intent, validators check input, and aggregate methods preserve invariants before infrastructure stamps the save.
   C[Contract record] --> V[Localized validator]
   V --> H[Handler with cancellation]
   H --> A[Aggregate invariants]
   A --> P[Repository save]
   P --> I[Version and tenant interceptors]
+  class C,V,H application
+  class A domain
+  class P,I infrastructure
 ```
 *Figure: Contracts carry intent, validators check input, and aggregate methods preserve invariants before infrastructure stamps the save.*
 

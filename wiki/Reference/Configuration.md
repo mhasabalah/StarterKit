@@ -16,10 +16,13 @@ The key inventory below is generated from these JSON files, ignoring comment-onl
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: The host composes configuration before registering infrastructure and modules.
   B[Base appsettings] --> E[Environment appsettings]
   E --> V[Environment and command-line overrides]
   V --> S[Docker secrets added by host]
   S --> O[Bound options and direct consumers]
+  class B,E,V,S,O infrastructure
 ```
 *Figure: The host composes configuration before registering infrastructure and modules.*
 

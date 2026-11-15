@@ -19,6 +19,8 @@ Globals available everywhere: `culture`, `dir` (`ltr`/`rtl`), `align` / `alignEn
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Templates share tokens and layout; the rendered HTML also supplies the plain-text alternative.
   O[EmailThemeOptions] --> T[EmailDesignTokens]
   T --> R[Liquid rendering]
   M[Email model] --> R
@@ -27,6 +29,7 @@ flowchart TB
   H --> P[EmailPlainText]
   H --> E[Multipart email]
   P --> E
+  class O,T,M,C,R,H,P,E application
 ```
 *Figure: Templates share tokens and layout; the rendered HTML also supplies the plain-text alternative.*
 

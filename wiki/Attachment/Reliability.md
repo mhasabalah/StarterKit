@@ -16,6 +16,8 @@ Attachment coordinates database rows and blob operations through explicit lifecy
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How it works
+  accDescr: AttachmentStatus has exactly Uploading, Ready and PendingDeletion; association can create Ready rows directly after moving existing blobs.
   [*] --> Uploading: StartUpload
   Uploading --> Ready: MarkReady
   Uploading --> PendingDeletion: abandoned or entity deleted

@@ -18,10 +18,16 @@ Versions below come from `Directory.Packages.props`. License classifications ret
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Assembly reference checks keep licensed dependencies at the module seam that owns their behavior.
   F[Feature code] --> P[Owned port or module service]
   P --> A[Module-local vendor adapter]
   A --> V[Pinned vendor dependency]
   T[ThirdPartyIsolationTests] -. checks .-> A
+  class F,P,T application
+  class A infrastructure
+  class V external
+  class P port
 ```
 *Figure: Assembly reference checks keep licensed dependencies at the module seam that owns their behavior.*
 

@@ -25,6 +25,8 @@ other assertion or mocking libraries.
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Fast behavior and architecture checks complement PostgreSQL-backed tests and separately orchestrated browser checks.
   U[Domain and handler units] --> I[Module integration]
   I --> H[HTTP and tenant E2E]
   H --> B[Browser smoke]
@@ -33,6 +35,7 @@ flowchart TB
   I --> C
   H --> C
   B --> L[Separate running-stack checks]
+  class U,I,H,B,A,C,L application
 ```
 *Figure: Fast behavior and architecture checks complement PostgreSQL-backed tests and separately orchestrated browser checks.*
 

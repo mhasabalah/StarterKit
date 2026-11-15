@@ -16,17 +16,25 @@ StarterKit deploys the API and supporting services with Docker Compose behind ho
 
 ```mermaid
 flowchart TB
-  C[Clients] --> N[Nginx on VPS]
+  accTitle: How it works
+  accDescr: API and optional worker instances share infrastructure; the shipped ingress targets one API listener.
+  C[Clients] --> N[Host Nginx on VPS]
+  N --> A
   subgraph Runtime[Compose runtime]
-    N --> A[API instances]
+    direction TB
+    A[API instances]
     A --- W[Optional workers]
-    A --> P[PostgreSQL]
+    A --> P[(PostgreSQL)]
     W --> P
-    A --> R[Redis]
+    A --> R[(Redis)]
     W --> R
     A --> S[Seq]
     W --> S
   end
+  class C external
+  class N,W,S infrastructure
+  class A api
+  class P,R data
 ```
 *Figure: API and optional worker instances share infrastructure; the shipped ingress targets one API listener.*
 

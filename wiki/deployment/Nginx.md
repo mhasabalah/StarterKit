@@ -20,11 +20,16 @@ No `nginx` service is declared in the current root Compose files, even though ol
 
    ```mermaid
    flowchart TB
+     accTitle: Host Nginx routing
+     accDescr: The shipped host proxy uses one API upstream and separate locations for hubs and tools.
      C[Client] --> N[Host Nginx TLS]
      N --> A[API listener 5000]
      N --> H[SignalR hubs]
      N --> T[Restricted tools]
      H --> A
+     class C external
+     class N,T infrastructure
+     class A,H api
    ```
    *Figure: The shipped host proxy uses one API upstream and separate locations for hubs and tools.*
 

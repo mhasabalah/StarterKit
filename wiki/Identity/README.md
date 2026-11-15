@@ -23,6 +23,8 @@ The [request lifecycle](../Architecture/Request-Lifecycle.md) owns middleware an
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Authentication feeds application authorization while other modules access users through the directory port.
   C[Caller] --> P[Authentication policy scheme]
   P --> J[JWT Bearer]
   P --> K[ApiKey]
@@ -31,9 +33,13 @@ flowchart TB
   T --> A[Authorization policies]
   A --> I[Identity endpoint]
   subgraph Other[Other modules]
+    direction TB
     S[ISender] --> U[UserDirectory.Contracts]
   end
   U --> H[Identity query handlers]
+  class C external
+  class P,J,K,T,A,I api
+  class S,U,H application
 ```
 *Figure: Authentication feeds application authorization while other modules access users through the directory port.*
 

@@ -32,11 +32,16 @@ Use integration events for eventual reactions that must not fail the publishing 
 
 ```mermaid
 flowchart TB
+  accTitle: 1. Which kind of event?
+  accDescr: Choose synchronous contracts for required results and integration events for independent eventual reactions.
   R{Reaction boundary?} -->|same module| D[IDomainEvent]
   R -->|other module| S{Must succeed with command?}
   S -->|yes| C[ISender with other module Contracts]
   S -->|exceptional synchronous notification| N[Contracts IDomainEvent]
   S -->|eventual reaction| I[IntegrationEvent through outbox]
+  class R,S,C application
+  class D,N domain
+  class I event
 ```
 *Figure: Choose synchronous contracts for required results and integration events for independent eventual reactions.*
 
@@ -50,18 +55,20 @@ flowchart TB
 | `AttachmentDeletedIntegrationEvent` (Attachment) | Integration | Agentic `AttachmentDeletedKnowledgeConsumer` removes the knowledge documents indexed from the file. |
 | `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | Identity persists a `SessionRevocation` tombstone and outbox fact for session revocation; Notification `UserSessionsRevokedConsumer` closes revoked hub sessions across replicas. Sign-out does not wait for Notification. |
 | `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer`, `UserDeletedAgenticConsumer` clean up module-owned data. |
+| Optional sample: `ShipmentReadyForClearanceIntegrationEvent` (Shipping) | Integration | Shipping `ShipmentReadyForClearanceConsumer` starts the shipment preparation agent through `RequestAgentRunCommand` (trigger key per shipment, on behalf of the user who handed it over). |
 | Optional sample: `ProductPublishedIntegrationEvent` | Integration | `ProductPublishedConsumer` re-reads visibility and sends the owner an in-app notification using the event id for correlation; `ProductPublishedWebhookConsumer` forwards it. This flow exists only when the sample is included. |
 | `UserDirectory.Contracts.Events.ImpersonationStartedEvent` | Explicit synchronous notification | Tenancy `ImpersonationAuditHandler` must write the audit before an impersonation token is issued. |
 | `TenantDataPurgeRequestedEvent` | In-process orchestration | Attachment `TenantDataPurgeRequestedEventHandler` and Notification `NotificationTenantPurgeHandler` participate in `PurgeDeletedTenantsJob`; failure stops that attempt and the job retries. |
 | Tenancy cache invalidation, Subscriptions emails; optional sample logging | Same-module domain events | In-process side effects, with the commit/dispatch limitations above. |
 
-| Optional sample: `ShipmentReadyForClearanceIntegrationEvent` (Shipping) | Integration | Shipping `ShipmentReadyForClearanceConsumer` starts the shipment preparation agent through `RequestAgentRunCommand` (trigger key per shipment, on behalf of the user who handed it over). |
 ### Outbox
 
 The outbox lives in the publishing module's database, not in a separate shared business-state store. `OutboxInterceptor` inserts the event row in the same `SaveChanges` transaction as the aggregate and stages `OutboxMessagesSaved` for post-commit dispatch.
 
 ```mermaid
 sequenceDiagram
+  accTitle: Outbox
+  accDescr: The aggregate and its outbox row commit atomically.
   autonumber
   participant A as Aggregate
   participant DB as DbContext
@@ -78,6 +85,8 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  accTitle: Outbox
+  accDescr: Post-commit dispatch attempts immediate delivery.
   autonumber
   participant D as Event dispatch
   participant H as Saved handler
@@ -94,6 +103,8 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  accTitle: Outbox
+  accDescr: Publishing retries and consumer retries have separate failure paths.
   autonumber
   participant R as OutboxRelay
   participant T as Transport
@@ -101,7 +112,7 @@ sequenceDiagram
   R->>T: Publish
   alt Publish accepted
     R->>R: Mark row delivered
-    T->>C: At-least-once delivery
+    T-)C: At-least-once delivery
     Note over T,C: Retry consumer faults, then endpoint_error
   else Publish fails
     R->>R: Backoff and retry
@@ -157,21 +168,31 @@ Without the RabbitMQ plugin/configuration there is no scheduler, so scheduling a
 
 ```mermaid
 flowchart TB
+  accTitle: Durable saga persistence
+  accDescr: Durable saga registration keeps state and locking in the owning module database.
   subgraph Registration[Module manifest registration]
-    M[ConfigureMessaging] --> A[AddDurableSagaStateMachine]
-    C[SagaStateConfiguration]
+    direction TB
+    M[ConfigureMessaging] --> A[Register durable saga]
+    C[State mapping]
   end
   subgraph Runtime[Owning module]
+    direction TB
     T[Incoming message] --> L[EF repository: FOR UPDATE]
-    L --> S[SagaStateMachineInstance]
+    L --> S[Saga state]
     S --> D[Module DbContext]
     D --> O[Commit state]
-    O --> P[Release buffered outgoing messages]
+    O --> P[Flush buffered messages]
   end
   A -. configures .-> L
   C -. maps state .-> D
+  class M,A,C,L,D,O,P infrastructure
+  class T event
+  class S domain
 ```
 *Figure: Durable saga registration keeps state and locking in the owning module database.*
+
+Registration uses `AddDurableSagaStateMachine`; state implements `SagaStateMachineInstance` and is mapped by
+`SagaStateConfiguration`. Outgoing messages stay buffered until the owning context commits.
 
 ## Configuration
 

@@ -23,7 +23,7 @@ The Model Context Protocol was evaluated here as a way to expose tools to outsid
 
 ## Decision
 
-**Approvals**
+### Approvals
 
 - `ToolPolicy` returns `RequireApproval` for sensitive and external tools, for any change after the run read
   untrusted content, and for any change when the tenant's policy asks for it. The executor then creates an
@@ -45,7 +45,7 @@ The Model Context Protocol was evaluated here as a way to expose tools to outsid
   trail carries the payload's digest (the property is named `PayloadDigest` because the audit interceptor skips
   names containing "Hash") and not the arguments, which stay in the run's transcript only.
 
-**Triggers**
+### Triggers
 
 - `RequestAgentRunCommand` (trusted, not bound to an endpoint) starts runs for `Event` and `Schedule`. The agent's
   definition must list the trigger kind (`AllowedTriggers`), and the tenant's policy must allow automatic triggers.
@@ -55,7 +55,7 @@ The Model Context Protocol was evaluated here as a way to expose tools to outsid
 - `TriggerKey` is unique per tenant and agent: a redelivered trigger returns the existing run. Automatic runs of one
   agent are limited per tenant and hour (`Agentic:Triggers:MaxAutomaticRunsPerHour`).
 
-**Policies, quotas, capacity**
+### Policies, quotas, capacity
 
 - `AgentPolicy` (one row per tenant and agent) can switch an agent off, lower its autonomy, lower its budgets, refuse
   automatic triggers and demand approval for every change. `AgentRunStarter` always takes the STRICTER of policy and
@@ -66,13 +66,13 @@ The Model Context Protocol was evaluated here as a way to expose tools to outsid
   `Agentic:Limits:MaxConcurrentRunsPerTenant` and the plan limit `max_concurrent_agent_runs`.
 - Usage is read from the run rows (`GET /agent-usage`); there is no separate usage table.
 
-**Events and progress**
+### Events and progress
 
 - `AgentRunCompletedIntegrationEvent` / `AgentRunFailedIntegrationEvent` go through the outbox in the finishing save.
   Progress is a throttled `agentic.run-progress` user event; in-app notifications use the category group `agents`.
   None of them carries prompts, arguments or results, and none is the source of truth.
 
-**MCP**
+### MCP
 
 - Not adopted now. Internal tools stay typed C# classes. An MCP endpoint, if a product needs outside clients to call
   tools, must be a thin adapter that starts a run or calls the same gateway with the caller's own identity; it may not

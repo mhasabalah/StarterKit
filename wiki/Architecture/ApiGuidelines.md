@@ -19,11 +19,15 @@ To add an endpoint, use the copy-ready templates in `/starterkit:add-feature`
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: The endpoint owns the HTTP contract while the mediator pipeline and handler own application execution.
   R[Route and bound request] --> A[Explicit authorization]
   A --> F[Opt-in endpoint filters]
   F --> S[ISender command or query]
   S --> H[Handler result]
   H --> E[HTTP response]
+  class R,A,F,E api
+  class S,H application
 ```
 *Figure: The endpoint owns the HTTP contract while the mediator pipeline and handler own application execution.*
 
