@@ -33,7 +33,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.19.0" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.21.0" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.3.1" />
@@ -61,11 +61,11 @@
     <!-- SignalR scale-out backplane (Notification real-time hub); reuses the app's IConnectionMultiplexer. -->
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.15" />
     <!-- FCM HTTP v1 (Android, iOS via APNs, Web push). Apache-2.0. Isolated to the Notification module (ThirdPartyIsolationTests). -->
-    <PackageVersion Include="FirebaseAdmin" Version="3.7.0" />
+    <PackageVersion Include="FirebaseAdmin" Version="3.7.1" />
   </ItemGroup>
   <ItemGroup Label="Mapping and Utilities">
     <PackageVersion Include="Mapster" Version="10.0.14" />
-    <PackageVersion Include="QuestPDF" Version="2026.9.1" />
+    <PackageVersion Include="QuestPDF" Version="2026.9.2" />
     <PackageVersion Include="Stripe.net" Version="53.1.0" />
     <PackageVersion Include="Scrutor" Version="7.0.0" />
   </ItemGroup>
@@ -78,17 +78,17 @@
   </ItemGroup>
   <ItemGroup Label="OpenTelemetry">
     <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.2" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.21.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.20.1-beta.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.21.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.20.1-rc.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.21.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.20.1-beta.1" />
-    <PackageVersion Include="Grafana.OpenTelemetry" Version="1.14.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.20.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.20.1" />
+    <PackageVersion Include="Grafana.OpenTelemetry" Version="1.15.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.21.0" />
   </ItemGroup>
   <ItemGroup Label="Resilience">
     <PackageVersion Include="Polly" Version="8.9.1" />
@@ -108,16 +108,16 @@
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <!-- Enterprise SSO (Identity only): OIDC discovery/JWKS (same IdentityModel family as above) + SAML 2.0 SP (BSD-3-Clause). -->
     <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.23.0" />
-    <PackageVersion Include="ITfoxtec.Identity.Saml2" Version="4.21.0" />
+    <PackageVersion Include="ITfoxtec.Identity.Saml2" Version="4.22.0" />
   </ItemGroup>
   <ItemGroup Label="Storage and Image Processing">
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.104.11" />
-    <PackageVersion Include="AWSSDK.Core" Version="4.0.102.19" />
-    <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.102.10" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.1.0" />
+    <PackageVersion Include="AWSSDK.Core" Version="4.1.0.1" />
+    <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup" Version="4.1.0" />
     <!-- Image processing (Attachment thumbnails / validation): MIT, no license key. -->
-    <PackageVersion Include="SkiaSharp" Version="4.155.0" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.155.0" />
+    <PackageVersion Include="SkiaSharp" Version="4.156.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.15" />
   </ItemGroup>
   <ItemGroup Label="Tabular files (DataTransfer bulk import/export)">
@@ -128,7 +128,7 @@
   <ItemGroup Label="Key management (Data Protection key encryption, KMS)">
     <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.5" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
-    <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.0.101.4" />
+    <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.1.0" />
   </ItemGroup>
   <ItemGroup Label="Background Jobs">
     <PackageVersion Include="Hangfire.Core" Version="1.8.25" />
@@ -155,11 +155,11 @@
     <PackageVersion Include="Aspire.Hosting.Seq" Version="13.6.5" />
   </ItemGroup>
   <ItemGroup Label="Testing">
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <!-- xUnit v3 without Microsoft.Testing.Platform: keeps VSTest dotnet test, the filter option and coverlet (CI). -->
     <PackageVersion Include="xunit.v3.mtp-off" Version="4.0.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
-    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.1" />
     <PackageVersion Include="FluentAssertions" Version="7.2.2" />
     <PackageVersion Include="Moq" Version="4.21.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.15" />
