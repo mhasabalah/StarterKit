@@ -104,6 +104,8 @@ All host-admin routes are tenant-less (`.HostOnly()`); the handlers enter privil
 
 ```mermaid
 flowchart TB
+  accTitle: Moving a tenant between shared and dedicated (automated)
+  accDescr: Cutover restores the effective status before delayed source cleanup; a pre-cutover failure keeps the source authoritative.
   R[Request move] --> M[Migrating: safe HTTP methods only]
   M --> W[Wait for cache propagation]
   W --> C[Prepare target, copy and verify]
@@ -111,6 +113,8 @@ flowchart TB
   S --> P[Wait, then clean source]
   C -->|Failure before switch| F[Restore status at source]
   F --> X[Attempt partial-target cleanup]
+  class R api
+  class M,W,C,S,P,F,X application
 ```
 *Figure: Cutover restores the effective status before delayed source cleanup; a pre-cutover failure keeps the source authoritative.*
 

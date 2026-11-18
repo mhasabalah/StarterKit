@@ -18,6 +18,8 @@ Runtime feature flags control dark launches, tenant rollout and kill switches in
 
 ```mermaid
 flowchart TB
+  accTitle: Evaluation order
+  accDescr: Stored flags override configuration, and a kill switch overrides every stored rollout or override.
   F{Stored flag?} -->|no| D[Configured default]
   F -->|yes| K{Kill switch?}
   K -->|on| OFF[False]
@@ -28,6 +30,7 @@ flowchart TB
   T -->|no| R{Rollout set?}
   R -->|yes| B[Compare stable tenant bucket]
   R -->|no| E[Use Enabled]
+  class F,D,K,OFF,U,UV,T,TV,R,B,E application
 ```
 *Figure: Stored flags override configuration, and a kill switch overrides every stored rollout or override.*
 

@@ -17,10 +17,14 @@ Authorization entries below include inherited group metadata. Versioned route te
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Declared policies and filters precede handler-specific ownership and business checks.
   A[Authenticated principal] --> T[Tenant resolution]
   T --> P[Declared authorization policies]
   P --> F[Endpoint filters]
   F --> H[Handler and domain checks]
+  class A,T,P,F api
+  class H application
 ```
 *Figure: Declared policies and filters precede handler-specific ownership and business checks.*
 

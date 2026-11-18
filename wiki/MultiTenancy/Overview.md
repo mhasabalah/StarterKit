@@ -54,7 +54,10 @@ invitations and the audit trail.
 
 ```mermaid
 flowchart TB
+  accTitle: Resolution and data access
+  accDescr: Tenant resolution establishes the context used by application and database isolation.
   subgraph Control[Control plane: host database]
+    direction TB
     A[Authentication] --> R[TenantResolutionMiddleware]
     R --> S[ITenantStore]
     S --> M[ITenantMembershipResolver]
@@ -62,11 +65,15 @@ flowchart TB
     T --> Z[Authorization and endpoint]
   end
   subgraph Data[Data plane: shared or dedicated]
+    direction TB
     T --> F[EF filters / TenantEntityInterceptor]
     F --> I[TenantSessionConnectionInterceptor]
     I --> V[app.tenant_id]
     V --> P[PostgreSQL RLS]
   end
+  class A,R,Z api
+  class S,M,T application
+  class F,I,V,P infrastructure
 ```
 *Figure: Tenant resolution establishes the context used by application and database isolation.*
 
@@ -158,15 +165,21 @@ Resolution uses `tid`, host or `X-Tenant`, with cached store and membership look
 
 ```mermaid
 flowchart TB
+  accTitle: Shared and dedicated topology
+  accDescr: Tenant-data connections vary by isolation mode while control-plane data stays in the host database.
   C[ITenantContext] --> R[ITenantConnectionStringResolver]
   subgraph Host[Host database]
+    direction TB
     H[Identity, Tenancy, Subscriptions and Hangfire]
     S[Shared tenant-data schemas]
   end
   R -->|Shared| S
-  R -->|Dedicated: ConnectionSecretRef| D[Dedicated tenant database]
+  R -->|Dedicated: ConnectionSecretRef| D[(Dedicated tenant database)]
   S --> F[Tenant filters and RLS]
   D --> F
+  class C application
+  class R,F infrastructure
+  class H,S,D data
 ```
 *Figure: Tenant-data connections vary by isolation mode while control-plane data stays in the host database.*
 
@@ -177,6 +190,8 @@ During a move, suspension/reactivation updates the status to restore when the mo
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Tenant status lifecycle
+  accDescr: Tenant creation activates shared tenants or provisions a dedicated database.
   [*] --> Active: shared creation
   [*] --> Provisioning: dedicated creation
   Provisioning --> Active: provisioned
@@ -187,6 +202,8 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Tenant status lifecycle
+  accDescr: A completed or failed move restores the tenant's effective access status.
   Active --> Suspended: suspend
   Suspended --> Active: reactivate
   Active --> Migrating: move
@@ -201,6 +218,8 @@ during the move changes the status that will be restored.
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Tenant status lifecycle
+  accDescr: Pending deletion can be cancelled to a suspended state before purge.
   Active --> PendingDeletion: request deletion
   Suspended --> PendingDeletion: request deletion
   PendingDeletion --> Suspended: cancel

@@ -22,6 +22,8 @@ No cross-module joins or foreign keys cross schema boundaries. Store another mod
 
 ```mermaid
 flowchart TB
+  accTitle: One database, one schema per module
+  accDescr: Model conventions and save interception complement database constraints and tenant row-level security.
   M[Module DbContext] --> C[Schema and entity configurations]
   C --> O[Optional soft delete, audit and outbox mappings]
   O --> N[Snake case and version tokens]
@@ -29,6 +31,8 @@ flowchart TB
   T --> S[Save interceptors]
   S --> D[PostgreSQL transaction]
   D --> R[Tenant tables also enforce RLS]
+  class M,C,O,N,T,S,R infrastructure
+  class D data
 ```
 *Figure: Model conventions and save interception complement database constraints and tenant row-level security.*
 

@@ -21,6 +21,8 @@ Critical update commands and HTTP requests accept `long? Version = null`; read D
 
 ```mermaid
 sequenceDiagram
+  accTitle: How it works
+  accDescr: A client-supplied version detects a stale edit even when the handler loaded the newest row.
   autonumber
   participant C as Client
   participant A as API

@@ -22,6 +22,8 @@ so it works with any identity provider.
 
 ```mermaid
 flowchart TB
+  accTitle: Delivery pipeline
+  accDescr: The chain and additive channels share correlation, but retry and record outcomes independently.
   S[INotificationSender] --> E[NotificationJobEnqueuer]
   E --> C[Email and WhatsApp chain]
   E --> I[InAppDeliveryJob]
@@ -29,6 +31,9 @@ flowchart TB
   C --> L[NotificationLog]
   I --> L
   P --> L
+  class S,E,C,I,P application
+  class L data
+  class S port
 ```
 *Figure: The chain and additive channels share correlation, but retry and record outcomes independently.*
 
@@ -196,6 +201,8 @@ Permanent chain failures fall through; transient failures retry before fallback;
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Failure modes and guarantees
+  accDescr: These NotificationDeliveryStatus outcomes describe delivery work; retries append log records rather than mutate a single aggregate lifecycle.
   Queued --> Sent: provider accepts
   Queued --> Failed: delivery attempt fails
   Queued --> Skipped: policy suppresses delivery

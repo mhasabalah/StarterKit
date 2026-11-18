@@ -25,9 +25,12 @@ Use these pages to look up a concrete key, route, test or command. Follow their 
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Reference pages connect concrete lookups to canonical explanations and verified source.
   Q[Key, route, test or failure] --> R[Reference inventory]
   R --> C[Canonical concept or module guide]
   C --> S[Source and change procedure]
+  class Q,R,C,S application
 ```
 *Figure: Reference pages connect concrete lookups to canonical explanations and verified source.*
 

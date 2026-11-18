@@ -23,14 +23,21 @@ Identity issues short-lived access tokens and rotating refresh tokens so session
 
 ```mermaid
 flowchart TB
+  accTitle: Access and refresh tokens
+  accDescr: Access tokens authorize requests while persisted refresh-token hashes support session rotation.
   subgraph Access[Access token]
+    direction TB
     A[JWT: short lifetime] --> V[Signature and expiry validation]
     V --> R[Revocation checks]
   end
   subgraph Refresh[Refresh token]
+    direction TB
     T[Random Base64 token] --> H[SHA256 hash]
     H --> D[RefreshToken in PostgreSQL]
   end
+  class A,V,R api
+  class T,H infrastructure
+  class D data
 ```
 *Figure: Access tokens authorize requests while persisted refresh-token hashes support session rotation.*
 
@@ -50,6 +57,8 @@ token. Role-derived permissions are not added at issuance. Stored user claims ar
 
 ```mermaid
 sequenceDiagram
+  accTitle: Initial sign-in
+  accDescr: Successful sign-in creates a refresh-token family after credential and MFA checks.
   autonumber
   participant C as Client
   participant L as Login completion
@@ -76,6 +85,8 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  accTitle: Rotation and reuse detection
+  accDescr: Rotation has one winner; a competing refresh is reuse rather than an idempotent retry.
   autonumber
   participant H as RefreshTokenHandler
   participant S as AuthSessionService
@@ -105,15 +116,22 @@ token on refresh reuse. Explicit session revocation uses the blacklist as descri
 
 ```mermaid
 flowchart TB
+  accTitle: Storage and revocation
+  accDescr: PostgreSQL records refresh sessions and revocation events while Redis accelerates access-token revocation checks.
   subgraph PostgreSQL
+    direction TB
     T[RefreshToken] --> A[User, family and audit fields]
     E[SessionRevocation] --> O[Transactional outbox]
   end
   subgraph Redis
+    direction TB
     B[Token blacklist] --- U[User security stamp]
     U --- S[Session revocations]
     S --- X[TTL expiry]
   end
+  class T,E domain
+  class O event
+  class B,U,S,X data
 ```
 *Figure: PostgreSQL records refresh sessions and revocation events while Redis accelerates access-token revocation checks.*
 
@@ -150,6 +168,8 @@ with synchronous acknowledgement from every connected client.
 
 ```mermaid
 sequenceDiagram
+  accTitle: Logout flows
+  accDescr: Logout revokes the current session as well as the presented tokens.
   autonumber
   participant L as LogoutHandler
   participant B as Token blacklist
@@ -163,6 +183,8 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  accTitle: Logout flows
+  accDescr: Logout-all ends every session belonging to the authenticated user.
   autonumber
   participant L as LogoutHandler
   participant B as Token blacklist

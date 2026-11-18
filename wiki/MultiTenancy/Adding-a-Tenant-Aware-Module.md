@@ -139,12 +139,15 @@ See [Request lifecycle](../Architecture/Request-Lifecycle.md#save-commit-and-dis
 
 ```mermaid
 flowchart TB
+  accTitle: 6. Scope caches, files and seed identities
+  accDescr: Context registration enables lifecycle discovery, while model and migration checks establish row isolation.
   C[ITenantDataContext registration] --> E[Every entity has tenant ownership]
   E --> M[Tenant-first indexes and named filters]
   M --> F[ApplyTenantFilters last]
   F --> R[Migration enables forced RLS]
   R --> V[Model and PostgreSQL verification]
   C --> L[Provision, export, move and purge]
+  class C,E,M,F,R,V,L infrastructure
 ```
 *Figure: Context registration enables lifecycle discovery, while model and migration checks establish row isolation.*
 

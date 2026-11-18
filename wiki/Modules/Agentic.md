@@ -64,22 +64,42 @@ Agentic.IntegrationTests/    Testcontainers Postgres, real module + RLS app role
 
 ```mermaid
 flowchart TB
-  U[POST /agent-runs] --> Q[agent_runs row: Queued, job enqueued]
-  Q --> J[ExecuteAgentRunJob claims the lease]
-  J --> P{initiator still a member and active?}
-  P -- no --> F1[Failed: initiator_no_longer_authorized]
+  accTitle: How a run executes
+  accDescr: This view covers how a run executes; see the surrounding documentation for scope and operational details.
+  U[POST /agent-runs] --> Q[Queued run and Hangfire job]
+  Q --> J[ExecuteAgentRunJob: claim lease]
+  J --> P{Initiator still authorized?}
+  P -- no --> F1[Failed: initiator unauthorized]
   P -- yes --> L{open tool call?}
-  L -- no --> M[model turn: transcript rebuilt from steps]
-  M --> S1[save turn + planned tool calls]
+  L -- no --> M[Model turn from saved transcript]
+  M --> S1[Save turn and planned calls]
   S1 --> L
-  L -- yes --> D[ToolPolicy: allowlist, permission, autonomy, approval]
-  D -- refused --> S2[save step as Failed with the reason]
-  D -- allowed --> X[save step as Executing, run the tool as the initiator]
-  X --> S2b[save result]
-  S2 --> L
-  S2b --> L
-  M -- no tool calls / result handed in --> C[Completed]
+  L -- yes --> D[Tool gateway: authorize and checkpoint]
+  D -->|continue if attempt remains active| L
+  M -- final answer or typed result --> C[Completed]
+  class U api
+  class Q,S1 data
+  class J,P,F1,L,M,D,C application
 ```
+*Figure: The executor loops over saved model turns and tool calls; the tool gateway can suspend an attempt for approval.*
+
+```mermaid
+flowchart TB
+  accTitle: Agent tool gateway
+  accDescr: ToolPolicy can refuse, suspend for approval, or execute; executing state is persisted before tool invocation.
+  D[ToolPolicy checks] -->|refused| F[Save failed step and reason]
+  D -->|approval required| P[Save awaiting approval and release lease]
+  P --> E[End worker attempt]
+  D -->|allowed| X[Save Executing]
+  X --> T[Run tool as initiator]
+  T --> R[Save result]
+  R --> L[Continue run loop]
+  F --> L
+  class D,T,L application
+  class F,P,X,R data
+  class E infrastructure
+```
+*Figure: Approval pauses the run; a later worker rechecks policy and consumes the exact approval before executing.*
 
 1. `StartAgentRunHandler` authorizes the caller; `AgentRunStarter` applies the tenant's policy, capacity and the
    plan quota, creates the run and enqueues `ExecuteAgentRunJob` on the queue `agentic`. Nothing runs in the request.
@@ -115,6 +135,9 @@ step records the code and the model is told.
 
 ```mermaid
 sequenceDiagram
+  accTitle: Human approval
+  accDescr: This view covers human approval; see the surrounding documentation for scope and operational details.
+  autonumber
   participant E as Executor
   participant DB as agentic schema
   participant P as Approver

@@ -26,6 +26,8 @@ installing the new pair; a second 401 requires sign-in.
 
 ```mermaid
 flowchart TB
+  accTitle: Strategy 1 — Reactive refresh (401 response)
+  accDescr: Reactive refresh retries an eligible request once after successful token rotation.
   U[User request] --> A[API call with access token]
   A --> V{Request authorized?}
   V -->|yes| D[Return data]
@@ -34,6 +36,8 @@ flowchart TB
   R --> S{Refresh succeeds?}
   S -->|yes| T[Store pair] --> Q[Retry original once]
   S -->|no| L[Stop and recover session]
+  class U,I,R external
+  class A,V,D,S,T,Q,L api
 ```
 *Figure: Reactive refresh retries an eligible request once after successful token rotation.*
 
@@ -49,11 +53,14 @@ token lifetime and latency budget rather than hard-coding a fifteen-minute sched
 
 ```mermaid
 flowchart TB
+  accTitle: Strategy 2 — Proactive refresh (before expiration)
+  accDescr: Proactive refresh checks token expiry before issuing useful work.
   U[User request] --> E{Near access-token expiry?}
   E -->|yes| R[Shared refresh coordinator]
   R --> W[Wait for new pair]
   W --> N[Request with new token]
   E -->|no| A[Request immediately]
+  class U,E,R,W,N,A external
 ```
 *Figure: Proactive refresh checks token expiry before issuing useful work.*
 
@@ -68,6 +75,8 @@ The previous cookie/iframe recommendation does not apply to this API. The refres
 
 ```mermaid
 sequenceDiagram
+  accTitle: Strategy 3 — Silent refresh with hidden iframe
+  accDescr: An iframe cannot supply a cookie-refresh contract that the token API does not implement.
   autonumber
   participant Parent as Parent window
   participant Iframe as Hidden iframe
@@ -100,12 +109,15 @@ the same coordinator; two independent implementations recreate the concurrent-re
 
 ```mermaid
 flowchart TB
+  accTitle: Strategy 5 — Hybrid approach
+  accDescr: Hybrid refresh combines an expiry check with a bounded retry on unauthorized responses.
   P[Proactive expiry check] --> R[Request]
   R -->|eligible 401| F[Shared reactive refresh]
   F --> T[Retry once]
   R -->|success| D[Return data]
   T -->|success| D
   T -->|401| L[Require sign-in]
+  class P,R,F,T,D,L external
 ```
 *Figure: Hybrid refresh combines an expiry check with a bounded retry on unauthorized responses.*
 
@@ -116,6 +128,8 @@ for less active applications. Neither approach guarantees zero failed requests.
 
 ```mermaid
 flowchart TB
+  accTitle: Choosing a strategy
+  accDescr: Choose timing for the client workload; every supported strategy still needs one refresh coordinator.
   P{Accept expiry round trip?} -->|yes| R[Reactive]
   P -->|no| U{Long idle periods?}
   U -->|yes| A[Activity-aware proactive check]
@@ -124,6 +138,7 @@ flowchart TB
   H --> F
   R --> C[One shared coordinator]
   F --> C
+  class P,R,U,A,H,F,C external
 ```
 *Figure: Choose timing for the client workload; every supported strategy still needs one refresh coordinator.*
 

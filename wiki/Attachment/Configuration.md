@@ -16,11 +16,14 @@ Attachment binds one validated options tree for storage, upload inspection, sign
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Configuration is bound once; empty lists receive fallback values before startup validation runs.
   C[Host configuration] --> B[Bind AttachmentOptions]
   B --> D[ApplyDefaults for empty lists]
   D --> V[ValidateOnStart]
   V --> P[Selected storage and scanner]
   V --> J[Jobs and read services]
+  class C,B,D,V,P,J infrastructure
 ```
 *Figure: Configuration is bound once; empty lists receive fallback values before startup validation runs.*
 

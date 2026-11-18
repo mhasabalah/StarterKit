@@ -25,12 +25,16 @@ The [architecture overview](../Architecture/Overview.md) defines module boundari
 
 ```mermaid
 flowchart TB
+  accTitle: Control plane vs data plane
+  accDescr: Dedicated isolation changes the data-plane location while control-plane contexts remain in the host database.
   C[ITenantDataContext] --> R[TenantConnectionStringResolver]
-  R -->|Shared| S[Host database: tenant schemas]
-  R -->|Dedicated| D[Tenant database]
+  R -->|Shared| S[(Host database: tenant schemas)]
+  R -->|Dedicated| D[(Tenant database)]
   S --> I[Filters, write checks and RLS]
   D --> I
   H[Control-plane contexts] --> P[Host database: platform schemas]
+  class C,R,I,H infrastructure
+  class S,D,P data
 ```
 *Figure: Dedicated isolation changes the data-plane location while control-plane contexts remain in the host database.*
 

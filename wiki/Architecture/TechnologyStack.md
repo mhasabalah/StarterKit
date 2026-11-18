@@ -16,14 +16,21 @@ StarterKit pins its application dependencies centrally and composes them behind 
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Shared infrastructure supports the modules while contracts and adapters contain library-specific dependencies.
   H[ASP.NET Core host] --> A[Carter endpoints]
   A --> M[Owned mediator and validation]
   M --> D[Module domain and EF Core]
-  D --> P[PostgreSQL]
+  D --> P[(PostgreSQL)]
   D --> O[Transactional outbox]
   O --> B[MassTransit transport]
   H --> R[Redis and Hangfire]
   H --> T[OpenTelemetry and Seq]
+  class H,A api
+  class M application
+  class D,R,T infrastructure
+  class P data
+  class O,B event
 ```
 *Figure: Shared infrastructure supports the modules while contracts and adapters contain library-specific dependencies.*
 

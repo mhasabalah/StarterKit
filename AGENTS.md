@@ -9,8 +9,9 @@ don't load `CLAUDE.md`.
 1. **Commit and open PRs only when the user asks, and only on a feature branch** (`feature/...`, `fix/...`). Never
    commit on, push to or merge into `master` / `develop`. Never force-push, skip hooks or merge a PR: the user reviews
    and merges. Build and tests must pass first (`CLAUDE.md` > Rules > Git).
-2. After any code change, run `dotnet build StarterKit.slnx` and fix all errors. Then run the relevant tests and
-   `dotnet test src/Api.Tests`, the architecture guardrails.
+2. After backend/.NET code changes, run `dotnet build StarterKit.slnx` and fix all errors. Then run the relevant tests
+   and `dotnet test src/Api.Tests`, the architecture guardrails. Documentation-only work, including documentation
+   application code, uses documentation checks and site builds; do not build/start the API or run .NET tests for it.
 3. Modules talk only through `ISender` + the other module's `.Contracts`, or through integration events
    (transactional outbox). Never reference another module's implementation. Users come only from
    `UserDirectory.Contracts`.

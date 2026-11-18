@@ -16,17 +16,25 @@ StarterKit deploys the API and supporting services with Docker Compose behind ho
 
 ```mermaid
 flowchart TB
-  C[Clients] --> N[Nginx on VPS]
+  accTitle: How it works
+  accDescr: API and optional worker instances share infrastructure; the shipped ingress targets one API listener.
+  C[Clients] --> N[Host Nginx on VPS]
+  N --> A
   subgraph Runtime[Compose runtime]
-    N --> A[API instances]
+    direction TB
+    A[API instances]
     A --- W[Optional workers]
-    A --> P[PostgreSQL]
+    A --> P[(PostgreSQL)]
     W --> P
-    A --> R[Redis]
+    A --> R[(Redis)]
     W --> R
     A --> S[Seq]
     W --> S
   end
+  class C external
+  class N,W,S infrastructure
+  class A api
+  class P,R data
 ```
 *Figure: API and optional worker instances share infrastructure; the shipped ingress targets one API listener.*
 
@@ -38,7 +46,7 @@ See [Compose](Docker-Compose.md) and [Nginx](Nginx.md).
 
 ### Release flow
 
-`hybrid-ci-cd.yml` builds/tests on hosted runners, builds a GHCR image for master or manual releases, then runs
+`hybrid-ci-cd.yml` builds/tests on hosted runners; only a manual run (Run workflow) builds a GHCR image, then runs
 `deploy` on `[self-hosted, deploy-only]` in the `production` environment. Required reviewers must be configured
 in GitHub for approval to block deployment. The deploy takes a logical backup, pulls both API and migrator,
 runs migrations before replacing an existing API, starts supporting services and verifies readiness and liveness.

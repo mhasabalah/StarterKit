@@ -1,0 +1,786 @@
+[
+  {
+    "file": "content/docs/architecture/codingstandards.md",
+    "rule": "MD031",
+    "lineHash": "46686ee1332c3253acf3d9261b8be113c7d467acce441f23372c5b245dcef3c2",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/architecture/designpatterns.md",
+    "rule": "MD040",
+    "lineHash": "f1b901847390b0ed7e374e7c1e464ec17b46a427c487a5ad6cbd2906405083d5",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/decisions/0017-money-precision-and-per-currency-rounding.md",
+    "rule": "MD031",
+    "lineHash": "46686ee1332c3253acf3d9261b8be113c7d467acce441f23372c5b245dcef3c2",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/deployment/production-testing.md",
+    "rule": "MD029",
+    "lineHash": "163b13327a0102847326198f2948917e80ff7f15e797808abab266398f16ee6a",
+    "context": "2. Select the core or required overlays.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/getting-started/changing-the-template.md",
+    "rule": "MD031",
+    "lineHash": "f2b7f76a88d55d4b3987566314d86226e856bac383d9613ba5a01c0a25a8d758",
+    "context": "```bash",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/getting-started/changing-the-template.md",
+    "rule": "MD031",
+    "lineHash": "017ef523cc7a95833c9bf14dcaf693869fa6142da67aa5627aa5f604df721743",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/modules/catalog.md",
+    "rule": "MD040",
+    "lineHash": "f1b901847390b0ed7e374e7c1e464ec17b46a427c487a5ad6cbd2906405083d5",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/modules/webhooks.md",
+    "rule": "MD040",
+    "lineHash": "f1b901847390b0ed7e374e7c1e464ec17b46a427c487a5ad6cbd2906405083d5",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/modules/webhooks.md",
+    "rule": "MD040",
+    "lineHash": "f1b901847390b0ed7e374e7c1e464ec17b46a427c487a5ad6cbd2906405083d5",
+    "context": "```",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "f3d1e9d7485561b5acf2e12518329817415afe4f1c1bdac23ac274924da2f5a3",
+    "context": "**Base defaults**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "4b706998bf3baae5068ee0ca2e2c0f7a6fb5d6c99e1a683352b71ff1df34d662",
+    "context": "**Docker overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/configuration.md",
+    "rule": "MD036",
+    "lineHash": "83560c117bf2cf433e4df96ce70d807f29d7bbd038e43247c4c33399109afaaa",
+    "context": "**Development overrides**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/migrations.md",
+    "rule": "MD029",
+    "lineHash": "236fa803d77ecd54d9f8184fea925e62b3e678a3b3ef8ceefcee231324eb46b1",
+    "context": "3. Review the migration and snapshot. For every new tenant table, including outbox, audit or saga tables, call `migrationBuilder.EnableTenantRowLevelSecurity(\"<schema>\", \"<table>\")` after creating it. The extension lives in `src/Shared/Shared.Core/MultiTenancy/Data/TenantRlsMigrationExtensions.cs`; it enables and forces RLS and installs `tenant_isolation`.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/migrations.md",
+    "rule": "MD029",
+    "lineHash": "ace2dc680b9f1d6615669a01aa472bd13a2ffb93c44c83e114aafc9d8bbe17bc",
+    "context": "4. Follow `/starterkit:add-migration` for model and migration review. Keep `ApplyTenantFilters(builder)` last in `OnModelCreating`; model filters do not replace database policies.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD036",
+    "lineHash": "a82dbfdc3fef0fbcb1a805bcc41cd3369427b8a04c215aa7bfd791b40cb5975d",
+    "context": "**P0 — before the first real customer**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD036",
+    "lineHash": "146f1692621cef0fcb4dbd4d9dfb30a302c954cf4ece37f8ca94a39dc024ef98",
+    "context": "**P1 — expected by most SaaS products**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD036",
+    "lineHash": "0a3259463ea8661c3315d8a9be5c4629b876e6a6114521385b760518daed46e2",
+    "context": "**P2 — market-dependent**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD036",
+    "lineHash": "71f8fc3ed15d10013425b69823e52ebb5b0870a0051f2a8d7b5baa74fb9a2168",
+    "context": "**High priority — documentation and brand**",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "87dd03d9c67dd08f17dae976edb634f00d220b42e8ee2990ddd5a4da89e6dd78",
+    "context": "2. ✅ **Decided 2026-11-04** ([Third-Party-Licenses](/reference/third-party-licenses/)):",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "c00aca31149042bb835d6e8513534c03843e015f71f593527ed614b13df55e1e",
+    "context": "3. ~~**Mapster 7.4 → 10.x**~~ **Done** (2026-11-08, 10.0.14, no code changes needed). ImageSharp is gone (2b).",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "007537a3c13027d12a5c48893105559b24c1e4b2590d59839a9e832b3904ab3f",
+    "context": "4. ~~**xUnit v2 → xUnit v3**~~ **Done** (2026-11-08, `xunit.v3` 4.x; test projects are executables, `IAsyncLifetime`",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "b596fc38dd49236f949ed257927aa53088ae382dd85653dc1710a853276644cc",
+    "context": "5. *_AspNetCore.HealthChecks._ 9.0.0*\\* is still the latest on NuGet (re-checked 2026-11-08, wave 14); blocked upstream. Dependabot",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD049",
+    "lineHash": "b596fc38dd49236f949ed257927aa53088ae382dd85653dc1710a853276644cc",
+    "context": "5. *_AspNetCore.HealthChecks._ 9.0.0*\\* is still the latest on NuGet (re-checked 2026-11-08, wave 14); blocked upstream. Dependabot",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD049",
+    "lineHash": "b596fc38dd49236f949ed257927aa53088ae382dd85653dc1710a853276644cc",
+    "context": "5. *_AspNetCore.HealthChecks._ 9.0.0*\\* is still the latest on NuGet (re-checked 2026-11-08, wave 14); blocked upstream. Dependabot",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "7edcb96acfa7de8248a23567347d81ff5fe904a278d3d38fab2a87a9856ff107",
+    "context": "6. ~~**`PendingModelChangesWarning` is suppressed**~~ **Done** - the suppression is gone (a forgotten migration makes",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "5097059d2fb79a8d0b5676b9f0bf36020ddd630172ae074ee967903ee9b57d69",
+    "context": "7. ~~**`Npgsql.EnableLegacyTimestampBehavior` is enabled globally.**~~ **Done** - the switch is removed everywhere",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "d43cb7b71f15dc1d6e3b533648fe28dbc4657608aeda86f7a8c95af9e46f21ea",
+    "context": "8. ~~**Enable analyzers.**~~ **Done** - `Directory.Build.props` enables `latest-recommended` analyzers and",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "bca293a4fe418b1cc4db0af89ed74f150068cc53d9e65006906868a58379b850",
+    "context": "9. ~~**Aggregate-level concurrency for child collections.**~~ **Done** (2026-11-08,",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "6c0e75a3dcf18a9a079be4bd16fe2c36ef5e5d5ed6009d15bbee22ddf4782722",
+    "context": "10. ~~**Identity and Attachment have no module tests.**~~ Done with G4 (`Identity.Tests`, `Identity.IntegrationTests`,",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "57a8781c74c389481bb18d59b5da71fd333baabfcff719a97c7e646891e9d5bf",
+    "context": "11. ~~CI should run the Testcontainers suites~~ Already covered: `hybrid-ci-cd.yml` runs `dotnet test StarterKit.slnx` on",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "572fca438702a4ed1fe24cc8fde26e7a9a3d66aacaba95ffa0cc56fea18a30f0",
+    "context": "12. ~~**`dotnet new` template packaging.**~~ **Done** (G23): `dotnet new starterkit -n MyApp` with switches.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "3b814a627131b59c3c33daafd58151a4f0c8e1ddaed3ca19f0a0d89f2d5f7382",
+    "context": "13. ~~**Module scaffolding.**~~ **Done** (G23): `dotnet new starterkit-module -n Orders`, no host wiring (ADR-0019).",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "29a118b0c843f2162cc5bdea0931f5426383fc965415764e5ab5c72cd3ae76a6",
+    "context": "14. ~~**Multi-tenancy decision.**~~ **Done** - optional multi-tenancy (Tenancy module: tenants, branches, members,",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "289da87437b1ab8ccf343ae1820cef135b363eccd0d17ae14002bf3e39f9b46e",
+    "context": "15. **Per product, now in the [New-Project checklist](/getting-started/new-project/#product-decisions-before-the-first-production-migration)** (#15-17, #20).",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "8a235c64b134e89e0c871685dfcf2452a85f07fcb3ddf966bae125a706039cda",
+    "context": "16. **Subscriber endpoints** use `.RequireAuthorization()` (any signed-in user) where BateCom used `OwnerOnly`.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "3c5cd04e0a5c615e8c79f629c5dbfcfef2486bf55b6b3233f34441ade1fb4063",
+    "context": "17. **WhatsApp templates** in `appsettings.json` are Arabic Meta template names. Make them per-project config.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "4ccd6e97d90a1cd5b1a236732fb06e9ba8b9a5923a6aa30547dd0ab85988a9d0",
+    "context": "22. ~~**One OTP system.**~~ **Done:** Identity `IOtpCodeService` (PostgreSQL `identity.otp_codes`, HMAC with",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "c3d3679dff2568d3a6f759c17e85bb4724f44ca8fef8b19d6e149e3d69fa8dcc",
+    "context": "23. ~~**Role grants and live tokens.**~~ **Done:** every Identity role change (assign, revoke, promote, demote) now",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "6d76c441235f371bdbd1100a95f81c99a8df269cac634b51669226a3d059da72",
+    "context": "24. ~~**Runtime vs migration timestamp mapping.**~~ **Done** with #6 / #7.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "c424de0e3f2e1b3ecae413ad4cead50edaf1530139b375bdc0e2de41f2ab7afa",
+    "context": "25. ~~**Stale `src/Api/Dockerfile`.**~~ **Done** - the restore stage copies `global.json`, `nuget.config`, both",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "9f2c417b9814f873dec5d836dd7b7c5c06a074452de5ead6c5c45d9e52643cf2",
+    "context": "26. ✅ **Cross-instance L1 cache invalidation** (2026-11-04: Redis broadcast). `TenantStore` / `TenantMembershipResolver` keep an in-process L1 cache;",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "271ed1fdb878dff12e9341ec713b49f6140f84250b57957a2f4538c201c5a5b6",
+    "context": "27. ~~**Durable saga repository.**~~ **Done** (2026-11-08, G21,",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "1638afbae3252b3891faf27c5d94c89af7cc62db24e252753e14da2917de0536",
+    "context": "28. ✅ **Outbox admin tooling** (2026-11-04: endpoint, metrics, alerts). Dead letters are inspected/requeued with SQL (`wiki/Architecture/Messaging.md`). Add a",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "73016665a3e4ce29d126c82919303574939b927403b61d6d1617c3d139734993",
+    "context": "29. ~~**Production transport.**~~ **Done** (2026-11-08, [ADR 0022](/decisions/0022-production-message-transport/)):",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "1356b313672267a3b5562a0f7d63d08cbff92f25c29130be2ba07300bc3d246a",
+    "context": "18. ✅ **CI variables** (2026-11-04: fail-fast added). The workflows read `vars.APP_NAME`, `DEPLOY_DIR`, `PUBLIC_API_URL`, `POSTGRES_*` and `BACKUP_BUCKET`.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "6822a16442258f7965d1572bc4c5da9e3eced3c11b660e98c016a7f93c8f7853",
+    "context": "19. ✅ **Health / readiness** (2026-11-04). Split `/health/live` and `/health/ready` (DB, Redis, Seq) for compose and K8s, and wire them into the deploy health check.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "44cbc4d379a9290b412b603a4dcbbfe046bf1d6db620e4e6e76a4e05d6ad89ca",
+    "context": "20. **Per product (New-Project checklist).** **Nginx admin allow-list.** `deployment/nginx/conf.d/app-production.conf` allows only `127.0.0.1` for admin paths. Set it per deployment.",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "73525231890496a0030327a00ae408e6dcdb135227fe1aaa921a23679a63058b",
+    "context": "21. ~~**Observability stack** is heavy.~~ **Done** (2026-11-08, G24): `docker-compose.observability-lite.yml`",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "70d9430cd61f47e51d8f685f736e955241410a9998abd5aa94d22c977d212a7f",
+    "context": "22. ✅ **MediatR tracing** (2026-11-04): the buggy, unregistered `ObservabilityPipelineBehavior` + `CoreDiagnostics/*`",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "8d4c2cac37f98186beffa40c8fab5e7828c017c5d6097366e1d65db5602fb572",
+    "context": "23. ✅ **Deny-by-default authorization** (2026-11-04): `RequireAuthorizationByDefault()` on the Carter group (an endpoint",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "b8c476ab93db6c58ceef02d840f2e5b664d873c84494c1ee797629e4674aafa6",
+    "context": "24. ✅ **Ports** (2026-11-04): `.env.example` `API_PORT` 8888 → 5000 (8888 clashed with the OTel collector); Mailhog is",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "46ec2d676c6dced9d9e2a0a86542c27044bc3a530c8b1bc0c411e35d4c4ca4df",
+    "context": "25. ✅ **Integration coverage** (2026-11-04): new `Tenancy.IntegrationTests` (real PostgreSQL + migrations + module);",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "9315591d846abefa400f8e4d7faf49fc0ae046ed6d635e3e7a26e091cd4c1adc",
+    "context": "26. ✅ **Notification + Attachment real-database coverage** (2026-11-04):",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  },
+  {
+    "file": "content/docs/reference/template-backlog.md",
+    "rule": "MD029",
+    "lineHash": "0db9c31dde42ba26bb0b3638c80ae3826e76fd8e41a16c0e1fe8d61de41cdfe3",
+    "context": "27. ✅ **License** (2026-11-04): MIT (`LICENSE`).",
+    "reason": "Inherited canonical wiki formatting; preserved to avoid unrelated V1 content edits."
+  }
+]

@@ -25,25 +25,79 @@ Use these forms:
 | Interaction over time | `sequenceDiagram` with `autonumber` |
 | Lifecycle | `stateDiagram-v2` |
 | Data relationships | `erDiagram` |
+| Types and implementation relationships | `classDiagram` |
+| System context or deployment | Focused flowchart subgraphs; `C4Context` only after a renderer check |
+| Schedules and experience maps | `gantt` and `journey` when the subject calls for them |
 
 Directly below every closing diagram fence, add an italic caption in the form `*Figure: <one sentence>.*`.
 Explain what the diagram establishes, including important scope limits, rather than repeating its title.
 
 Do not use ASCII box/arrow diagrams. Directory and file trees are fine in fenced `text` blocks. Avoid inline
 colors, `style` directives, `classDef` colors and theme initialization directives: the site owns presentation.
-No shared semantic color classes are currently defined. Use labels to express success, failure or other meaning.
-The site uses indigo nodes, teal edges, slate text and Inter, with its own light and dark palettes; GitHub chooses
-its own Mermaid theme.
+V2 defines shared semantic classes in its theme module, `apps/docs-v2/lib/mermaid-theme.mjs`. Use `class A,B api`
+to assign roles without embedding color values in the document. The purple application accent and teal edges match
+the site; subdued complementary colors identify responsibilities. Each role has a separate light and dark pair.
+GitHub and preserved Starlight V1 use their own theme; labels and edge annotations must communicate every meaning
+without color. Sequence, ER and state diagrams inherit the shared base theme rather than unsupported flowchart classes.
+
+| Class | Responsibility | Visual distinction in V2 |
+| --- | --- | --- |
+| `api` | HTTP boundary, middleware, endpoint | Blue-tinted surface |
+| `application` | Handler, use case, orchestration | Purple-tinted surface |
+| `domain` | Aggregate, entity, value object | Green-tinted surface |
+| `infrastructure` | Persistence implementation, adapter, job | Amber-tinted surface |
+| `data` | Database, cache, stored records | Slate-tinted surface; cylinder for a store |
+| `external` | Caller or third-party system | Rose-tinted surface |
+| `event` | Event, queue, outbox, asynchronous delivery | Teal-tinted surface |
+| `port` | Interface, combined with a responsibility class | Dashed node boundary |
+
+## Relationship and accessibility rules
+
+- State whether the view describes runtime flow, compile-time references, state transitions or data relationships.
+  Split mixed views into labelled subgraphs or separate diagrams. An arrow to an interface is not a runtime call
+  to its implementation: show the adapter pointing to the port with a labelled `implements` dependency.
+- In runtime flowcharts, `-->` is a call or ordered processing step; `-.->` with a delivery label is asynchronous.
+  In dependency views, use labelled `-.->` references. The view title and labels disambiguate the two uses.
+- In sequences, `->>` is a call, `-->>` is a return, and `-)` is an asynchronous message. Use `alt`, `opt` and
+  `loop` for real branches and retries. Keep a small participant set and move long payloads to surrounding prose.
+- Rectangles describe components or steps; rounded rectangles describe services, diamonds decisions, cylinders
+  stores, and subgraphs boundaries. Never change an entity relationship or cardinality for a more attractive layout.
+- Use exact type names when naming implementation; use concise human labels otherwise. Distinguish EF entities
+  from mapped SQL tables. Mark lifecycle diagrams as subsets when transitions are intentionally omitted; do not
+  invent terminal states for entities that can be reopened.
+- Add `accTitle:` and a one-sentence `accDescr:` immediately after the diagram declaration. Keep the visible
+  caption. Source code, selectable SVG text and a keyboard-scrollable canvas provide alternatives to color.
+- Text-to-surface contrast must be at least 4.5:1; component boundaries and edges at least 3:1. Check both palettes.
+  Never encode success/failure only by color. Prefer no animation and no embedded HTML.
+
+## Layout and rendering
+
+V2 uses Mermaid 12.3.0; preserved V1 uses 12.2.0. Both support the syntax used here. V2 uses compact Dagre layout
+by default. ELK is bundled in these Mermaid versions, so a complex graph can opt in without another dependency:
+place Mermaid frontmatter containing `config:` then an indented `layout: elk` before `flowchart TB` inside the fence.
+The module-contract map is an example. Do not add theme overrides to that frontmatter. Test the actual result;
+ELK is not automatically more readable for small diagrams.
+
+The V2 renderer serializes Mermaid initialization and rendering to avoid theme races, rerenders on theme changes,
+and uses unique SVG identifiers. Inline diagrams preserve a readable canvas and scroll inside their frame on mobile.
+Use Expand, keyboard scrolling, zoom/reset, source copy and SVG download for detailed inspection. The expanded view
+moves the original SVG instead of cloning identifiers. SVG exports contain the active theme's concrete colors.
 
 ## Flow
 
 ```mermaid
 flowchart TB
+  accTitle: Flow
+  accDescr: The refresh handler delegates session rotation to the session service and repository.
   subgraph Identity
+    direction TB
     H[RefreshTokenHandler] --> S[IAuthSessionService]
-    S --> A[AuthSessionService]
-    A --> R[IRefreshTokenRepository]
+    A[AuthSessionService] -.->|implements| S
+    A -->|calls| R[IRefreshTokenRepository]
   end
+  class H,S,A application
+  class R infrastructure
+  class S,R port
 ```
 *Figure: The refresh handler delegates session rotation to the session service and repository.*
 
@@ -51,11 +105,17 @@ flowchart TB
 
 ```mermaid
 flowchart TB
+  accTitle: Layers
+  accDescr: Attachment callers use an image-processing port implemented by the SkiaSharp adapter.
   subgraph Attachment
-    V[FileValidationService] --> P[IImageProcessingService]
-    J[GenerateThumbnailJob] --> P
-    P --> A[SkiaImageProcessingService]
+    direction TB
+    V[FileValidationService] -->|calls| P[IImageProcessingService]
+    J[GenerateThumbnailJob] -->|calls| P
+    A[SkiaImageProcessingService] -.->|implements| P
   end
+  class V,J application
+  class P,A infrastructure
+  class P port
 ```
 *Figure: Attachment callers use an image-processing port implemented by the SkiaSharp adapter.*
 
@@ -63,6 +123,8 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
+  accTitle: Interactions
+  accDescr: A successful refresh validates the existing session before atomically replacing its refresh token.
   autonumber
   participant H as RefreshTokenHandler
   participant S as IAuthSessionService
@@ -81,6 +143,8 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Lifecycles
+  accDescr: This TenantStatus subset shows a database move that starts and ends with an active tenant.
   Active --> Migrating: BeginMove
   Migrating --> Active: CompleteMove or FailMove
   note right of Migrating
@@ -93,6 +157,8 @@ stateDiagram-v2
 
 ```mermaid
 erDiagram
+  accTitle: Data relationships
+  accDescr: Each RefreshToken belongs to one ApplicationUser and identifies its session family.
   ApplicationUser ||--o{ RefreshToken : owns
   ApplicationUser {
     Guid Id PK
@@ -106,6 +172,63 @@ erDiagram
   }
 ```
 *Figure: Each RefreshToken belongs to one ApplicationUser and identifies its session family.*
+
+## CQRS request flow
+
+```mermaid
+flowchart TB
+  accTitle: Command and query responsibilities
+  accDescr: Mediator validation precedes handlers; commands change aggregates through repositories, while queries project through DbContext.
+  E[Carter endpoint] --> M[ISender]
+  M --> V[ValidationBehavior]
+  V --> C[Command handler]
+  V --> Q[Query handler]
+  C --> A[Aggregate invariants]
+  C --> R[Repository]
+  R --> D[Module DbContext]
+  Q -->|AsNoTracking projection| D
+  class E api
+  class M,V,C,Q application
+  class A domain
+  class R,D infrastructure
+```
+*Figure: This focused runtime view omits other mediator behaviors, which remain part of the request pipeline.*
+
+## Event delivery
+
+```mermaid
+flowchart TB
+  accTitle: Transactional integration-event delivery
+  accDescr: The aggregate change and outbox row commit together; delivery is at least once and consumers must be idempotent.
+  A[Aggregate change] --> S[SaveChanges]
+  S --> D[(Module data and outbox)]
+  D -->|after commit| R[OutboxRelay]
+  R -->|publish| T[Configured MassTransit transport]
+  T -.->|at-least-once delivery| C[Consumer]
+  R -->|retry exhausted| F[Outbox dead letter]
+  class A domain
+  class S infrastructure
+  class D data
+  class R,T,C,F event
+```
+*Figure: A failed publish is retried from the outbox; a consumer failure follows the transport's retry and error-queue policy.*
+
+## Adding and testing diagrams
+
+1. Verify components and relationships in source. Pick one view and the smallest appropriate diagram type.
+2. Add a portable Mermaid fence, accessible title/description, semantic classes where supported, and a visible caption.
+3. Update the corresponding record in `apps/docs-v2/quality/diagram-review.json`: record source evidence, review
+   changes, and the SHA-256 hash of the Mermaid source (without the trailing newline). Add a record for a new diagram.
+4. Run `npm run sync`, `npm run test`, `npm run check:mermaid`, `npm run typecheck` and `npm run build` from V2.
+   The checker discovers canonical fences across tracked and unignored Markdown/MDX, renders both themes, checks SVG
+   alternatives and writes `.generated/diagram-rendering.json` plus SVG previews. It also checks the eight supported
+   families, even when the current docs do not contain all eight.
+5. Check representative SVGs at desktop and mobile widths, including long labels, a sequence, ER, state and ELK view.
+   Test Expand, keyboard scrolling, zoom, export and theme switching in the production site. Run V1's Mermaid check
+   and build separately to verify portable sources still work. Run the repository link checker before review.
+
+The review inventory distinguishes intended duplication (focused overviews and detailed views of the same topic)
+from accidental copies. Keep independent diagrams only where their scope, audience or level of detail differs.
 
 These are entity names; `RefreshTokenConfiguration` maps `RefreshToken` to `refresh_tokens`. Use actual mapped
 table names when a diagram describes SQL rather than entities. For larger examples see

@@ -22,6 +22,8 @@ Decision record: [ADR 0012](../Decisions/0012-realtime-inbox-and-push.md).
 
 ```mermaid
 sequenceDiagram
+  accTitle: Delivery
+  accDescr: Channel jobs are independent and share a correlation id.
   autonumber
   participant M as Calling module
   participant S as INotificationSender
@@ -37,12 +39,14 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  accTitle: Delivery
+  accDescr: The inbox persists independently of best-effort real-time hints.
   autonumber
   participant J as Inbox job
   participant DB as Inbox store
   participant C as Client
   J->>DB: Insert once
-  J-->>C: Hints via realtime notifier
+  J-)C: Hints via realtime notifier
   J->>DB: Log InApp Sent
   Note over C: Resync REST
 ```
@@ -52,6 +56,8 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  accTitle: Delivery
+  accDescr: Push delivery validates device sessions before calling FCM.
   autonumber
   participant J as Push job
   participant U as User directory

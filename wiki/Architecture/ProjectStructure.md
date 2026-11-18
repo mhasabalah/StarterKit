@@ -105,11 +105,17 @@ Contracts include command/query/result records, DTOs, enums, integration events 
 
 ```mermaid
 flowchart TB
+  accTitle: Dependency Flow
+  accDescr: Feature slices use domain behavior and data access while exposing contracts.
   A[API] --> F[Features]
   F --> D[Domain]
   F --> C[Contracts]
   F --> P[Data]
   P --> D
+  class A api
+  class F,C application
+  class D domain
+  class P infrastructure
 ```
 *Figure: Feature slices use domain behavior and data access while exposing contracts.*
 

@@ -1,0 +1,8 @@
+extends: substitution
+message: 'Prefer "%s".'
+level: suggestion
+ignorecase: true
+swap:
+  in order to: to
+  a number of: several
+  at this point in time: now

@@ -73,7 +73,7 @@ wiki/
 - [0019](Decisions/0019-module-manifests-and-discovery.md): modules plug in through a discovered manifest (no Program.cs edits)
 <!--#if (templateSource)-->
 - [0020](Decisions/0020-dotnet-new-templates.md): `dotnet new` product and module templates (the repo is the template)
-- [0024](Decisions/0024-documentation-site.md): render the canonical wiki with Starlight and publish through GitHub Pages
+- [0024](Decisions/0024-documentation-site.md): canonical wiki, Starlight V1, independent Fumadocs V2, validation and release guidance
 <!--#endif-->
 - [0021](Decisions/0021-aggregate-version-covers-child-collections.md): the aggregate version covers its child collections
 - [0022](Decisions/0022-production-message-transport.md): PostgreSQL is the default production message transport
@@ -149,7 +149,7 @@ wiki/
 - [Endpoint authorization](Reference/Endpoint-Authorization.md): every Carter route, host surfaces, access policy, filters and role grants
 - [Architecture guardrails](Reference/Architecture-Guardrails.md): every architecture assertion, repair and related repository rule
 
-- [Diagram style](Reference/Diagram-Style.md): Mermaid conventions and examples
+- [Diagram style](Reference/Diagram-Style.md): semantic roles, accessible architecture views, examples and rendering checks
 - [Feature catalog](Reference/Features.md): everything the template ships, by area
 <!--#if (templateSource)-->
 - [Brand](Reference/Brand.md): logos, palette, typography and voice

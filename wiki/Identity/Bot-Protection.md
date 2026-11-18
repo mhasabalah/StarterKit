@@ -24,6 +24,8 @@ and `IHumanVerifier` decides whether the handler may execute.
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Disabled registration uses a no-op verifier; enabled actions reach the handler only after verification or an explicitly configured fail-open result.
   C[Client sends X-Captcha-Token] --> F[Endpoint action filter]
   F -->|action excluded| H[Identity handler]
   F -->|action selected| V[IHumanVerifier]
@@ -32,6 +34,9 @@ flowchart TB
   N --> H
   T -->|valid or outage with FailOpen| H
   T -->|missing, invalid or outage closed| E[Mapped API error]
+  class C,F,H,E api
+  class V,N,T infrastructure
+  class V port
 ```
 *Figure: Disabled registration uses a no-op verifier; enabled actions reach the handler only after verification or an explicitly configured fail-open result.*
 

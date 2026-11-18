@@ -17,6 +17,8 @@ health semantics and exporter selection are canonical in [developer observabilit
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Full and lite are alternative deployments; lite keeps logs and traces in Seq and scrapes application metrics directly.
   A[API and optional workers] --> S[Seq logs and traces]
   A --> O[Full: OTLP collector]
   O --> T[Tempo and optional Jaeger]
@@ -27,6 +29,8 @@ flowchart TB
   P --> G[Grafana]
   T --> G
   L --> G
+  class A api
+  class S,O,T,L,P,D,G infrastructure
 ```
 *Figure: Full and lite are alternative deployments; lite keeps logs and traces in Seq and scrapes application metrics directly.*
 
