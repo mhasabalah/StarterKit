@@ -34,7 +34,7 @@ Explain what the diagram establishes, including important scope limits, rather t
 
 Do not use ASCII box/arrow diagrams. Directory and file trees are fine in fenced `text` blocks. Avoid inline
 colors, `style` directives, `classDef` colors and theme initialization directives: the site owns presentation.
-V2 defines shared semantic classes in its [theme module](../../apps/docs-v2/lib/mermaid-theme.mjs). Use `class A,B api`
+V2 defines shared semantic classes in its theme module, `apps/docs-v2/lib/mermaid-theme.mjs`. Use `class A,B api`
 to assign roles without embedding color values in the document. The purple application accent and teal edges match
 the site; subdued complementary colors identify responsibilities. Each role has a separate light and dark pair.
 GitHub and preserved Starlight V1 use their own theme; labels and edge annotations must communicate every meaning

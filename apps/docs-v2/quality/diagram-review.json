@@ -2397,8 +2397,8 @@
       "diagram": 1,
       "type": "flowchart",
       "title": "How it works",
-      "after": "87cae4b42057bef6d1b4d97b295cd85f130ca3c11a10f92e016b26c48f495925",
-      "review": "Show the workflow branch/event gate: an ordinary PR does not publish or deploy an image.",
+      "after": "9e43af5a3372393b9c3f302c250020b009e60955cc5fa130d374258e3b4a1464",
+      "review": "Show the workflow event gate: only a manual dispatch (Run workflow) publishes and deploys an image; PRs and pushes stop after validation.",
       "roles": {
         "infrastructure": [
           "E",
