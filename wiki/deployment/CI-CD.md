@@ -17,7 +17,7 @@ Hosted runners validate and package changes; a production environment gate contr
 | `load-test.yml` | k6 regression run | Nightly 03:30 UTC, relevant PR paths, manual; hosted Docker |
 | `datatransfer-perf.yml` | Import/export engine baseline | Nightly and relevant PR paths, manual; hosted Docker |
 | `clamav-live.yml` | Real `ClamAvContainerTests` | Nightly 02:30 UTC, scanner-related PR paths, manual; hosted Docker |
-| `claude.yml` | Claude assistant | An `@claude` mention in issue/PR comments; hosted |
+| `claude.yml` | Claude assistant | An `@claude` mention in issue/PR comments by the owner, a member or a collaborator; hosted |
 | `claude-code-review.yml` | Claude PR review | Manual PR number; hosted |
 
 ## How it works
