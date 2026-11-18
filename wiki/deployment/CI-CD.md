@@ -6,18 +6,18 @@ Hosted runners validate and package changes; a production environment gate contr
 
 | Workflow | Jobs / responsibility | Trigger and runner |
 |---|---|---|
-| `hybrid-ci-cd.yml` (Hybrid CI/CD) | `build-and-test`, `build-and-push`, `deploy` | Push master/develop excluding markdown/wiki/docs paths, PR to master, manual; hosted build, `[self-hosted, deploy-only]` deploy |
+| `hybrid-ci-cd.yml` (Hybrid CI/CD) | `build-and-test`, `build-and-push`, `deploy` | `build-and-test`: push master/develop and PR to master, both excluding markdown/wiki/docs paths; image and deploy: **manual only** (Run workflow); hosted build, `[self-hosted, deploy-only]` deploy |
 | `rollback.yml` (Rollback Production Deployment) | `rollback`: previous API image and/or pre-deploy database restore | Manual `confirmation=ROLLBACK`, optional `image_tag`, `restore_database`, `backup_file`; self-hosted, `production` environment |
-| `templates.yml` (Templates) | `pack`, matrix `verify`, `publish` | PR to master, `templates-v*` tag push, manual; hosted; package, generated-product validation, tag publication |
+| `templates.yml` (Templates) | `pack`, matrix `verify`, `publish` | PR to master (skipped while the PR is a draft), `templates-v*` tag push, manual; hosted; package, generated-product validation, tag publication |
 | `docs.yml` (Docs site) | `build`, `deploy` | Master PR/push for wiki/site/checker/workflow paths, manual; hosted; Pages deployment only on master push |
-| `quality.yml` (Quality) | `docs`, `format`, `plugin` | Master/develop push, every PR, manual; hosted; documentation links, changed-C# whitespace, plugin manifests/skills/hooks |
+| `quality.yml` (Quality) | `quality` (one job) | Master/develop push, every PR, manual; hosted; documentation links, changed-C# whitespace, plugin manifests/skills/hooks |
 | `database-backup.yml` | `backup` | Sunday 02:00 UTC full, Monday–Saturday 02:00 differential, manual full/diff/incr; self-hosted |
-| `health-monitoring.yml` | Public and VPS health/resource checks | Every six hours or manual; hosted and self-hosted |
+| `health-monitoring.yml` | Public and VPS health/resource checks | Every six hours or manual; hosted and self-hosted. In a repository with no deployment, disable it (`gh workflow disable health-monitoring.yml`), like `database-backup.yml` |
 | `test-runner.yml` | Runner smoke and deploy prerequisite checks | Manual; self-hosted |
 | `load-test.yml` | k6 regression run | Nightly 03:30 UTC, relevant PR paths, manual; hosted Docker |
 | `datatransfer-perf.yml` | Import/export engine baseline | Nightly and relevant PR paths, manual; hosted Docker |
 | `clamav-live.yml` | Real `ClamAvContainerTests` | Nightly 02:30 UTC, scanner-related PR paths, manual; hosted Docker |
-| `claude.yml` | Claude assistant | An `@claude` mention in issue/PR comments; hosted |
+| `claude.yml` | Claude assistant | An `@claude` mention in issue/PR comments by the owner, a member or a collaborator; hosted |
 | `claude-code-review.yml` | Claude PR review | Manual PR number; hosted |
 
 ## How it works
@@ -25,9 +25,9 @@ Hosted runners validate and package changes; a production environment gate contr
 ```mermaid
 flowchart TB
   accTitle: How it works
-  accDescr: Only eligible master or manual runs publish and deploy; production reviewers gate the VPS job.
+  accDescr: Only a manual run publishes and deploys; production reviewers gate the VPS job.
   E[PR, push or manual dispatch] --> T[build-and-test]
-  T --> G{master or manual dispatch?}
+  T --> G{manual dispatch?}
   G -->|no| V[Validation only]
   G -->|yes, checks successful or explicitly skipped| B[build-and-push]
   B --> I[GHCR image]
@@ -37,11 +37,13 @@ flowchart TB
   K --> M[Migrator] --> A[Replace API] --> H[Verify health]
   class E,T,G,V,B,I,P,D,K,M,A,H infrastructure
 ```
-*Figure: Only eligible master or manual runs publish and deploy; production reviewers gate the VPS job.*
+*Figure: Only a manual run publishes and deploys; production reviewers gate the VPS job.*
 
 `build-and-test` restores and builds Release, runs `PendingModelChangesTests`, then tests `StarterKit.slnx` and
-uploads test results. PRs and develop pushes stop there. `build-and-push` requires a successful or skipped test
-job and master or manual execution; GHCR receives metadata-derived tags and the image digest is an output.
+uploads test results. PRs and pushes stop there: a merge to master does not deploy. `build-and-push` runs only from
+**Run workflow** (`workflow_dispatch`, normally on master) after a successful or skipped test job; GHCR receives
+metadata-derived tags and the image digest is an output. A newer push to a PR cancels its running build; a manual
+deploy is never cancelled.
 Manual `skip_tests` can skip tests; keep the default false. The manual `environment` input offers staging, but
 the deploy job itself declares **production**; it does not select a staging target from that input.
 
