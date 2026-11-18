@@ -68,6 +68,8 @@ enrollment and recovery-code behavior. Social callbacks, SSO exchange and passke
 
 ```mermaid
 flowchart TB
+  accTitle: 2. Process login results
+  accDescr: Only a result containing a token pair establishes the client session.
   L[Login response] --> E[Unwrap ApiResponse.data]
   E --> C{Requires two factor?}
   C -->|yes| M[Verify challenge]
@@ -75,6 +77,8 @@ flowchart TB
   C -->|no| T{Token pair present?}
   T -->|yes| S[Replace client session]
   T -->|no| P[Show completion requirements]
+  class L,E,C,M,T api
+  class S,P application
 ```
 *Figure: Only a result containing a token pair establishes the client session.*
 

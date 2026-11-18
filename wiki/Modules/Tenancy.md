@@ -20,6 +20,8 @@ Tenant creation commits the tenant, system roles, head office, owner membership 
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How it works
+  accDescr: This subset of TenantStatus shows provisioning and suspension; deletion and database moves are documented in Operations.
   [*] --> Provisioning: dedicated tenant
   Provisioning --> Active: MarkProvisioned
   Provisioning --> ProvisioningFailed: provisioning fails

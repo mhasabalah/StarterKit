@@ -23,10 +23,14 @@ The catalog describes shipped capabilities, not enabled-by-default integrations.
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Generated products compose the listed capabilities in one host and configure external dependencies per environment.
   P[Product generated from template] --> M[Business modules]
   M --> C[Contracts and shared infrastructure]
   C --> H[One API host]
   H --> D[Configured databases and providers]
+  class P,M,C,H application
+  class D infrastructure
 ```
 *Figure: Generated products compose the listed capabilities in one host and configure external dependencies per environment.*
 

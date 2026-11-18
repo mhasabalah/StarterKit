@@ -23,14 +23,22 @@ The API's request rate limiter is not a Redis cluster-wide quota counter.
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Shared cache and coordination consumers use Redis; the SignalR integration also distributes sends between instances.
   subgraph Application[Application instance]
+    direction TB
     C[IDistributedCache] --> M[IConnectionMultiplexer]
     E[Cache eviction bus] --> M
     Q[Quota and security stores] --> M
-    B[SignalR backplane] --> R[Redis]
+    B[SignalR backplane]
   end
+  R[(Redis)]
+  B --> R
   M --> R
-  R --> O[Other instances]
+  R -.->|pub/sub| O[Other instances]
+  class C,E,Q application
+  class M,B,O infrastructure
+  class R data
 ```
 *Figure: Shared cache and coordination consumers use Redis; the SignalR integration also distributes sends between instances.*
 

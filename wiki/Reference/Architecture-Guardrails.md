@@ -15,6 +15,8 @@ The catalog below covers every test class in the architecture folder plus the tw
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Static and host-model checks run without a database while migration and RLS coverage use the E2E database.
   S[Repository rules] --> A[Assembly and source checks]
   S --> H[Real host DI and endpoint metadata]
   S --> M[EF models]
@@ -22,6 +24,8 @@ flowchart TB
   A --> F[Failure identifies repair]
   H --> F
   D --> F
+  class S,A,H,F application
+  class M,D data
 ```
 *Figure: Static and host-model checks run without a database while migration and RLS coverage use the E2E database.*
 

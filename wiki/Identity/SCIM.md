@@ -19,20 +19,29 @@ users and groups are scoped by directory; tables use the `identity.scim_*` names
 ## How it works
 
 ```mermaid
+---
+config:
+  layout: elk
+---
 flowchart TB
+  accTitle: How it works
+  accDescr: Directory operations cross into Tenancy through its provisioning contract; deprovisioning retains the account and revokes its sessions.
   subgraph External[Customer directory]
+    direction TB
     I[User or group change]
   end
   subgraph Identity
+    direction TB
     A[SCIM token authentication]
     G[Tenant and plan gate]
     P[ScimProvisioningService]
-    U[Link or create account]
+    U[Link or create user]
     R[Revoke all sessions]
   end
   subgraph Tenancy
+    direction TB
     C[ProvisionMemberCommand]
-    M[Create or update membership]
+    M[Upsert membership]
     S[Suspend membership]
   end
   I --> A --> G --> P
@@ -40,6 +49,9 @@ flowchart TB
   P -->|deprovision| C
   C -->|active| M
   C -->|inactive| S --> R
+  class I external
+  class A,G api
+  class P,U,R,C,M,S application
 ```
 *Figure: Directory operations cross into Tenancy through its provisioning contract; deprovisioning retains the account and revokes its sessions.*
 

@@ -37,6 +37,8 @@ DataTransfer.IntegrationTests/ Testcontainers Postgres, real module + RLS app ro
 
 ```mermaid
 flowchart TB
+  accTitle: How a job runs
+  accDescr: Imports validate and process leased batches before reporting completion.
   U[POST /imports] --> A[Attachment validation and malware scan]
   A --> P[transfer_jobs: Pending]
   P --> Q[Hangfire data-transfer queue]
@@ -51,6 +53,10 @@ flowchart TB
   C --> E[CSV error report]
   E --> D[Completed or CompletedWithErrors]
   D --> N[TransferJobFinishedEvent]
+  class U api
+  class A,J,R,S,F,V,X,B,C,D application
+  class P,E data
+  class Q,N event
 ```
 *Figure: Imports validate and process leased batches before reporting completion.*
 
@@ -95,6 +101,8 @@ writes. The completion event produces the `data-transfer.job-finished` in-app no
 
 ```mermaid
 stateDiagram-v2
+  accTitle: How a job runs
+  accDescr: TransferJobStatus distinguishes row errors from job failure; cancellation retains previously committed batches.
   [*] --> Pending
   Pending --> Running: claim lease
   Running --> Completed: no row errors

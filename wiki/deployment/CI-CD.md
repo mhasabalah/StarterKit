@@ -24,16 +24,18 @@ Hosted runners validate and package changes; a production environment gate contr
 
 ```mermaid
 flowchart TB
-  E[PR or push] --> T[build-and-test]
-  R[Run workflow] --> T
-  T --> B[build-and-push]
+  accTitle: How it works
+  accDescr: Only a manual run publishes and deploys; production reviewers gate the VPS job.
+  E[PR, push or manual dispatch] --> T[build-and-test]
+  T --> G{manual dispatch?}
+  G -->|no| V[Validation only]
+  G -->|yes, checks successful or explicitly skipped| B[build-and-push]
   B --> I[GHCR image]
-  I --> G[production approval]
-  G --> D[deploy on VPS]
+  I --> P[production approval]
+  P --> D[Deploy on self-hosted runner]
   D --> K[Backup and pull]
-  K --> M[Migrator]
-  M --> A[Replace API]
-  A --> H[Verify health]
+  K --> M[Migrator] --> A[Replace API] --> H[Verify health]
+  class E,T,G,V,B,I,P,D,K,M,A,H infrastructure
 ```
 *Figure: Only a manual run publishes and deploys; production reviewers gate the VPS job.*
 

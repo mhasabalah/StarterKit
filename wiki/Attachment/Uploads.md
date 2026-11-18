@@ -33,6 +33,8 @@ The handler gets the user through `IHttpContextService` and tenant through `ITen
 
 ```mermaid
 sequenceDiagram
+  accTitle: Pending sessions and association
+  accDescr: Routes are relative to /api/v1/attachments; association moves blobs before saving metadata, while cleanup processes expired unassociated uploads.
   autonumber
   actor C as Client
   participant A as API

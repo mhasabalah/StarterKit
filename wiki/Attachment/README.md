@@ -18,15 +18,23 @@ The manifest delegates registration to `AddAttachmentModule` and initialization 
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Attachment owns storage and metadata; Identity receives committed avatar changes through the outbox.
   C[HTTP caller or owning module] --> A[Attachment commands and queries]
   subgraph Attachment
+    direction TB
     A --> V[Access and content validation]
     V --> D[AttachmentDbContext]
     V --> S[IStorageService]
-    D --> J[Thumbnail and cleanup jobs]
+    A -->|enqueue thumbnail work| J[Thumbnail and cleanup jobs]
     D --> O[Transactional outbox]
   end
-  O --> I[Identity avatar consumer]
+  O -.->|avatar event delivery| I[Identity avatar consumer]
+  class C api
+  class A,V,J,I application
+  class D,S infrastructure
+  class O event
+  class S port
 ```
 *Figure: Attachment owns storage and metadata; Identity receives committed avatar changes through the outbox.*
 

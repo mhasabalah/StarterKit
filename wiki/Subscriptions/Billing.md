@@ -20,6 +20,8 @@ The [module overview](../Modules/Subscriptions.md) owns the endpoint inventory, 
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Lifecycle
+  accDescr: The seven SubscriptionStatus values follow SubscriptionStateMachine; admin reactivation is a separate exception described below.
   direction TB
   PendingApproval --> Active: approve
   PendingApproval --> Rejected: reject
@@ -99,6 +101,8 @@ Renewal approval binds to the renewal **payment** and approves its amount (never
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Payments and approvals
+  accDescr: PaymentStatus describes the debt, not a checkout attempt; the six states also allow receipts on Submitted or Rejected payments and closure of any still-owed payment.
   direction TB
   Pending --> Submitted: proof
   Submitted --> Paid: approve
@@ -148,6 +152,8 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
+  accTitle: Invoices and credit notes
+  accDescr: InvoiceStatus tracks document delivery, with Pending, Generated, Sent and Failed; it does not represent whether money is owed or paid.
   direction TB
   Pending --> Generated: PDF recorded
   Generated --> Sent: delivery recorded

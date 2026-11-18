@@ -71,4 +71,4 @@ the helper's printed credential in CI logs.
 ## Related
 
 [Secrets](Secrets.md), [Nginx](Nginx.md), [observability](Observability.md),
-[Seq authentication](https://docs.datalust.co/docs/authentication), and `/starterkit:update-docs`.
+[Seq authentication](https://datalust.co/docs/managing-users), and `/starterkit:update-docs`.

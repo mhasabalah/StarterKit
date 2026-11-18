@@ -22,6 +22,8 @@ Routes and endpoint restrictions are canonical in [Users and admins API](Users-a
 
 ```mermaid
 flowchart TB
+  accTitle: Roles and permissions
+  accDescr: Authorization gates the handler before account changes and their audit record commit together.
   R[Authenticated role claims] --> T[PermissionClaimsTransformation]
   M[RolePermissionMap] --> T
   T --> P[Permission policy]
@@ -30,6 +32,10 @@ flowchart TB
   G -->|no| F[403 response]
   H --> U[IIdentityUnitOfWork]
   U --> D[Account change and audit row]
+  class R,T,P,G,F api
+  class M,H,U application
+  class D data
+  class U port
 ```
 *Figure: Authorization gates the handler before account changes and their audit record commit together.*
 

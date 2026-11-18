@@ -262,6 +262,8 @@
         "tests/load/results/**",
         "templates/**",
         "docs-site/**",
+        "apps/docs-v2/**",
+        ".github/workflows/docs-v2.yml",
         ".github/workflows/docs.yml",
         ".template.config/**",
         "wiki/Reference/Template-Backlog.md",

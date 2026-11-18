@@ -48,6 +48,8 @@ accepts any syntactically valid id. Validate existence and tenant ownership befo
 
 ```mermaid
 flowchart TB
+  accTitle: Assignments and scope
+  accDescr: Membership controls row visibility; the optional active branch does not replace the allowed branch set.
   M[Membership assignments] --> E[Expand branch paths]
   E --> S[AllowedBranchIds]
   O[Owner or tenant.branches.all] --> U[Unrestricted scope]
@@ -56,6 +58,8 @@ flowchart TB
   F --> R[Tenant-wide and allowed branch rows]
   H[X-Branch header] --> A[ActiveBranchId selection]
   S --> A
+  class M,E,S,O,U,F,R,A application
+  class H api
 ```
 *Figure: Membership controls row visibility; the optional active branch does not replace the allowed branch set.*
 

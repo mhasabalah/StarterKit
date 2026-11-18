@@ -82,6 +82,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 | `tools/claude/starterkit-plugin` | This repo's Claude Code plugin (skills, reviewer agent, hooks) |
 <!--#if (templateSource)-->
 | `docs-site/` | Astro Starlight documentation site rendered from `wiki/`; navigation in `sidebar.mjs` |
+| `apps/docs-v2/` | Independent Next.js/Fumadocs renderer of the same wiki; preserve V1, run V2 checks separately; operations in ADR-0024 |
 | `.template.config/`, `templates/` | The `dotnet new` product template (this repo) and the module template + the `StarterKit.Templates` pack |
 <!--#endif-->
 
@@ -498,6 +499,8 @@ forbidden C# patterns after edits. Spec Kit
 
 ## Documentation
 
+- Diagram sources follow `wiki/Reference/Diagram-Style.md`: verify relationships against code, declare the view,
+  use accessible titles/descriptions and semantic roles, and validate both themes before review.
 - The index of all docs is `wiki/INDEX.md`. Read the relevant page before changing an area: Architecture,
   MultiTenancy, Messaging, Modules, Identity, Attachment, Testing, Deployment, Decisions (ADRs).
 <!--#if (templateSource)-->
@@ -511,17 +514,20 @@ forbidden C# patterns after edits. Spec Kit
 
 ## Rules
 
-- Documentation-only changes do not require a build or test run. Run the applicable documentation link and formatting
-  checks instead. If the change includes code, the build and test requirements below still apply.
-- After any code change, run `dotnet build StarterKit.slnx` from the repo root and fix every error, then run the
-  relevant tests and `dotnet test src/Api.Tests`.
+- Documentation-only changes, including Markdown/MDX, diagrams, documentation CI and the Astro/Fumadocs/Next.js
+  documentation applications, do not require a .NET solution/API build or .NET tests. Run the applicable documentation
+  checks, site build and browser tests instead. Do not start the API or export OpenAPI unless backend contracts changed
+  or the user explicitly requests contract verification. Validate template packaging separately when its rules change.
+- After backend/.NET code changes, run `dotnet build StarterKit.slnx` from the repo root and fix every error, then run
+  the relevant tests and `dotnet test src/Api.Tests`.
 - The build treats warnings as errors: fix them, or relax a rule in `.editorconfig` with a justification; never `#pragma`
   without one (`wiki/Architecture/CodingStandards.md` → Analyzers).
 - **Git: commit and open PRs only when the user asks, and only on a feature branch.**
   - Branch first (`feature/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`). Never commit on, push to, or
     merge into `master` / `develop`; they change only through a reviewed PR.
-  - Before committing code changes, the build, the relevant tests and `dotnet test src/Api.Tests` must pass.
-    Documentation-only commits require the applicable documentation checks instead. Stage only the files of the
+  - Before committing backend/.NET code changes, the solution build, relevant tests and `dotnet test src/Api.Tests`
+    must pass. Documentation-only commits, including documentation application code, require the applicable documentation
+    checks and site build instead. Stage only the files of the
     change (no secrets, build output or scratch files). Use a conventional commit message
     (`feat(module): ...`, `fix: ...`).
   - Open the PR with `gh pr create --base master` (or the base the user names). The body has a summary and the test

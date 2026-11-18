@@ -30,25 +30,37 @@ Vertical slices apply Clean Architecture and domain-driven design within module 
 
 ```mermaid
 flowchart TB
+  accTitle: 2. Clean Architecture Layers
+  accDescr: Endpoints invoke handlers; commands use aggregates and repositories while queries project directly from the owning DbContext.
   subgraph API[API boundary]
-    C[Carter endpoints]
+    direction TB
+    C[Carter endpoint]
   end
-  subgraph Application[Application layer]
-    M[ISender] --> V[FluentValidation] --> H[Handlers]
+  subgraph Application[Application pipeline]
+    direction TB
+    M[ISender] --> V[ValidationBehavior]
+    V --> H[Handler]
   end
-  subgraph Domain[Domain layer]
-    A[Aggregates and entities] --- O[Value objects and domain events]
+  subgraph Domain[Domain rules]
+    direction TB
+    A[Aggregates and entities] --- O[Value objects and events]
   end
-  subgraph Infrastructure[Infrastructure layer]
-    R[Repositories] --- D[DbContext]
-    E[External services]
+  subgraph Infrastructure[Persistence and adapters]
+    direction TB
+    R[Repository adapter]
+    D[Module DbContext]
+    E[External adapter]
   end
   C --> M
-  H --> A
-  H -->|commands| R
-  H -->|queries| D
-  H --> E
-  D --> A
+  H -->|command mutation| A
+  H -->|repository port| R
+  H -->|query projection| D
+  H -->|service port| E
+  R -->|persist| D
+  class C api
+  class M,V,H application
+  class A,O domain
+  class R,D,E infrastructure
 ```
 *Figure: Endpoints invoke handlers; commands use aggregates and repositories while queries project directly from the owning DbContext.*
 
@@ -125,14 +137,21 @@ Workers are background processing roles; deployments can host jobs in API proces
 
 ```mermaid
 flowchart TB
+  accTitle: System context
+  accDescr: API and worker roles share infrastructure and call configured providers.
   C[Clients] --> N[Nginx]
   subgraph Deployment[StarterKit deployment]
+    direction TB
     N --> A[API replicas / background workers]
     A --> D[PostgreSQL / Redis]
     A --> S[Seq / blob storage / ClamAV]
     D ~~~ S
   end
   A --> P[Payment gateways / FCM / IdPs]
+  class C,P external
+  class N,S infrastructure
+  class A api
+  class D data
 ```
 *Figure: API and worker roles share infrastructure and call configured providers.*
 
@@ -144,60 +163,54 @@ API requests use the identity providers; push jobs call FCM. Both roles can acce
 Each implementation owns its contract assembly. Identity additionally exposes the provider-neutral user port.
 
 ```mermaid
+---
+config:
+  layout: elk
+---
 flowchart TB
-  subgraph Identity
-    I[Identity] --> IC[Identity.Contracts]
-    I --> U[UserDirectory.Contracts]
-  end
-  subgraph Tenancy
-    T[Tenancy] --> TC[Tenancy.Contracts]
-  end
-  subgraph Attachment
-    A[Attachment] --> AC[Attachment.Contracts]
-  end
-  subgraph Subscriptions
-    S[Subscriptions] --> SC[Subscriptions.Contracts]
-  end
-  subgraph Webhooks
-    W[Webhooks] --> WC[Webhooks.Contracts]
-  end
-  subgraph DataTransfer
-    D[DataTransfer] --> DC[DataTransfer.Contracts]
-  end
-  subgraph Notification
-    N[Notification] --> NC[Notification.Contracts]
-  end
-  IC ~~~ T
-  U ~~~ T
-  TC ~~~ A
-  AC ~~~ S
-  SC ~~~ W
-  WC ~~~ D
-  DC ~~~ N
+  accTitle: Contract ownership and user boundary
+  accDescr: Module implementations reference contracts; UserDirectory.Contracts is the public user port and Tenancy.Contracts has one explicit shared-core exception.
+  M[Module implementation] -.->|references| C[Own contracts]
+  C -.->|references| S[Shared.Contracts]
+  M -.->|references| U[UserDirectory.Contracts]
+  I[Identity] -.->|references| U
+  I -.->|private| IC[Identity.Contracts]
+  T[Tenancy.Contracts] -.->|exception| CORE[Shared.Core]
+  CORE -.->|references| S
+  U -.->|references| S
+  %% Invisible ordering links arrange independent dependency roots, not references.
+  M ~~~ I
+  I ~~~ T
+  class M,C,S,I,U,IC,T application
+  class CORE infrastructure
 ```
-*Figure: Each platform module owns its contracts while Identity supplies the replaceable user-directory port.*
+*Figure: Compile-time references preserve module boundaries; the private Identity contracts are not a public user port.*
 
 The arrows illustrate allowed dependency directions, not a list of all calls. The same rule applies to Tenancy, Subscriptions, Webhooks and DataTransfer. `Identity.Contracts` is private to Identity and the host. Contracts depend only on `Shared.Contracts`, except the explicitly allowed `Tenancy.Contracts` dependency on `Shared.Core`.
 
 ```mermaid
 flowchart TB
-  subgraph Attachment
-    A[Attachment implementation] --> AC[Attachment.Contracts]
+  accTitle: Allowed module dependencies
+  accDescr: Modules reach other modules through public contracts or integration events and obtain users through UserDirectory.Contracts.
+  subgraph Runtime[Runtime module interaction]
+    direction TB
+    A[Attachment caller] -->|ISender with Notification.Contracts| N[Notification handler]
+    A -->|same transaction| E[(Attachment outbox)]
+    E -.->|integration event delivery| C[Subscribed consumer]
+    A -->|ISender with UserDirectory.Contracts| U[Identity user query handler]
+    N -->|ISender with UserDirectory.Contracts| U
   end
-  subgraph Notification
-    N[Notification implementation] --> NC[Notification.Contracts]
+  subgraph References[Compile-time dependencies]
+    direction TB
+    AI[Module implementation] -.->|references| AC[Own module Contracts]
+    AI -.->|references| CORE[Shared.Core]
+    AC -.->|references| SC[Shared.Contracts]
+    CORE -.->|references| SC
   end
-  A -->|ISender| NC
-  A -->|integration event in Contracts| E[Transactional outbox]
-  E --> N
-  A --> U[UserDirectory.Contracts]
-  N --> U
-  A --> CORE[Shared.Core]
-  N --> CORE
-  AC --> SC[Shared.Contracts]
-  NC --> SC
-  U --> SC
-  CORE --> SC
+  Runtime ~~~ References
+  class A,N,U,AI,AC,SC application
+  class E,C event
+  class CORE infrastructure
 ```
 *Figure: Modules reach other modules through public contracts or integration events and obtain users through UserDirectory.Contracts.*
 
@@ -210,9 +223,14 @@ The sample occupies slot 300 only when included; generated products can omit tha
 
 ```mermaid
 flowchart TB
+  accTitle: Module initialization order
+  accDescr: ModuleOrder initializes the platform before new modules and Notification last.
   I[Identity 0] --> T[Tenancy 100] --> A[Attachment 200]
-  A --> C[Optional sample 300] --> S[Subscriptions 400] --> W[Webhooks 500]
-  W --> D[DataTransfer 600] --> M[New modules: Default 700] --> N[Notification 900]
+  A --> C[Catalog sample 300] --> S[Subscriptions 400]
+  S --> W[Webhooks 500] --> D[DataTransfer 600]
+  D --> M[Business modules: Default 700]
+  M --> G[Agentic 800] --> N[Notification 900]
+  class I,T,A,C,S,W,D,M,G,N application
 ```
 *Figure: ModuleOrder initializes the platform before new modules and Notification last.*
 

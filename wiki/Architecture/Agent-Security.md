@@ -12,7 +12,7 @@ whatever is external or sensitive.
 ## Trust boundaries
 
 ```mermaid
-flowchart LR
+flowchart TB
   accTitle: Agent trust boundaries
   accDescr: Model output and outside content are untrusted data; every tool call crosses the gateway, which decides in code before any module command runs.
   U[Initiating user or trigger] -->|start run| R[Run executor]

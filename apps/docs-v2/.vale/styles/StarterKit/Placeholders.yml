@@ -1,0 +1,8 @@
+extends: existence
+message: 'Remove unfinished prose: "%s".'
+level: error
+ignorecase: true
+tokens:
+  - 'lorem ipsum'
+  - 'insert documentation here'
+  - 'write this section later'

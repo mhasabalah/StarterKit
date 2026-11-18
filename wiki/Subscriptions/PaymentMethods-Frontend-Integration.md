@@ -43,12 +43,16 @@ Use `displayName`, `value` and `description` for a generic card with a copy acti
 
 ```mermaid
 flowchart TB
+  accTitle: 2. Render destination details
+  accDescr: The frontend can enrich a generic destination card while keeping the method id as the proof-submission reference.
   M[Payment method DTO] --> C[Display name and description]
   M --> V[Copyable value]
   M --> J[Optional metadata JSON string]
   J --> F[Frontend-specific details]
   C --> P[Select method id for proof]
   V --> P
+  class M api
+  class C,V,J,F,P application
 ```
 *Figure: The frontend can enrich a generic destination card while keeping the method id as the proof-submission reference.*
 

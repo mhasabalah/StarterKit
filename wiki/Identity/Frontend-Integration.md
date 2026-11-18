@@ -20,6 +20,8 @@ HTTP-specific request records live beside their Carter modules.
 
 ```mermaid
 flowchart TB
+  accTitle: How it works
+  accDescr: Different sign-in methods converge on the same session result rather than separate token stores.
   U[Sign-in page] --> D[Email-first SSO discovery]
   D -->|SSO available| S[Provider redirect and code exchange]
   D -->|Other methods available| P[Password or passkey]
@@ -29,6 +31,8 @@ flowchart TB
   M --> L
   L -->|Tokens present| T[Shared client session layer]
   L -->|Partial login| V[Verification guidance]
+  class U external
+  class D,S,P,L,M,T,V api
 ```
 *Figure: Different sign-in methods converge on the same session result rather than separate token stores.*
 
