@@ -12,6 +12,11 @@ Apply migrations and seeds under PostgreSQL advisory locks while keeping runtime
 - A verified backup and a compatible release plan; an image rollback does not reverse schema changes.
 - Module migrations created with `/starterkit:add-migration`.
 - Existing module-schema, concurrency and RLS conventions from [Database conventions](../Architecture/DatabaseConventions.md).
+- The `vector` extension (pgvector) available on the server: the Agentic migration runs `CREATE EXTENSION IF NOT
+  EXISTS vector`. The repository's `infra/postgres` image includes it; on a managed service, allow-list it. When the
+  migration role may not create extensions, run `deployment/postgres/scripts/init-rls-roles.sql` (it creates the
+  extension) or `CREATE EXTENSION vector;` as an administrator in every database first, dedicated tenant databases
+  included ([ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)).
 
 ## Steps
 
@@ -52,9 +57,13 @@ Apply migrations and seeds under PostgreSQL advisory locks while keeping runtime
    seeders run as the Default tenant, and dedicated seeders run as their tenant. DML credentials must work for
    those scopes before migration is considered complete; migration host scopes also require the host credential.
 
-4. Run the migration once before an existing API replacement:
+4. Run the migration once before an existing API replacement. On a server upgraded from an image without pgvector,
+   rebuild and recreate `postgres` first (CI and `deployment/deploy.sh` do it), or the Agentic migration fails with
+   "could not open extension control file":
 
    ```bash
+   docker compose -f docker-compose.yml --env-file .env.prod build postgres
+   docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps --wait postgres
    docker compose -f docker-compose.yml --env-file .env.prod run --rm migrator
    ```
 

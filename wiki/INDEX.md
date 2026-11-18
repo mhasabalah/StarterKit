@@ -48,6 +48,7 @@ wiki/
 - [Observability](Architecture/Observability.md): logs, traces, metrics for developers
 - [TechnologyStack](Architecture/TechnologyStack.md): libraries and versions
 - [Feature-Flags](Architecture/Feature-Flags.md): runtime flags, evaluation order, `.RequireFlag`, admin API
+- [Agent security model](Architecture/Agent-Security.md): trust boundaries of AI agents, and each threat with its control and the test that proves it
 
 ## Decisions (ADRs)
 
@@ -77,6 +78,10 @@ wiki/
 - [0021](Decisions/0021-aggregate-version-covers-child-collections.md): the aggregate version covers its child collections
 - [0022](Decisions/0022-production-message-transport.md): PostgreSQL is the default production message transport
 - [0023](Decisions/0023-durable-sagas-on-module-dbcontexts.md): saga state is durable, in the owning module's DbContext
+- [0025](Decisions/0025-agentic-module-and-model-seam.md): AI agents in one module, behind typed tools and an owned model seam
+- [0026](Decisions/0026-durable-agent-runs-on-hangfire.md): agent runs are leased, step-checkpointed Hangfire jobs
+- [0027](Decisions/0027-agent-approvals-triggers-and-policies.md): payload-bound approvals, explicit triggers, tighten-only tenant policies
+- [0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md): agent knowledge (hybrid search on pgvector) and approval-gated memory
 
 ## Modules
 
@@ -90,6 +95,10 @@ wiki/
   - [Notification-Email-Design-System](Modules/Notification-Email-Design-System.md): tokens, components, dark mode, branding, plain text
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
+- [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (model seam, tool gateway, adding an agent)
+<!--#if (sample)-->
+- [Shipping](Modules/Shipping.md): the agent **proof of concept** (shipment preparation: typed tools, event trigger, approval before submission)
+<!--#endif-->
 
 ## Multi-tenancy
 
@@ -155,6 +164,7 @@ wiki/
 - [Secrets](deployment/Secrets.md) · [Backups](deployment/Backups.md) · [Docker Compose](deployment/Docker-Compose.md)
 - [Database migrations](deployment/Database-Migrations.md): one-shot migrator, advisory lock, least-privilege roles
 - [Nginx](deployment/Nginx.md) · [Observability stack](deployment/Observability.md) · [Seq security](deployment/Seq-Security.md) · [Production testing](deployment/Production-Testing.md)
+- [Agentic operations](deployment/Agentic-Operations.md): switching agents on with a real provider, sizing workers, signals, and what to do for each agent alert
 
 ## Rulebook coverage
 
@@ -190,6 +200,10 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | Same-save audit trail, ignored secrets and retention | [Database conventions](Architecture/DatabaseConventions.md) |
 | Fail-closed malware scanning and degraded health | [Attachment security](Attachment/Security.md) |
 | Bulk definitions, replayable batches, dry runs, worker queues and requester scope | [DataTransfer](Modules/DataTransfer.md) |
+| Agents, typed tools, the tool gateway, model providers and durable runs | [Agentic](Modules/Agentic.md), [ADR 0025](Decisions/0025-agentic-module-and-model-seam.md), [ADR 0026](Decisions/0026-durable-agent-runs-on-hangfire.md) |
+| Agent approvals, automatic triggers, tenant policies, quotas and usage | [Agentic](Modules/Agentic.md#human-approval), [ADR 0027](Decisions/0027-agent-approvals-triggers-and-policies.md) |
+| Agent knowledge (indexing, hybrid search, citations), memory, content erasure and retention | [Agentic](Modules/Agentic.md#knowledge), [ADR 0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) |
+| Agent threats (prompt injection, approval bypass, oversized output), alerts and runbook | [Agent security model](Architecture/Agent-Security.md), [Agentic operations](deployment/Agentic-Operations.md) |
 | Distributed caching, tenant keys and explicit invalidation | [Redis](Infrastructure/Redis.md) |
 | HTTP context, Carter injection and ActingUser | [Shared projects](Shared/README.md) |
 | Tenant entities, tenant-first indexes, filters last, interceptors and forced RLS | [Isolation and dedicated databases](MultiTenancy/Isolation-and-Dedicated-Databases.md), [Adding a tenant-aware module](MultiTenancy/Adding-a-Tenant-Aware-Module.md) |
@@ -220,6 +234,7 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | New endpoint or slice | `/starterkit:add-feature` | [ApiGuidelines](Architecture/ApiGuidelines.md) |
 | Migration | `/starterkit:add-migration` | [Migrations](Reference/Migrations.md) |
 | Cross-module event | `/starterkit:add-integration-event` | [Messaging](Architecture/Messaging.md) |
+| AI agent or agent tool | `/starterkit:add-agent-tool` | [Agentic](Modules/Agentic.md), [Agent security model](Architecture/Agent-Security.md) |
 | Background job | `/starterkit:add-background-job` | [Messaging](Architecture/Messaging.md), CLAUDE.md |
 | Permission | `/starterkit:add-permission` | [Permissions-2FA](Identity/Permissions-2FA-and-Admin-Audit.md) |
 | Email | `/starterkit:add-email-template` | [Notification](Modules/Notification.md) |

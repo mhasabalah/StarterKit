@@ -33,7 +33,8 @@ StarterKit/
 │   │   ├── Attachment/                      # File uploads and storage providers
 │   │   ├── Subscriptions/                   # Subscribers, plans, subscriptions, payments
 │   │   ├── Webhooks/                        # Signed outbound deliveries
-│   │   └── DataTransfer/                    # CSV/XLSX import and export jobs
+│   │   ├── DataTransfer/                    # CSV/XLSX import and export jobs
+│   │   └── Agentic/                         # AI agents: durable runs, typed tools, model providers
 │   └── Shared/
 │       ├── Shared.Contracts/                # CQRS interfaces, pagination, enums
 │       ├── Shared.Core/                     # Base classes, behaviors, EF/Redis/web helpers

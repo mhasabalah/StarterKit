@@ -112,7 +112,9 @@ public static class Extensions
                     // Notification module: in-app / push / real-time counters (Notification.Dispatch.NotificationMetrics).
                     .AddMeter("StarterKit.Notification")
                     // Attachment module: attachment.malware.scans by result (Attachment...Validation.MalwareScanMetrics).
-                    .AddMeter("StarterKit.Attachment");
+                    .AddMeter("StarterKit.Attachment")
+                    // Agentic module: agent runs, model turns/tokens and tool calls (Agentic...Telemetry.AgenticMetrics).
+                    .AddMeter("StarterKit.Agentic");
 
                 AddMetricsExporters(metrics, observabilityOptions, exporterPlan);
             });
@@ -154,6 +156,9 @@ public static class Extensions
                     .AddSource(observabilityOptions.InstrumentationName)
                     // Transactional outbox publish spans (parented on the flow that raised the event).
                     .AddSource(Shared.Core.Messaging.Outbox.OutboxRelay.ActivitySourceName)
+                    // Agentic module: agent.run / agent.model_turn / agent.tool spans, and the gen_ai.* spans of the
+                    // model clients (same source name; prompt and tool content is never captured by default).
+                    .AddSource("StarterKit.Agentic")
                     .AddSource("Microsoft.AspNetCore.Hosting")
                     .AddSource("Microsoft.AspNetCore.Server.Kestrel");
 

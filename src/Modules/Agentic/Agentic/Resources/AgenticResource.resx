@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.AgentKey.Required" xml:space="preserve">
+    <value>The agent key is required.</value>
+  </data>
+  <data name="Validation.AgentKey.MaxLength" xml:space="preserve">
+    <value>The agent key is too long.</value>
+  </data>
+  <data name="Validation.Prompt.MaxLength" xml:space="preserve">
+    <value>The prompt must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Input.Required" xml:space="preserve">
+    <value>A prompt or an input is required.</value>
+  </data>
+  <data name="Validation.Input.TooLarge" xml:space="preserve">
+    <value>The input must not exceed {0} bytes.</value>
+  </data>
+  <data name="Validation.Input.NotJsonObject" xml:space="preserve">
+    <value>The input must be a JSON object.</value>
+  </data>
+  <data name="Validation.Status.Invalid" xml:space="preserve">
+    <value>The status is not valid.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>The page number must be at least 1.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>The page size must be between 1 and 100.</value>
+  </data>
+  <data name="Agent.Error.agent_not_found" xml:space="preserve">
+    <value>The agent '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Error.run_not_found" xml:space="preserve">
+    <value>The agent run '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Error.disabled" xml:space="preserve">
+    <value>Agents are not available.</value>
+  </data>
+  <data name="Agent.Error.authentication_required" xml:space="preserve">
+    <value>Authentication is required.</value>
+  </data>
+  <data name="Agent.Error.trigger_not_allowed" xml:space="preserve">
+    <value>The agent '{0}' cannot be started this way ({1}).</value>
+  </data>
+  <data name="Agent.State.agent_required" xml:space="preserve">
+    <value>An agent is required.</value>
+  </data>
+  <data name="Agent.State.model_required" xml:space="preserve">
+    <value>A model is required.</value>
+  </data>
+  <data name="Agent.State.initiator_required" xml:space="preserve">
+    <value>The run needs a user to act for.</value>
+  </data>
+  <data name="Agent.State.input_required" xml:space="preserve">
+    <value>A prompt or an input is required.</value>
+  </data>
+  <data name="Agent.State.budget_invalid" xml:space="preserve">
+    <value>The run limits are not valid.</value>
+  </data>
+  <data name="Agent.State.trigger_key_too_long" xml:space="preserve">
+    <value>The trigger key is too long.</value>
+  </data>
+  <data name="Agent.State.already_finished" xml:space="preserve">
+    <value>The run has already finished.</value>
+  </data>
+  <data name="Agent.State.not_running" xml:space="preserve">
+    <value>The run is not running.</value>
+  </data>
+  <data name="Agent.State.step_closed" xml:space="preserve">
+    <value>The step has already been handled.</value>
+  </data>
+  <data name="Agent.Failure.internal_error" xml:space="preserve">
+    <value>The run could not be completed because of an internal error.</value>
+  </data>
+  <data name="Agent.Failure.model_unavailable" xml:space="preserve">
+    <value>The AI model could not be reached. Try again later.</value>
+  </data>
+  <data name="Agent.Failure.agents_disabled" xml:space="preserve">
+    <value>Agents are switched off.</value>
+  </data>
+  <data name="Agent.Failure.agent_not_found" xml:space="preserve">
+    <value>The agent '{0}' no longer exists.</value>
+  </data>
+  <data name="Agent.Failure.agent_version_retired" xml:space="preserve">
+    <value>The agent changed since this run started, so the run cannot continue. Start a new run.</value>
+  </data>
+  <data name="Agent.Failure.initiator_no_longer_authorized" xml:space="preserve">
+    <value>The user who started the run no longer has access.</value>
+  </data>
+  <data name="Agent.Failure.budget_exceeded" xml:space="preserve">
+    <value>The run reached its limit ({0}) and was stopped.</value>
+  </data>
+  <data name="Agent.Failure.output_too_large" xml:space="preserve">
+    <value>The model answered with more text than allowed, so the run was stopped.</value>
+  </data>
+  <data name="Agent.Failure.tool_outcome_unknown" xml:space="preserve">
+    <value>The action '{0}' was interrupted and it is not known whether it took effect. Check it before starting a new run.</value>
+  </data>
+  <data name="Agent.Tool.refused" xml:space="preserve">
+    <value>The call was refused.</value>
+  </data>
+  <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
+    <value>This tool is not available to this agent.</value>
+  </data>
+  <data name="Agent.Tool.forbidden" xml:space="preserve">
+    <value>The user is not permitted to do this.</value>
+  </data>
+  <data name="Agent.Tool.autonomy_exceeded" xml:space="preserve">
+    <value>This agent is not allowed to perform this kind of action.</value>
+  </data>
+  <data name="Agent.Tool.arguments_too_large" xml:space="preserve">
+    <value>The arguments are too large.</value>
+  </data>
+  <data name="Agent.Tool.invalid_arguments" xml:space="preserve">
+    <value>The arguments are not valid.</value>
+  </data>
+  <data name="Agent.Tool.result_too_large" xml:space="preserve">
+    <value>The result is too large to return. Ask for less data.</value>
+  </data>
+  <data name="Agent.Tool.timeout" xml:space="preserve">
+    <value>The tool did not answer in time.</value>
+  </data>
+  <data name="Agent.Tool.conflict" xml:space="preserve">
+    <value>The data was changed by someone else in the meantime. Read it again before retrying.</value>
+  </data>
+  <data name="Agent.Tool.skipped" xml:space="preserve">
+    <value>Not executed: the result had already been handed in.</value>
+  </data>
+  <data name="Validation.Id.Required" xml:space="preserve">
+    <value>The id is required.</value>
+  </data>
+  <data name="Validation.Version.Min" xml:space="preserve">
+    <value>The version must not be negative.</value>
+  </data>
+  <data name="Agent.Tool.arguments_not_object" xml:space="preserve">
+    <value>The arguments must be a JSON object.</value>
+  </data>
+  <data name="Agent.Tool.result_not_object" xml:space="preserve">
+    <value>The result must be a JSON object.</value>
+  </data>
+  <data name="Agent.Tool.result_omitted" xml:space="preserve">
+    <value>The change was made. Its result was too large to return.</value>
+  </data>
+  <data name="Validation.PayloadHash.Required" xml:space="preserve">
+    <value>The payload hash of the action you were shown is required.</value>
+  </data>
+  <data name="Validation.Note.MaxLength" xml:space="preserve">
+    <value>The note must not exceed {0} characters.</value>
+  </data>
+  <data name="Agent.Error.approval_not_found" xml:space="preserve">
+    <value>The approval request '{0}' was not found.</value>
+  </data>
+  <data name="Agent.State.not_suspended" xml:space="preserve">
+    <value>The run is not waiting for an approval.</value>
+  </data>
+  <data name="Agent.Approval.already_used" xml:space="preserve">
+    <value>The approval has already been used.</value>
+  </data>
+  <data name="Agent.Approval.not_approved" xml:space="preserve">
+    <value>The request has not been approved.</value>
+  </data>
+  <data name="Agent.Approval.not_pending" xml:space="preserve">
+    <value>The request is not waiting for a decision.</value>
+  </data>
+  <data name="Agent.Approval.approver_required" xml:space="preserve">
+    <value>A decision needs a user.</value>
+  </data>
+  <data name="Agent.Approval.approval_not_pending" xml:space="preserve">
+    <value>This request has already been decided or is no longer open.</value>
+  </data>
+  <data name="Agent.Approval.approval_expired" xml:space="preserve">
+    <value>This request has expired.</value>
+  </data>
+  <data name="Agent.Approval.approval_payload_mismatch" xml:space="preserve">
+    <value>The action on record is not the one you were shown. Reload the request and review it again.</value>
+  </data>
+  <data name="Agent.Approval.approver_lacks_permission" xml:space="preserve">
+    <value>You cannot approve this action because you do not hold the permission it needs ({0}).</value>
+  </data>
+  <data name="Agent.Approval.approver_must_differ" xml:space="preserve">
+    <value>An action of your own run must be approved by someone else.</value>
+  </data>
+  <data name="Agent.Approval.decide_permission_required" xml:space="preserve">
+    <value>You are not allowed to decide approval requests.</value>
+  </data>
+  <data name="Agent.Tool.rejected" xml:space="preserve">
+    <value>A person rejected this action. It was not performed.</value>
+  </data>
+  <data name="Agent.Tool.approval_unavailable" xml:space="preserve">
+    <value>The approval of this action is no longer valid. It was not performed.</value>
+  </data>
+  <data name="Agent.Failure.approval_expired" xml:space="preserve">
+    <value>Nobody decided on the action '{0}' in time, so the run was stopped.</value>
+  </data>
+  <data name="Validation.Autonomy.Invalid" xml:space="preserve">
+    <value>The autonomy level is not valid.</value>
+  </data>
+  <data name="Validation.Limit.Positive" xml:space="preserve">
+    <value>The limit must be a positive number.</value>
+  </data>
+  <data name="Validation.Trigger.Automatic" xml:space="preserve">
+    <value>Only an event or a schedule can request a run this way.</value>
+  </data>
+  <data name="Validation.TriggerKey.Required" xml:space="preserve">
+    <value>The trigger key is required.</value>
+  </data>
+  <data name="Validation.TriggerKey.MaxLength" xml:space="preserve">
+    <value>The trigger key is too long.</value>
+  </data>
+  <data name="Validation.Period.Invalid" xml:space="preserve">
+    <value>The period must start before it ends and cover at most {0} days.</value>
+  </data>
+  <data name="Agent.Error.agent_disabled" xml:space="preserve">
+    <value>The agent '{0}' is switched off for this organization.</value>
+  </data>
+  <data name="Agent.Error.automatic_triggers_disabled" xml:space="preserve">
+    <value>The agent '{0}' may not be started automatically in this organization.</value>
+  </data>
+  <data name="Agent.Error.on_behalf_of_not_authorized" xml:space="preserve">
+    <value>The user this run would act for may not start the agent '{0}'.</value>
+  </data>
+  <data name="Agent.Error.too_many_concurrent_runs" xml:space="preserve">
+    <value>Too many agent runs are in progress (limit: {0}). Try again when one has finished.</value>
+  </data>
+  <data name="Agent.Error.automatic_run_limit" xml:space="preserve">
+    <value>This agent was started automatically too often in the last hour (limit: {0}).</value>
+  </data>
+  <data name="Agent.Failure.quota_exceeded" xml:space="preserve">
+    <value>The plan's AI usage quota is used up, so the run was stopped.</value>
+  </data>
+  <data name="Validation.Limit.NotNegative" xml:space="preserve">
+    <value>The limit must not be negative.</value>
+  </data>
+  <data name="Agent.Approval.run_not_waiting" xml:space="preserve">
+    <value>The run is no longer waiting for this decision.</value>
+  </data>
+  <data name="Validation.Knowledge.SourceKey.Required" xml:space="preserve">
+    <value>The knowledge source is required.</value>
+  </data>
+  <data name="Validation.Knowledge.SourceKey.MaxLength" xml:space="preserve">
+    <value>The knowledge source key is too long.</value>
+  </data>
+  <data name="Validation.Knowledge.ExternalRef.Required" xml:space="preserve">
+    <value>The document reference is required.</value>
+  </data>
+  <data name="Validation.Knowledge.ExternalRef.MaxLength" xml:space="preserve">
+    <value>The document reference is too long.</value>
+  </data>
+  <data name="Validation.Knowledge.Title.Required" xml:space="preserve">
+    <value>The document title is required.</value>
+  </data>
+  <data name="Validation.Knowledge.Title.MaxLength" xml:space="preserve">
+    <value>The document title is too long.</value>
+  </data>
+  <data name="Validation.Knowledge.Content.OneOf" xml:space="preserve">
+    <value>Give either the text or an attachment, not both.</value>
+  </data>
+  <data name="Validation.Knowledge.Text.MaxLength" xml:space="preserve">
+    <value>The text must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Knowledge.Query.Required" xml:space="preserve">
+    <value>The search query is required.</value>
+  </data>
+  <data name="Validation.Knowledge.Query.MaxLength" xml:space="preserve">
+    <value>The search query must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Knowledge.Top.Range" xml:space="preserve">
+    <value>The number of results must be between 1 and 20.</value>
+  </data>
+  <data name="Validation.Knowledge.Sources.Max" xml:space="preserve">
+    <value>At most 10 sources can be searched at once.</value>
+  </data>
+  <data name="Validation.Memory.Content.Required" xml:space="preserve">
+    <value>The memory text is required.</value>
+  </data>
+  <data name="Validation.Memory.Content.MaxLength" xml:space="preserve">
+    <value>The memory text must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Memory.Scope.Invalid" xml:space="preserve">
+    <value>The memory scope is not valid.</value>
+  </data>
+  <data name="Agent.Knowledge.source_not_found" xml:space="preserve">
+    <value>The knowledge source '{0}' is not registered.</value>
+  </data>
+  <data name="Agent.Knowledge.unavailable" xml:space="preserve">
+    <value>Knowledge search is not available.</value>
+  </data>
+  <data name="Agent.Knowledge.run_only" xml:space="preserve">
+    <value>Knowledge search is available only to agent runs.</value>
+  </data>
+  <data name="Agent.Memory.not_found" xml:space="preserve">
+    <value>The memory '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Memory.limit_reached" xml:space="preserve">
+    <value>The limit of {0} memories has been reached. Delete some first.</value>
+  </data>
+  <data name="Agent.Error.memory_tenant_scope_forbidden" xml:space="preserve">
+    <value>Only agent managers can write memories for the whole organization.</value>
+  </data>
+  <data name="Agent.Error.memory_person_only" xml:space="preserve">
+    <value>Memories are written by people; an agent can only propose one for approval.</value>
+  </data>
+</root>

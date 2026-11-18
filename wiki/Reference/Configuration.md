@@ -220,6 +220,8 @@ Canonical guide: [details](../Modules/DataTransfer.md).
 | `Hangfire:Servers:Notification:WorkerCount` | `4` | Concurrency of the notifications-queue server. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:Servers:DataTransfer:Enabled` | `true` | Run the data-transfer-queue worker server in this replica. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:Servers:DataTransfer:WorkerCount` | `2` | Concurrency of the data-transfer-queue server. | [Guide](../Modules/DataTransfer.md) |
+| `Hangfire:Servers:Agentic:Enabled` | `true` | Run the agentic-queue worker server (agent runs) in this replica. | [Guide](../Modules/Agentic.md) |
+| `Hangfire:Servers:Agentic:WorkerCount` | `4` | Concurrency of the agentic-queue server: agent runs executing at the same time in this replica. | [Guide](../Modules/Agentic.md) |
 | `Hangfire:DashboardAuth:Enabled` | `true` | Enable this configured subsystem/provider. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:DashboardAuth:AllowLocalRequestsWithoutAuthentication` | `false` | Permit unauthenticated local dashboard requests when explicitly enabled. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:DashboardAuth:Username` | `"admin"` | Authentication username. | [Guide](../Modules/DataTransfer.md) |
@@ -411,6 +413,70 @@ Options: [DataTransferOptions](../../src/Modules/DataTransfer/DataTransfer/Optio
 | `DataTransfer:Limits:MaxCellLength` | `10000` | Maximum characters in an input cell. | [Guide](../Modules/DataTransfer.md) |
 | `DataTransfer:Limits:MaxUncompressedBytes` | `524288000` | XLSX: total uncompressed size of the zip entries. | [Guide](../Modules/DataTransfer.md) |
 | `DataTransfer:Limits:MaxZipEntries` | `1000` | XLSX: number of zip entries. | [Guide](../Modules/DataTransfer.md) |
+
+### Agentic
+
+Options: [AgenticOptions](../../src/Modules/Agentic/Agentic/Options/AgenticOptions.cs). Canonical guide: [details](../Modules/Agentic.md).
+
+**Base defaults**
+
+| Key | Default / override | Meaning | Canonical page |
+|---|---|---|---|
+| `Agentic:Enabled` | `false` | Master switch. While off, the agent routes answer 404 and queued runs fail with `agents_disabled`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:DefaultModel` | `"default"` | Model key (one of `Agentic:Models`) of agents that name none. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Models:<key>:Provider` | `"scripted"` | Provider name (one of `Agentic:Providers`) that serves this model. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Models:<key>:ModelId` | `"scripted"` | The provider's model id (deployment name for Azure OpenAI). | [Guide](../Modules/Agentic.md) |
+| `Agentic:Models:<key>:MaxOutputTokens` | `4096` | Output token limit sent with each model request. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Models:<key>:InputPricePerMillionTokens` | `0` | Price per million input tokens for the cost estimate of a run; 0 = not estimated. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Models:<key>:OutputPricePerMillionTokens` | `0` | Price per million output tokens for the cost estimate of a run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Providers:<name>:Kind` | `"Scripted"` | `Scripted` (tests and demos; refused in Production), `OpenAiCompatible` or `Anthropic`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Providers:<name>:Endpoint` | unset | Base URL. Optional for OpenAI and Anthropic; required for a self-hosted OpenAI-compatible server. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Providers:<name>:ApiKey` | unset | Provider API key. Prefer the Docker secret `agentic_<name>_api_key` (provider name in lower case). | [Guide](../Modules/Agentic.md) |
+| `Agentic:Providers:<name>:TimeoutSeconds` | `120` | Time allowed for one model request. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Providers:<name>:MaxRetries` | `2` | Retries of a failed model request inside the provider client. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxModelTurns` | `12` | Model requests per run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxToolCalls` | `30` | Executed tool calls per run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxToolCallsPerTurn` | `8` | Tool calls taken from one model turn; further calls in that turn are ignored. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxTokens` | `200000` | Input plus output tokens per run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxDurationSeconds` | `600` | Active processing time per run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxPromptLength` | `8000` | Characters of the prompt of a new run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxInputBytes` | `32768` | Size of the structured input of a new run. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxToolArgumentsBytes` | `32768` | Size of the arguments of one tool call (the typed result included); larger calls are refused when the model's answer is saved, and their arguments are not stored. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxModelTextBytes` | `65536` | Size of the text of one model answer; a larger answer is not stored and the run fails with `output_too_large`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxToolResultBytes` | `65536` | Size of one tool result; a larger one is withheld from the model. | [Guide](../Modules/Agentic.md) |
+| `Agentic:LeaseSeconds` | `300` | Lease of a running run, renewed at every checkpoint and extended to cover a longer model request or tool timeout. | [Guide](../Modules/Agentic.md) |
+| `Agentic:MaxAttempts` | `3` | Consecutive failed attempts (no checkpoint in between) before a run is marked `Failed`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:StalledAfterMinutes` | `10` | A run without a live lease that was not queued for this long is queued again by the sweep. | [Guide](../Modules/Agentic.md) |
+| `Agentic:SweepCron` | `"*/5 * * * *"` | Schedule of `RequeueStalledAgentRunsJob`, which also refreshes the backlog gauges; keep it under 20 minutes or the gauges (and their alerts) go silent. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Limits:MaxConcurrentRunsPerTenant` | `20` | Runs of one tenant that may be queued, running or waiting at once (a plan may lower it); 0 = no limit. | [Guide](../Modules/Agentic.md) |
+| `Agentic:ProgressIntervalMilliseconds` | `1000` | Live progress (`agentic.run-progress`): at most one event per run per interval, plus every change of status. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Triggers:MaxAutomaticRunsPerHour` | `60` | Runs one agent may be started by events and schedules per tenant and hour; 0 = no limit. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Approvals:ExpireAfterHours` | `72` | A request nobody decided within this time expires and its run fails with `approval_expired`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Approvals:RequireDifferentApprover` | `false` | Four-eyes rule: the user a run acts for may not approve its actions. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Approvals:ExpiryCron` | `"*/10 * * * *"` | Schedule of `ExpireAgentApprovalsJob`. | [Guide](../Modules/Agentic.md) |
+| `Agentic:Telemetry:CaptureContent` | `false` | Adds prompts, tool arguments and results to model spans. Leave off unless the trace store may hold business data. | [Guide](../Modules/Agentic.md) |
+
+| `Agentic:Knowledge:Enabled` | `false` | Knowledge indexing and the `knowledge.search` tool; index commands do nothing while off. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:EmbeddingProvider` | `"scripted"` | Provider (one of `Agentic:Providers`) of the embedding model: `OpenAiCompatible`, or `Scripted` (word hashing, tests only). Anthropic has no embeddings API. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:EmbeddingModelId` | `"hashing"` | The provider's embedding model id. Changing it needs a re-index of the documents. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:Dimensions` | unset | Vector length to request; unset = the model's default. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:EmbeddingBatchSize` | `64` | Passages per embedding request. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxDocumentBytes` | `10485760` | Largest file read for indexing. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxPdfPages` | `500` | Largest PDF indexed. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxTextLength` | `1000000` | Largest extracted or given text, in characters. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:ChunkSize` | `1200` | Passage length in characters. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:ChunkOverlap` | `150` | Overlap of consecutive passages (at most half of `ChunkSize`). | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxAttempts` | `4` | Indexing attempts of a revision when the provider fails, before the document is `Failed`. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:SearchCandidates` | `40` | Candidates from each of the keyword and vector searches before they are merged. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:MaxResults` | `8` | Most passages one search returns. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:StalledAfterMinutes` | `15` | A pending document not queued for this long is queued again. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Memory:RetentionDays` | `365` | A memory expires this many days after it was written; 0 = never. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Memory:MaxPerUser` | `100` | Personal memories per user. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Memory:MaxPerTenant` | `500` | Tenant memories per tenant. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Memory:MaxRecalled` | `50` | Most memories `memory.recall` returns. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Content:RetentionDays` | `90` | Content of finished runs is erased this many days after they finished; 0 = keep. | [Guide](../Modules/Agentic.md#erasure-and-retention) |
+
+The section is validated at startup only when `Agentic:Enabled` is true.
 
 ### Webhooks
 

@@ -1154,6 +1154,59 @@ Source: [WebhookEndpointsModule](../../src/Modules/Webhooks/Webhooks/Domains/End
 | POST | `/api/v{version:apiVersion}/webhooks/endpoints/{id:guid}/rotate-secret` | `RequireTenantPermission(TenantPermissions.WebhooksManage)` | `DisallowImpersonation()` | — |
 | POST | `/api/v{version:apiVersion}/webhooks/endpoints/{id:guid}/ping` | `RequireTenantPermission(TenantPermissions.WebhooksManage)` | — | — |
 
+### Agentic
+
+Sources: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs), [AgentApprovalsModule](../../src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalsModule.cs), [AgentPoliciesModule](../../src/Modules/Agentic/Agentic/Domains/Policies/Features/AgentPoliciesModule.cs), [KnowledgeModule](../../src/Modules/Agentic/Agentic/Domains/Knowledge/Features/KnowledgeModule.cs), [AgentMemoriesModule](../../src/Modules/Agentic/Agentic/Domains/Memory/Features/AgentMemoriesModule.cs). Every route answers 404 while `Agentic:Enabled` is false.
+
+| Method | Route | Authorization / tenant scope | Restrictions | Filters |
+|---|---|---|---|---|
+| GET | `/api/v{version:apiVersion}/agents` | `RequireTenantMember()` | — | `RequireFeature(EntitlementKeys.Agents)` |
+| GET | `/api/v{version:apiVersion}/agents/{key}` | `RequireTenantMember()` | — | `RequireFeature(EntitlementKeys.Agents)` |
+| POST | `/api/v{version:apiVersion}/agent-runs` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | `RequireFeature(EntitlementKeys.Agents)`; `RequireRateLimiting("create")`; `WithIdempotency()` |
+| GET | `/api/v{version:apiVersion}/agent-runs` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-runs/{id:guid}` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-runs/{id:guid}/steps` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/agent-runs/{id:guid}/cancel` | `RequireTenantMember()` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/agent-approvals` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-approvals/{id:guid}` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/agent-approvals/{id:guid}/approve` | `RequireTenantPermission(TenantPermissions.AgentApprovalsDecide)` | `DisallowImpersonation()`; `DisallowApiKey()` | — |
+| POST | `/api/v{version:apiVersion}/agent-approvals/{id:guid}/reject` | `RequireTenantPermission(TenantPermissions.AgentApprovalsDecide)` | `DisallowImpersonation()`; `DisallowApiKey()` | — |
+| GET | `/api/v{version:apiVersion}/agent-policies/{agentKey}` | `RequireTenantPermission(TenantPermissions.AgentsManage)` | — | — |
+| PUT | `/api/v{version:apiVersion}/agent-policies/{agentKey}` | `RequireTenantPermission(TenantPermissions.AgentsManage)` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/agent-usage` | `RequireTenantPermission(TenantPermissions.AgentRunsRead)` | — | — |
+| GET | `/api/v{version:apiVersion}/knowledge-documents` | `RequireTenantPermission(TenantPermissions.AgentsManage)` | — | — |
+| GET | `/api/v{version:apiVersion}/agent-memories` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | — | — |
+| POST | `/api/v{version:apiVersion}/agent-memories` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | — |
+| DELETE | `/api/v{version:apiVersion}/agent-memories/{id:guid}` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | — |
+
+The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`; approval requests are listed for deciders and for the user the run acts for; an approver must also hold the proposed tool's own permission; a tenant memory needs `agentic.manage` (403 `memory_tenant_scope_forbidden`) and someone else's personal memory is 404. Anything else is 404.
+
+<!--#if (sample)-->
+
+### Shipping (sample)
+
+Source: [ShipmentsModule](../../src/Modules/Shipping/Shipping/Domains/Shipments/Features/ShipmentsModule.cs). Present only when the template's `sample` switch is on.
+
+| Method | Route | Authorization / tenant scope | Restrictions | Filters |
+|---|---|---|---|---|
+| POST | `/api/v{version:apiVersion}/shipping/shipments` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | — | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/ready-for-clearance` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/duties` | `RequireTenantMember()` | — | — |
+| GET | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/declaration` | `RequireTenantMember()` | — | — |
+| POST | `/api/v{version:apiVersion}/shipping/shipments/{id:guid}/declaration` | `RequireTenantPermission(TenantPermissions.ShipmentsManage)` | — | — |
+| POST | `/api/v{version:apiVersion}/shipping/declarations/{id:guid}/submit` | `RequireTenantPermission(TenantPermissions.DeclarationsSubmit)` | `DisallowImpersonation()` | — |
+
+Its tenant permissions:
+
+| Constant | Value | Default tenant grants |
+|---|---|---|
+| `TenantPermissions.ShipmentsManage` | `shipping.shipments.manage` | Owner; Administrator |
+| `TenantPermissions.DeclarationsSubmit` | `shipping.declarations.submit` | Owner; Administrator |
+
+<!--#endif-->
+
 ### DataTransfer
 
 Source: [TransferJobsModule](../../src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Features/TransferJobsModule.cs).
@@ -1426,6 +1479,10 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 | `TenantPermissions.SsoManage` | `tenant.sso.manage` | Owner; Administrator |
 | `TenantPermissions.DataImport` | `datatransfer.import` | Owner; Administrator |
 | `TenantPermissions.DataExport` | `datatransfer.export` | Owner; Administrator |
+| `TenantPermissions.AgentRunsStart` | `agentic.runs.start` | Owner; Administrator |
+| `TenantPermissions.AgentRunsRead` | `agentic.runs.read` | Owner; Administrator |
+| `TenantPermissions.AgentApprovalsDecide` | `agentic.approvals.decide` | Owner; Administrator |
+| `TenantPermissions.AgentsManage` | `agentic.manage` | Owner; Administrator |
 
 ## Configuration
 

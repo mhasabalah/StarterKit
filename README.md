@@ -46,6 +46,7 @@ flowchart LR
             subscriptions[Subscriptions]
             webhooks[Webhooks]
             datatransfer[DataTransfer]
+            agentic[Agentic]
             catalog[Catalog · sample]
             subgraph notification[Notification]
                 direction TB
@@ -94,9 +95,11 @@ area: [feature catalog](wiki/Reference/Features.md).
 | **Subscriptions** | Plans and features, subscription lifecycle, proof-based payments, invoices, refunds, price changes, append-only ledger, Stripe + Paymob adapters, trials, coupons, dunning, usage metering and quotas | [wiki/Modules/Subscriptions](wiki/Modules/Subscriptions.md) |
 | **Webhooks** | Customer webhook endpoints per tenant, Standard Webhooks signatures, retries with backoff, delivery log, SSRF guard, auto-disable | [wiki/Modules/Webhooks](wiki/Modules/Webhooks.md) |
 | **DataTransfer** | Bulk CSV/Excel import and export as background jobs: definitions plugged in by the owning module, dry run, BestEffort / ValidateFirst, progress, error report, cancel, crash-safe resume (lease + checkpoint), own Hangfire queue that can run on worker replicas | [wiki/Modules/DataTransfer](wiki/Modules/DataTransfer.md) |
+| **Agentic** | AI agents as durable background runs: agents and typed tools plugged in by the owning module, every tool call authorized against the initiating user's current permissions, autonomy levels and tool risk, strict argument validation, crash-safe resume (lease + step log), per-run budgets, replaceable model providers (OpenAI-compatible, Anthropic, deterministic scripted provider), human approval bound to the exact payload, event/schedule triggers acting for a real user, tighten-only tenant policies and plan quotas, knowledge search over documents modules index (hybrid keyword + pgvector, permission-filtered, with citations) and approval-gated memory. Off unless `Agentic:Enabled=true` | [wiki/Modules/Agentic](wiki/Modules/Agentic.md) |
 | **Notification** | Every email (Liquid templates on a token-based design system: components, dark mode, branding, plain-text part, en/ar) and WhatsApp delivery with fallback, email or WhatsApp one-time codes, the in-app inbox with real-time SignalR events (Redis backplane), push to session-bound devices through FCM (Android, iOS, Web), user channel preferences, delivery log | [wiki/Modules/Notification](wiki/Modules/Notification.md), [Realtime and push](wiki/Modules/Notification-Realtime-and-Push.md), [Email design system](wiki/Modules/Notification-Email-Design-System.md) |
 <!--#if (sample)-->
 | **Catalog** (sample) | Products (moderation workflow, gallery, attributes, soft delete), categories, tags, wishlist: the **reference vertical slice** | [wiki/Modules/Catalog](wiki/Modules/Catalog.md) |
+| **Shipping** (sample) | The AI agent proof of concept: shipments, customs declarations, deterministic duties, a mock customs gateway, and the shipment preparation agent (event trigger, typed tools, approval before submission) | [wiki/Modules/Shipping](wiki/Modules/Shipping.md) |
 <!--#endif-->
 
 **Tech stack:** .NET 10, ASP.NET Core minimal APIs (Carter), an owned mediator (`Shared.Contracts.Mediation`), FluentValidation, Mapster, EF Core 10 + Npgsql
@@ -170,7 +173,7 @@ dotnet test StarterKit.slnx            # needs Docker (Testcontainers)
 | Level | Where | Run |
 |---|---|---|
 | Unit | `src/Modules/<M>/<M>.Tests` | `dotnet test src/Modules/Catalog/Catalog.Tests` |
-| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Catalog, DataTransfer, Identity, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
+| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Agentic, Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
 | Architecture guardrails | `src/Api.Tests/Architecture` | `dotnet test src/Api.Tests` |
 | HTTP end-to-end (+ multi-tenant) | `src/Api.E2ETests` | `dotnet test src/Api.E2ETests` |
 | Shared kernel / Aspire | `src/Shared/Shared.Core.Tests`, `src/Aspire/AppHost.Tests` | `dotnet test <project>` |
@@ -218,6 +221,7 @@ wiki/                         # developer documentation
 | `/starterkit:add-aggregate` · `/starterkit:add-feature` | entities, then command/query slices with endpoints |
 | `/starterkit:add-migration` | EF migrations with tenant RLS |
 | `/starterkit:add-integration-event` · `/starterkit:add-background-job` | outbox events and consumers; tenant-aware Hangfire jobs |
+| `/starterkit:add-agent-tool` | an AI agent or typed agent tool in a module (risk, permission, idempotency, triggers) |
 | `/starterkit:add-permission` · `/starterkit:add-email-template` | authorization; notifications |
 | `/starterkit:write-tests` · `/starterkit:review` | tests at every level; interactive senior review |
 | `/starterkit:new-project` · `/starterkit:update-docs` | bootstrapping from the template; docs hygiene |

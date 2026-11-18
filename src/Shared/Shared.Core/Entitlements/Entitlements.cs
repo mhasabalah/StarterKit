@@ -42,6 +42,21 @@ public static class EntitlementKeys
     /// Counted per batch by the DataTransfer jobs; a job stops with <c>quota_exceeded</c> when it runs out.
     /// </summary>
     public const string DataTransferRows = "data_transfer_rows";
+
+    /// <summary>Plan feature: AI agents (Agentic module).</summary>
+    public const string Agents = "agents";
+
+    /// <summary>Metered plan feature (<c>"limit/Period"</c>): agent runs started. One unit per run.</summary>
+    public const string AgentRuns = "agent_runs";
+
+    /// <summary>
+    /// Metered plan feature (<c>"limit/Period"</c>): model tokens (input + output) of agent runs, counted per saved
+    /// model turn. A run stops with <c>quota_exceeded</c> when the plan runs out.
+    /// </summary>
+    public const string AgentTokens = "agent_tokens";
+
+    /// <summary>Plan limit: agent runs of one tenant that may be queued, running or waiting at the same time.</summary>
+    public const string MaxConcurrentAgentRuns = "max_concurrent_agent_runs";
 }
 
 /// <summary>Default when no billing module is installed: everything is allowed, nothing is limited.</summary>

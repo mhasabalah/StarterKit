@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.Id.Required" xml:space="preserve">
+    <value>المعرّف مطلوب.</value>
+  </data>
+  <data name="Validation.Version.Min" xml:space="preserve">
+    <value>يجب ألا يكون الإصدار سالبًا.</value>
+  </data>
+  <data name="Validation.Reference.Required" xml:space="preserve">
+    <value>المرجع مطلوب.</value>
+  </data>
+  <data name="Validation.Reference.MaxLength" xml:space="preserve">
+    <value>المرجع طويل جدًا.</value>
+  </data>
+  <data name="Validation.Country.Format" xml:space="preserve">
+    <value>استخدم رمز دولة ISO من حرفين.</value>
+  </data>
+  <data name="Validation.HsCode.Format" xml:space="preserve">
+    <value>يجب أن يكون رمز النظام المنسق مثل 8471 أو 8471.30.</value>
+  </data>
+  <data name="Validation.Currency.Format" xml:space="preserve">
+    <value>استخدم رمز عملة ISO من ثلاثة أحرف.</value>
+  </data>
+  <data name="Validation.Amount.Positive" xml:space="preserve">
+    <value>يجب أن تكون القيمة أكبر من صفر.</value>
+  </data>
+  <data name="Validation.Documents.Max" xml:space="preserve">
+    <value>للشحنة 20 مستندًا على الأكثر.</value>
+  </data>
+  <data name="Validation.Document.Kind" xml:space="preserve">
+    <value>نوع المستند غير صالح.</value>
+  </data>
+  <data name="Validation.Document.Reference" xml:space="preserve">
+    <value>يحتاج كل مستند إلى مرجع لا يتجاوز 100 حرف.</value>
+  </data>
+  <data name="Validation.Document.Content" xml:space="preserve">
+    <value>نص المستند طويل جدًا.</value>
+  </data>
+  <data name="Validation.Notes.MaxLength" xml:space="preserve">
+    <value>الملاحظات طويلة جدًا.</value>
+  </data>
+  <data name="Validation.Result.Findings" xml:space="preserve">
+    <value>20 ملاحظة على الأكثر.</value>
+  </data>
+  <data name="Validation.Result.SubmissionReference" xml:space="preserve">
+    <value>للبيان المقدَّم مرجع جمركي.</value>
+  </data>
+  <data name="Shipment.NotFound" xml:space="preserve">
+    <value>الشحنة '{0}' غير موجودة.</value>
+  </data>
+  <data name="Shipment.AlreadyExists" xml:space="preserve">
+    <value>توجد شحنة بالمرجع '{0}' بالفعل.</value>
+  </data>
+  <data name="Shipment.Invalid" xml:space="preserve">
+    <value>حقل الشحنة '{0}' غير صالح.</value>
+  </data>
+  <data name="Shipment.AuthenticationRequired" xml:space="preserve">
+    <value>المصادقة مطلوبة.</value>
+  </data>
+  <data name="Shipment.State.shipment_not_draft" xml:space="preserve">
+    <value>تم تسليم الشحنة لتجهيز التخليص بالفعل.</value>
+  </data>
+  <data name="Shipment.State.shipment_not_ready" xml:space="preserve">
+    <value>الشحنة غير جاهزة للتخليص.</value>
+  </data>
+  <data name="Shipment.State.documents_missing" xml:space="preserve">
+    <value>مستند مطلوب مفقود.</value>
+  </data>
+  <data name="Shipment.State.declaration_already_submitted" xml:space="preserve">
+    <value>تم تقديم البيان بالفعل.</value>
+  </data>
+  <data name="Declaration.NotFound" xml:space="preserve">
+    <value>البيان '{0}' غير موجود.</value>
+  </data>
+</root>

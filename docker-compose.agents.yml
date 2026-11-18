@@ -1,0 +1,34 @@
+# ==============================================
+# StarterKit AI Agents Overlay (Agentic module, real model provider)
+# ==============================================
+# Turns agents on with an OpenAI-compatible provider (OpenAI, Azure OpenAI v1 endpoint, or a self-hosted server that
+# speaks the OpenAI chat API). Without this overlay Agentic:Enabled is false; the scripted provider is for tests and
+# demos only and is refused in Production.
+# Requires:
+#   secrets/agentic_openai_api_key.txt - the provider API key (one line). Use a key limited to this deployment.
+#   AGENTIC_MODEL_ID in .env            - the provider's model id.
+#   AGENTIC_ENDPOINT in .env (optional) - the base URL for Azure OpenAI or a self-hosted server (empty = api.openai.com).
+#   prod: docker compose -f docker-compose.yml -f docker-compose.agents.yml up -d
+#
+# The secret file name follows agentic_<provider>_api_key (provider = the key under Agentic:Providers, here "openai"),
+# and fills Agentic:Providers:openai:ApiKey. For Anthropic, add a provider with Kind Anthropic and a secret
+# agentic_anthropic_api_key the same way. Rotate by replacing the file and recreating the API container.
+# If agent runs moved to the worker replica (docker-compose.worker.yml), give `worker` the same secret and variables.
+# Guide: wiki/Modules/Agentic.md; operations: wiki/deployment/Agentic-Operations.md.
+# ==============================================
+
+secrets:
+  agentic_openai_api_key:
+    file: ./secrets/agentic_openai_api_key.txt
+
+services:
+
+  api:
+    secrets:
+      - agentic_openai_api_key
+    environment:
+      Agentic__Enabled: "true"
+      Agentic__Providers__openai__Kind: OpenAiCompatible
+      Agentic__Providers__openai__Endpoint: ${AGENTIC_ENDPOINT:-}
+      Agentic__Models__default__Provider: openai
+      Agentic__Models__default__ModelId: ${AGENTIC_MODEL_ID:?set AGENTIC_MODEL_ID in .env (the provider's model id)}

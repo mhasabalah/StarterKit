@@ -45,14 +45,17 @@ flowchart TB
 | Event / flow | Kind | Current reaction |
 |---|---|---|
 | `SubscriptionActivatedIntegrationEvent`, `SubscriptionExpiredIntegrationEvent` | Integration | Tenancy `TenantBillingStatusConsumer` re-reads current billing status to suspend/reactivate; Webhooks `SubscriptionActivatedWebhookConsumer` / `SubscriptionExpiredWebhookConsumer` forward public events. |
+| `AgentRunCompletedIntegrationEvent`, `AgentRunFailedIntegrationEvent` (Agentic) | Integration | For the module that owns the agent: it consumes them and re-reads the run with `GetAgentRunByIdQuery`. No consumer ships in the template. |
 | `UserAvatarChangedIntegrationEvent` (Attachment) | Integration | Identity `UserAvatarChangedConsumer` re-reads the current avatar and updates `ProfilePictureUrl`. |
+| `AttachmentDeletedIntegrationEvent` (Attachment) | Integration | Agentic `AttachmentDeletedKnowledgeConsumer` removes the knowledge documents indexed from the file. |
 | `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | Identity persists a `SessionRevocation` tombstone and outbox fact for session revocation; Notification `UserSessionsRevokedConsumer` closes revoked hub sessions across replicas. Sign-out does not wait for Notification. |
-| `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer` clean up module-owned data. |
+| `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer`, `UserDeletedAgenticConsumer` clean up module-owned data. |
 | Optional sample: `ProductPublishedIntegrationEvent` | Integration | `ProductPublishedConsumer` re-reads visibility and sends the owner an in-app notification using the event id for correlation; `ProductPublishedWebhookConsumer` forwards it. This flow exists only when the sample is included. |
 | `UserDirectory.Contracts.Events.ImpersonationStartedEvent` | Explicit synchronous notification | Tenancy `ImpersonationAuditHandler` must write the audit before an impersonation token is issued. |
 | `TenantDataPurgeRequestedEvent` | In-process orchestration | Attachment `TenantDataPurgeRequestedEventHandler` and Notification `NotificationTenantPurgeHandler` participate in `PurgeDeletedTenantsJob`; failure stops that attempt and the job retries. |
 | Tenancy cache invalidation, Subscriptions emails; optional sample logging | Same-module domain events | In-process side effects, with the commit/dispatch limitations above. |
 
+| Optional sample: `ShipmentReadyForClearanceIntegrationEvent` (Shipping) | Integration | Shipping `ShipmentReadyForClearanceConsumer` starts the shipment preparation agent through `RequestAgentRunCommand` (trigger key per shipment, on behalf of the user who handed it over). |
 ### Outbox
 
 The outbox lives in the publishing module's database, not in a separate shared business-state store. `OutboxInterceptor` inserts the event row in the same `SaveChanges` transaction as the aggregate and stages `OutboxMessagesSaved` for post-commit dispatch.

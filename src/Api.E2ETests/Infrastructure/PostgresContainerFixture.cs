@@ -25,7 +25,7 @@ namespace Api.E2ETests.Infrastructure;
 public sealed class PostgresContainerFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _container =
-        new PostgreSqlBuilder("postgres:16-alpine").Build();
+        new PostgreSqlBuilder("pgvector/pgvector:0.8.7-pg16").Build(); // pgvector: the Agentic migrations need it
 
     public string ConnectionString => _container.GetConnectionString();
 

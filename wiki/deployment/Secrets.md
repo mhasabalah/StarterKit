@@ -42,6 +42,7 @@ overlays and `secrets/README.md`; a file is not mounted merely because it exists
   | `smtp_password` | `Email:SmtpPassword` |
   | `rabbitmq_password` | `Messaging:RabbitMq:Password` |
   | `dataprotection_cert_password` | `Identity:DataProtection:Certificate:Password` |
+  | `agentic_<provider>_api_key` | `Agentic:Providers:<provider>:ApiKey` when the configuration leaves it empty (provider name in lower case; `docker-compose.agents.yml` mounts `agentic_openai_api_key`) |
 
 - **Migration connection string.** Compose maps the secret `migration_connection_string`
   (`secrets/migration_connection_string.txt`, may be empty) into the migrator container as
