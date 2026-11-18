@@ -305,7 +305,10 @@ public class AgentApprovalTests
         var runId = await SuspendedRunAsync();
         var approval = await _fx.ApprovalOfAsync(TenantA, runId);
 
-        (await _fx.ExpireApprovalsAsync(TenantA)).Should().Be(0, "it is not due yet");
+        // Assert on this request only: the fixture's clock and tenant are shared, so requests left by other tests may
+        // already be due and are expired by the same sweep.
+        await _fx.ExpireApprovalsAsync(TenantA);
+        (await _fx.ApprovalOfAsync(TenantA, runId)).Status.Should().Be(AgentApprovalStatus.Pending, "it is not due yet");
         _fx.Clock.Advance(TimeSpan.FromHours(73));
 
         var late = () => _fx.SendAsync(TenantA, new ApproveAgentActionCommand(approval.Id, approval.PayloadDigest));

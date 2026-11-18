@@ -46,7 +46,7 @@ See [Compose](Docker-Compose.md) and [Nginx](Nginx.md).
 
 ### Release flow
 
-`hybrid-ci-cd.yml` builds/tests on hosted runners, builds a GHCR image for master or manual releases, then runs
+`hybrid-ci-cd.yml` builds/tests on hosted runners; only a manual run (Run workflow) builds a GHCR image, then runs
 `deploy` on `[self-hosted, deploy-only]` in the `production` environment. Required reviewers must be configured
 in GitHub for approval to block deployment. The deploy takes a logical backup, pulls both API and migrator,
 runs migrations before replacing an existing API, starts supporting services and verifies readiness and liveness.
