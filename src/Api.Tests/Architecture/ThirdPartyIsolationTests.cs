@@ -13,6 +13,9 @@ namespace Api.Tests.Architecture;
 /// <item>Contracts may carry the <c>[MessageUrn]</c> attribute (MassTransit.Abstractions) but never the bus itself.</item>
 /// <item>FCM (FirebaseAdmin / Google.Apis) stays behind <c>IPushProvider</c> in Notification, and so does the SignalR
 /// Redis backplane.</item>
+/// <item>Model providers (Microsoft.Extensions.AI and the OpenAI / Anthropic SDKs) stay behind
+/// <c>IAgentModelGateway</c> in Agentic: business modules add agents and tools through <c>Agentic.Contracts</c>, which
+/// references no AI package at all. PdfPig (PDF text for knowledge indexing) stays in Agentic too.</item>
 /// </list>
 /// </summary>
 public sealed class ThirdPartyIsolationTests
@@ -84,6 +87,21 @@ public sealed class ThirdPartyIsolationTests
         Production.Where(a => References(a).Any(r => r.StartsWith("FirebaseAdmin", StringComparison.Ordinal)
                                                     || r.StartsWith("Google.Apis", StringComparison.Ordinal)))
             .Should().Equal(["Notification"], "push delivery stays behind IPushProvider; swapping FCM must touch one module");
+
+    [Fact]
+    public void Model_provider_SDKs_are_used_only_by_the_Agentic_module() =>
+        Production.Where(a => References(a).Any(r => ModelProviderPrefixes.Any(p => r == p || r.StartsWith(p + ".", StringComparison.Ordinal))))
+            .Should().Equal(["Agentic"],
+                "agents reach a model only through IAgentModelGateway; a business module (and Agentic.Contracts) never " +
+                "couples to an AI framework or a provider SDK (ADR-0025)");
+
+    [Fact]
+    public void PdfPig_is_used_only_by_the_Agentic_module() =>
+        Production.Where(a => References(a).Any(r => r.StartsWith("UglyToad.PdfPig", StringComparison.Ordinal)))
+            .Should().Equal(["Agentic"], "PDF text extraction for knowledge indexing stays in one module");
+
+    private static readonly string[] ModelProviderPrefixes =
+        ["Microsoft.Extensions.AI", "OpenAI", "Anthropic", "System.ClientModel", "Microsoft.SemanticKernel", "Microsoft.Agents"];
 
     [Fact]
     public void SignalR_server_types_stay_in_the_Notification_module() =>

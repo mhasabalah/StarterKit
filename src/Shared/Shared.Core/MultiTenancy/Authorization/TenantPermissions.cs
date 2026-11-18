@@ -38,6 +38,14 @@ public static class TenantPermissions
     /// <summary>Category CRUD and bulk import/export (Catalog module). Owner and Administrator hold it by default.</summary>
     public const string CategoriesManage = "catalog.categories.manage";
 
+#if (SAMPLE)
+    /// <summary>Create shipments, hand them to customs preparation and prepare declarations (Shipping sample).</summary>
+    public const string ShipmentsManage = "shipping.shipments.manage";
+
+    /// <summary>Submit a customs declaration: an external, irreversible action (Shipping sample).</summary>
+    public const string DeclarationsSubmit = "shipping.declarations.submit";
+#endif
+
     /// <summary>Outbound webhooks: endpoints, secrets, deliveries (Webhooks module).</summary>
     public const string WebhooksManage = "webhooks.manage";
 
@@ -53,10 +61,32 @@ public static class TenantPermissions
     /// <summary>Bulk CSV/Excel export (DataTransfer module), plus the definition's own permission.</summary>
     public const string DataExport = "datatransfer.export";
 
+    /// <summary>
+    /// Start AI agent runs (Agentic module). The agent never exceeds its initiator: every tool call is checked against
+    /// the initiator's CURRENT permissions, and each tool also requires its own permission.
+    /// </summary>
+    public const string AgentRunsStart = "agentic.runs.start";
+
+    /// <summary>Read every agent run of the tenant (without it, members see only the runs they started).</summary>
+    public const string AgentRunsRead = "agentic.runs.read";
+
+    /// <summary>
+    /// Approve or reject actions an agent proposed. The approver must ALSO hold the proposed tool's own permission:
+    /// nobody approves what they could not do themselves.
+    /// </summary>
+    public const string AgentApprovalsDecide = "agentic.approvals.decide";
+
+    /// <summary>Manage the tenant's agent runs: cancel a run someone else started.</summary>
+    public const string AgentsManage = "agentic.manage";
+
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
-        AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport
+        AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport,
+        AgentRunsStart, AgentRunsRead, AgentApprovalsDecide, AgentsManage,
+#if (SAMPLE)
+        ShipmentsManage, DeclarationsSubmit
+#endif
     ];
 
     /// <summary>Policies to register: every grantable permission + <see cref="Member"/>.</summary>

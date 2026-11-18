@@ -15,6 +15,7 @@ guardrails. Follow it. `AGENTS.md` lists the non-negotiable rules. Step-by-step 
 | `add-aggregate` | entities |
 | `add-migration` | migrations |
 | `add-integration-event` | integration events |
+| `add-agent-tool` | AI agents and agent tools |
 | `add-background-job` | jobs |
 | `add-permission` | authorization |
 | `add-email-template` | email |

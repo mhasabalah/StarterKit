@@ -101,6 +101,11 @@ export const sections = [
             "source": "Architecture/TechnologyStack.md",
             "label": "Technology Stack",
             "order": 13
+          },
+          {
+            "source": "Architecture/Agent-Security.md",
+            "label": "Agent Security Model",
+            "order": 14
           }
         ]
       },
@@ -178,6 +183,16 @@ export const sections = [
         "source": "Modules/DataTransfer.md",
         "label": "Data Transfer",
         "order": 8
+      },
+      {
+        "source": "Modules/Agentic.md",
+        "label": "Agentic",
+        "order": 9
+      },
+      {
+        "source": "Modules/Shipping.md",
+        "label": "Shipping (agent sample)",
+        "order": 10
       },
       {
         "label": "Identity",
@@ -381,6 +396,11 @@ export const sections = [
             "source": "deployment/Production-Testing.md",
             "label": "Production Testing",
             "order": 12
+          },
+          {
+            "source": "deployment/Agentic-Operations.md",
+            "label": "Agentic Operations",
+            "order": 13
           }
         ]
       },
@@ -595,9 +615,29 @@ export const sections = [
         "order": 24
       },
       {
+        "source": "Decisions/0025-agentic-module-and-model-seam.md",
+        "label": "0025 agentic module and model seam",
+        "order": 25
+      },
+      {
+        "source": "Decisions/0026-durable-agent-runs-on-hangfire.md",
+        "label": "0026 durable agent runs on hangfire",
+        "order": 26
+      },
+      {
+        "source": "Decisions/0027-agent-approvals-triggers-and-policies.md",
+        "label": "0027 agent approvals triggers and policies",
+        "order": 27
+      },
+      {
+        "source": "Decisions/0028-agent-knowledge-and-memory-on-pgvector.md",
+        "label": "0028 agent knowledge and memory on pgvector",
+        "order": 28
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 25
+        "order": 29
       }
     ]
   }

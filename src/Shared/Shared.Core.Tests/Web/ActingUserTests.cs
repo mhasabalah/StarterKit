@@ -58,6 +58,35 @@ public sealed class ActingUserTests
     }
 
     [Fact]
+    public void Without_a_request_the_origin_of_the_work_is_the_correlation_id_and_the_scope_restores()
+    {
+        var service = Service(null);
+        service.GetCorrelationId().Should().BeNull();
+
+        using (ActingUser.Begin(Guid.NewGuid(), "agent-run:1"))
+        {
+            service.GetCorrelationId().Should().Be("agent-run:1");
+            using (ActingUser.Begin(Guid.NewGuid()))
+                service.GetCorrelationId().Should().Be("agent-run:1", "a nested scope without an origin keeps the outer one");
+            using (ActingUser.Begin(Guid.NewGuid(), "agent-run:2"))
+                service.GetCorrelationId().Should().Be("agent-run:2");
+            service.GetCorrelationId().Should().Be("agent-run:1");
+        }
+
+        service.GetCorrelationId().Should().BeNull();
+        ActingUser.CorrelationId.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_real_request_keeps_its_own_correlation_id_inside_an_acting_user_scope()
+    {
+        var context = new DefaultHttpContext { TraceIdentifier = "request-trace" };
+
+        using (ActingUser.Begin(Guid.NewGuid(), "agent-run:1"))
+            Service(context).GetCorrelationId().Should().Be("request-trace");
+    }
+
+    [Fact]
     public void An_empty_user_is_rejected() =>
         ((Action)(() => ActingUser.Begin(Guid.Empty))).Should().Throw<ArgumentException>();
 }

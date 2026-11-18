@@ -37,10 +37,14 @@ REVOKE tenant_rls_bypass FROM starterkit_app;
 -- migration role is named starterkit_migrator).
 \connect :db
 
+-- pgvector (Agentic knowledge search, ADR-0028). Not a trusted extension, so a superuser creates it once per database;
+-- the Agentic migration then finds it (CREATE EXTENSION IF NOT EXISTS). Dedicated tenant databases need it too.
+CREATE EXTENSION IF NOT EXISTS vector;
+
 DO $$
 DECLARE s text;
 BEGIN
-  FOREACH s IN ARRAY ARRAY['identity','tenancy','attachment','catalog','subscriptions','notification','hangfire','transport','public'] LOOP
+  FOREACH s IN ARRAY ARRAY['identity','tenancy','attachment','catalog','subscriptions','notification','agentic','hangfire','transport','public'] LOOP
     IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = s) THEN
       EXECUTE format('GRANT USAGE ON SCHEMA %I TO starterkit_app, starterkit_host', s);
       EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %I TO starterkit_app, starterkit_host', s);
@@ -55,7 +59,7 @@ DO $$
 DECLARE s text;
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'starterkit_migrator') THEN
-    FOREACH s IN ARRAY ARRAY['identity','tenancy','attachment','catalog','subscriptions','notification','hangfire','transport'] LOOP
+    FOREACH s IN ARRAY ARRAY['identity','tenancy','attachment','catalog','subscriptions','notification','agentic','hangfire','transport'] LOOP
       IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = s) THEN
         EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE starterkit_migrator IN SCHEMA %I GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO starterkit_app, starterkit_host', s);
         EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE starterkit_migrator IN SCHEMA %I GRANT USAGE, SELECT ON SEQUENCES TO starterkit_app, starterkit_host', s);

@@ -69,7 +69,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 |---|---|
 | `src/Api` | Host: `Program.cs`, appsettings, Dockerfile, host-level endpoints |
 | `src/Modules/<M>/<M>`, `<M>.Contracts` | Module implementation + its public contracts |
-| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, DataTransfer, Identity, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
+| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Agentic, Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
 | `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
 | `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
@@ -92,10 +92,13 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
 <!--#if (sample)-->
 - **Catalog**: the sample; products, categories, tags, wishlist.
+- **Shipping**: the agent sample; shipments, customs declarations and the shipment preparation agent (the reference for
+  adding an agent and its tools to a module).
 <!--#endif-->
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
+- **Agentic**: AI agents as durable runs; owning modules plug in agents and typed tools (`Agentic.Contracts`).
 
 Shared projects hold **no** business state. Anything with its own schema, jobs or endpoints is a module.
 
@@ -153,7 +156,8 @@ Notification is the exception: its context is in `Persistence/`.
    1. `AddDockerSecrets` → `AddSharedInfrastructure` (auth policies, CORS, localization, paging, ...)
    2. `AddMultiTenancy` → Hangfire → rate limiting → Seq → `AddModules()` (MassTransit → enum lookup → modules)
    3. Modules in `ModuleOrder`: Identity 0 → Tenancy 100 → Attachment 200 → Catalog 300 → Subscriptions 400 →
-      Webhooks 500 → DataTransfer 600 → **new modules 700** → Notification 900 (guarded by `ModuleDiscoveryTests`)
+      Webhooks 500 → DataTransfer 600 → **new modules 700** → Agentic 800 → Notification 900 (guarded by
+      `ModuleDiscoveryTests`)
 2. Middleware:
    1. `UseTrustedForwardedHeaders` (first) → `UseConfigurableCors` → `UseErrorHandling` (outside auth, so 401/403
       get JSON)
@@ -280,7 +284,7 @@ Notification is the exception: its context is in `Persistence/`.
     `EmailDesignTokens`), never hex in a `.liquid` file (`EmailDesignSystemTests`). Preheader via `| set_preheader`;
     never a secret in it. Guide: `wiki/Modules/Notification-Email-Design-System.md`.
   - Categories are `<group>.<event>` (`NotificationCategoryGroups`: billing, security, membership, catalog,
-    data-transfer, webhooks, system). Users mute per group and channel and set quiet hours; fixed channels (all of
+    data-transfer, webhooks, agents, system). Users mute per group and channel and set quiet hours; fixed channels (all of
     `security`, `billing` email) cannot be muted and `security` ignores quiet hours. No category means never muted. Email-only
     sends name the category with `.InCategory(...)`.
   - Push goes only through `IPushProvider` (FCM adapter; FirebaseAdmin stays in Notification). Devices are bound to
@@ -314,6 +318,42 @@ Notification is the exception: its context is in `Persistence/`.
     request). `TransferJobRunner` is the pattern.
   - Live progress goes through `IUserEventPublisher` (`Notification.Contracts.Realtime`), throttled; the job row stays
     the source of truth.
+- **AI agents** (Agentic, [ADR-0025](wiki/Decisions/0025-agentic-module-and-model-seam.md),
+  [ADR-0026](wiki/Decisions/0026-durable-agent-runs-on-hangfire.md),
+  [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`):
+  - A module adds an agent with `AddAgent(new AgentDefinition { ... })` and tools with `AddAgentTool<T>()`
+    (`Agentic.Contracts`). Never reference the Agentic implementation, `Microsoft.Extensions.AI` or a provider SDK
+    outside the Agentic module.
+  - A tool is `[AgentTool]` + `IAgentTool<TInput, TOutput>` and calls `ISender`. It never takes a DbContext, a
+    repository or a service provider. It declares `Risk` and exactly one of `Permission` / `AllowAnyMember`
+    (mutations always need a permission).
+  - Tool inputs hold only what a model may choose: never a tenant id, a user id or a permission. Those come from
+    `AgentToolContext`. Model output and tool results are untrusted; mark tools that return outside content
+    `ReturnsUntrustedContent = true`.
+  - The model only requests. Never add automatic function invocation to a chat client; every call goes through
+    `ToolPolicy` (allowlist → the initiator's CURRENT permission → autonomy vs risk → approval) and is saved as a
+    step before and after it runs.
+  - Execution is at-least-once: make a mutation tool idempotent for `AgentToolContext.IdempotencyKey`, or declare
+    `Idempotent = false` (it is then never repeated; the run stops with `tool_outcome_unknown`).
+  - Business rules stay in commands, never in agent instructions. Prompts and tool content are not logged or traced
+    unless `Agentic:Telemetry:CaptureContent` is on. Provider keys come from configuration or Docker secrets.
+  - Approval is consent to ONE payload (tool, tool version, arguments, bound by a hash) and is used once. It never
+    replaces a check: the executor decides the call again after a decision, and consumes the approval in the same
+    save that marks the step executing. Never execute an approved action from the decision handler.
+  - Automatic runs go through `RequestAgentRunCommand` from the owning module's consumer or job, with a stable
+    `TriggerKey` and a real `OnBehalfOfUserId`. Never add a system identity for agents.
+  - `AgentPolicy` only tightens (the stricter of policy and definition wins). Start every run through
+    `AgentRunStarter`, which applies policy, capacity and the `agent_runs` quota.
+  - Runs execute on the Hangfire queue `agentic` (`Hangfire:Servers:Agentic`); nothing runs in the request. The
+    scripted provider (`IAgentScript`) is for tests and demos and is refused in Production.
+  - Knowledge ([ADR-0028](wiki/Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)): only what a module indexes
+    is searchable. Register a source with `AddKnowledgeSource` (a `RequiredPermission`, or explicitly
+    `AllowAnyMember`; optional `IKnowledgeSourcePolicy` for per-document access) and send
+    `IndexKnowledgeDocumentCommand` / `RemoveKnowledgeDocumentCommand` from the owning module. Never add an upload
+    endpoint or index content a module did not choose. The vector and full-text columns are SQL-managed
+    (`KnowledgeStore`); every raw statement names the tenant as well as relying on RLS.
+  - Memory is written by a person or proposed by `memory.remember` (`RequiresApproval`), and recalled only through
+    the read tool `memory.recall`. Never inject memories or retrieved text into agent instructions.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
@@ -322,7 +362,8 @@ Notification is the exception: its context is in `Persistence/`.
 - **Web.** `IHttpContextService` is in `Shared.Core.Web`; add the `using` explicitly. Avoid `[FromServices]`; Carter
   resolves parameters.
 - **Multi-tenancy** (`Shared.Core.MultiTenancy`, `wiki/MultiTenancy/*`):
-  - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer).
+  - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer,
+    Agentic).
     - Every entity there, children included, is `IMustHaveTenant`.
     - Unique indexes start with `TenantId`.
     - `ApplyTenantFilters(builder)` is the LAST line of `OnModelCreating`.
@@ -359,7 +400,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 <!--#endif-->
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
-| Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
+| Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification / Agentic erasure | Integration |
+| Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
+| Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
@@ -399,13 +442,14 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `ModuleDiscoveryTests` | A `src/Modules` folder is not discovered by the host, a module lacks exactly one `<M>ModuleManifest`, or `ModuleOrder` breaks a startup constraint |
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. The module list is discovered from the host. |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
-| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; Microsoft.Extensions.AI, a model-provider SDK (OpenAI, Anthropic) or PdfPig leaves Agentic; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `SagaArchitectureTests` | A saga is registered through MassTransit directly (in-memory repository) instead of `AddDurableSagaStateMachine`, or its state is not mapped in a module DbContext |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |
 | `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id` or does not start with it; parameterless `IgnoreQueryFilters()` appears |
 | `EnumStorageTests` | An enum column of any module context is not stored as a string (nine legacy integer columns are listed; never add to the list) |
 | `AdminEndpointAuthorizationTests` | An `/admin` or `/superadmin` route has no admin or permission policy; a used permission policy is unregistered; **any endpoint declares no authorization at all** |
+| `AgentToolArchitectureTests` | An agent tool takes a DbContext, a repository, `IServiceProvider` or `IServiceScopeFactory` instead of calling `ISender`, or a tool class lacks `[AgentTool]` / `IAgentTool<,>` |
 | `ClientGeneratedKeyTests` | A child entity (reached through a collection navigation) has a store-generated Guid key: needs `ValueGeneratedNever()` |
 | `PendingModelChangesTests` (`Api.E2ETests`) | The EF model changed without a migration |
 | `TenantRowLevelSecurityCoverageTests` (`Api.E2ETests`) | A table with `tenant_id` in a tenant-data schema lacks forced RLS + the `tenant_isolation` policy |
@@ -438,6 +482,7 @@ change. **Use the matching skill instead of improvising.**
 | New endpoint / command / query / CRUD | `/starterkit:add-feature` |
 | Schema change / migration | `/starterkit:add-migration` |
 | Cross-module event + consumer | `/starterkit:add-integration-event` |
+| AI agent / agent tool in a module | `/starterkit:add-agent-tool` |
 | Scheduled / background job | `/starterkit:add-background-job` |
 | Permission / endpoint authorization | `/starterkit:add-permission` |
 | Email / WhatsApp message | `/starterkit:add-email-template` |
@@ -495,7 +540,8 @@ forbidden C# patterns after edits. Spec Kit
     migrates and restarts the API; `deployment/rollback.sh <tag>` does the image part on the server.
 - Docker Compose publishes host ports on `BIND_ADDRESS` (default `127.0.0.1`): Docker bypasses the host firewall, so
   never publish the database or Redis on all interfaces. PostgreSQL runs the image built from `infra/postgres`
-  (pgBackRest inside, so WAL archiving works); keep `init: true` on it.
+  (pgBackRest and pgvector inside); keep `init: true` on it. PostgreSQL test containers that run the Agentic
+  migrations use `pgvector/pgvector:0.8.7-pg16`.
 <!--#if (templateSource)-->
 - **This repo is the template** (ADR-0020, `wiki/Getting-Started/Changing-The-Template.md`). Optional code is
   conditional, never deleted (the page lists the marker syntax per file type; docs that ship in products never quote

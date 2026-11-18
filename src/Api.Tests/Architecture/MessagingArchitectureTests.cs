@@ -54,11 +54,13 @@ public sealed class MessagingArchitectureTests
         IntegrationEvents().Select(t => t.Name).Should().Contain(
         [
 #if (SAMPLE)
-            "ProductPublishedIntegrationEvent",
+            "ProductPublishedIntegrationEvent", "ShipmentReadyForClearanceIntegrationEvent",
 #endif
-            "UserAvatarChangedIntegrationEvent", "UserDeletedIntegrationEvent", "UserSessionsRevokedIntegrationEvent",
+            "UserAvatarChangedIntegrationEvent", "AttachmentDeletedIntegrationEvent", "UserDeletedIntegrationEvent",
+            "UserSessionsRevokedIntegrationEvent",
             "SubscriptionActivatedIntegrationEvent", "SubscriptionExpiredIntegrationEvent",
-            "DataImportCompletedIntegrationEvent"
+            "DataImportCompletedIntegrationEvent",
+            "AgentRunCompletedIntegrationEvent", "AgentRunFailedIntegrationEvent"
         ]);
     }
 
@@ -190,9 +192,9 @@ public sealed class MessagingArchitectureTests
 
         mapping.Select(t => t.Name).Should().Contain([
 #if (SAMPLE)
-                "CatalogDbContext",
+                "CatalogDbContext", "ShippingDbContext",
 #endif
-                "AttachmentDbContext", "SubscriptionsDbContext", "DataTransferDbContext"],
+                "AttachmentDbContext", "SubscriptionsDbContext", "DataTransferDbContext", "AgenticDbContext"],
             "these modules raise integration events");
         mapping.Where(t => !registered.Contains(t)).Select(t => t.FullName)
             .Should().BeEmpty("a context with an outbox table needs services.AddOutbox<TContext>(), or its rows are never published");

@@ -23,8 +23,9 @@ name: starterkit-load
 services:
 
   postgres:
-    # The official image: this stack is self-contained (not merged onto docker-compose.yml) and needs no pgBackRest.
-    image: postgres:16-alpine
+    # PostgreSQL 16 with pgvector (the Agentic module's knowledge search needs it); this stack is self-contained (not
+    # merged onto docker-compose.yml) and needs no pgBackRest.
+    image: pgvector/pgvector:0.8.7-pg16
     environment:
       POSTGRES_DB: starterkit
       POSTGRES_USER: starterkit_user
@@ -64,6 +65,8 @@ services:
       Identity__OtpHmacKey: ${OTP_HMAC_KEY:?run make loadtest-env or copy .env.loadtest.example}
       Identity__SeedAdmin__Password: ${LOAD_ADMIN_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
       Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
+      # Agents (scripted model) for the opt-in k6 scenario `agents`: LOAD_AGENTS=true make loadtest-up.
+      Agentic__Enabled: ${LOAD_AGENTS:-false}
     volumes:
       # Not part of the published image (Api.csproj: CopyToPublishDirectory=Never): the profile exists only here.
       - ./src/Api/appsettings.LoadTest.json:/app/appsettings.LoadTest.json:ro
@@ -106,6 +109,7 @@ services:
       LOAD_DURATION: ${LOAD_DURATION:-30s}
       LOAD_USERS: ${LOAD_USERS:-20}
       LOAD_PRODUCTS: ${LOAD_PRODUCTS:-40}
+      LOAD_AGENT_TIMEOUT: ${LOAD_AGENT_TIMEOUT:-90}
       SCENARIOS: ${SCENARIOS:-auth,catalog,products,import,inbox}
     volumes:
       - ./tests/load:/scripts:ro

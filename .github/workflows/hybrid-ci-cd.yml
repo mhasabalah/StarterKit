@@ -279,6 +279,11 @@ jobs:
             sleep 30
           else
             echo "🔄 Rolling update"
+            # The database image (infra/postgres) is built on the host. Rebuild it and recreate postgres FIRST when it
+            # changed: migrations may need what the new image adds (e.g. the pgvector extension of ADR-0028). An
+            # unchanged image keeps the running container (no restart).
+            docker compose -f docker-compose.yml --env-file .env.prod build postgres
+            docker compose -f docker-compose.yml --env-file .env.prod up -d --no-deps --wait postgres
             # --no-deps below skips the migrator, so apply migrations explicitly BEFORE the new API starts.
             # A non-zero exit (failed migration) aborts the deploy and leaves the old API running.
             docker compose -f docker-compose.yml --env-file .env.prod run --rm migrator

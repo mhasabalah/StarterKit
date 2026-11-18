@@ -17,6 +17,12 @@
     <Project Path="src/Aspire/ServiceDefaults/ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Agentic/">
+    <Project Path="src/Modules/Agentic/Agentic.Contracts/Agentic.Contracts.csproj" />
+    <Project Path="src/Modules/Agentic/Agentic.IntegrationTests/Agentic.IntegrationTests.csproj" />
+    <Project Path="src/Modules/Agentic/Agentic.Tests/Agentic.Tests.csproj" />
+    <Project Path="src/Modules/Agentic/Agentic/Agentic.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Attachment/">
     <Project Path="src/Modules/Attachment/Attachment.Contracts/Attachment.Contracts.csproj" />
     <Project Path="src/Modules/Attachment/Attachment/Attachment.csproj" />
@@ -60,6 +66,14 @@
     <Project Path="src/Modules/Notification/Notification/Notification.csproj" />
     <Project Path="src/Modules/Notification/Notification.Tests/Notification.Tests.csproj" />
   </Folder>
+  <!--#if (sample)-->
+  <Folder Name="/src/Modules/Shipping/">
+    <Project Path="src/Modules/Shipping/Shipping.Contracts/Shipping.Contracts.csproj" />
+    <Project Path="src/Modules/Shipping/Shipping/Shipping.csproj" />
+    <Project Path="src/Modules/Shipping/Shipping.Tests/Shipping.Tests.csproj" />
+    <Project Path="src/Modules/Shipping/Shipping.IntegrationTests/Shipping.IntegrationTests.csproj" />
+  </Folder>
+  <!--#endif-->
   <Folder Name="/src/Modules/Subscriptions/">
     <Project Path="src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj" />
     <Project Path="src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj" />

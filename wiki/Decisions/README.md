@@ -33,3 +33,7 @@ link it here.
 | [0021](0021-aggregate-version-covers-child-collections.md) | The aggregate version covers its child collections | Accepted | 2026-11-08 |
 | [0022](0022-production-message-transport.md) | PostgreSQL is the default production message transport | Accepted | 2026-11-08 |
 | [0023](0023-durable-sagas-on-module-dbcontexts.md) | Saga state is durable, in the owning module's DbContext | Accepted | 2026-11-08 |
+| [0025](0025-agentic-module-and-model-seam.md) | Run AI agents in one module, behind typed tools and an owned model seam | Accepted | 2026-11-13 |
+| [0026](0026-durable-agent-runs-on-hangfire.md) | Run agents as leased, step-checkpointed Hangfire jobs | Accepted | 2026-11-13 |
+| [0027](0027-agent-approvals-triggers-and-policies.md) | Govern agents with payload-bound approvals, explicit triggers and tighten-only tenant policies | Accepted | 2026-11-13 |
+| [0028](0028-agent-knowledge-and-memory-on-pgvector.md) | Give agents knowledge and memory on PostgreSQL with pgvector, behind the same permissions | Accepted | 2026-11-14 |
