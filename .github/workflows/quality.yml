@@ -2,6 +2,7 @@
 # Quality gates (fast, no deployment)
 # ==============================================
 # Runs on EVERY push and PR - including docs-only changes, which hybrid-ci-cd.yml deliberately ignores.
+# One job (GitHub bills each job at least one minute; these checks take seconds each):
 #   docs     - scripts/check-docs.sh: relative links resolve, every wiki page is in wiki/INDEX.md, no leaked hosts/paths
 #   format   - whitespace ratchet: the C# files a change touches must satisfy .editorconfig (`dotnet format whitespace`).
 #              Untouched legacy files are not checked, so the codebase converges without a big-bang reformat.
@@ -24,25 +25,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  docs:
-    name: Docs links & placeholders
+  quality:
+    name: Docs, C# whitespace, plugin manifests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Check documentation
-        run: bash scripts/check-docs.sh
-
-  format:
-    name: C# whitespace (changed files)
-    runs-on: ubuntu-latest
-    steps:
-      # .editorconfig requires CRLF for *.cs; check out with CRLF so Linux sees the same bytes as Windows.
-      - name: Use CRLF working tree
-        run: git config --global core.autocrlf true
-
+      # *.cs is checked out with CRLF on Linux too (.gitattributes eol=crlf, required by .editorconfig) and *.sh
+      # with LF, so the same checkout serves the docs, whitespace and script checks.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Check documentation
+        run: bash scripts/check-docs.sh
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
@@ -71,11 +65,6 @@ jobs:
           dotnet format whitespace . --folder --verify-no-changes --include ${{ steps.changed.outputs.files }} \
             || { echo "::error::Run: dotnet format whitespace . --folder --include <files>  (see .editorconfig)"; exit 1; }
 
-  plugin:
-    name: Claude Code plugin manifests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
       - name: Validate JSON manifests
         shell: bash
         run: |
