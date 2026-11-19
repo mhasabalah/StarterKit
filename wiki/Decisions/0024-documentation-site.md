@@ -94,7 +94,8 @@ reader's own module. A full-width search action, the template quickstart (the of
 code block and copy control), three starting paths, the architecture guardrails and recent decisions follow; every
 destination remains a canonical wiki page. Module orders are guarded by `tests/chart.test.mjs` against
 `ModuleOrder.cs`, and page counts come from the synced navigation. Documentation pages show their chart element beside
-the title. The visual system (palette, type, chart cells) is recorded in
+the title; opening a home tile morphs it into that title tile with a React view transition, the site's only page
+animation. The visual system (palette, type, chart cells) is recorded in
 [the V2 design notes](../../apps/docs-v2/DESIGN.md); the mark keeps the geometry from
 [the brand guidelines](../Reference/Brand.md), drawn inline in the V2 palette.
 
@@ -178,6 +179,9 @@ npm run start
 
 With the production server running, use a second terminal to run `npm run check:links`. The browser suite checks
 navigation, search, themes, diagram controls, mobile layout, images, AI routes, redirects, and every migrated page.
+`tests/browser/style-contract.spec.ts` asserts that each Fumadocs internal the stylesheet restyles (the Glass toolbar,
+sidebar, outline, page footer, OpenAPI badges and tabs) still matches and still takes the override, so a Fumadocs
+upgrade that renames one fails the suite instead of silently reverting to stock styles.
 The diagram checker also covers flowchart, sequence, class, entity relationship, state, journey, Gantt and C4 syntax.
 Use `PLAYWRIGHT_CHANNEL=chrome` only when intentionally testing an installed Chrome rather than Playwright's pinned browser.
 

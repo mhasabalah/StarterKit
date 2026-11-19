@@ -1,6 +1,9 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { X } from 'lucide-react';
+import { elementFor } from '@/lib/chart';
+import { ElementChip } from './element-tile';
 import { publicPath } from '@/lib/site';
 
 type Message = { role: 'user' | 'assistant'; content: string; sources?: { title: string; url: string }[] };
@@ -31,15 +34,20 @@ export function AIChatPanel({ onClose }: { onClose: () => void }) {
     } finally { setBusy(false); }
   }
   return <section className="docs-chat" aria-label="Ask AI">
-    <header><div><strong>Ask AI</strong><p>Answers from the StarterKit docs</p></div><button type="button" onClick={onClose} aria-label="Close AI chat">✕</button></header>
+    <header><div><strong>Ask AI</strong><p>Answers from the StarterKit docs</p></div><button type="button" className="docs-chat-close" onClick={onClose} aria-label="Close AI chat"><X aria-hidden="true" /></button></header>
     <div className="docs-chat-messages" role="log" aria-live="polite" aria-busy={busy}>
       {!messages.length && <div><h2>How can I help?</h2><p>Ask about architecture, modules, deployment, or the API.</p>
         {['How do modules communicate?', 'How does tenant isolation work?', 'How do I create a new project?'].map((text) => <button className="docs-chat-suggestion" key={text} onClick={() => setQuestion(text)}>{text}</button>)}
       </div>}
-      {messages.map((message, i) => <article key={i} className="docs-chat-message"><strong>{message.role === 'user' ? 'You' : 'Assistant'}</strong><p>{message.content}</p>
-        {message.sources?.length ? <nav aria-label="Answer sources"><span>Sources</span>{message.sources.map((source) => <Link key={source.url} href={source.url}>{source.title}</Link>)}</nav> : null}</article>)}
-      {busy && <p role="status">Reading the documentation…</p>}
-      {error && <p role="alert">{error}</p>}<div ref={end} />
+      {messages.map((message, i) => <article key={i} className="docs-chat-message" data-role={message.role}>
+        <strong>{message.role === 'user' ? 'You' : 'Answer'}</strong><p>{message.content}</p>
+        {message.sources?.length ? <nav aria-label="Answer sources"><span>Sources</span><ul>{message.sources.map((source) => {
+          const element = elementFor(source.url);
+          return <li key={source.url}><Link href={source.url}>{element ? <ElementChip symbol={element.symbol} family={element.family} />
+            : source.url.startsWith('/api-reference/') ? <ElementChip symbol="Ap" family="api" /> : <span className="element-chip element-chip-none" aria-hidden="true" />}<span>{source.title}</span></Link></li>;
+        })}</ul></nav> : null}</article>)}
+      {busy && <p className="docs-chat-status" role="status">Reading the documentation…</p>}
+      {error && <p className="docs-chat-error" role="alert">{error}</p>}<div ref={end} />
     </div>
     <form onSubmit={(event) => { event.preventDefault(); void send(); }}>
       <label className="sr-only" htmlFor="docs-ai-question">Your question</label>

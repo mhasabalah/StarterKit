@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { useMemo, useState, useSyncExternalStore, ViewTransition, type CSSProperties } from 'react';
 import { ArrowRight, Plus } from 'lucide-react';
 import type { ChartElement, Family } from '@/lib/chart';
 import { LAST_READ_KEY } from '@/lib/last-read';
@@ -36,7 +36,8 @@ const pad = (order: number) => String(order).padStart(3, '0');
 
 function Tile({ element, index, lastRead }: { element: ChartElement; index: number; lastRead: boolean }) {
   const meta = element.order === undefined ? `${element.pages} pages` : `startup order ${pad(element.order)}, ${element.pages} pages`;
-  return <Link href={element.url} className="tile" data-family={element.family} data-symbol={element.symbol}
+  // Shares its name with the page header's tile (element-tile.tsx): opening a tile carries it to the title.
+  return <ViewTransition name={`element-${element.symbol}`} share="element-morph" default="none"><Link href={element.url} className="tile" data-family={element.family} data-symbol={element.symbol}
     data-last-read={lastRead || undefined} style={{ '--i': index } as CSSProperties}
     aria-label={`${element.name}, ${meta}${lastRead ? ', last read' : ''}`}>
     <span className="tile-meta" aria-hidden="true">
@@ -44,7 +45,7 @@ function Tile({ element, index, lastRead }: { element: ChartElement; index: numb
     </span>
     <span className="tile-symbol" aria-hidden="true">{element.symbol}</span>
     <span className="tile-name" aria-hidden="true">{element.name}</span>
-  </Link>;
+  </Link></ViewTransition>;
 }
 
 export function ModuleChart({ modules, practices, families }: {
