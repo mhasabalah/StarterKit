@@ -39,8 +39,8 @@ for (const theme of ['light', 'dark']) {
     test(`sidebar hierarchy and active page in ${theme} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 1000 });
       await page.addInitScript((value) => localStorage.setItem('theme', value), theme);
-      await page.goto(base + '/architecture/overview/');
-      if (width < 768) await page.getByRole('button', { name: 'Open Sidebar', exact: true }).click();
+      await page.goto(base + '/architecture/overview/', { waitUntil: 'networkidle' });
+      if (width < 768) await page.locator('.site-bar').getByRole('button', { name: 'Open navigation menu', exact: true }).click();
       const sidebar = page.locator('.docs-sidebar:visible');
       const current = sidebar.locator('a[aria-current="page"]');
       await expect(current).toHaveCount(1);
@@ -57,8 +57,8 @@ for (const theme of ['light', 'dark']) {
       if (width < 768) {
         await sidebar.getByRole('link', { name: 'Request lifecycle', exact: true }).click();
         await expect(page).toHaveURL(/\/architecture\/request-lifecycle\/$/);
-        await expect(page.getByRole('button', { name: 'Open Sidebar', exact: true })).toBeVisible();
-        await page.getByRole('button', { name: 'Open Sidebar', exact: true }).click();
+        await expect(page.locator('.site-bar').getByRole('button', { name: 'Open navigation menu', exact: true })).toBeVisible();
+        await page.locator('.site-bar').getByRole('button', { name: 'Open navigation menu', exact: true }).click();
         await expect(page.locator('.docs-sidebar:visible a[aria-current="page"]')).toHaveText('Request lifecycle');
         await page.keyboard.press('Escape');
         await expect(page.getByRole('button', { name: 'Close Sidebar', exact: true })).toBeHidden();

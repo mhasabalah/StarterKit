@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'fumadocs-core/framework';
 import { AIChatPanel } from './ai-chat';
+import { DocsHeader } from './site-header';
 import { LAST_READ_KEY } from '@/lib/last-read';
 import { DocsLayout as GlassLayout, type DocsLayoutProps } from 'fumadocs-ui/layouts/glass';
 import { Sidebar, SidebarDrawer, SidebarProvider, useSidebar } from 'fumadocs-ui/layouts/glass/slots/sidebar';
@@ -43,8 +44,9 @@ function useRememberLastRead() {
 export function DocsLayout(props: DocsLayoutProps) {
   const [open, setOpen] = useState(false);
   useRememberLastRead();
-  return <GlassLayout {...props} links={props.links?.map((link) => link.type === 'icon' ? link : { ...link, on: 'nav' })}
-    aiChat={{ open, onOpenChange: setOpen, trigger: true, panel: <AIChatPanel onClose={() => setOpen(false)} /> }} slots={{ sidebar: {
+  // GitHub is pinned in the header beside Ask AI, so the sidebar does not repeat it.
+  return <GlassLayout {...props} githubUrl={undefined} links={props.links?.map((link) => link.type === 'icon' ? link : { ...link, on: 'nav' })}
+    aiChat={{ open, onOpenChange: setOpen, trigger: true, panel: <AIChatPanel onClose={() => setOpen(false)} /> }} slots={{ header: DocsHeader, sidebar: {
     main: Navigation, drawer: MobileNavigation, provider: SidebarProvider, use: useSidebar,
   } }} />;
 }
