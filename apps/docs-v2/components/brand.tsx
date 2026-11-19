@@ -1,10 +1,16 @@
-import Image from 'next/image';
-import { publicPath } from '@/lib/site';
+/** The StarterKit mark (three offset slices, distinct terminal) drawn in the chart palette, with a live wordmark. */
+export function BrandMark({ className = 'brand-mark' }: { className?: string }) {
+  return <svg className={className} viewBox="8 16 104 96" aria-hidden="true" focusable="false">
+    <rect x="24" y="16" width="88" height="24" rx="8" />
+    <rect x="8" y="52" width="88" height="24" rx="8" />
+    <rect x="24" y="88" width="88" height="24" rx="8" />
+    <rect className="brand-mark-terminal" x="88" y="88" width="24" height="24" rx="8" />
+  </svg>;
+}
 
-/** Use the approved vector artwork copied from V1 by the content sync. */
 export function BrandLogo() {
   return <span className="brand-logo" role="img" aria-label="StarterKit">
-    <Image src={publicPath('/logo-light.svg')} width={140} height={34} alt="" unoptimized loading="eager" className="brand-logo-light" />
-    <Image src={publicPath('/logo-dark.svg')} width={140} height={34} alt="" unoptimized loading="eager" className="brand-logo-dark" />
+    <BrandMark />
+    <span className="brand-wordmark" aria-hidden="true">Starter<b>Kit</b></span>
   </span>;
 }

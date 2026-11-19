@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-19T18:00:00Z",
+  "title": "Design System: StarterKit developer guide (docs-v2)",
+  "extensions": {
+    "colorMeta": {
+      "ground": { "role": "neutral", "displayName": "Chart White", "canonical": "var(--sk-ground)", "dark": "#0b0e14", "tonalRamp": ["#0b0e14", "#1a1f29", "#2f3644", "#4a5263", "#6f7889", "#a3abb9", "#d6dae2", "#f3f4f7"] },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "var(--sk-paper)", "dark": "#10141c", "tonalRamp": ["#10141c", "#222833", "#394050", "#575f70", "#7f8797", "#b1b8c4", "#e0e3e9", "#ffffff"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "var(--sk-ink)", "dark": "#eef1f6", "tonalRamp": ["#0f141d", "#1f2633", "#343c4c", "#525b6d", "#798293", "#a7aebb", "#d5d9e1", "#eef1f6"] },
+      "text": { "role": "neutral", "displayName": "Body Text", "canonical": "var(--sk-text)", "dark": "#d3d9e3", "tonalRamp": ["#141822", "#2b3242", "#434b5d", "#5e6779", "#848c9c", "#acb2be", "#d3d9e3", "#eef0f4"] },
+      "muted": { "role": "neutral", "displayName": "Muted", "canonical": "var(--sk-muted)", "dark": "#9ba5b7", "tonalRamp": ["#1c212b", "#323946", "#4a5262", "#5a6476", "#7a8495", "#9ba5b7", "#c3c9d4", "#e8ebf0"] },
+      "rule": { "role": "neutral", "displayName": "Hairline", "canonical": "var(--sk-rule)", "dark": "#252c39", "tonalRamp": ["#1a1f29", "#252c39", "#3d4657", "#5e6779", "#8790a1", "#b6bdc9", "#d8dce4", "#f0f2f5"] },
+      "rule-strong": { "role": "neutral", "displayName": "Strong Hairline", "canonical": "var(--sk-rule-strong)", "dark": "#3d4657", "tonalRamp": ["#1a1f29", "#252c39", "#3d4657", "#5e6779", "#8790a1", "#b6bdc9", "#d8dce4", "#f0f2f5"] },
+      "hover": { "role": "neutral", "displayName": "Hover Wash", "canonical": "var(--sk-hover)", "dark": "#1a202b", "tonalRamp": ["#11151c", "#1a202b", "#2c3340", "#4a5262", "#7a8495", "#b3bac6", "#e9ebf0", "#f6f7f9"] },
+      "foundations": { "role": "primary", "displayName": "Cobalt Foundations", "canonical": "var(--sk-foundations)", "dark": "#a5b6ff", "tonalRamp": ["#0d1a4d", "#172e86", "#2342b5", "#4363d6", "#6f88e8", "#a5b6ff", "#cdd6fb", "#e3e8fa"] },
+      "foundations-tint": { "role": "primary", "displayName": "Cobalt Tint", "canonical": "var(--sk-foundations-tint)", "dark": "#172041", "tonalRamp": ["#0d1a4d", "#172e86", "#2342b5", "#4363d6", "#6f88e8", "#a5b6ff", "#cdd6fb", "#e3e8fa"] },
+      "connected": { "role": "secondary", "displayName": "Chart Green", "canonical": "var(--sk-connected)", "dark": "#74d9ae", "tonalRamp": ["#04291c", "#074a33", "#0a6a49", "#1a8b63", "#3fb486", "#74d9ae", "#b4ebd2", "#dcefe6"] },
+      "connected-tint": { "role": "secondary", "displayName": "Green Tint", "canonical": "var(--sk-connected-tint)", "dark": "#0f2a20", "tonalRamp": ["#04291c", "#074a33", "#0a6a49", "#1a8b63", "#3fb486", "#74d9ae", "#b4ebd2", "#dcefe6"] },
+      "samples": { "role": "secondary", "displayName": "Press Ochre", "canonical": "var(--sk-samples)", "dark": "#f1b873", "tonalRamp": ["#341b02", "#5e3304", "#8a4a06", "#b0650f", "#d68e3a", "#f1b873", "#f7d5a8", "#f8e9d3"] },
+      "samples-tint": { "role": "secondary", "displayName": "Ochre Tint", "canonical": "var(--sk-samples-tint)", "dark": "#2e2010", "tonalRamp": ["#341b02", "#5e3304", "#8a4a06", "#b0650f", "#d68e3a", "#f1b873", "#f7d5a8", "#f8e9d3"] },
+      "practices": { "role": "tertiary", "displayName": "Practice Violet", "canonical": "var(--sk-practices)", "dark": "#c3b2ff", "tonalRamp": ["#1f1146", "#3a2382", "#5534b3", "#7354d0", "#9a83e8", "#c3b2ff", "#dcd3fc", "#ebe6fa"] },
+      "practices-tint": { "role": "tertiary", "displayName": "Violet Tint", "canonical": "var(--sk-practices-tint)", "dark": "#221a40", "tonalRamp": ["#1f1146", "#3a2382", "#5534b3", "#7354d0", "#9a83e8", "#c3b2ff", "#dcd3fc", "#ebe6fa"] },
+      "api": { "role": "tertiary", "displayName": "Slate", "canonical": "var(--sk-api)", "dark": "#c3cad6", "tonalRamp": ["#161a22", "#272d39", "#3d4658", "#5b6579", "#848da0", "#c3cad6", "#dde1e8", "#e6e8ed"] },
+      "api-tint": { "role": "tertiary", "displayName": "Slate Tint", "canonical": "var(--sk-api-tint)", "dark": "#1d222c", "tonalRamp": ["#161a22", "#272d39", "#3d4658", "#5b6579", "#848da0", "#c3cad6", "#dde1e8", "#e6e8ed"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The home title only." },
+      "headline": { "displayName": "Headline", "purpose": "Docs page title beside its element tile; 404 title; home stratum headings at a smaller clamp." },
+      "title": { "displayName": "Title", "purpose": "Prose H2, opening on a hairline rule." },
+      "symbol": { "displayName": "Element Symbol", "purpose": "Two-letter module and practice symbols in chart tiles, page-head tiles and sidebar chips." },
+      "body": { "displayName": "Body", "purpose": "Prose at a 70ch measure." },
+      "label": { "displayName": "Label", "purpose": "Buttons, legend, sidebar, TOC, table headers." },
+      "numeral": { "displayName": "Numeral", "purpose": "Startup order, page counts and ADR numbers: numbers that are facts." },
+      "code": { "displayName": "Code", "purpose": "Code blocks and inline code." }
+    },
+    "shadows": [
+      { "name": "cell-rule", "value": "0 0 0 1px color-mix(in srgb, var(--sk-ink) 16%, transparent)", "purpose": "Printed cell outline; neighbouring cells meet in a 1px gap as one hairline (14% on the page-head tile)." },
+      { "name": "action-lift", "value": "0 1px 2px color-mix(in srgb, var(--sk-ink) 18%, transparent), 0 8px 24px -12px color-mix(in srgb, var(--sk-ink) 45%, transparent)", "purpose": "The home search trigger at rest." },
+      { "name": "action-lift-hover", "value": "0 1px 2px color-mix(in srgb, var(--sk-ink) 18%, transparent), 0 14px 30px -14px color-mix(in srgb, var(--sk-ink) 60%, transparent)", "purpose": "The home search trigger on hover, with a 1px rise." },
+      { "name": "dialog", "value": "0 24px 60px -24px color-mix(in srgb, var(--sk-ink) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--sk-ink) 8%, transparent)", "purpose": "The search dialog." }
+    ],
+    "motion": [
+      { "name": "ease-chart", "value": "cubic-bezier(.16, 1, .3, 1)", "purpose": "The single easing for colour, opacity and transform changes (160-260ms)." },
+      { "name": "tile-invert", "value": "200ms", "purpose": "Tile hover/focus inversion to ink." },
+      { "name": "legend-stagger", "value": "calc(var(--i) * 14ms)", "purpose": "A pressed family dims other tiles in startup order." },
+      { "name": "collapsible-down", "value": "200ms cubic-bezier(.22, 1, .36, 1)", "purpose": "Sidebar disclosure opening." },
+      { "name": "collapsible-up", "value": "160ms cubic-bezier(.4, 0, 1, 1)", "purpose": "Sidebar disclosure closing." },
+      { "name": "search-scan", "value": "900ms ease-chart infinite alternate", "purpose": "2px ink rule scanning the search header while the index loads." },
+      { "name": "reduced-motion", "value": "transition: none; animation: none", "purpose": "prefers-reduced-motion removes all motion." }
+    ],
+    "breakpoints": [
+      { "name": "xs", "value": "400px", "purpose": "Tighter tile padding and names." },
+      { "name": "sm", "value": "480px", "purpose": "Search trigger hides its keycaps." },
+      { "name": "brand", "value": "520px", "purpose": "Brand label hides." },
+      { "name": "md", "value": "760px", "purpose": "Chart reflows to 3 columns, practices to 2; strata stack." },
+      { "name": "shell", "value": "768px", "purpose": "Docs sidebar becomes a flush ruled column; ruled running head." },
+      { "name": "lg", "value": "1100px", "purpose": "Home hero becomes two columns with a sticky intro." },
+      { "name": "toc", "value": "1280px", "purpose": "Labelled, ruled outline in the right gutter." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Search Trigger (primary)",
+      "kind": "button",
+      "refersTo": "search-trigger",
+      "description": "The home page's one primary action: a full-width ink bar that opens the search dialog.",
+      "html": "<button type=\"button\" class=\"ds-search-trigger\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><span>Search modules, rules and commands</span><span class=\"ds-keys\"><kbd>Ctrl</kbd><kbd>K</kbd></span></button>",
+      "css": ".ds-search-trigger { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 460px; min-height: 56px; padding: 0 12px 0 18px; border: 0; border-radius: 6px; background: var(--sk-ink, #0f141d); color: var(--sk-paper, #fff); font: 500 1rem/1.3 Inter, ui-sans-serif, sans-serif; text-align: start; cursor: pointer; box-shadow: 0 1px 2px color-mix(in srgb, #0f141d 18%, transparent), 0 8px 24px -12px color-mix(in srgb, #0f141d 45%, transparent); transition: transform 200ms cubic-bezier(.16,1,.3,1), box-shadow 200ms cubic-bezier(.16,1,.3,1); } .ds-search-trigger > span:first-of-type { flex: 1; } .ds-search-trigger:hover { transform: translateY(-1px); box-shadow: 0 1px 2px color-mix(in srgb, #0f141d 18%, transparent), 0 14px 30px -14px color-mix(in srgb, #0f141d 60%, transparent); } .ds-search-trigger:active { transform: translateY(0); } .ds-search-trigger:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 3px; } .ds-keys { display: inline-flex; gap: 4px; } .ds-keys kbd { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 4px; background: color-mix(in srgb, #fff 14%, transparent); font: 500 .6875rem 'JetBrains Mono', ui-monospace, monospace; }"
+    },
+    {
+      "name": "Legend Button",
+      "kind": "button",
+      "refersTo": "legend-button",
+      "description": "Secondary hairline button with a family swatch; pressed inverts to ink.",
+      "html": "<div class=\"ds-legend\"><button type=\"button\" class=\"ds-legend-btn\" aria-pressed=\"false\"><span style=\"background:#2342b5\"></span>Foundations</button><button type=\"button\" class=\"ds-legend-btn\" aria-pressed=\"true\"><span style=\"background:#0a6a49\"></span>Connected</button></div>",
+      "css": ".ds-legend { display: flex; gap: 6px; } .ds-legend-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px 0 10px; border-radius: 4px; border: 1px solid var(--sk-rule, #d8dce4); background: var(--sk-paper, #fff); color: var(--sk-ink, #0f141d); font: 500 .8125rem/1 Inter, ui-sans-serif, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(.16,1,.3,1), color 160ms cubic-bezier(.16,1,.3,1), border-color 160ms cubic-bezier(.16,1,.3,1); } .ds-legend-btn > span { width: 10px; height: 10px; border-radius: 2px; } .ds-legend-btn:hover { border-color: var(--sk-rule-strong, #b6bdc9); } .ds-legend-btn:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 3px; } .ds-legend-btn[aria-pressed='true'] { background: var(--sk-ink, #0f141d); border-color: var(--sk-ink, #0f141d); color: var(--sk-paper, #fff); }"
+    },
+    {
+      "name": "Element Tile",
+      "kind": "card",
+      "refersTo": "tile",
+      "description": "The chart cell: real order and page count, heavy symbol, ink name; inverts to ink on hover/focus.",
+      "html": "<div class=\"ds-chart\"><a href=\"#\" class=\"ds-tile\" style=\"--fam:#2342b5;--fam-tint:#e3e8fa\"><span class=\"ds-tile-meta\"><span>000</span><span>12</span></span><span class=\"ds-tile-symbol\">Id</span><span class=\"ds-tile-name\">Identity</span></a><a href=\"#\" class=\"ds-tile\" style=\"--fam:#0a6a49;--fam-tint:#dcefe6\"><span class=\"ds-tile-meta\"><span>500</span><span>1</span></span><span class=\"ds-tile-symbol\">Wh</span><span class=\"ds-tile-name\">Webhooks</span></a><a href=\"#\" class=\"ds-tile\" style=\"--fam:#8a4a06;--fam-tint:#f8e9d3\"><span class=\"ds-tile-meta\"><span>700</span><span>1</span></span><span class=\"ds-tile-symbol\">Sh</span><span class=\"ds-tile-name\">Shipping</span></a></div>",
+      "css": ".ds-chart { display: grid; grid-template-columns: repeat(3, 120px); gap: 1px; } .ds-tile { display: flex; flex-direction: column; min-height: 120px; padding: 10px 11px 11px; border-radius: 2px; background: var(--fam-tint); color: var(--fam); text-decoration: none; box-shadow: 0 0 0 1px color-mix(in srgb, #0f141d 16%, transparent); transition: background-color 200ms cubic-bezier(.16,1,.3,1), color 200ms cubic-bezier(.16,1,.3,1); } .ds-tile-meta { display: flex; justify-content: space-between; font: 500 .6875rem/1 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; } .ds-tile-symbol { margin-top: auto; font: 800 2.25rem/.9 'Schibsted Grotesk', Inter, sans-serif; letter-spacing: -.045em; } .ds-tile-name { margin-top: 8px; color: var(--sk-ink, #0f141d); font: 600 .8125rem/1.25 Inter, sans-serif; } .ds-tile:hover, .ds-tile:focus-visible { background: var(--sk-ink, #0f141d); color: var(--sk-paper, #fff); } .ds-tile:hover .ds-tile-name, .ds-tile:focus-visible .ds-tile-name { color: var(--sk-paper, #fff); } .ds-tile:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Your Module Cell",
+      "kind": "custom",
+      "refersTo": "tile-yours",
+      "description": "The dashed empty 700 slot; on hover/focus it inverts and shows the command that fills it.",
+      "html": "<a href=\"#\" class=\"ds-yours\"><span class=\"ds-yours-meta\">700</span><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg><span class=\"ds-yours-name\">Your module</span><code class=\"ds-yours-cmd\">dotnet new starterkit-module</code></a>",
+      "css": ".ds-yours { display: flex; flex-direction: column; width: 120px; min-height: 120px; padding: 10px 11px 11px; border: 1.5px dashed var(--sk-rule-strong, #b6bdc9); border-radius: 2px; color: var(--sk-muted, #5a6476); text-decoration: none; transition: background-color 200ms cubic-bezier(.16,1,.3,1), color 200ms cubic-bezier(.16,1,.3,1); } .ds-yours svg { margin-top: auto; } .ds-yours-meta { font: 500 .6875rem/1 'JetBrains Mono', ui-monospace, monospace; } .ds-yours-name { margin-top: 8px; font: 600 .8125rem/1.25 Inter, sans-serif; } .ds-yours-cmd { display: none; margin-top: 8px; font: 500 .6875rem/1.35 'JetBrains Mono', ui-monospace, monospace; } .ds-yours:hover, .ds-yours:focus-visible { border-style: solid; border-color: var(--sk-ink, #0f141d); background: var(--sk-ink, #0f141d); color: var(--sk-paper, #fff); } .ds-yours:hover .ds-yours-name, .ds-yours:focus-visible .ds-yours-name { display: none; } .ds-yours:hover .ds-yours-cmd, .ds-yours:focus-visible .ds-yours-cmd { display: block; } .ds-yours:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Element Chip",
+      "kind": "chip",
+      "refersTo": "element-chip",
+      "description": "Family-tint symbol chip before sidebar entries; paper-on-ink on the current page.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip\" style=\"--fam:#2342b5;--fam-tint:#e3e8fa\">Id</span><span class=\"ds-chip\" style=\"--fam:#0a6a49;--fam-tint:#dcefe6\">Nt</span><span class=\"ds-chip\" style=\"--fam:#8a4a06;--fam-tint:#f8e9d3\">Ct</span><span class=\"ds-chip\" style=\"--fam:#5534b3;--fam-tint:#ebe6fa\">Dc</span><span class=\"ds-chip\" style=\"--fam:#3d4658;--fam-tint:#e6e8ed\">Mo</span></div>",
+      "css": ".ds-chips { display: flex; gap: 8px; } .ds-chip { display: inline-grid; place-items: center; width: 22px; height: 20px; border-radius: 3px; background: var(--fam-tint); color: var(--fam); font: 700 .6875rem/1 'Schibsted Grotesk', Inter, sans-serif; letter-spacing: -.01em; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "sidebar-link",
+      "description": "Ground-coloured flush sidebar; the current page alone prints as an ink tile.",
+      "html": "<nav class=\"ds-side\"><a href=\"#\"><span class=\"ds-chip\" style=\"--fam:#2342b5;--fam-tint:#e3e8fa\">Id</span>Identity</a><div class=\"ds-side-group\"><a href=\"#\">Overview</a><a href=\"#\" aria-current=\"page\">Passkeys</a><a href=\"#\">Enterprise SSO</a></div><a href=\"#\"><span class=\"ds-chip\" style=\"--fam:#2342b5;--fam-tint:#e3e8fa\">Tn</span>Tenancy</a></nav>",
+      "css": ".ds-side { display: flex; flex-direction: column; gap: 1px; width: 260px; padding: 8px; background: var(--sk-ground, #f3f4f7); border-right: 1px solid var(--sk-rule, #d8dce4); } .ds-side a { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border-radius: 4px; color: var(--sk-text, #2b3242); font: 400 .8125rem/1.45 Inter, sans-serif; text-decoration: none; transition: background-color 160ms ease, color 160ms ease; } .ds-side a:hover { background: var(--sk-hover, #e9ebf0); color: var(--sk-ink, #0f141d); } .ds-side a:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: -2px; } .ds-side a[aria-current='page'] { background: var(--sk-ink, #0f141d); color: var(--sk-paper, #fff); font-weight: 600; } .ds-side-group { display: flex; flex-direction: column; gap: 1px; margin-left: 18px; padding-left: 8px; border-left: 1px solid var(--sk-rule, #d8dce4); } .ds-chip { display: inline-grid; place-items: center; width: 22px; height: 20px; border-radius: 3px; background: var(--fam-tint); color: var(--fam); font: 700 .6875rem/1 'Schibsted Grotesk', Inter, sans-serif; }"
+    },
+    {
+      "name": "Page Tool Button",
+      "kind": "button",
+      "refersTo": "page-tool-button",
+      "description": "Small hairline button under a docs title (Copy Markdown, Open).",
+      "html": "<div class=\"ds-tools\"><button type=\"button\" class=\"ds-tool\">Copy Markdown</button><button type=\"button\" class=\"ds-tool\">Open</button></div>",
+      "css": ".ds-tools { display: flex; gap: 8px; } .ds-tool { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; border: 1px solid var(--sk-rule, #d8dce4); border-radius: 3px; background: var(--sk-paper, #fff); color: var(--sk-ink, #0f141d); font: 500 .75rem/1 Inter, sans-serif; cursor: pointer; transition: border-color 160ms ease; } .ds-tool:hover { border-color: var(--sk-ink, #0f141d); } .ds-tool:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 3px; }"
+    },
+    {
+      "name": "Chat Textarea",
+      "kind": "input",
+      "refersTo": "chat-submit",
+      "description": "Ask AI composer: hairline textarea with an ink submit button.",
+      "html": "<form class=\"ds-chat\"><textarea placeholder=\"Ask about the docs\"></textarea><button type=\"submit\">Send</button></form>",
+      "css": ".ds-chat { display: flex; flex-direction: column; gap: 8px; width: 320px; } .ds-chat textarea { min-height: 5rem; padding: .65rem; border: 1px solid var(--sk-rule, #d8dce4); border-radius: 6px; background: var(--sk-paper, #fff); color: var(--sk-text, #2b3242); font: 400 .875rem/1.5 Inter, sans-serif; resize: vertical; } .ds-chat textarea:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 0; } .ds-chat button { align-self: flex-end; padding: .45rem .75rem; border: 1px solid var(--sk-ink, #0f141d); border-radius: 4px; background: var(--sk-ink, #0f141d); color: var(--sk-paper, #fff); font: 500 .8125rem Inter, sans-serif; cursor: pointer; } .ds-chat button:focus-visible { outline: 2px solid var(--sk-foundations, #2342b5); outline-offset: 3px; } .ds-chat button:disabled { opacity: .5; cursor: default; }"
+    },
+    {
+      "name": "Ruled Table",
+      "kind": "custom",
+      "description": "2px ink header rule, hairline rows, no cell borders or fills.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Test</th><th>Fails when</th></tr></thead><tbody><tr><td><code>ModuleBoundaryTests</code></td><td>A module references another module's implementation.</td></tr><tr><td><code>PendingModelChangesTests</code></td><td>The EF model changed without a migration.</td></tr></tbody></table>",
+      "css": ".ds-table { width: 480px; border-collapse: collapse; font: 400 .875rem/1.55 Inter, sans-serif; color: var(--sk-text, #2b3242); font-variant-numeric: tabular-nums; } .ds-table th { padding: 0 16px 10px 0; border-bottom: 2px solid var(--sk-ink, #0f141d); text-align: start; font-weight: 600; font-size: .8125rem; color: var(--sk-ink, #0f141d); } .ds-table td { padding: 14px 16px 14px 0; border-bottom: 1px solid var(--sk-rule, #d8dce4); vertical-align: top; } .ds-table code { font: 400 .8125rem 'JetBrains Mono', ui-monospace, monospace; color: var(--sk-ink, #0f141d); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Module Chart",
+    "overview": "An offset-printed classroom wall chart of the system. Every module is an element placed by its real ModuleOrder, the cross-cutting practices hang below as a detached series, and every documentation page carries the element it belongs to beside its title. The ground is a cool chart-white (dark: blue-black slate), type is ink, cells are separated by printed hairlines, and four flat family tints fill cells and mark sections. Nothing is glossy, gradient-lit or floating; the chart is printed, and the reading column it frames is calm.\n\nDensity is deliberately split into strata. The chart is dense (cells touching through a 1px gap); the strata around it are quiet, separated by deep gaps and single rules. Long-form pages drop the chart down to a single tile in the page head and a symbol chip per sidebar entry, so the reader always knows which element they stand in without the page competing with its own text.\n\nEvery claim on a cell is proof: the top corner shows the real startup order and the real page count. Rank is shown only by inversion: the current, pressed or hovered item prints as an ink tile.",
+    "keyCharacteristics": [
+      "Cool chart-white ground, ink type, hairline rules; no decorative imagery.",
+      "Four flat family tints (Foundations cobalt, Connected green, Samples ochre, Practices violet) plus a neutral slate family for non-chart groups and the API reference.",
+      "Heavy grotesk symbols and headings, a quiet reading sans, mono for order numerals and code.",
+      "Rank by inversion: the selected item becomes an ink tile with paper text.",
+      "Ruled structure (2px ink header rule, 1px hairline rows) instead of boxed cards."
+    ],
+    "rules": [
+      { "name": "The Tint-Fill Rule", "body": "Family colours appear as cell fills (their tint) and small markers (legend swatch, chip, numerals) only. A family never paints a page background, a heading or a button.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "Cobalt is the only interactive accent. Focus, caret, prose links and search highlights use it; every other emphasis is ink.", "section": "colors" },
+      { "name": "The Data-Is-Mono Rule", "body": "Mono marks only numbers that are facts (startup order, page counts, ADR ids) and code. It is never a stylistic label.", "section": "typography" },
+      { "name": "The Heavy Headings Rule", "body": "Every heading is the display grotesk at 700-800 with negative tracking and balanced wrapping; body copy never borrows it.", "section": "typography" },
+      { "name": "The Whole-Cell Reflow Rule", "body": "The chart never squeezes, scrolls or crops a cell; it reflows by whole cells and keeps the order sequence readable.", "section": "layout" },
+      { "name": "The Strata Rule", "body": "Dense blocks (the chart, tables) alternate with quiet reading blocks across deep gaps; never stack two dense blocks without a rule and a stratum gap between them.", "section": "layout" },
+      { "name": "The Printed Surface Rule", "body": "Cards, tiles, code blocks, callouts, tables and diagrams carry no drop shadow. A new surface earns depth only if it overlays the page.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do fill cells with the family tint and print the symbol and numerals in the family colour; keep names in ink.",
+      "Do show rank by inversion only: current page, selected search option, pressed legend button and hovered tile become ink with paper text.",
+      "Do back every number on a tile with the real source (ModuleOrder, computed page count); drop the tile if it has no pages.",
+      "Do separate structure with a 2px ink header rule and 1px hairlines instead of boxes.",
+      "Do keep prose at a 70ch measure, 1rem/1.72, with H2s opening on a hairline.",
+      "Do use cobalt for focus (2px outline, 3px offset), prose links and search highlights.",
+      "Do reflow the chart by whole cells (6, then 3 columns; practices 4, then 2).",
+      "Do keep every family token defined for both themes and reference the token, never the value."
+    ],
+    "donts": [
+      "Don't use a family colour as a page background, heading colour or large fill.",
+      "Don't add drop shadows to tiles, code blocks, tables or callouts; shadows belong only to the search action and dialogs.",
+      "Don't mark the current item with a coloured side bar, underline or accent fill; it inverts to ink.",
+      "Don't use mono for anything other than code and factual numerals.",
+      "Don't float toolbar controls as separate pills; the running head is one ruled bar.",
+      "Don't load hosted font stylesheets; fonts are bundled locally."
+    ]
+  }
+}

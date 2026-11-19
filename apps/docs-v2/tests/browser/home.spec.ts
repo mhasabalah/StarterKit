@@ -13,16 +13,28 @@ for (const theme of ['light', 'dark']) {
       await page.goto(base + '/');
       const home = page.getByRole('main');
       await expect(home.getByRole('heading', { level: 1 })).toHaveCount(1);
-      await expect(page.locator('.brand-logo')).toHaveCount(2);
-      await expect(page.locator(`.brand-logo-${theme}:visible`)).toHaveCount(2);
-      expect(await page.locator('.brand-logo img:visible').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
-      await expect(page.locator('.home-path')).toHaveCount(3);
-      await expect(page.locator('.home-guide')).toHaveCount(12);
+      await expect(page.locator('#nd-nav .brand-logo')).toHaveCount(1);
+      await expect(page.locator('.brand-mark:visible').first()).toBeVisible();
+      const chart = page.locator('.chart');
+      await expect(chart.locator('.chart-modules .tile')).toHaveCount(11);
+      await expect(chart.locator('.chart-practices .tile')).toHaveCount(8);
+      await expect(chart.getByRole('link', { name: /^Identity, startup order 000, \d+ pages/ })).toBeVisible();
+      await expect(chart.getByRole('link', { name: /^Your module, startup order 700/ })).toBeVisible();
+      await expect(page.locator('.home-route')).toHaveCount(3);
+      await expect(page.getByRole('button', { name: 'Search modules, rules and commands' })).toBeVisible();
       await expect(page.getByRole('region', { name: 'Template installation and project creation commands' })).toBeVisible();
-      await expect(page.getByRole('group', { name: 'Generated project structure' })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
       if (width === 1440 && theme === 'light') {
+        const foundations = chart.getByRole('button', { name: 'Foundations', exact: true });
+        await foundations.click();
+        await expect(foundations).toHaveAttribute('aria-pressed', 'true');
+        await expect(chart.locator('.tile[data-family="connected"]').first()).toHaveCSS('opacity', '0.6');
+        await foundations.click();
+        await expect(foundations).toHaveAttribute('aria-pressed', 'false');
+        await page.getByRole('button', { name: 'Search modules, rules and commands' }).click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Escape');
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
         const copy = page.locator('.home-command').getByRole('button', { name: 'Copy Text', exact: true });
         await copy.focus();
@@ -32,7 +44,7 @@ for (const theme of ['light', 'dark']) {
           'dotnet new install StarterKit.Templates', 'dotnet new starterkit -n Acme',
         ]);
       }
-      await page.screenshot({ path: `.generated/home-redesign-${theme}-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `.generated/home-chart-${theme}-${width}.png`, fullPage: true });
       expect(errors).toEqual([]);
       if (width === 390) {
         await page.setViewportSize({ width: 320, height: 800 });
@@ -41,3 +53,20 @@ for (const theme of ['light', 'dark']) {
     });
   }
 }
+
+test('the home chart flags the guide read last', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(base + '/identity/passkeys/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('starterkit:last-read'))).toContain('/identity/passkeys');
+  await page.goto(base + '/');
+  await expect(page.locator('.tile[data-symbol="Id"][data-last-read]')).toHaveCount(1);
+  await expect(page.locator('.continue-reading').getByRole('link')).toHaveAttribute('href', /\/identity\/passkeys/);
+});
+
+test('documentation pages carry their chart element beside the title', async ({ page }) => {
+  await page.goto(base + '/identity/passkeys/');
+  await expect(page.locator('.page-head .element-tile')).toHaveAttribute('aria-label', /^Identity section, startup order 000, \d+ pages$/);
+  await page.goto(base + '/decisions/');
+  await expect(page.locator('.page-head .element-tile')).toHaveAttribute('aria-label', /^Decisions section, \d+ pages$/);
+});

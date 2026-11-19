@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'fumadocs-core/framework';
 import { AIChatPanel } from './ai-chat';
+import { LAST_READ_KEY } from '@/lib/last-read';
 import { DocsLayout as GlassLayout, type DocsLayoutProps } from 'fumadocs-ui/layouts/glass';
 import { Sidebar, SidebarDrawer, SidebarProvider, useSidebar } from 'fumadocs-ui/layouts/glass/slots/sidebar';
 
@@ -26,8 +27,22 @@ function MobileNavigation() {
   return <SidebarDrawer contentProps={{ className: 'docs-sidebar', role: 'navigation', 'aria-label': 'Documentation navigation' }} />;
 }
 
+/** Remember the guide the reader was on, so the home chart can flag it. Local to this browser only. */
+function useRememberLastRead() {
+  const pathname = usePathname();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const title = document.querySelector('#nd-page h1')?.textContent?.trim();
+      if (!title) return;
+      try { localStorage.setItem(LAST_READ_KEY, JSON.stringify({ url: pathname, title })); } catch { /* storage unavailable */ }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [pathname]);
+}
+
 export function DocsLayout(props: DocsLayoutProps) {
   const [open, setOpen] = useState(false);
+  useRememberLastRead();
   return <GlassLayout {...props} links={props.links?.map((link) => link.type === 'icon' ? link : { ...link, on: 'nav' })}
     aiChat={{ open, onOpenChange: setOpen, trigger: true, panel: <AIChatPanel onClose={() => setOpen(false)} /> }} slots={{ sidebar: {
     main: Navigation, drawer: MobileNavigation, provider: SidebarProvider, use: useSidebar,
