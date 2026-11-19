@@ -99,6 +99,11 @@ animation. The visual system (palette, type, chart cells) is recorded in
 [the V2 design notes](../../apps/docs-v2/DESIGN.md); the mark keeps the geometry from
 [the brand guidelines](../Reference/Brand.md), drawn inline in the V2 palette.
 
+Every documentation page also has **Copy for agent**: it copies the page's Markdown wrapped in a prompt for an AI
+coding agent (what StarterKit is, the rules from `CLAUDE.md`, the guardrail commands, the source link and a task slot).
+The homepage offers the same for starting a product. Prompt text lives in `apps/docs-v2/lib/agent-prompt.mjs`, and
+`tests/agent-prompt.test.mjs` checks its commands against the template and the New project guide.
+
 Search filters use the official tag controls and filter the server index: all pages, documentation, getting
 started, architecture, and API reference. The Glass header's Ask AI button opens a conversation panel with source
 links, cancellation, and conversation reset. It reuses documentation search to select bounded excerpts; no vector

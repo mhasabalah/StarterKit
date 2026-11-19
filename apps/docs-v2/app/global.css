@@ -145,6 +145,23 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .home-start p a, .home-guardrails > p a { color: var(--sk-ink); text-decoration: underline; text-decoration-color: var(--sk-rule-strong); }
 .home-start p a:hover { text-decoration-color: currentColor; }
 
+/* Copy for agent: the one ink action in a toolbar of hairline controls, because it is the one that starts work. */
+.agent-copy { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px; border: 1px solid var(--sk-ink); border-radius: 3px; background: var(--sk-ink); color: var(--sk-paper); font: 500 .8125rem/1 var(--font-sans); transition: background-color 160ms ease, color 160ms ease; }
+.agent-copy svg { width: 16px; height: 16px; flex-shrink: 0; }
+.agent-copy:hover { background: var(--sk-text); }
+.agent-copy[data-state='failed'] { border-color: var(--sk-danger); background: var(--sk-danger-tint); color: var(--sk-danger); }
+.page-tools .agent-copy, .page-tools .agent-copy:hover { border-color: var(--sk-ink); background: var(--sk-ink); color: var(--sk-paper); }
+.page-tools .agent-copy:hover { background: var(--sk-text); }
+.page-tools .agent-copy svg { width: 14px; height: 14px; }
+.agent-start { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 18px; }
+.agent-preview { align-self: stretch; font-size: .8125rem; color: var(--sk-muted); }
+.agent-preview summary { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; list-style: none; }
+.agent-preview summary::-webkit-details-marker { display: none; }
+.agent-preview summary:hover { color: var(--sk-ink); }
+.agent-preview summary svg { width: 14px; height: 14px; transition: transform 160ms var(--sk-ease); }
+.agent-preview[open] summary svg { transform: rotate(90deg); }
+.agent-preview pre { max-height: 280px; overflow: auto; margin-top: 8px; padding: 12px 14px; border: 1px solid var(--sk-rule); border-radius: 3px; background: var(--sk-paper); color: var(--sk-text); font: 400 .75rem/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* The chart */
 .chart { min-width: 0; }
 .chart-modules { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; }
@@ -456,6 +473,30 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .docs-chat-message strong { color: var(--sk-ink); }
 .docs-chat-message p { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: .5rem; line-height: 1.65; }
 .docs-chat-message nav { display: flex; flex-direction: column; gap: .3rem; margin-top: .75rem; }
+/* Answers render a Markdown subset (components/chat-markdown.tsx) in the reading styles at panel scale. */
+.chat-md { margin-top: .5rem; line-height: 1.65; overflow-wrap: anywhere; color: var(--sk-text); }
+.chat-md > * + * { margin-top: .65em; }
+.chat-md p { margin-top: 0; white-space: normal; }
+.chat-md > p + p, .chat-md > * + p { margin-top: .65em; }
+.chat-md .chat-md-heading strong { color: var(--sk-ink); font-weight: 600; }
+.chat-md :is(ul, ol) { padding-inline-start: 1.25em; }
+.chat-md ul { list-style: disc; }
+.chat-md ol { list-style: decimal; }
+.chat-md li + li { margin-top: .25em; }
+.chat-md li::marker { color: var(--sk-muted); }
+.chat-md :not(pre) > code { padding: .1em .35em; border: 1px solid var(--sk-rule); border-radius: 3px; background: var(--sk-ground); font-size: .85em; }
+.chat-md pre { overflow-x: auto; padding: 10px 12px; border: 1px solid var(--sk-rule); border-radius: 3px; background: var(--sk-ground); font-size: .78rem; line-height: 1.55; }
+.chat-md a:not(.chat-cite) { color: var(--sk-ink); text-decoration: underline; text-decoration-color: var(--sk-rule-strong); }
+.chat-md a:not(.chat-cite):hover { text-decoration-color: var(--sk-foundations); }
+.chat-md blockquote { padding-inline-start: .8em; border-inline-start: 1px solid var(--sk-ink); color: var(--sk-muted); }
+.chat-md hr { border: 0; border-top: 1px solid var(--sk-rule); }
+.chat-md-table { overflow-x: auto; }
+.chat-md table { width: 100%; border-collapse: collapse; border-top: 2px solid var(--sk-ink); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.chat-md :is(th, td) { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--sk-rule); text-align: start; vertical-align: top; }
+.chat-md th { font-weight: 600; color: var(--sk-ink); }
+/* A citation is a small numbered tile that inverts like every other rank mark. */
+.chat-cite { display: inline-grid; place-items: center; min-width: 1.4em; height: 1.4em; padding: 0 .25em; margin-inline: 1px; border-radius: 2px; background: var(--sk-foundations-tint); color: var(--sk-foundations); font: 600 .6875rem/1 var(--font-mono); text-decoration: none; vertical-align: .12em; transition: background-color 120ms ease, color 120ms ease; }
+.chat-cite:hover, .chat-cite:focus-visible { background: var(--sk-ink); color: var(--sk-paper); }
 .docs-chat-close { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0 !important; }
 .docs-chat-close svg { width: 16px; height: 16px; }
 .docs-chat-message > strong { display: block; font: 600 .75rem/1.2 var(--font-sans); color: var(--sk-muted); }

@@ -61,7 +61,9 @@ The Next.js documentation site (`apps/docs-v2`) uses its own visual system, a mo
 (blue-black slate in dark mode), four flat family tints (foundations, connected, samples, practices), Schibsted
 Grotesk for headings and chart symbols, Inter for reading and JetBrains Mono for code and numerals. It draws the
 original mark inline with the same geometry, in its own ink and terminal colors; the SVG exports above stay the source
-for V1, packages and social images. Its tokens live in
+for V1 and packages. V2 ships its own adaptive favicon (`apps/docs-v2/app/icon.svg`, ink and connected green) and
+generates, at build, a 180 by 180 home-screen icon (paper mark on an opaque ink tile) and a 1200 by 630 social card
+that prints the module chart from the same data as the home page (`apps/docs-v2/lib/brand-images.tsx`). Its tokens live in
 [the V2 stylesheet](../../apps/docs-v2/app/global.css) and its rules in
 [the V2 design notes](../../apps/docs-v2/DESIGN.md).
 

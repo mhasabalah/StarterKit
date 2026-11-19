@@ -1,9 +1,12 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import { elementFor } from '@/lib/chart';
 import { ElementChip } from './element-tile';
+
+// The Markdown parser loads with the panel, not with every page; until it arrives an answer shows as plain text.
+const ChatMarkdown = lazy(() => import('./chat-markdown'));
 import { publicPath } from '@/lib/site';
 
 type Message = { role: 'user' | 'assistant'; content: string; sources?: { title: string; url: string }[] };
@@ -16,6 +19,7 @@ export function AIChatPanel({ onClose }: { onClose: () => void }) {
   const controller = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => { void import('./chat-markdown'); }, []);
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [messages, busy, error]);
 
   async function send() {
@@ -40,7 +44,9 @@ export function AIChatPanel({ onClose }: { onClose: () => void }) {
         {['How do modules communicate?', 'How does tenant isolation work?', 'How do I create a new project?'].map((text) => <button className="docs-chat-suggestion" key={text} onClick={() => setQuestion(text)}>{text}</button>)}
       </div>}
       {messages.map((message, i) => <article key={i} className="docs-chat-message" data-role={message.role}>
-        <strong>{message.role === 'user' ? 'You' : 'Answer'}</strong><p>{message.content}</p>
+        <strong>{message.role === 'user' ? 'You' : 'Answer'}</strong>
+        {message.role === 'user' ? <p>{message.content}</p>
+          : <Suspense fallback={<p>{message.content}</p>}><ChatMarkdown text={message.content} sources={message.sources ?? []} /></Suspense>}
         {message.sources?.length ? <nav aria-label="Answer sources"><span>Sources</span><ul>{message.sources.map((source) => {
           const element = elementFor(source.url);
           return <li key={source.url}><Link href={source.url}>{element ? <ElementChip symbol={element.symbol} family={element.family} />
