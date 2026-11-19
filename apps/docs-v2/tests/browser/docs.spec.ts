@@ -105,3 +105,19 @@ test('every migrated page renders and all diagram pages work in production', asy
   }
   expect(errors).toEqual([]);
 });
+
+test('brand metadata points at the V2 icons and social card, served without redirects', async ({ page, request }) => {
+  await page.goto(base + '/architecture/messaging/');
+  const icon = await page.locator('link[rel="icon"]').getAttribute('href');
+  const apple = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
+  const social = await page.locator('meta[property="og:image"]').getAttribute('content');
+  expect(await page.locator('meta[name="twitter:image"]').getAttribute('content')).toBe(social);
+  expect(await page.locator('meta[property="og:image:alt"]').getAttribute('content')).toMatch(/module chart/);
+  for (const [href, type] of [[icon, 'image/svg+xml'], [apple, 'image/png'], [social, 'image/png']] as const) {
+    expect(href).toBeTruthy();
+    const response = await request.get(new URL(href!, page.url()).pathname, { maxRedirects: 0 });
+    expect(response.status(), href!).toBe(200);
+    expect(response.headers()['content-type']).toContain(type);
+  }
+  expect((await (await request.get(new URL(icon!, page.url()).pathname)).text())).toContain('#0f141d'); // V2 ink, not the V1 indigo
+});

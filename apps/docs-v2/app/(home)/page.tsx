@@ -4,6 +4,7 @@ import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc';
 import { BrandLogo } from '@/components/brand';
 import { ModuleChart, ContinueReading } from '@/components/module-chart';
 import { SearchTrigger } from '@/components/search-trigger';
+import { CopyStartPrompt } from '@/components/agent-copy';
 import { families, modules, practices } from '@/lib/chart';
 import { source } from '@/lib/source';
 import { absoluteUrl, repository } from '@/lib/site';
@@ -49,6 +50,7 @@ export default function Home() {
             themes={{ light: 'github-light', dark: 'github-dark' }}
             codeblock={{ title: 'Terminal', icon: <Terminal size={14} aria-hidden="true" />, className: 'home-command', viewportProps: { 'aria-label': 'Template installation and project creation commands' } }} />
           <p>Installing from the package feed? <Link href="/getting-started/templates/#install">Set up the feed first</Link>.</p>
+          <CopyStartPrompt />
         </div>
       </div>
       <ModuleChart modules={modules} practices={practices} families={families} />

@@ -1,5 +1,5 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { publicPath, repository } from './site';
+import { repository } from './site';
 import { BrandLogo } from '@/components/brand';
 
 export const baseOptions: BaseLayoutProps = {
@@ -12,4 +12,3 @@ export const baseOptions: BaseLayoutProps = {
     { text: 'Decisions', url: '/decisions/' },
   ],
 };
-export const brandIcon = publicPath('/favicon.svg');

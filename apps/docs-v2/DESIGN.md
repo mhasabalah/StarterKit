@@ -262,6 +262,7 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 - **Element chip:** 22x20px, 3px radius, family tint fill with the family-coloured two-letter symbol (display 700, 0.6875rem). Precedes every top-level sidebar entry and module entry; non-chart groups use the slate family. On the current page it turns paper-on-ink with a translucent paper fill.
 
 - **Method chip:** HTTP methods in the API reference print as 2px-radius tint chips: GET connected, POST foundations, PUT and PATCH samples, DELETE danger.
+- **Citation chip:** a `[n]` citation in an Ask AI answer becomes a small cobalt-tint numbered tile linking to source n; it inverts to ink on hover or focus. A citation without a matching source stays text.
 - **Source chip:** Ask AI sources lead with the element chip of the page they cite; API pages take the slate "Ap" chip, pages outside the chart a dashed empty chip.
 
 ### Cards / Containers
@@ -278,6 +279,18 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 - **Style:** the chat textarea is paper with a 1px hairline and 6px radius; the search field in the running head is ground-filled with a hairline, min 240px wide.
 - **Focus:** 2px cobalt outline; inside the search dialog the header shows a 2px cobalt underline instead. While the index loads, a 2px ink scanning rule slides along the dialog header.
 - **Disabled:** 50% opacity, default cursor.
+
+- **Ask AI answers:** a Markdown subset (paragraphs, lists, inline and fenced code, tables, quotes, links) in the reading styles at panel scale: hairline-framed ground code, 2px ink table header rule. Headings print as strong lines. It is rendered from a syntax tree to allowlisted elements (`components/chat-markdown.tsx`): HTML prints as text, images become links, only relative, fragment, http and https links are live.
+
+### Copy for Agent
+- **Docs pages:** "Copy for agent" leads the page tools as the only ink-filled control (it starts work); it copies the page's Markdown wrapped with what StarterKit is, the rules from `CLAUDE.md` and the guardrail commands, the page's source link and a "My task:" slot.
+- **Home:** "Copy prompt for your AI agent" sits under the quickstart and copies a start-a-product prompt; a "Preview the prompt" disclosure shows exactly the copied text in a hairline-framed mono block.
+- **Feedback:** the label turns to "Copied" with a check for 2.4s (a live status says it for screen readers); a failed copy turns the control signal red with "Copy failed". Prompt text lives in `lib/agent-prompt.mjs`, whose commands are tested against the template and the New project guide.
+
+### Brand Images
+- **Favicon:** the mark in ink with the connected-green terminal; light and dark through `prefers-color-scheme` (`app/icon.svg`).
+- **Home-screen icon:** the paper mark on an opaque ink tile, terminal in dark-theme green, 180px.
+- **Social card:** 1200x630 chart white. Brand lockup, "The developer guide" in display 800, the lead in muted Inter, a 2px ink rule over a mono caption; on the right the module chart printed with real orders and page counts and the dashed 700 slot. Both are generated at build (`lib/brand-images.tsx`) and served from `.png` routes, so crawlers get them without a redirect.
 
 ### Navigation
 - **Sidebar:** 0.8125rem entries, 34px min height, 4px radius, body-text colour; hover fills with the hover wash. Group headers are 600 ink. Nested groups hang from a 1px hairline 18px in. Modules are ordered by `ModuleOrder` so the sidebar reads like the chart. The current page alone prints as an ink tile.
