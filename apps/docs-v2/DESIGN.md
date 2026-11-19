@@ -294,8 +294,12 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 
 ### Navigation
 - **Sidebar:** 0.8125rem entries, 34px min height, 4px radius, body-text colour; hover fills with the hover wash. Group headers are 600 ink. Nested groups hang from a 1px hairline 18px in. Modules are ordered by `ModuleOrder` so the sidebar reads like the chart. The current page alone prints as an ink tile.
-- **Running head:** one ruled bar; controls are separated by hairline dividers, not floating pills.
-- **TOC:** 0.8125rem muted links, active and hover in ink with an ink marker.
+- **Running head (768px and up):** one ruled bar; search, Ask AI, GitHub and theme are separated by hairline dividers, not floating pills. GitHub is pinned here, so the sidebar does not repeat it.
+- **Phone bar (below 768px):** a 56px top bar, paper over the page with a light blur and a hairline: the logo (home) on the left; search, Ask AI, GitHub and the navigation drawer as 40px icon buttons on the right. It replaces Glass's floating bottom buttons; docs and home share it (`components/site-header.tsx`).
+- **Home header:** the same bar at 60px, aligned to the 1360px page: lockup, the three guide sections, a ground search field with its shortcut, GitHub and theme. Below 1024px search becomes an icon; below 768px the sections and theme move into a menu panel of large ruled links with a theme row.
+- **Section bar (below 1280px):** "On this page" as a sticky 44px bar under the header: an ink progress ring (reading progress), the current section's title, its position as a mono `3/16`, and a chevron. It opens to the outline, depth indented, the current item in 600 ink with a 2px ink mark; Escape, an outside tap or a choice closes it. It reads the active heading from the same Fumadocs TOC state as the desktop outline (`components/section-bar.tsx`).
+- **Outline (1280px and up):** "On this page" in 600 ink over a hairline track; entries 0.8125rem muted, indented by depth. The sections in view print a 2px ink thumb on the track and turn ink.
+- **Back to top:** a 44px paper square with a strong hairline and a soft overlay shadow, bottom right (safe-area aware), shown once the reader is a screen and a half down; it inverts to ink on hover, moves focus to the page title, and hides while Ask AI is open. Inert while hidden.
 - **Previous / next:** one ruled row under a 2px ink rule, two cells split by a hairline, a muted "Previous" or "Next" label over the page title in display 700. It replaces the stock cards.
 - **Search results:** the selected option inverts to ink; matches are a cobalt tint with underline that stays legible on ink.
 

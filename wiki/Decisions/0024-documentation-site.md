@@ -105,7 +105,10 @@ The homepage offers the same for starting a product. Prompt text lives in `apps/
 `tests/agent-prompt.test.mjs` checks its commands against the template and the New project guide.
 
 Search filters use the official tag controls and filter the server index: all pages, documentation, getting
-started, architecture, and API reference. The Glass header's Ask AI button opens a conversation panel with source
+started, architecture, and API reference. The site supplies its own header in the Glass `header` slot and the home
+`header` slot: on phones a top bar pins the logo, search, Ask AI, GitHub and the menu, and below 1280px "On this page"
+becomes a sticky section bar that names the current section and opens to the outline. A back-to-top control appears
+on long pages. The header's Ask AI button opens a conversation panel with source
 links, cancellation, and conversation reset. It reuses documentation search to select bounded excerpts; no vector
 database or external document crawler is needed. Configure `DOCS_AI_BASE_URL` (including `/v1`), `DOCS_AI_MODEL`,
 and, for authenticated providers, `DOCS_AI_API_KEY` in the deployment environment or an ignored `.env.local`.

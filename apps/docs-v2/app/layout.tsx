@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Provider } from '@/components/provider';
+import { BackToTop } from '@/components/back-to-top';
 import { absoluteUrl, production } from '@/lib/site';
 import { socialAlt, socialSize } from '@/lib/brand-meta';
 import './global.css';
@@ -18,5 +19,5 @@ export const metadata: Metadata = {
   robots: { index: production, follow: production },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <html lang="en" suppressHydrationWarning><body><Provider>{children}</Provider></body></html>;
+  return <html lang="en" suppressHydrationWarning><body><Provider>{children}<BackToTop /></Provider></body></html>;
 }
