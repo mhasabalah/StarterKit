@@ -29,6 +29,7 @@
   --sk-samples: #8a4a06; --sk-samples-tint: #f8e9d3;
   --sk-practices: #5534b3; --sk-practices-tint: #ebe6fa;
   --sk-api: #3d4658; --sk-api-tint: #e6e8ed;
+  --sk-danger: #a8203d; --sk-danger-tint: #f9e3e8;
   --sk-ease: cubic-bezier(.16, 1, .3, 1);
   --color-fd-background: var(--sk-paper); --color-fd-foreground: var(--sk-text);
   --color-fd-card: var(--sk-paper); --color-fd-card-foreground: var(--sk-text);
@@ -38,6 +39,8 @@
   --color-fd-accent: var(--sk-hover); --color-fd-accent-foreground: var(--sk-ink);
   --color-fd-border: var(--sk-rule); --color-fd-ring: var(--sk-foundations);
   --color-fd-primary: var(--sk-foundations); --color-fd-primary-foreground: #ffffff;
+  --color-fd-info: var(--sk-foundations); --color-fd-warning: var(--sk-samples); --color-fd-success: var(--sk-connected);
+  --color-fd-idea: var(--sk-practices); --color-fd-error: var(--sk-danger);
 }
 .dark {
   --sk-ground: #0b0e14; --sk-paper: #10141c; --sk-ink: #eef1f6; --sk-text: #d3d9e3; --sk-muted: #9ba5b7;
@@ -47,6 +50,7 @@
   --sk-samples: #f1b873; --sk-samples-tint: #2e2010;
   --sk-practices: #c3b2ff; --sk-practices-tint: #221a40;
   --sk-api: #c3cad6; --sk-api-tint: #1d222c;
+  --sk-danger: #ff9aaa; --sk-danger-tint: #3a1820;
   --color-fd-primary-foreground: #0b0e14;
 }
 [data-family='foundations'] { --fam: var(--sk-foundations); --fam-tint: var(--sk-foundations-tint); }
@@ -368,7 +372,37 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 #nd-page .prose blockquote { border-inline-start: 1px solid var(--sk-ink); padding-inline-start: 1em; font-style: normal; color: var(--sk-text); }
 #nd-page .prose hr { border-color: var(--sk-rule); }
 /* Callouts keep the Fumadocs treatment; only their corners join the chart radius. */
-#nd-page .prose [class*='callout'], #nd-page .prose div[role='note'] { border-radius: 6px; }
+/* Previous / next: one ruled row of two cells labelled by direction, instead of two floating cards. */
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) { gap: 0; border-top: 2px solid var(--sk-ink); }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a { gap: 6px; padding: 16px 12px 18px; border: 0; border-bottom: 1px solid var(--sk-rule); border-radius: 0; }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a + a { border-inline-start: 1px solid var(--sk-rule); }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a > p { display: none; }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a::before { content: 'Previous'; font: 500 .75rem/1 var(--font-sans); color: var(--sk-muted); }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a:has(.lucide-chevron-right)::before { content: 'Next'; }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a > div { font: 700 1.0625rem/1.3 var(--font-display); letter-spacing: -.015em; color: var(--sk-ink); }
+#nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a:hover { background: var(--sk-hover); }
+@container (max-width: 32rem) { #nd-page .\@container.grid-cols-2:has(> a .lucide-chevron-left, > a .lucide-chevron-right) > a + a { border-inline-start: 0; } }
+
+/* Callouts: a tinted cell under a hairline, labelled by icon and title; never a coloured side bar. */
+#nd-page [style*='--callout-color'] { gap: 10px; padding: 14px 16px; border-radius: 3px; border-color: color-mix(in srgb, var(--callout-color) 32%, var(--sk-rule)); background: color-mix(in srgb, var(--callout-color) 7%, var(--sk-paper)); color: var(--sk-text); }
+#nd-page [style*='--callout-color'] > [role='none'] { display: none; }
+#nd-page [style*='--callout-color'] > svg { margin-top: 1px; }
+#nd-page [style*='--callout-color'] p.font-medium { font-weight: 600; color: var(--sk-ink); }
+#nd-page [style*='--callout-color'] .text-fd-muted-foreground { color: var(--sk-text); }
+
+/* API reference: an operation reads as a printed spec sheet, with the chart's radii, rules and tints. */
+#nd-page :is(.rounded-xl, .rounded-2xl, .rounded-lg) { border-radius: 3px; }
+#nd-page .prose div.flex:has(> h2) { margin-top: 2.4em; padding-top: 1.1em; border-top: 1px solid var(--sk-rule); }
+#nd-page .prose div.flex > h2 { margin: 0; padding: 0; border: 0; }
+.font-mono.font-medium:is(.text-green-600, .text-blue-600, .text-yellow-600, .text-orange-600, .text-red-600) {
+  display: inline-grid; place-items: center; min-width: 3.6em; padding: 3px 6px; border-radius: 2px;
+  background: var(--method-tint); color: var(--method) !important; font-size: .6875rem; line-height: 1; letter-spacing: .03em;
+}
+.font-mono.text-green-600 { --method: var(--sk-connected); --method-tint: var(--sk-connected-tint); }
+.font-mono.text-blue-600 { --method: var(--sk-foundations); --method-tint: var(--sk-foundations-tint); }
+.font-mono:is(.text-yellow-600, .text-orange-600) { --method: var(--sk-samples); --method-tint: var(--sk-samples-tint); }
+.font-mono.text-red-600 { --method: var(--sk-danger); --method-tint: var(--sk-danger-tint); }
+#nd-page .font-mono > [role='tab'][aria-selected='true'] { background: var(--sk-ink); color: var(--sk-paper); border-radius: 2px; }
 
 /* Table of contents */
 #nd-toc a { font-size: .8125rem; color: var(--sk-muted); transition: color 160ms ease; }
@@ -406,6 +440,7 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .docs-search [role='option'][aria-selected='true'] code { background: color-mix(in srgb, var(--sk-paper) 14%, transparent) !important; border-color: transparent !important; }
 
 /* Ask AI panel */
+#fd-glass-layout > aside:has(.docs-chat) { border-radius: 4px; }
 .docs-chat { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--sk-paper); color: var(--sk-text); }
 .docs-chat header { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 16px; border-bottom: 1px solid var(--sk-rule); background: var(--sk-ground); }
 .docs-chat header h2 { font: 700 1rem var(--font-display); color: var(--sk-ink); }
@@ -421,7 +456,22 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .docs-chat-message strong { color: var(--sk-ink); }
 .docs-chat-message p { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: .5rem; line-height: 1.65; }
 .docs-chat-message nav { display: flex; flex-direction: column; gap: .3rem; margin-top: .75rem; }
-.docs-chat-message nav a { color: var(--sk-ink); text-decoration: underline; text-decoration-color: var(--sk-rule-strong); }
+.docs-chat-close { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0 !important; }
+.docs-chat-close svg { width: 16px; height: 16px; }
+.docs-chat-message > strong { display: block; font: 600 .75rem/1.2 var(--font-sans); color: var(--sk-muted); }
+.docs-chat-message[data-role='user'] { padding: 10px 12px; border-radius: 3px; background: var(--sk-ground); box-shadow: inset 0 0 0 1px var(--sk-rule); }
+.docs-chat-message[data-role='user'] p { margin-top: 4px; color: var(--sk-ink); font-weight: 500; }
+.docs-chat-message nav { gap: 0; margin-top: 1rem; }
+.docs-chat-message nav > span { font-size: .75rem; font-weight: 600; color: var(--sk-muted); margin-bottom: 6px; }
+.docs-chat-message nav ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--sk-rule); }
+.docs-chat-message nav li { border-bottom: 1px solid var(--sk-rule); }
+.docs-chat-message nav a { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 4px; color: var(--sk-ink); text-decoration: none; transition: background-color 120ms ease; }
+.docs-chat-message nav a:hover { background: var(--sk-hover); }
+.docs-chat-message nav a:hover > span:last-child { text-decoration: underline; text-decoration-color: var(--sk-rule-strong); }
+.element-chip-none { background: transparent; border: 1px dashed var(--sk-rule-strong); }
+.docs-chat-status { position: relative; overflow: hidden; padding-bottom: 10px; font-size: .8125rem; color: var(--sk-muted); }
+.docs-chat-status::after { content: ''; position: absolute; inset-inline-start: 0; bottom: 0; width: 32%; height: 2px; background: var(--sk-ink); animation: search-scan 900ms var(--sk-ease) infinite alternate; }
+.docs-chat-error { padding: 10px 12px; border-radius: 3px; background: var(--sk-danger-tint); color: var(--sk-danger); font-size: .8125rem; }
 .docs-chat form { border-top: 1px solid var(--sk-rule); padding: .75rem; }
 .docs-chat textarea { width: 100%; min-height: 5rem; resize: vertical; padding: .65rem; border: 1px solid var(--sk-rule); border-radius: 6px; background: var(--sk-paper); color: var(--sk-text); }
 .docs-chat textarea:focus-visible { outline: 2px solid var(--sk-foundations); outline-offset: 0; }
@@ -462,4 +512,12 @@ html:has(main.not-found), html:has(main.not-found) body { background: var(--sk-g
 .not-found nav a:hover { text-decoration: underline; }
 
 @media (max-width: 520px) { .brand-label { display: none; } }
+/* The one authored motion: a chart tile travels to the title of the page it opens (React <ViewTransition>).
+   The rest of the page swaps at once, so reading is never held behind a page-wide crossfade. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(.element-morph) { animation-duration: 380ms; animation-timing-function: var(--sk-ease); }
+::view-transition-image-pair(.element-morph) { animation: element-morph 380ms var(--sk-ease); }
+@keyframes element-morph { 35% { filter: blur(2px); } }
+
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-image-pair(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }

@@ -20,6 +20,8 @@ colors:
   practices-tint: "#ebe6fa"
   api: "#3d4658"
   api-tint: "#e6e8ed"
+  danger: "#a8203d"
+  danger-tint: "#f9e3e8"
 typography:
   display:
     fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
@@ -175,6 +177,7 @@ A printed palette: one cool neutral ramp for paper and ink, and four flat inks f
 ### Tertiary
 - **Practice Violet** (practices): the Practices series (Start here, Architecture, Deployment...), and ADR numerals on the home page.
 - **Slate** (api): the neutral family for the API reference tile and sidebar groups that are not chart elements (Concepts, Modules, Operations).
+- **Signal Red** (danger): status only, never a family. Error callouts, the Ask AI error line and the DELETE method chip.
 
 Each family colour has a tint (`*-tint`) used as the cell fill; the family colour itself is used for the cell's symbol and numerals, never as a large fill.
 
@@ -258,12 +261,18 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 ### Chips
 - **Element chip:** 22x20px, 3px radius, family tint fill with the family-coloured two-letter symbol (display 700, 0.6875rem). Precedes every top-level sidebar entry and module entry; non-chart groups use the slate family. On the current page it turns paper-on-ink with a translucent paper fill.
 
+- **Method chip:** HTTP methods in the API reference print as 2px-radius tint chips: GET connected, POST foundations, PUT and PATCH samples, DELETE danger.
+- **Source chip:** Ask AI sources lead with the element chip of the page they cite; API pages take the slate "Ap" chip, pages outside the chart a dashed empty chip.
+
 ### Cards / Containers
 - **Corner Style:** 6px for code and diagrams.
 - **Background:** paper body, ground title strip.
 - **Shadow Strategy:** none (see Elevation).
 - **Border:** 1px hairline; title strips are separated by a hairline.
 - **Internal Padding:** diagram canvas clamp(12-24px).
+- **Callouts:** a 3px-radius cell filled with 7% of the callout colour over paper, a hairline mixed from the same colour, icon and 600 ink title. No coloured side bar. Info is cobalt, warning amber, success green, idea violet, error signal red.
+- **API reference:** operation cards, schema panels and example panels use 3px radii; each section heading sits under a full-width hairline; the selected response status tab inverts to ink.
+- **Diagrams:** Mermaid uses the same tints by responsibility (`lib/mermaid-theme.mjs`): ink edges, 2px node radii, 1.25px boundaries, dashed group frames.
 
 ### Inputs / Fields
 - **Style:** the chat textarea is paper with a 1px hairline and 6px radius; the search field in the running head is ground-filled with a hairline, min 240px wide.
@@ -274,6 +283,7 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 - **Sidebar:** 0.8125rem entries, 34px min height, 4px radius, body-text colour; hover fills with the hover wash. Group headers are 600 ink. Nested groups hang from a 1px hairline 18px in. Modules are ordered by `ModuleOrder` so the sidebar reads like the chart. The current page alone prints as an ink tile.
 - **Running head:** one ruled bar; controls are separated by hairline dividers, not floating pills.
 - **TOC:** 0.8125rem muted links, active and hover in ink with an ink marker.
+- **Previous / next:** one ruled row under a 2px ink rule, two cells split by a hairline, a muted "Previous" or "Next" label over the page title in display 700. It replaces the stock cards.
 - **Search results:** the selected option inverts to ink; matches are a cobalt tint with underline that stays legible on ink.
 
 ### Element Tile (signature)
@@ -289,7 +299,11 @@ Family buttons with a 10px family swatch. Pressing one dims every other tile and
 Header rule 2px ink, rows separated by 1px hairlines, no cell borders or fills, tabular figures. Used for prose tables, guardrails, decisions, the 404 "ways back" list and the three-routes row (columns split by hairlines). On mobile the guardrails table becomes stacked ruled rows.
 
 ### Motion
-One easing, `cubic-bezier(.16, 1, .3, 1)`, at 160-260ms for colour and transform changes; arrows nudge 4px on hover. Sidebar disclosure uses its own collapsible curves (200ms in, 160ms out). `prefers-reduced-motion` removes every transition and animation.
+One easing, `cubic-bezier(.16, 1, .3, 1)`, at 160-260ms for colour and transform changes; arrows nudge 4px on hover. Sidebar disclosure uses its own collapsible curves (200ms in, 160ms out). Loading states (search index, Ask AI) share one 2px ink scanning rule.
+
+**The one authored moment: tile to title.** Each home chart tile and the page-head tile of the same element share a React `<ViewTransition>` name (`element-<symbol>`, class `element-morph`). Opening a tile morphs it, in 380ms with a brief 2px blur, into the tile beside the new page's title; going back reverses it. The page itself swaps at once (the root crossfade is disabled), so nothing waits on the motion. Browsers without view transitions navigate normally. Do not add page-wide entrances, scroll reveals or parallax.
+
+`prefers-reduced-motion` removes every transition, animation and view-transition animation.
 
 ## Do's and Don'ts
 

@@ -97,24 +97,26 @@ function regroupModules(children: PageTree.Node[]): PageTree.Node[] {
 }
 
 /** Fumadocs matches normalized URLs; the public Next.js routes retain trailing slashes. */
-export function prepareNavigation(nodes: PageTree.Node[], parent = 'docs'): PageTree.Node[] {
+export function prepareNavigation(nodes: PageTree.Node[], parent = 'docs', plain = false): PageTree.Node[] {
   nodes = nodes.map((node) => node.type === 'folder' && node.name === 'Modules' && parent === 'docs'
     ? { ...node, children: regroupModules(node.children) } : node);
   return nodes.map((node, position) => {
     const $id = `${parent}/${position}`;
     if (node.type === 'page') {
       const url = node.url.startsWith('/') ? node.url.replace(/\/$/, '') || '/' : node.url;
-      const Icon = pageIcon(url);
-      return { ...node, $id, url, icon: node.icon ?? pageChip(url) ?? (Icon && createElement(Icon, { 'aria-hidden': true })) };
+      const Icon = plain ? undefined : pageIcon(url);
+      return { ...node, $id, url, icon: node.icon ?? (plain ? undefined : pageChip(url)) ?? (Icon && createElement(Icon, { 'aria-hidden': true })) };
     }
     if (node.type === 'folder') {
-      const Icon = typeof node.name === 'string' ? sectionIcons[node.name] ?? FolderOpen : undefined;
-      const sectionChip = typeof node.name === 'string' ? sectionChips[node.name] : undefined;
+      // API tag groups are plain rows: their names repeat module names, but they are endpoints, not chart elements.
+      const Icon = plain || typeof node.name !== 'string' ? undefined : sectionIcons[node.name] ?? FolderOpen;
+      const sectionChip = !plain && typeof node.name === 'string' ? sectionChips[node.name] : undefined;
+      const api = parent === 'docs' && node.name === 'API reference v1';
       return {
         ...node, $id, defaultOpen: false,
         icon: node.icon ?? (sectionChip ? chip(sectionChip) : Icon && createElement(Icon, { 'aria-hidden': true })),
-        index: node.index ? prepareNavigation([node.index], `${$id}/index`)[0] as PageTree.Item : undefined,
-        children: prepareNavigation(node.children, $id),
+        index: node.index ? prepareNavigation([node.index], `${$id}/index`, plain)[0] as PageTree.Item : undefined,
+        children: prepareNavigation(node.children, $id, plain || api),
       };
     }
     return { ...node, $id };

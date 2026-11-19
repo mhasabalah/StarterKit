@@ -1,9 +1,12 @@
-/** Concrete colour pairs are required by Mermaid's colour derivation and exported SVGs. */
+/**
+ * Concrete colour pairs are required by Mermaid's colour derivation and exported SVGs. They are the module chart's
+ * flat family tints (app/global.css): paper ground, ink text and ink edges, one tint per responsibility.
+ */
 export const diagramPalettes = {
-  light: { background: '#ffffff', surface: '#f5f3fc', text: '#1c2333', border: '#7b879e', edge: '#076e66',
-    roles: { api: ['#eef3ff', '#4568ac'], application: ['#f0ebff', '#6350b8'], domain: ['#e7f5ee', '#287653'], infrastructure: ['#fff4dd', '#98670c'], data: ['#edf1f6', '#55657d'], external: ['#fbeaf3', '#a54178'], event: ['#e3f5f3', '#167d75'] } },
-  dark: { background: '#10141f', surface: '#171c29', text: '#f0f2fa', border: '#68768f', edge: '#65d9ca',
-    roles: { api: ['#1b2b45', '#86adf3'], application: ['#272144', '#b4a6ff'], domain: ['#12352e', '#70d6b0'], infrastructure: ['#372d18', '#e7c46a'], data: ['#222d3e', '#a3b3cc'], external: ['#392137', '#e0a0c9'], event: ['#153332', '#65d9ca'] } },
+  light: { background: '#ffffff', surface: '#f3f4f7', text: '#0f141d', border: '#7a8396', edge: '#3d4658',
+    roles: { api: ['#e3e8fa', '#2342b5'], application: ['#ebe6fa', '#5534b3'], domain: ['#dcefe6', '#0a6a49'], infrastructure: ['#f8e9d3', '#8a4a06'], data: ['#e6e8ed', '#3d4658'], external: ['#f8e3eb', '#9c2c58'], event: ['#dcefef', '#0b6870'] } },
+  dark: { background: '#10141c', surface: '#161b25', text: '#eef1f6', border: '#69738a', edge: '#9ba5b7',
+    roles: { api: ['#172041', '#a5b6ff'], application: ['#221a40', '#c3b2ff'], domain: ['#0f2a20', '#74d9ae'], infrastructure: ['#2e2010', '#f1b873'], data: ['#1d222c', '#c3cad6'], external: ['#331624', '#f2a3c3'], event: ['#0d2a2c', '#6fd3d9'] } },
 };
 
 /** @returns {import('mermaid').MermaidConfig} */
@@ -29,9 +32,10 @@ export function diagramTheme(dark = false) {
       activationBkgColor: p.roles.event[0], activationBorderColor: p.roles.event[1], sequenceNumberColor: p.background,
     },
     themeCSS: `
-      .node rect, .actor { rx: 8px; ry: 8px; }
-      .node rect, .node polygon, .node path, .node circle { stroke-width: 1.5px; }
-      .cluster rect { rx: 10px; ry: 10px; stroke-dasharray: 4 3; }
+      .node rect, .actor { rx: 2px; ry: 2px; }
+      .node rect, .node polygon, .node path, .node circle { stroke-width: 1.25px; }
+      .cluster rect { rx: 2px; ry: 2px; stroke-dasharray: 4 3; }
+      .cluster-label text, .cluster-label tspan { font-weight: 600; }
       .edgeLabel rect { opacity: 1; }
       text, tspan { font-family: Inter, ui-sans-serif, sans-serif; }
       ${Object.entries(p.roles).map(([role, [bg, border]]) => `
