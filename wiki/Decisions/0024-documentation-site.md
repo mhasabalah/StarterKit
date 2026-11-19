@@ -84,14 +84,19 @@ ordinary text, including times.
 
 The Glass sidebar keeps the framework's tree matching, collapsible folders and mobile drawer. V2 normalizes
 navigation URLs to Fumadocs' slashless tree format while Next.js retains the existing trailing-slash public URLs.
-Stable node IDs, section icons, nested guide lines and a current-page marker make location visible. The active
-branch opens automatically, deep links scroll into view, and reduced-motion settings disable navigation animations.
+Stable node IDs, module chart chips, nested guide lines and an inverted current-page row make location visible. The
+Modules group follows `ModuleOrder`, with a module's overview as the index of its folder. The active branch opens
+automatically, deep links scroll into view, and reduced-motion settings disable navigation animations.
 
-The V2 homepage provides starting paths for creating a product, understanding its architecture and adding a module.
-Its quickstart uses the official Fumadocs server-highlighted code block and copy control. Capability links are grouped
-by product foundations, connected systems and engineering operations; their destinations remain canonical wiki pages.
-Header and footer branding use the approved theme-specific SVG wordmarks and the adaptive favicon from V1,
-following [the brand guidelines](../Reference/Brand.md). The vectors remain regenerated assets, not a second logo source.
+The V2 homepage is a module chart: every module is a tile placed by its real `ModuleOrder`, with its page count, and
+the cross-cutting guides form a separate series below. The `700` slot pairs Shipping with a dashed cell for the
+reader's own module. A full-width search action, the template quickstart (the official Fumadocs server-highlighted
+code block and copy control), three starting paths, the architecture guardrails and recent decisions follow; every
+destination remains a canonical wiki page. Module orders are guarded by `tests/chart.test.mjs` against
+`ModuleOrder.cs`, and page counts come from the synced navigation. Documentation pages show their chart element beside
+the title. The visual system (palette, type, chart cells) is recorded in
+[the V2 design notes](../../apps/docs-v2/DESIGN.md); the mark keeps the geometry from
+[the brand guidelines](../Reference/Brand.md), drawn inline in the V2 palette.
 
 Search filters use the official tag controls and filter the server index: all pages, documentation, getting
 started, architecture, and API reference. The Glass header's Ask AI button opens a conversation panel with source

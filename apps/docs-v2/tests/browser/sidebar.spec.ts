@@ -46,8 +46,10 @@ for (const theme of ['light', 'dark']) {
       await expect(current).toHaveCount(1);
       await expect(current).toBeInViewport();
       const concepts = sidebar.getByRole('button', { name: 'Concepts', exact: true });
-      await expect(concepts.locator('svg[aria-hidden="true"]')).toHaveCount(2);
-      expect(await current.evaluate((el) => getComputedStyle(el, '::before').width)).toBe('3px');
+      await expect(concepts.locator('.element-chip')).toHaveCount(1);
+      // Rank by inversion: the current page prints as an ink tile, with no extra side bar.
+      expect(await current.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+      expect(await current.evaluate((el) => getComputedStyle(el, '::before').content)).toBe('none');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const accessibility = await new AxeBuilder({ page }).include('.docs-sidebar').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
       expect(accessibility.violations).toEqual([]);

@@ -4,8 +4,12 @@ import { BrandLogo } from '@/components/brand';
 
 export const baseOptions: BaseLayoutProps = {
   themeSwitch: { mode: 'light-dark-system' },
-  nav: { title: <span className="brand-lockup"><BrandLogo /><span className="brand-label">DOCS</span></span> },
+  nav: { title: <span className="brand-lockup"><BrandLogo /><span className="brand-label">Guide</span></span> },
   githubUrl: `https://github.com/${repository}`,
-  links: [{ text: 'Start building', url: '/getting-started/new-project/' }, { text: 'Architecture', url: '/architecture/overview/' }],
+  links: [
+    { text: 'Get started', url: '/getting-started/new-project/' },
+    { text: 'Architecture', url: '/architecture/overview/' },
+    { text: 'Decisions', url: '/decisions/' },
+  ],
 };
 export const brandIcon = publicPath('/favicon.svg');

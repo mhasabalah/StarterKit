@@ -7,10 +7,11 @@ const url = (path: string) => base + path;
 
 test('homepage, onboarding navigation and accessible structure', async ({ page }) => {
   await page.goto(url('/'));
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Your next product');
-  await expect(page.getByRole('link', { name: 'Identity & authentication' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('StarterKit developer guide');
+  await expect(page.getByRole('link', { name: /^Identity, startup order 000/ })).toBeVisible();
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
-  await page.getByRole('link', { name: 'Start building', exact: false }).last().click();
+  await page.getByRole('link', { name: 'Start a new product', exact: false }).click();
+  await expect(page).toHaveURL(/\/getting-started\/new-project\/$/);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 test('search returns documentation and keyboard navigation works', async ({ page }) => {

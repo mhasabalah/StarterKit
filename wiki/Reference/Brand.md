@@ -55,6 +55,16 @@ Use locally bundled Inter for UI and body copy, with weights 400, 500, 600 and 7
 
 SVG wordmarks use Inter with Arial and generic sans-serif fallbacks. The social image uses Arial with a generic sans-serif fallback so Sharp can render it without a remote font. Run `npm run brand` after changing artwork and inspect the generated PNGs before committing them.
 
+## Documentation V2
+
+The Next.js documentation site (`apps/docs-v2`) uses its own visual system, a module chart: a cool chart-white ground
+(blue-black slate in dark mode), four flat family tints (foundations, connected, samples, practices), Schibsted
+Grotesk for headings and chart symbols, Inter for reading and JetBrains Mono for code and numerals. It draws the
+original mark inline with the same geometry, in its own ink and terminal colors; the SVG exports above stay the source
+for V1, packages and social images. Its tokens live in
+[the V2 stylesheet](../../apps/docs-v2/app/global.css) and its rules in
+[the V2 design notes](../../apps/docs-v2/DESIGN.md).
+
 ## Voice
 
 Be concise, senior and precise. Name the behavior and its constraints. Say “tenant data uses PostgreSQL row-level security,” not “unbreakable security.” Explain production configuration without promising that a template removes deployment decisions.
