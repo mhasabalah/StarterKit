@@ -21,13 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Every *.csproj with its path, nothing else. This stage re-runs on any source change, but its output only changes
 # when a project file does, so the restore layer below stays cached. It also needs no edits when a module is added
 # (Api.csproj references modules by glob, ADR-0019).
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS projects
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS projects
 WORKDIR /src
 COPY . .
 RUN mkdir /projects && find . -name '*.csproj' -not -path '*/bin/*' -not -path '*/obj/*' -print0 | tar --null -cf - -T - | tar -xf - -C /projects
 
 # This stage is used to build the service project
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 # Restore layer: only the build inputs that affect restore.
