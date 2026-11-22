@@ -227,6 +227,18 @@ public class ModelGatewayTests
     }
 
     [Fact]
+    public void Options_WithoutAMessageLimitForConversations_FailStartup_SoAConversationsTurnsStayBounded()
+    {
+        var settings = Settings();
+        settings.Conversations.MaxMessages = 0;
+
+        var result = new AgenticOptionsValidator().Validate(null, settings);
+
+        result.Failed.Should().BeTrue();
+        result.FailureMessage.Should().Contain("MaxMessages");
+    }
+
+    [Fact]
     public void Options_WithAnAnthropicProviderWithoutAKey_FailStartup()
     {
         var settings = Settings();

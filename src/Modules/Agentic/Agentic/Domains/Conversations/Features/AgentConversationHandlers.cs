@@ -161,8 +161,11 @@ public class SendAgentConversationMessageHandler(
         }
         catch (DbUpdateConcurrencyException) when (command.Version is null)
         {
-            // Same race, lost on the conversation row instead of the index.
-            throw new AgentConversationBusyException();
+            // The conversation row changed meanwhile. Only a turn that started is "busy"; anything else (a rename) is
+            // an ordinary conflict for ConcurrencyHandlingBehavior.
+            if (await conversations.HasActiveTurnAsync(conversation.Id, cancellationToken))
+                throw new AgentConversationBusyException();
+            throw;
         }
 
         return new AgentConversationTurnDto(conversation.Id, conversation.Version, AgentRunProjections.Map(run));
@@ -240,42 +243,42 @@ public class DeleteAgentConversationHandler(
 {
     private const int Attempts = 3;
 
-    private static readonly AgentRunStatus[] ActiveStatuses =
-        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval];
-
     public async Task<bool> Handle(DeleteAgentConversationCommand command, CancellationToken cancellationToken)
     {
         var conversation = await ConversationTurns.OwnActiveAsync(conversations, access, command.ConversationId, cancellationToken);
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
-        conversation.Delete(now);
-        var active = await dbContext.Runs
-            .Where(r => r.ConversationId == conversation.Id && ActiveStatuses.Contains(r.Status))
-            .ToListAsync(cancellationToken);
+        int stopping;
         for (var attempt = 1; ; attempt++)
         {
-            foreach (var run in active.Where(r => !r.IsTerminal))
+            conversation.Delete(now);
+            var active = await conversations.GetActiveTurnsAsync(conversation.Id, cancellationToken);
+            foreach (var run in active)
                 run.RequestCancel(now);
             try
             {
                 await conversations.SaveChangesAsync(cancellationToken);
+                stopping = active.Count(r => !r.IsTerminal);
                 break;
             }
             catch (DbUpdateConcurrencyException) when (attempt < Attempts)
             {
-                // The turn's worker saved a checkpoint meanwhile: read the run again and ask again (as CancelAgentRun).
-                foreach (var run in active)
+                // A message, a rename or a turn's worker saved meanwhile: read everything again and decide again (a
+                // turn started in between is found by the next query and stopped too).
+                foreach (var entry in dbContext.ChangeTracker.Entries<AgentRun>().ToList())
                 {
-                    run.ClearDomainEvents();
-                    await dbContext.Entry(run).ReloadAsync(cancellationToken);
+                    entry.Entity.ClearDomainEvents();
+                    await entry.ReloadAsync(cancellationToken);
                 }
+
+                await dbContext.Entry(conversation).ReloadAsync(cancellationToken);
             }
         }
 
         var runIds = await conversations.GetRunIdsAsync(conversation.Id, cancellationToken);
         var erased = await AgentRunContentEraser.EraseAsync(dbContext, runIds, now, cancellationToken);
         logger.LogInformation("Agent conversation {ConversationId} deleted by {UserId}: {Erased} turns erased, {Stopping} stopping",
-            conversation.Id, access.UserId, erased, active.Count(r => !r.IsTerminal));
+            conversation.Id, access.UserId, erased, stopping);
         return true;
     }
 }
@@ -303,7 +306,7 @@ public class GetAgentConversationsHandler(AgenticDbContext dbContext, AgentAcces
 
 /// <summary>
 /// A conversation with its turns, oldest first: the owner's, or any conversation for holders of
-/// <c>agentic.runs.read</c>. The number of turns is bounded by <c>Agentic:Conversations:MaxMessages</c>.
+/// <c>agentic.runs.read</c>. The number of turns is bounded by <c>Agentic:Conversations:MaxMessages</c> (at least 1).
 /// </summary>
 public class GetAgentConversationByIdHandler(AgenticDbContext dbContext, AgentAccess access)
     : IQueryHandler<GetAgentConversationByIdQuery, AgentConversationDetailDto>

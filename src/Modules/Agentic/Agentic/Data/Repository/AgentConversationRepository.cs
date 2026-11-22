@@ -10,6 +10,9 @@ public interface IAgentConversationRepository
     /// <summary>A turn of the conversation is queued, running or waiting for an approval.</summary>
     Task<bool> HasActiveTurnAsync(Guid conversationId, CancellationToken cancellationToken = default);
 
+    /// <summary>The turns that are queued, running or waiting for an approval (tracked).</summary>
+    Task<List<AgentRun>> GetActiveTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default);
+
     /// <summary>An earlier turn read content the platform does not control: the next turn starts tainted.</summary>
     Task<bool> IsTaintedAsync(Guid conversationId, CancellationToken cancellationToken = default);
 
@@ -31,6 +34,9 @@ public class AgentConversationRepository(AgenticDbContext context) : IAgentConve
 
     public Task<bool> HasActiveTurnAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
         context.Runs.AnyAsync(r => r.ConversationId == conversationId && ActiveStatuses.Contains(r.Status), cancellationToken);
+
+    public Task<List<AgentRun>> GetActiveTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
+        context.Runs.Where(r => r.ConversationId == conversationId && ActiveStatuses.Contains(r.Status)).ToListAsync(cancellationToken);
 
     public Task<bool> IsTaintedAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
         context.Runs.AnyAsync(r => r.ConversationId == conversationId && r.Tainted, cancellationToken);

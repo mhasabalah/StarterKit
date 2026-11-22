@@ -139,7 +139,10 @@ public sealed class AgentConversationOptions
     /// </summary>
     public int MaxHistoryCharacters { get; set; } = 24_000;
 
-    /// <summary>Messages a conversation may hold; then 409 <c>conversation_full</c> (start a new one). 0 = no limit.</summary>
+    /// <summary>
+    /// Messages a conversation may hold (at least 1); then 409 <c>conversation_full</c> (start a new one). It also bounds
+    /// what <c>GET /agent-conversations/{id}</c> returns.
+    /// </summary>
     public int MaxMessages { get; set; } = 200;
 }
 
@@ -319,11 +322,10 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic: Content:RetentionDays and Memory:RetentionDays must not be negative.");
         if (options.Memory.MaxPerUser < 1 || options.Memory.MaxPerTenant < 1 || options.Memory.MaxRecalled < 1)
             errors.Add("Agentic:Memory: MaxPerUser, MaxPerTenant and MaxRecalled must be positive.");
-        if (options.Conversations.MaxHistoryTurns < 0 || options.Conversations.MaxHistoryCharacters < 0 ||
-            options.Conversations.MaxMessages < 0)
-        {
-            errors.Add("Agentic:Conversations: MaxHistoryTurns, MaxHistoryCharacters and MaxMessages must not be negative.");
-        }
+        if (options.Conversations.MaxHistoryTurns < 0 || options.Conversations.MaxHistoryCharacters < 0)
+            errors.Add("Agentic:Conversations: MaxHistoryTurns and MaxHistoryCharacters must not be negative.");
+        if (options.Conversations.MaxMessages < 1)
+            errors.Add("Agentic:Conversations:MaxMessages must be at least 1.");
 
         ValidateKnowledge(options, errors);
 

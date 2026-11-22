@@ -67,7 +67,10 @@ Reference: `src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationAgen
    - `Version` / `MinResumableVersion`: bump when tools or instructions change incompatibly.
    - `Conversational = true` (optional): people can talk to it at `/api/v1/agent-conversations`. Every message is a
      run given the earlier turns (message and final answer only). Write the instructions for follow-ups ("use the
-     item the conversation is about"). Reference: `ShippingAssistantAgent`.
+     item the conversation is about"); ids are not in the history, so a follow-up looks the item up again.
+<!--#if (sample)-->
+     Reference: `ShippingAssistantAgent`.
+<!--#endif-->
 2. **Scripted scenario** (tests, demos, CI without an API key): an `IAgentScript` with `AgentKey` = the agent key,
    registered with `services.AddAgentScript<<X>Script>()`. Refused in Production. For a conversational agent the
    earlier turns arrive in `ScriptedTurn.History`; `Prompt` and `TurnNumber` describe the current run only.

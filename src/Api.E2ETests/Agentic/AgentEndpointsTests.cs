@@ -26,7 +26,9 @@ public class AgentEndpointsTests(E2ETestFixture fixture)
         "/api/v1/agent-policies/any.agent",
         "/api/v1/agent-usage",
         "/api/v1/knowledge-documents",
-        "/api/v1/agent-memories");
+        "/api/v1/agent-memories",
+        "/api/v1/agent-conversations",
+        $"/api/v1/agent-conversations/{Guid.NewGuid()}");
 
     [Theory]
     [MemberData(nameof(ReadRoutes))]
@@ -94,6 +96,50 @@ public class AgentEndpointsTests(E2ETestFixture fixture)
         anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         user.StatusCode.Should().Be(HttpStatusCode.Forbidden, await user.Content.ReadAsStringAsync());
         admin.StatusCode.Should().Be(HttpStatusCode.NotFound, "the module is switched off: " + await admin.Content.ReadAsStringAsync());
+    }
+
+    public static TheoryData<string, string> ConversationStartRoutes => new()
+    {
+        { "POST", "/api/v1/agent-conversations" },
+        { "POST", $"/api/v1/agent-conversations/{Guid.NewGuid()}/messages" }
+    };
+
+    [Theory]
+    [MemberData(nameof(ConversationStartRoutes))]
+    public async Task Conversation_messages_reject_anonymous_callers_and_users_who_may_not_start_runs(string method, string route)
+    {
+        HttpRequestMessage Request() => new(new HttpMethod(method), route)
+        {
+            Content = JsonContent.Create(new { agentKey = "any.agent", message = "Hello" })
+        };
+
+        var anonymous = await fixture.CreateAnonymousClient().SendAsync(Request());
+        var user = await fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User).SendAsync(Request());
+        var admin = await fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.Admin).SendAsync(Request());
+
+        anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        user.StatusCode.Should().Be(HttpStatusCode.Forbidden, await user.Content.ReadAsStringAsync());
+        admin.StatusCode.Should().Be(HttpStatusCode.NotFound, "the module is switched off: " + await admin.Content.ReadAsStringAsync());
+    }
+
+    public static TheoryData<string, string> ConversationOwnerRoutes => new()
+    {
+        { "PATCH", $"/api/v1/agent-conversations/{Guid.NewGuid()}" },
+        { "DELETE", $"/api/v1/agent-conversations/{Guid.NewGuid()}" }
+    };
+
+    [Theory]
+    [MemberData(nameof(ConversationOwnerRoutes))]
+    public async Task Renaming_or_deleting_a_conversation_rejects_anonymous_callers_and_is_not_found_while_the_module_is_off(
+        string method, string route)
+    {
+        HttpRequestMessage Request() => new(new HttpMethod(method), route) { Content = JsonContent.Create(new { title = "x" }) };
+
+        var anonymous = await fixture.CreateAnonymousClient().SendAsync(Request());
+        var member = await fixture.CreateClientAs(Guid.NewGuid(), RoleConstants.User).SendAsync(Request());
+
+        anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        member.StatusCode.Should().Be(HttpStatusCode.NotFound, await member.Content.ReadAsStringAsync());
     }
 
     [Fact]

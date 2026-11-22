@@ -387,7 +387,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Memory:RetentionDays` / `MaxPerUser` / `MaxPerTenant` / `MaxRecalled` | 365 / 100 / 500 / 50 | Memory lifetime and limits |
 | `Content:RetentionDays` | 90 | Content of finished runs is erased after this many days; 0 = keep |
 | `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
-| `Conversations:MaxMessages` | 200 | Messages per conversation, then 409 `conversation_full`; 0 = no limit |
+| `Conversations:MaxMessages` | 200 | Messages per conversation (at least 1), then 409 `conversation_full`; also bounds the turns `GET /{id}` returns |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
 A provider API key may come from a Docker secret named `agentic_<provider>_api_key` (provider name in lower case).
