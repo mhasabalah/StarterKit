@@ -25,7 +25,11 @@ public sealed class ChatClientModelGateway(AgentChatClientFactory clients, IOpti
             Tools = request.Tools
                 .Select(t => (AITool)AIFunctionFactory.CreateDeclaration(AgentToolNames.ToWire(t.Name), t.Description, t.Schema))
                 .ToList(),
-            AdditionalProperties = new AdditionalPropertiesDictionary { [ScriptedChatClient.AgentKeyProperty] = request.AgentKey }
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ScriptedChatClient.AgentKeyProperty] = request.AgentKey,
+                [ScriptedChatClient.HistoryMessagesProperty] = request.HistoryMessages
+            }
         };
         if (chatOptions.Tools.Count == 0)
             chatOptions.Tools = null;

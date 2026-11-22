@@ -4,6 +4,17 @@ using Agentic.Runtime.Models;
 namespace Agentic.Runtime.Execution;
 
 /// <summary>
+/// An earlier turn of a conversation as the next turn is given it: what the user asked and how the turn ended. Only
+/// finished turns whose content still exists; never their tool calls or tool results.
+/// </summary>
+public sealed record ConversationTurn(
+    string? Prompt,
+    string? InputJson,
+    string? OutputText,
+    string? OutputJson,
+    AgentRunStatus Status);
+
+/// <summary>
 /// Rebuilds the conversation sent to the model from the persisted run and its steps. It is a pure function of stored
 /// state: no conversation is kept in memory between attempts, which is what makes a run resumable after a restart and
 /// on another worker.
@@ -31,10 +42,15 @@ public static class TranscriptBuilder
 
     private const string NoAnswer = "(no answer)";
 
-    public static ModelRequest Build(RegisteredAgent agent, AgentRun run, IReadOnlyList<AgentRunStep> steps)
+    /// <summary>The answer of an earlier turn that failed or was cancelled.</summary>
+    public const string UnfinishedTurn = "(This request did not finish.)";
+
+    /// <param name="history">The earlier turns of the run's conversation, already bounded (<see cref="History"/>).</param>
+    public static ModelRequest Build(RegisteredAgent agent, AgentRun run, IReadOnlyList<AgentRunStep> steps,
+        IReadOnlyList<ModelMessage>? history = null)
     {
         var typed = agent.OutputSchema is not null;
-        var messages = new List<ModelMessage> { new(ModelRole.User, UserMessage(run)) };
+        var messages = new List<ModelMessage>(history ?? []) { new(ModelRole.User, UserMessage(run.Prompt, run.InputJson)) };
 
         foreach (var turn in steps.Where(s => s.Kind == AgentRunStepKind.ModelTurn).OrderBy(s => s.Sequence))
         {
@@ -68,7 +84,49 @@ public static class TranscriptBuilder
         if (agent.OutputSchema is { } outputSchema)
             tools.Add(new ModelToolDeclaration(AgentToolNames.SubmitResult, SubmitResultDescription, outputSchema));
 
-        return new ModelRequest(run.ModelKey, run.AgentKey, Instructions(agent, typed), messages, tools);
+        return new ModelRequest(run.ModelKey, run.AgentKey, Instructions(agent, typed), messages, tools, history?.Count ?? 0);
+    }
+
+    /// <summary>
+    /// The earlier turns of a conversation as user/assistant message pairs, oldest first: the NEWEST turns that fit in
+    /// <paramref name="maxTurns"/> and <paramref name="maxCharacters"/> (older ones are dropped whole). A turn whose
+    /// content was erased is left out. Only the final answer of a turn is repeated: what its tools read is not, so the
+    /// next turn reads current data again instead of trusting a stale copy.
+    /// </summary>
+    /// <param name="turns">Finished earlier turns, oldest first.</param>
+    public static IReadOnlyList<ModelMessage> History(IEnumerable<ConversationTurn> turns, int maxTurns, int maxCharacters)
+    {
+        var kept = new List<(string User, string Answer)>();
+        var characters = 0;
+        foreach (var turn in turns.Reverse())
+        {
+            if (kept.Count >= maxTurns)
+                break;
+            if (turn.Prompt is null && turn.InputJson is null)
+                continue; // erased (retention, account erasure) or never had content
+
+            var user = UserMessage(turn.Prompt, turn.InputJson);
+            var answer = Answer(turn);
+            if (characters + user.Length + answer.Length > maxCharacters)
+                break;
+            characters += user.Length + answer.Length;
+            kept.Add((user, answer));
+        }
+
+        kept.Reverse();
+        return kept
+            .SelectMany(t => new[] { new ModelMessage(ModelRole.User, t.User), new ModelMessage(ModelRole.Assistant, t.Answer) })
+            .ToList();
+    }
+
+    private static string Answer(ConversationTurn turn)
+    {
+        if (turn.Status != AgentRunStatus.Completed)
+            return UnfinishedTurn;
+        var text = string.IsNullOrWhiteSpace(turn.OutputText) ? null : turn.OutputText.Trim();
+        if (turn.OutputJson is null)
+            return text ?? NoAnswer;
+        return text is null ? $"Result (JSON):\n{turn.OutputJson}" : $"{text}\n\nResult (JSON):\n{turn.OutputJson}";
     }
 
     private static string Instructions(RegisteredAgent agent, bool typed)
@@ -83,12 +141,12 @@ public static class TranscriptBuilder
         return text.ToString();
     }
 
-    private static string UserMessage(AgentRun run)
+    private static string UserMessage(string? prompt, string? inputJson)
     {
-        if (run.InputJson is null)
-            return run.Prompt ?? string.Empty;
-        return run.Prompt is null
-            ? $"Input (JSON):\n{run.InputJson}"
-            : $"{run.Prompt}\n\nInput (JSON):\n{run.InputJson}";
+        if (inputJson is null)
+            return prompt ?? string.Empty;
+        return prompt is null
+            ? $"Input (JSON):\n{inputJson}"
+            : $"{prompt}\n\nInput (JSON):\n{inputJson}";
     }
 }

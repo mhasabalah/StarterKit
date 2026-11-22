@@ -74,6 +74,27 @@ public sealed class AgentAccess(
     public async Task<bool> CanCancelAsync(AgentRun run) => Owns(run) || await HasAsync(TenantPermissions.AgentsManage);
 
     /// <summary>
+    /// The caller started this conversation (an API key: that same key did). Only the owner continues, renames or
+    /// deletes it: a conversation is one person's, whoever else may read runs.
+    /// </summary>
+    public bool Owns(AgentConversation conversation) =>
+        conversation.OwnerId == UserId && (!IsApiKey || conversation.ApiKeyId == ApiKeyId);
+
+    /// <summary>Filter of the caller's own conversations (an API key: the ones it started).</summary>
+    public Expression<Func<AgentConversation, bool>> OwnConversations()
+    {
+        var userId = UserId;
+        if (!IsApiKey)
+            return c => c.OwnerId == userId;
+        var keyId = ApiKeyId;
+        return c => c.OwnerId == userId && c.ApiKeyId == keyId;
+    }
+
+    /// <summary>Read filter: the caller's own conversations, or every one for holders of <c>agentic.runs.read</c>.</summary>
+    public async Task<Expression<Func<AgentConversation, bool>>> ReadableConversationsAsync() =>
+        await HasAsync(TenantPermissions.AgentRunsRead) ? _ => true : OwnConversations();
+
+    /// <summary>
     /// Read filter of approval requests: every request for holders of <c>agentic.approvals.decide</c>, otherwise the
     /// ones of the caller's own runs. An API key without that scope sees none (a decision is for a person).
     /// </summary>
@@ -94,7 +115,7 @@ public static class AgentRunProjections
     public static readonly Expression<Func<AgentRun, AgentRunDto>> ToDto = r => new AgentRunDto(
         r.Id, r.AgentKey, r.AgentVersion, r.Status, r.TriggerKind, r.InitiatedBy, r.ModelTurns, r.ToolCalls,
         r.InputTokens, r.OutputTokens, r.EstimatedCost, r.CancelRequested, r.FailureCode, r.FailureMessage,
-        r.CreatedAt ?? DateTime.MinValue, r.StartedAt, r.FinishedAt, r.Version);
+        r.CreatedAt ?? DateTime.MinValue, r.StartedAt, r.FinishedAt, r.Version, r.ConversationId);
 
     public static readonly Expression<Func<AgentRunStep, AgentRunStepDto>> StepToDto = s => new AgentRunStepDto(
         s.Id, s.Sequence, s.Kind, s.Status, s.ToolName, s.ToolVersion, s.Text, s.ArgumentsJson, s.ResultJson,
@@ -114,5 +135,5 @@ public static class AgentRunProjections
     public static AgentRunDto Map(AgentRun run) => Compiled(run);
 
     public static AgentDto Map(AgentDefinition agent) => new(agent.Key, agent.Version, agent.Name, agent.Description,
-        agent.Autonomy, agent.OutputType is not null);
+        agent.Autonomy, agent.OutputType is not null, agent.Conversational);
 }

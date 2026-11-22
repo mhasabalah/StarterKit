@@ -19,15 +19,23 @@ public sealed record ScriptedReply(string? Text = null, IReadOnlyList<ScriptedTo
 /// <summary>A tool result the run has produced so far, as the model sees it.</summary>
 public sealed record ScriptedToolResult(string Tool, string ResultJson);
 
+/// <summary>An earlier turn of the conversation the run belongs to: what the user wrote and what the agent answered.</summary>
+public sealed record ScriptedHistoryTurn(string UserMessage, string AssistantAnswer);
+
 /// <param name="AgentKey">The agent being run.</param>
 /// <param name="Prompt">The user's prompt (and structured input) of the run.</param>
-/// <param name="TurnNumber">1 for the first model turn.</param>
-/// <param name="ToolResults">Every tool result so far, oldest first.</param>
+/// <param name="TurnNumber">1 for the first model turn of this run (earlier conversation turns do not count).</param>
+/// <param name="ToolResults">Every tool result of this run so far, oldest first.</param>
+/// <param name="History">The earlier turns of the run's conversation, oldest first; empty outside a conversation.</param>
 public sealed record ScriptedTurn(
     string AgentKey,
     string? Prompt,
     int TurnNumber,
-    IReadOnlyList<ScriptedToolResult> ToolResults);
+    IReadOnlyList<ScriptedToolResult> ToolResults,
+    IReadOnlyList<ScriptedHistoryTurn>? History = null)
+{
+    public IReadOnlyList<ScriptedHistoryTurn> EarlierTurns => History ?? [];
+}
 
 /// <summary>
 /// A deterministic stand-in for a model, used by the <c>Scripted</c> provider: tests, CI, demos and local development

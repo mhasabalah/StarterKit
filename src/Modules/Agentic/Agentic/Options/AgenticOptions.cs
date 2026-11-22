@@ -60,6 +60,8 @@ public sealed class AgenticOptions
     public AgentMemoryOptions Memory { get; set; } = new();
 
     public AgentContentOptions Content { get; set; } = new();
+
+    public AgentConversationOptions Conversations { get; set; } = new();
 }
 
 /// <summary>Retrieval over documents the modules index (ADR-0028). Off by default; needs an embedding model.</summary>
@@ -124,6 +126,21 @@ public sealed class AgentContentOptions
     /// after the run finished (counters, statuses and audit entries stay). 0 = keep them.
     /// </summary>
     public int RetentionDays { get; set; } = 90;
+}
+
+public sealed class AgentConversationOptions
+{
+    /// <summary>Earlier turns a conversation turn is given at most (the newest ones; each is a message and its answer).</summary>
+    public int MaxHistoryTurns { get; set; } = 20;
+
+    /// <summary>
+    /// Characters of earlier turns a conversation turn is given at most; older turns are dropped first. Keeps the cost of
+    /// a long conversation bounded (history counts against the run's <c>MaxTokens</c>).
+    /// </summary>
+    public int MaxHistoryCharacters { get; set; } = 24_000;
+
+    /// <summary>Messages a conversation may hold; then 409 <c>conversation_full</c> (start a new one). 0 = no limit.</summary>
+    public int MaxMessages { get; set; } = 200;
 }
 
 public sealed class AgentTriggerOptions
@@ -302,6 +319,12 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic: Content:RetentionDays and Memory:RetentionDays must not be negative.");
         if (options.Memory.MaxPerUser < 1 || options.Memory.MaxPerTenant < 1 || options.Memory.MaxRecalled < 1)
             errors.Add("Agentic:Memory: MaxPerUser, MaxPerTenant and MaxRecalled must be positive.");
+        if (options.Conversations.MaxHistoryTurns < 0 || options.Conversations.MaxHistoryCharacters < 0 ||
+            options.Conversations.MaxMessages < 0)
+        {
+            errors.Add("Agentic:Conversations: MaxHistoryTurns, MaxHistoryCharacters and MaxMessages must not be negative.");
+        }
+
         ValidateKnowledge(options, errors);
 
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);

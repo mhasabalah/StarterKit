@@ -94,7 +94,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
 
     /// <summary>
     /// The run has read content the platform does not control (a tool marked <c>ReturnsUntrustedContent</c>). From
-    /// then on every change needs a human approval, whatever the autonomy level.
+    /// then on every change needs a human approval, whatever the autonomy level. A turn of a conversation starts
+    /// tainted when an earlier turn was: what that turn answered is in the history this one is given.
     /// </summary>
     public bool Tainted { get; private set; }
 
@@ -125,8 +126,11 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// </summary>
     public DateTime? ReadyAt { get; private set; }
 
-    /// <summary>Groups the runs of one conversation.</summary>
-    public Guid? SessionId { get; private set; }
+    /// <summary>The conversation this run is a turn of (<c>AgentConversation</c>), or null for a single run.</summary>
+    public Guid? ConversationId { get; private set; }
+
+    /// <summary>1 for the first message of <see cref="ConversationId"/>, then 2, 3... (unique per conversation).</summary>
+    public int? ConversationTurn { get; private set; }
 
     /// <summary>The run that delegated to this one, and how deep the delegation is (bounded by <see cref="MaxDepth"/>).</summary>
     public Guid? ParentRunId { get; private set; }
@@ -171,10 +175,12 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         string culture,
         IEnumerable<string>? permissionCeiling = null,
         string? triggerKey = null,
-        Guid? sessionId = null,
+        Guid? conversationId = null,
         string? traceParent = null,
         Guid? apiKeyId = null,
-        bool approveAllChanges = false)
+        bool approveAllChanges = false,
+        bool tainted = false,
+        int? conversationTurn = null)
     {
         if (string.IsNullOrWhiteSpace(agentKey) || agentKey.Length > AgentKeyMaxLength)
             throw new InvalidAgentRunStateException("agent_required");
@@ -188,6 +194,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             throw new InvalidAgentRunStateException("budget_invalid");
         if (triggerKey is { Length: > TriggerKeyMaxLength })
             throw new InvalidAgentRunStateException("trigger_key_too_long");
+        if (conversationId.HasValue != conversationTurn.HasValue || conversationTurn is < 1)
+            throw new InvalidAgentRunStateException("conversation_turn_invalid");
 
         return new AgentRun
         {
@@ -208,9 +216,11 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             MaxToolCalls = budget.MaxToolCalls,
             MaxTokens = budget.MaxTokens,
             MaxDurationSeconds = budget.MaxDurationSeconds,
-            SessionId = sessionId,
+            ConversationId = conversationId,
+            ConversationTurn = conversationTurn,
             ApiKeyId = apiKeyId,
             ApproveAllChanges = approveAllChanges,
+            Tainted = tainted,
             TraceParent = TextLimits.ClipOrNull(traceParent, TraceParentMaxLength)
         };
     }

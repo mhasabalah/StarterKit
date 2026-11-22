@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using Agentic.Contracts.Agents;
 using Agentic.Contracts.Approvals;
+using Agentic.Contracts.Conversations;
 using Agentic.Contracts.Knowledge;
 using Agentic.Contracts.Runs;
 using Agentic.Contracts.Scripting;
@@ -229,6 +230,14 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Guid? user = null, IReadOnlyCollection<string>? apiKeyScopes = null, Guid? apiKeyId = null) =>
         SendAsync(tenant, new StartAgentRunCommand(agentKey, prompt), user, apiKeyScopes, apiKeyId);
 
+    public Task<AgentConversationTurnDto> StartConversationAsync(TenantInfo tenant, string message, Guid? user = null,
+        string agentKey = TestAgents.Chat, string? title = null) =>
+        SendAsync(tenant, new StartAgentConversationCommand(agentKey, message, Title: title), user);
+
+    public Task<AgentConversationTurnDto> SendMessageAsync(TenantInfo tenant, Guid conversationId, string message,
+        Guid? user = null, long? version = null) =>
+        SendAsync(tenant, new SendAgentConversationMessageCommand(conversationId, message, Version: version), user);
+
     /// <summary>Runs the queued Hangfire job exactly like the agentic server would (the tenant restored, nothing else).</summary>
     public Task RunAsync(TenantInfo tenant, Guid runId, CancellationToken cancellationToken = default) =>
         InTenantAsync(tenant, async sp =>
@@ -295,6 +304,9 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Knowledge.EmbeddingModelId = "hashing";
         Options.Content.RetentionDays = 90;
         Options.Memory.MaxPerUser = 100;
+        Options.Conversations.MaxMessages = 200;
+        Options.Conversations.MaxHistoryTurns = 20;
+        Options.Conversations.MaxHistoryCharacters = 24_000;
         Caller.Reset();
         World.Reset();
         Board.Reset();
@@ -540,6 +552,7 @@ public static class TestAgents
     public const string Restricted = "test.restricted";
     public const string Automatic = "test.automatic";
     public const string Researcher = "test.researcher";
+    public const string Chat = "test.chat";
 
     public static readonly AgentDefinition[] All =
     [
@@ -588,6 +601,15 @@ public static class TestAgents
             Instructions = "Answer from the organization's documents and remember the user's preferences.",
             Autonomy = AgentAutonomy.Prepare,
             Tools = ["knowledge.search", "memory.recall", "memory.remember", CreateNoteTool.Name]
+        },
+        new()
+        {
+            Key = Chat,
+            Name = new LocalizedText("Chat", "محادثة"),
+            Instructions = "Talk with the user about their items and notes.",
+            Autonomy = AgentAutonomy.Execute,
+            Conversational = true,
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name, CreateNoteTool.Name, SendMailTool.Name]
         }
     ];
 }

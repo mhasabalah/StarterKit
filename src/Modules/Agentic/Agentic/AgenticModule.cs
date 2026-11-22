@@ -53,6 +53,7 @@ public static class AgenticModule
         services.AddQuotaDefaults();
 
         services.AddScoped<IAgentRunRepository, AgentRunRepository>();
+        services.AddScoped<IAgentConversationRepository, AgentConversationRepository>();
         services.AddScoped<IAgentApprovalRepository, AgentApprovalRepository>();
         services.AddScoped<IAgentPolicyRepository, AgentPolicyRepository>();
         services.AddScoped<AgentRunStarter>();

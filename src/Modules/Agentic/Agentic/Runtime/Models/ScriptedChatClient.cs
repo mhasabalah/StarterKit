@@ -15,6 +15,9 @@ namespace Agentic.Runtime.Models;
 public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : IChatClient
 {
     public const string AgentKeyProperty = "agentic.agent_key";
+
+    /// <summary>How many messages after the system prompt are earlier conversation turns (see <c>ModelRequest</c>).</summary>
+    public const string HistoryMessagesProperty = "agentic.history_messages";
     public const string ModelId = "scripted";
 
     private readonly Dictionary<string, IAgentScript> _scripts = Index(scripts);
@@ -28,7 +31,9 @@ public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : ICha
             ? key?.ToString() ?? string.Empty
             : string.Empty;
 
-        var turn = ToTurn(agentKey, conversation);
+        var historyMessages = options?.AdditionalProperties?.TryGetValue(HistoryMessagesProperty, out var count) == true &&
+                              count is int value ? value : 0;
+        var turn = ToTurn(agentKey, conversation, historyMessages);
         var reply = _scripts.TryGetValue(agentKey, out var script)
             ? script.Next(turn)
             : ScriptedReply.Say($"No script is registered for the agent '{agentKey}' (AddAgentScript).");
@@ -74,8 +79,18 @@ public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : ICha
     {
     }
 
-    private static ScriptedTurn ToTurn(string agentKey, List<ChatMessage> conversation)
+    private static ScriptedTurn ToTurn(string agentKey, List<ChatMessage> messages, int historyMessages)
     {
+        // The earlier turns of a conversation sit between the system prompt and this run's first message: they are
+        // handed to the script as history, so Prompt, TurnNumber and ToolResults describe this run only.
+        var system = messages.TakeWhile(m => m.Role == ChatRole.System).Count();
+        var earlier = messages.Skip(system).Take(historyMessages).ToList();
+        var conversation = messages.Skip(system + historyMessages).ToList();
+
+        var history = new List<ScriptedHistoryTurn>();
+        for (var i = 0; i + 1 < earlier.Count; i += 2)
+            history.Add(new ScriptedHistoryTurn(earlier[i].Text, earlier[i + 1].Text));
+
         var prompt = conversation.FirstOrDefault(m => m.Role == ChatRole.User)?.Text;
         var turnNumber = conversation.Count(m => m.Role == ChatRole.Assistant) + 1;
 
@@ -89,7 +104,7 @@ public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : ICha
             .Select(r => new ScriptedToolResult(toolByCall.GetValueOrDefault(r.CallId, string.Empty), ToJson(r.Result)))
             .ToList();
 
-        return new ScriptedTurn(agentKey, prompt, turnNumber, results);
+        return new ScriptedTurn(agentKey, prompt, turnNumber, results, history);
     }
 
     private static string ToJson(object? result) => result switch

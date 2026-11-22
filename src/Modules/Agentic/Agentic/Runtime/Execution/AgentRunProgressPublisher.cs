@@ -63,6 +63,7 @@ public sealed class AgentRunProgressPublisher(
     {
         ["runId"] = run.Id,
         ["agentKey"] = run.AgentKey,
+        ["conversationId"] = run.ConversationId,
         ["status"] = (int)run.Status,
         ["modelTurns"] = run.ModelTurns,
         ["toolCalls"] = run.ToolCalls,

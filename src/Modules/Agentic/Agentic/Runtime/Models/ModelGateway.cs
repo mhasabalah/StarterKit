@@ -30,12 +30,17 @@ public sealed record ModelToolDeclaration(string Name, string Description, JsonE
 /// <param name="ModelKey">A key of <c>Agentic:Models</c>.</param>
 /// <param name="AgentKey">The agent being run (selects the script of the scripted provider; a span tag otherwise).</param>
 /// <param name="Instructions">The system prompt.</param>
+/// <param name="HistoryMessages">
+/// How many of the leading <paramref name="Messages"/> are earlier turns of the run's conversation (user message and
+/// answer pairs). A real model reads them as the conversation; the scripted provider keeps them apart from the run.
+/// </param>
 public sealed record ModelRequest(
     string ModelKey,
     string AgentKey,
     string Instructions,
     IReadOnlyList<ModelMessage> Messages,
-    IReadOnlyList<ModelToolDeclaration> Tools);
+    IReadOnlyList<ModelToolDeclaration> Tools,
+    int HistoryMessages = 0);
 
 public sealed record ModelResponse(
     string? Text,

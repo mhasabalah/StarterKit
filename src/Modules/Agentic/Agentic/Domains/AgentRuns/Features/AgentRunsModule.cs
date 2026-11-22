@@ -9,12 +9,10 @@ namespace Agentic.Domains.AgentRuns.Features;
 /// <param name="AgentKey">A registered agent the caller may start.</param>
 /// <param name="Prompt">The goal in natural language.</param>
 /// <param name="Input">Optional structured input (a JSON object) given to the agent next to the prompt.</param>
-/// <param name="SessionId">Optional: groups the runs of one conversation.</param>
 public sealed record StartAgentRunRequest(
     string AgentKey,
     string? Prompt = null,
-    System.Text.Json.JsonElement? Input = null,
-    Guid? SessionId = null);
+    System.Text.Json.JsonElement? Input = null);
 
 /// <param name="Version">Optional optimistic-concurrency token of the run.</param>
 public sealed record CancelAgentRunRequest(long? Version = null);
@@ -70,7 +68,7 @@ public class AgentRunsModule : ICarterModule
         group.MapPost("/", async (StartAgentRunRequest request, ISender sender, CancellationToken ct) =>
                 {
                     var run = await sender.Send(new StartAgentRunCommand(request.AgentKey, request.Prompt,
-                        request.Input?.GetRawText(), request.SessionId), ct);
+                        request.Input?.GetRawText()), ct);
                     return Results.Accepted($"{EndpointConfig.BaseApiPath}/agent-runs/{run.Id}", ApiResponseExtensions.Success(run));
                 })
             .WithName("StartAgentRun")
@@ -93,7 +91,7 @@ public class AgentRunsModule : ICarterModule
                 Results.Ok(ApiResponseExtensions.Success(await sender.Send(query, ct))))
             .WithName("GetAgentRuns").Produces<ApiResponse<PaginatedResult<AgentRunDto>>>()
             .WithSummary("List agent runs")
-            .WithDescription("Newest first: the caller's own runs (every run with `agentic.runs.read`). Filters: agentKey, status.")
+            .WithDescription("Newest first: the caller's own runs (every run with `agentic.runs.read`). Filters: agentKey, status, conversationId.")
             .RequireTenantMember();
 
         group.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>

@@ -59,6 +59,9 @@ public sealed class AgentRunExecutor(
 
     private sealed record Snapshot(AgentRun Run, IReadOnlyList<AgentRunStep> Steps);
 
+    private static readonly AgentRunStatus[] FinishedStatuses =
+        [AgentRunStatus.Completed, AgentRunStatus.Failed, AgentRunStatus.Cancelled];
+
     /// <summary>Entry point of the Hangfire job.</summary>
     public async Task ExecuteAsync(Guid runId, CancellationToken cancellationToken)
     {
@@ -150,7 +153,8 @@ public sealed class AgentRunExecutor(
             return false;
         }
 
-        var request = TranscriptBuilder.Build(agent, run, snapshot.Steps);
+        var history = run.ConversationId is { } conversationId ? await LoadHistoryAsync(run, conversationId) : null;
+        var request = TranscriptBuilder.Build(agent, run, snapshot.Steps, history);
 
         // The lease is renewed at checkpoints only, and there is none during a model request: make sure it outlives
         // the longest the provider client may take (its timeout times its retries), or a second worker would take the
@@ -677,6 +681,31 @@ public sealed class AgentRunExecutor(
                 throw new AgentRunLeaseLostException(runId);
             var steps = await db.Steps.AsNoTracking().Where(s => s.RunId == runId).OrderBy(s => s.Sequence).ToListAsync(ct);
             return new Snapshot(run, steps);
+        }, CancellationToken.None);
+
+    /// <summary>
+    /// The earlier turns of the run's conversation the model is given: finished turns numbered before this one, whose
+    /// content still exists, the newest first up to <see cref="AgentConversationOptions.MaxHistoryTurns"/>; then
+    /// bounded by characters (<see cref="TranscriptBuilder.History"/>). Read again for every model turn, so a turn
+    /// whose content was erased meanwhile is no longer sent.
+    /// </summary>
+    private Task<IReadOnlyList<ModelMessage>> LoadHistoryAsync(AgentRun run, Guid conversationId) =>
+        unitOfWork.RunAsync(async (services, ct) =>
+        {
+            var limits = Settings.Conversations;
+            if (limits.MaxHistoryTurns == 0 || limits.MaxHistoryCharacters == 0)
+                return (IReadOnlyList<ModelMessage>)[];
+
+            var db = services.GetRequiredService<AgenticDbContext>();
+            var turns = await db.Runs.AsNoTracking()
+                .Where(r => r.ConversationId == conversationId && r.ConversationTurn < run.ConversationTurn &&
+                            FinishedStatuses.Contains(r.Status) && r.ContentErasedAt == null)
+                .OrderByDescending(r => r.ConversationTurn)
+                .Take(limits.MaxHistoryTurns)
+                .Select(r => new ConversationTurn(r.Prompt, r.InputJson, r.OutputText, r.OutputJson, r.Status))
+                .ToListAsync(ct);
+            turns.Reverse();
+            return TranscriptBuilder.History(turns, limits.MaxHistoryTurns, limits.MaxHistoryCharacters);
         }, CancellationToken.None);
 
     /// <summary>

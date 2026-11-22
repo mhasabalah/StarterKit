@@ -77,6 +77,8 @@ public class GetAgentRunsHandler(AgenticDbContext dbContext, AgentAccess access)
             runs = runs.Where(r => r.AgentKey == query.AgentKey);
         if (query.Status is { } status)
             runs = runs.Where(r => r.Status == status);
+        if (query.ConversationId is { } conversationId)
+            runs = runs.Where(r => r.ConversationId == conversationId);
 
         return await runs
             .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id)

@@ -100,6 +100,13 @@ public sealed record AgentDefinition
     public IReadOnlyList<AgentTriggerKind> AllowedTriggers { get; init; } = [AgentTriggerKind.User, AgentTriggerKind.Api];
 
     public AgentLimits? Limits { get; init; }
+
+    /// <summary>
+    /// True: people can hold a conversation with this agent (<c>/api/v1/agent-conversations</c>). Every message is a
+    /// run that sees the earlier turns of its conversation (each turn's message and final answer). Task agents that do
+    /// one job per run leave it false.
+    /// </summary>
+    public bool Conversational { get; init; }
 }
 
 public static class AgentServiceCollectionExtensions
@@ -121,7 +128,8 @@ public sealed record AgentDto(
     LocalizedText Name,
     LocalizedText? Description,
     AgentAutonomy Autonomy,
-    bool HasTypedOutput);
+    bool HasTypedOutput,
+    bool Conversational = false);
 
 public sealed record AgentToolDto(
     string Name,

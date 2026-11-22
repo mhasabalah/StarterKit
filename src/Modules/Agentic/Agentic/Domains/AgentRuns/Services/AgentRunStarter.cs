@@ -18,7 +18,9 @@ public sealed record AgentRunStart(
     IReadOnlyCollection<string>? PermissionCeiling = null,
     Guid? ApiKeyId = null,
     string? TriggerKey = null,
-    Guid? SessionId = null);
+    Guid? ConversationId = null,
+    int? ConversationTurn = null,
+    bool StartTainted = false);
 
 /// <summary>
 /// The one place a run is created, for every kind of trigger. The caller has decided WHO may start (endpoint policy,
@@ -78,10 +80,12 @@ public sealed class AgentRunStarter(
             start.Culture,
             start.PermissionCeiling,
             start.TriggerKey,
-            start.SessionId,
+            start.ConversationId,
             Activity.Current?.Id,
             start.ApiKeyId,
-            policy.RequireApprovalForChanges);
+            policy.RequireApprovalForChanges,
+            start.StartTainted,
+            start.ConversationTurn);
         run.MarkEnqueued(timeProvider.GetUtcNow().UtcDateTime);
 
         // Consumed last, once everything that can refuse the run without touching the database has passed (the

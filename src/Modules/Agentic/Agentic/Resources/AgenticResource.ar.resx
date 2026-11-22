@@ -69,6 +69,9 @@
   <data name="Agent.State.budget_invalid" xml:space="preserve">
     <value>حدود التشغيل غير صالحة.</value>
   </data>
+  <data name="Agent.State.conversation_turn_invalid" xml:space="preserve">
+    <value>يحتاج دور المحادثة إلى محادثته ورقم دور يبدأ من 1.</value>
+  </data>
   <data name="Agent.State.trigger_key_too_long" xml:space="preserve">
     <value>مفتاح المشغِّل طويل جداً.</value>
   </data>
@@ -311,5 +314,38 @@
   </data>
   <data name="Agent.Error.memory_person_only" xml:space="preserve">
     <value>يكتب الأشخاص الذكريات؛ ويمكن للوكيل فقط اقتراح ذكرى للموافقة عليها.</value>
+  </data>
+  <data name="Validation.Message.Required" xml:space="preserve">
+    <value>الرسالة مطلوبة.</value>
+  </data>
+  <data name="Validation.Message.MaxLength" xml:space="preserve">
+    <value>يجب ألا تتجاوز الرسالة {0} حرفًا.</value>
+  </data>
+  <data name="Validation.Conversation.Title.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز العنوان {0} حرفًا.</value>
+  </data>
+  <data name="Agent.Conversation.not_found" xml:space="preserve">
+    <value>المحادثة '{0}' غير موجودة.</value>
+  </data>
+  <data name="Agent.Conversation.agent_required" xml:space="preserve">
+    <value>الوكيل مطلوب.</value>
+  </data>
+  <data name="Agent.Conversation.owner_required" xml:space="preserve">
+    <value>يجب أن يكون للمحادثة مالك.</value>
+  </data>
+  <data name="Agent.Conversation.title_too_long" xml:space="preserve">
+    <value>العنوان طويل جدًا.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_deleted" xml:space="preserve">
+    <value>تم حذف المحادثة.</value>
+  </data>
+  <data name="Agent.Conversation.agent_not_conversational" xml:space="preserve">
+    <value>الوكيل '{0}' لا يدعم المحادثات.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_busy" xml:space="preserve">
+    <value>ما زال الرد على الرسالة السابقة جاريًا. أرسل الرسالة التالية بعد اكتماله.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_full" xml:space="preserve">
+    <value>بلغت المحادثة {0} رسالة. ابدأ محادثة جديدة.</value>
   </data>
 </root>

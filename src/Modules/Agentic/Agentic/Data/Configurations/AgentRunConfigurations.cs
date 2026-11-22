@@ -5,6 +5,19 @@ public class AgentRunConfiguration : IEntityTypeConfiguration<AgentRun>
     /// <summary>One run per automatic trigger (tenant, agent, trigger key): a redelivered event starts nothing new.</summary>
     public const string TriggerIndexName = "ux_agent_runs_trigger";
 
+    /// <summary>
+    /// At most one queued, running or waiting run per conversation: a second message sent while a turn is in progress
+    /// cannot start a parallel turn, whatever the race.
+    /// </summary>
+    public const string ActiveTurnIndexName = "ux_agent_runs_active_turn";
+
+    /// <summary>Turn numbers are unique per conversation: the order of the history, and a second guard against a race.</summary>
+    public const string ConversationTurnIndexName = "ux_agent_runs_conversation_turn";
+
+    /// <summary>The statuses of a turn in progress, as stored (enums are strings).</summary>
+    public const string ActiveTurnFilter =
+        "conversation_id IS NOT NULL AND status IN ('Queued', 'Running', 'AwaitingApproval')";
+
     public void Configure(EntityTypeBuilder<AgentRun> builder)
     {
         builder.ToTable("agent_runs");
@@ -39,6 +52,21 @@ public class AgentRunConfiguration : IEntityTypeConfiguration<AgentRun>
         builder.HasIndex(r => new { r.TenantId, r.CreatedAt });
         builder.HasIndex(r => new { r.TenantId, r.InitiatedBy, r.CreatedAt });
         builder.HasIndex(r => new { r.TenantId, r.Status });
+
+        // A turn belongs to a conversation of the same tenant; a conversation is never hard-deleted (its turns keep
+        // their counters for usage and audit after their content is erased).
+        builder.HasOne<AgentConversation>()
+            .WithMany()
+            .HasForeignKey(r => r.ConversationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => new { r.TenantId, r.ConversationId, r.ConversationTurn })
+            .IsUnique()
+            .HasFilter("conversation_id IS NOT NULL")
+            .HasDatabaseName(ConversationTurnIndexName);
+        builder.HasIndex(r => new { r.TenantId, r.ConversationId })
+            .IsUnique()
+            .HasFilter(ActiveTurnFilter)
+            .HasDatabaseName(ActiveTurnIndexName);
     }
 }
 

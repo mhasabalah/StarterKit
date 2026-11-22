@@ -86,7 +86,8 @@ public sealed record AgentRunDto(
     DateTime CreatedAt,
     DateTime? StartedAt,
     DateTime? FinishedAt,
-    long Version);
+    long Version,
+    Guid? ConversationId = null);
 
 /// <summary>
 /// A run with what was asked and what came out. <see cref="OutputJson"/> is the typed result of an agent with an
@@ -121,12 +122,11 @@ public sealed record AgentRunStepDto(
 /// <param name="AgentKey">A registered agent.</param>
 /// <param name="Prompt">The goal in natural language.</param>
 /// <param name="InputJson">Optional structured input (a JSON object) given to the agent next to the prompt.</param>
-/// <param name="SessionId">Optional: groups runs of one conversation.</param>
+/// <remarks>A run that continues a conversation starts through <c>SendAgentConversationMessageCommand</c> instead.</remarks>
 public sealed record StartAgentRunCommand(
     string AgentKey,
     string? Prompt = null,
-    string? InputJson = null,
-    Guid? SessionId = null) : ICommand<AgentRunDto>;
+    string? InputJson = null) : ICommand<AgentRunDto>;
 
 /// <summary>
 /// Starts a run for an AUTOMATIC trigger: sent by a consumer or a recurring job of the module that owns the agent,
@@ -163,6 +163,9 @@ public sealed record GetAgentRunsQuery : BaseQuery, IQuery<PaginatedResult<Agent
 {
     public string? AgentKey { get; init; }
     public AgentRunStatus? Status { get; init; }
+
+    /// <summary>Only the turns of this conversation.</summary>
+    public Guid? ConversationId { get; init; }
 }
 
 public sealed record GetAgentRunByIdQuery(Guid RunId) : IQuery<AgentRunDetailDto>;

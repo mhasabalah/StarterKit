@@ -59,7 +59,32 @@ public sealed class PurgeAgentContentJob(
                 }, CancellationToken.None);
                 total += erased;
             } while (erased >= BatchSize);
+
+            // Conversation titles are user content too: dropped once the conversation is idle for as long.
+            total += await unitOfWork.RunAsync((services, ct) => services.GetRequiredService<AgenticDbContext>().Conversations
+                .Where(c => c.Title != null && c.LastMessageAt < cutoff)
+                .ExecuteUpdateAsync(c => c.SetProperty(x => x.Title, (string?)null), ct), CancellationToken.None);
         }
+
+        // Backstop for deleted conversations: a turn that finished after the deletion and was not erased then.
+        int orphans;
+        do
+        {
+            cancellationToken?.ThrowIfCancellationRequested();
+            orphans = await unitOfWork.RunAsync(async (services, ct) =>
+            {
+                var db = services.GetRequiredService<AgenticDbContext>();
+                var ids = await db.Runs
+                    .Where(r => r.FinishedAt != null && r.ContentErasedAt == null &&
+                                db.Conversations.Any(c => c.Id == r.ConversationId && c.Status == AgentConversationStatus.Deleted))
+                    .OrderBy(r => r.FinishedAt)
+                    .Select(r => r.Id)
+                    .Take(BatchSize)
+                    .ToListAsync(ct);
+                return await AgentRunContentEraser.EraseAsync(db, ids, now, ct);
+            }, CancellationToken.None);
+            total += orphans;
+        } while (orphans >= BatchSize);
 
         if (total > 0)
             logger.LogInformation("PurgeAgentContentJob: {Count} run(s) erased or memory(ies) deleted", total);

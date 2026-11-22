@@ -73,6 +73,14 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("content_erased_at");
 
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<int?>("ConversationTurn")
+                        .HasColumnType("integer")
+                        .HasColumnName("conversation_turn");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -205,10 +213,6 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ready_at");
 
-                    b.Property<Guid?>("SessionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("session_id");
-
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
@@ -255,6 +259,14 @@ namespace Agentic.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_agent_runs");
 
+                    b.HasIndex("ConversationId")
+                        .HasDatabaseName("ix_agent_runs_conversation_id");
+
+                    b.HasIndex("TenantId", "ConversationId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_agent_runs_active_turn")
+                        .HasFilter("conversation_id IS NOT NULL AND status IN ('Queued', 'Running', 'AwaitingApproval')");
+
                     b.HasIndex("TenantId", "CreatedAt")
                         .HasDatabaseName("ix_agent_runs_tenant_id_created_at");
 
@@ -265,6 +277,11 @@ namespace Agentic.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_agent_runs_trigger")
                         .HasFilter("trigger_key IS NOT NULL");
+
+                    b.HasIndex("TenantId", "ConversationId", "ConversationTurn")
+                        .IsUnique()
+                        .HasDatabaseName("ux_agent_runs_conversation_turn")
+                        .HasFilter("conversation_id IS NOT NULL");
 
                     b.HasIndex("TenantId", "InitiatedBy", "CreatedAt")
                         .HasDatabaseName("ix_agent_runs_tenant_id_initiated_by_created_at");
@@ -553,6 +570,87 @@ namespace Agentic.Data.Migrations
                         .HasDatabaseName("ix_agent_approvals_tenant_id_status_expires_at");
 
                     b.ToTable("agent_approvals", "agentic");
+                });
+
+            modelBuilder.Entity("Agentic.Domains.Conversations.Models.AgentConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AgentKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("agent_key");
+
+                    b.Property<Guid?>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime>("LastMessageAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_message_at");
+
+                    b.Property<DateTime?>("LastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("last_modified_by");
+
+                    b.Property<int>("MessageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("message_count");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("title");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_agent_conversations");
+
+                    b.HasIndex("TenantId", "OwnerId", "LastMessageAt")
+                        .HasDatabaseName("ix_agent_conversations_tenant_id_owner_id_last_message_at");
+
+                    b.ToTable("agent_conversations", "agentic");
                 });
 
             modelBuilder.Entity("Agentic.Domains.Knowledge.Models.KnowledgeChunk", b =>
@@ -1063,6 +1161,15 @@ namespace Agentic.Data.Migrations
                         .HasDatabaseName("ix_outbox_messages_tenant_id");
 
                     b.ToTable("outbox_messages", "agentic");
+                });
+
+            modelBuilder.Entity("Agentic.Domains.AgentRuns.Models.AgentRun", b =>
+                {
+                    b.HasOne("Agentic.Domains.Conversations.Models.AgentConversation", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_agent_runs_agent_conversations_conversation_id");
                 });
 
             modelBuilder.Entity("Agentic.Domains.AgentRuns.Models.AgentRunStep", b =>

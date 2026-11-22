@@ -72,6 +72,23 @@ public class ModelGatewayTests
     }
 
     [Fact]
+    public async Task Complete_InAConversation_GivesTheScriptTheEarlierTurnsApart_FromThisRunsPromptAndTurnNumber()
+    {
+        var script = new RecordingScript(_ => ScriptedReply.Say("ok"));
+        var request = Request(
+            new ModelMessage(ModelRole.User, "Where is A-1?"), new ModelMessage(ModelRole.Assistant, "In Dubai."),
+            new ModelMessage(ModelRole.User, "And its VAT?")) with
+        { HistoryMessages = 2 };
+
+        await Gateway(script).CompleteAsync(request, CancellationToken.None);
+
+        var turn = script.Turns.Should().ContainSingle().Subject;
+        turn.Prompt.Should().Be("And its VAT?");
+        turn.TurnNumber.Should().Be(1, "the earlier turn's answer is not a model turn of this run");
+        turn.EarlierTurns.Should().Equal(new ScriptedHistoryTurn("Where is A-1?", "In Dubai."));
+    }
+
+    [Fact]
     public async Task Complete_ReportsUsage_AndEstimatesCostFromTheConfiguredPrices()
     {
         var script = new RecordingScript(_ => ScriptedReply.Say("Hello there."));
