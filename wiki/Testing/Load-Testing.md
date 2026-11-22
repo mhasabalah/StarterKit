@@ -106,7 +106,7 @@ stays one closed-loop VU. Tag: `load_scenario`.
 the API allows one active import per definition and tenant (409 `import_already_running`). The budgets are regression
 tripwires with a wide margin, not SLAs.
 
-<!--#if (sample)-->
+<!--#if (sample && agentic)-->
 
 **`agents` (opt-in, 2 closed-loop VUs).** The agent demo of the Shipping sample: create a shipment with its documents,
 hand it over (the outbox event starts the run), wait for the declaration draft, approve the requested submission with

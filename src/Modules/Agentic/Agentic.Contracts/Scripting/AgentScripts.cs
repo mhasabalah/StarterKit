@@ -27,12 +27,14 @@ public sealed record ScriptedHistoryTurn(string UserMessage, string AssistantAns
 /// <param name="TurnNumber">1 for the first model turn of this run (earlier conversation turns do not count).</param>
 /// <param name="ToolResults">Every tool result of this run so far, oldest first.</param>
 /// <param name="History">The earlier turns of the run's conversation, oldest first; empty outside a conversation.</param>
+/// <param name="Summary">The summary of turns older than <paramref name="History"/>, when the conversation has one.</param>
 public sealed record ScriptedTurn(
     string AgentKey,
     string? Prompt,
     int TurnNumber,
     IReadOnlyList<ScriptedToolResult> ToolResults,
-    IReadOnlyList<ScriptedHistoryTurn>? History = null)
+    IReadOnlyList<ScriptedHistoryTurn>? History = null,
+    string? Summary = null)
 {
     public IReadOnlyList<ScriptedHistoryTurn> EarlierTurns => History ?? [];
 }

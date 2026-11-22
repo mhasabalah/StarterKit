@@ -31,7 +31,7 @@ public class AgentGovernanceTests : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await _fx.AdminExecAsync(
-            "update agentic.agent_runs set status = 'Cancelled' where status in ('Queued', 'Running', 'AwaitingApproval'); " +
+            "update agentic.agent_runs set status = 'Cancelled' where status in ('Queued', 'Running', 'AwaitingApproval', 'AwaitingDelegate'); " +
             "update agentic.agent_runs set created_at = now() - interval '2 hours' where trigger_kind in ('Event', 'Schedule'); " +
             "delete from agentic.agent_policies;");
     }

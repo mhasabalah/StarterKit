@@ -21,7 +21,11 @@ public enum AgentRunStatus
     Failed = 5,
 
     [LocalizedDescription("Cancelled", "ملغى")]
-    Cancelled = 6
+    Cancelled = 6,
+
+    /// <summary>Suspended until a run it delegated to (another agent) finishes (ADR-0033). No worker is held.</summary>
+    [LocalizedDescription("Awaiting another agent", "بانتظار وكيل آخر")]
+    AwaitingDelegate = 7
 }
 
 public enum AgentRunStepKind
@@ -62,7 +66,11 @@ public enum AgentRunStepStatus
 
     /// <summary>Not executed because the run finished first.</summary>
     [LocalizedDescription("Skipped", "تم تخطيه")]
-    Skipped = 7
+    Skipped = 7,
+
+    /// <summary>An <c>agent.delegate</c> call whose run (another agent) has not finished yet.</summary>
+    [LocalizedDescription("Awaiting another agent", "بانتظار وكيل آخر")]
+    AwaitingDelegate = 8
 }
 
 // ----- DTOs -----------------------------------------------------------------------------------------------------
@@ -87,7 +95,8 @@ public sealed record AgentRunDto(
     DateTime? StartedAt,
     DateTime? FinishedAt,
     long Version,
-    Guid? ConversationId = null);
+    Guid? ConversationId = null,
+    Guid? ParentRunId = null);
 
 /// <summary>
 /// A run with what was asked and what came out. <see cref="OutputJson"/> is the typed result of an agent with an

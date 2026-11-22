@@ -8,7 +8,12 @@ references a business module and a business module never references a model SDK.
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md) (durability) and
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md) (approvals, triggers, policies) and
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector) and
-[ADR-0029](../Decisions/0029-agent-conversations.md) (conversations).
+[ADR-0029](../Decisions/0029-agent-conversations.md) (conversations) and
+[ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers) and
+[ADR-0031](../Decisions/0031-conversation-summaries.md) (conversation summaries) and
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md) (HNSW vector index) and
+[ADR-0033](../Decisions/0033-agent-delegation.md) (delegation between agents) and
+[ADR-0034](../Decisions/0034-agent-mcp-server.md) (MCP server).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -191,7 +196,9 @@ agent's definition by taking the stricter value, so it can never widen an agent;
 | Plan quota `agent_runs` | one unit per run, at start | start refused, 429 `quota_exceeded` |
 | Plan quota `agent_tokens` | per saved model turn, the last one included | run fails `quota_exceeded` before its next step |
 
-`GET /agent-usage` reports runs, model turns, tool calls, tokens and estimated cost from the run rows.
+`GET /agent-usage` reports runs, model turns, tool calls, tokens and estimated cost from the run rows. It also counts
+the model calls made outside a run (conversation summaries, from `agent_model_usages`), so its tokens add up to what
+`agent_tokens` paid for. `Summaries`, `SummaryTokens` and `SummaryCost` are their share.
 
 ### Events, notifications and progress
 
@@ -203,8 +210,16 @@ agent's definition by taking the stricter value, so it can never widen an agent;
   `Agentic:ProgressIntervalMilliseconds`; a change of status is always sent). Payload: `runId`, `agentKey`, `status`,
   `modelTurns`, `toolCalls`, `cancelRequested`, `failureCode`, `stepSequence`, `stepKind`, `stepStatus`, `tool`. The
   run row stays the source of truth.
+- Streamed answer ([ADR-0030](../Decisions/0030-streaming-agent-answers.md)): user event `agentic.run-text` to the
+  initiator while the model writes. Payload: `runId`, `conversationId`, `turn` (the model turn of the run), `offset`,
+  `delta`.
+  - Pieces are collected for `Agentic:Streaming:IntervalMilliseconds`, and the rest is sent when the turn ends.
+  - Only runs started by a person or an API key stream.
+  - A retried turn starts again at offset 0 with the same `turn`, so a client resets that turn.
+  - It is a preview: the saved run (or conversation) holds the answer.
 
-None of these carries prompts, tool arguments or results.
+Apart from the streamed answer, which goes only to the initiator, none of these carries prompts, tool arguments or
+results.
 
 ### Knowledge
 
@@ -233,6 +248,18 @@ A module makes content searchable for agents; nothing else is indexed.
 Vectors of different embedding models are never compared: a document stores the model identity of its passages.
 After changing `Agentic:Knowledge:EmbeddingModelId`, have the owning modules send their documents again: unchanged
 content is then indexed again with the new model.
+
+Vector search is exact by default. For large corpora, set `Knowledge:VectorIndex=Hnsw` with `Knowledge:Dimensions`
+([ADR-0032](../Decisions/0032-knowledge-hnsw-index.md)):
+- The migrator builds a partial HNSW index for that dimension (`ix_knowledge_chunks_embedding_hnsw_<n>`,
+  `KnowledgeVectorIndexStep`, an `IPostMigrationStep`). It builds CONCURRENTLY and rebuilds the index if an earlier
+  build was interrupted.
+- The search then takes the nearest passages from the index, scanned iteratively so that tenant and source filters
+  still leave enough candidates.
+- A query vector of another length falls back to exact search.
+
+Before choosing an embedding model, run `KnowledgeEvaluationTests` against it (`AGENTIC_EVAL_EMBEDDING_MODEL`, skipped
+otherwise): paraphrased English and Arabic questions must rank the passage that answers them first.
 
 ### Memory
 
@@ -278,6 +305,7 @@ sequenceDiagram
 |---|---|
 | What the model is given | Each earlier **finished** turn as a user message and its final answer (`OutputText`, or `OutputJson` as "Result (JSON)"); a failed or cancelled turn as "(This request did not finish.)". Never the tool calls or tool results of earlier turns: the agent reads current data again instead of trusting a stale copy, and old untrusted text is not replayed |
 | How much | The newest turns first, at most `Conversations:MaxHistoryTurns` and `Conversations:MaxHistoryCharacters`; older turns are dropped whole. A turn whose content was erased is left out. History counts against the run's `MaxTokens` |
+| Long conversations | A **summary** of the older turns ([ADR-0031](../Decisions/0031-conversation-summaries.md)). Once more than `Conversations:SummarizeAfterTurns` finished turns are not covered by it, `SummarizeAgentConversationJob` asks `Conversations:SummaryModel` to fold them into the summary, always leaving the newest `KeepRecentTurns` out. Later turns get the summary first (a marked, untrusted message), then the turns after it. Its tokens are charged to `agent_tokens` and recorded on the conversation (`SummaryInputTokens` / `SummaryOutputTokens` / `SummaryCost`), and every call is counted in `GET /agent-usage` (`Summaries`), kept or not. It is written without changing the conversation's `Version`, and erased with any of its turns' content. `GET /{id}` returns it |
 | One turn at a time | 409 `conversation_busy` while a turn is queued, running or waiting for an approval. Two messages sent at the same moment are refused by the database: the filtered unique index `ux_agent_runs_active_turn` (one active run per conversation) and `ux_agent_runs_conversation_turn` (unique turn numbers) |
 | Injection across turns | **Sticky taint**: a turn starts tainted when any earlier turn read untrusted content, because that turn's answer is in the history. Every change it proposes then needs a person |
 | Whose | The person who started it (with an API key: that key) continues, renames and deletes it; holders of `agentic.runs.read` may read it; anyone else gets 404, in every tenant but its own |
@@ -286,15 +314,49 @@ sequenceDiagram
 | Deleting | Stops a turn in progress and erases the content of every turn. A turn still running when its conversation is deleted is erased when it stops; `PurgeAgentContentJob` erases any left over |
 
 Live progress (`agentic.run-progress`) carries the `conversationId`, and the `agent.run` span the tag
-`gen_ai.conversation.id`. `GET /api/v1/agent-runs?conversationId=` lists the runs of one conversation. Answers are not
-streamed token by token: a client shows the step progress, then reads the answer from `GET /{id}`.
+`gen_ai.conversation.id`. `GET /api/v1/agent-runs?conversationId=` lists the runs of one conversation. The answer is
+streamed to its initiator as `agentic.run-text` (a preview); the saved turn in `GET /{id}` is the answer.
 
 <!--#if (sample)-->
 
 The sample is `shipping.assistant` ([Shipping](Shipping.md#the-shipping-assistant)): read-only answers about shipments,
-including follow-ups such as "and how much VAT is due?" that name no shipment.
+including follow-ups such as "and how much VAT is due?" that name no shipment, and "prepare it for clearance", which it
+delegates to the preparation agent.
 
 <!--#endif-->
+
+### Delegation
+
+An agent hands a task to another agent with the built-in tool `agent.delegate {agentKey, task}`
+([ADR-0033](../Decisions/0033-agent-delegation.md)). It gets the tool only when its definition lists `Delegates`, and
+the schema names only those agents.
+
+| Rule | How |
+|---|---|
+| Who may be delegated to | The agents in `Delegates`. Each must allow `AgentTriggerKind.Delegated`; startup refuses unknown agents, self-delegation and cycles. Any other key is refused with `tool_not_allowed` |
+| As whom | The same person (`InitiatedBy`), permission ceiling and API key. The person must hold the delegate's `RequiredPermission` now (`forbidden` otherwise) |
+| With what authority | The lower of the two runs' autonomies. Taint is inherited, so a tainted run's delegate needs a person for every change |
+| How much | At most the delegating run's remaining tokens. When the delegate finishes, its tokens are added to the delegating run's `DelegatedTokens`, so one budget bounds the whole delegation; usage (`GET /agent-usage`) counts them once, on the delegate. Depth is bounded by `Delegation:MaxDepth` (`delegation_too_deep`) |
+| How it waits | The delegating run and its step are `AwaitingDelegate`, holding no worker. The finished delegate's status and answer (or typed result, or failure code) become the step's result, its taint carries over, and the run is queued again |
+| Starting it | Through `AgentRunStarter`: the tenant policy, capacity and the `agent_runs` quota apply. A refusal is told to the model like a refused tool. A retried attempt finds the delegate it already started (`ux_agent_runs_parent_step`) |
+| Cascades | Cancelling a run cancels its delegates (and a delegate stops at its next checkpoint once its parent finished); erasing a run's content erases theirs. `RequeueStalledAgentRunsJob` resumes a run whose delegate finished while its event was lost |
+
+A delegated run is listed like any run, with `parentRunId` and trigger `Delegated`; its approvals are decided as usual.
+
+### MCP server
+
+An agent with `McpServer = true` offers its tools to external MCP clients (an IDE, a desktop assistant) at
+`/api/v1/mcp/{agentKey}` when `Agentic:Mcp:Enabled` is on ([ADR-0034](../Decisions/0034-agent-mcp-server.md)).
+- **Protocol.** Streamable HTTP, stateless, with a JWT or an API key (`Authorization` header).
+- **What a client is offered.** The agent's tools that the signed-in person may run now without an approval. The
+  gateway decides each one as for a run that read untrusted content, so changes are refused with `approval_required`
+  and clients get the read tools.
+- **What a call becomes.** A run with trigger `Mcp` and one tool step: audited, retained and erased like any run, and
+  counted against `agent_runs` and capacity. It raises no event and no notification.
+
+A client configuration names the URL and a header, for example
+`{"url": "https://api.example.com/api/v1/mcp/<agent-key>", "headers": {"X-Api-Key": "CHANGE_ME"}}`; use an API key
+limited to what the client should read.
 
 ### Erasure and retention
 
@@ -345,6 +407,7 @@ executes a tool. Provider kinds (`Agentic:Providers:<name>:Kind`):
 | `GET /api/v1/agent-conversations`, `/{id}` | tenant member; the list is the caller's own; a conversation is readable by its owner or with `agentic.runs.read` |
 | `PATCH`, `DELETE /api/v1/agent-conversations/{id}` | tenant member, the owner only, no impersonation |
 | `GET /api/v1/knowledge-documents` | `agentic.manage`; status, revision and passage count, no content |
+| `POST`, `GET`, `DELETE /api/v1/mcp/{agentKey}` (MCP Streamable HTTP) | `agentic.runs.start` + the agent's `RequiredPermission`, plan feature `agents`, no impersonation; only while `Agentic:Mcp:Enabled` and for agents with `McpServer = true` |
 | `GET`, `POST /api/v1/agent-memories`, `DELETE /{id}` | `agentic.runs.start` (POST and DELETE: no impersonation); a tenant memory needs `agentic.manage`; someone else's memory is 404 |
 
 ### Metrics, traces, permissions
@@ -375,6 +438,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `LeaseSeconds` / `MaxAttempts` | 300 / 3 | Lease length (extended to cover a model request or tool timeout that is longer); consecutive failed attempts before the run fails |
 | `StalledAfterMinutes` / `SweepCron` | 10 / every 5 min | `RequeueStalledAgentRunsJob` queues again a run without a live lease that was not queued recently |
 | `ProgressIntervalMilliseconds` | 1000 | Throttle of live progress events |
+| `Streaming:Enabled` / `IntervalMilliseconds` | `true` / 100 | Stream answers to the initiator (`agentic.run-text`); pieces are collected per interval. `Models:<key>:Streaming=false` opts a model out |
 | `Triggers:MaxAutomaticRunsPerHour` | 60 | Automatic runs per agent, tenant and hour; 0 = no limit |
 | `Approvals:ExpireAfterHours` / `RequireDifferentApprover` / `ExpiryCron` | 72 / false / every 10 min | Approval expiry and the four-eyes rule |
 | `Telemetry:CaptureContent` | `false` | Adds prompts and tool content to model spans |
@@ -384,10 +448,16 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Knowledge:MaxDocumentBytes` / `MaxPdfPages` / `MaxTextLength` | 10 MB / 500 / 1,000,000 | Bounds of one document |
 | `Knowledge:MaxAttempts` / `StalledAfterMinutes` | 4 / 15 | Indexing retries of a provider failure; stall sweep |
 | `Knowledge:SearchCandidates` / `MaxResults` / `EmbeddingBatchSize` | 40 / 8 / 64 | Search breadth and size; embedding batch |
+| `Knowledge:VectorIndex` | `None` | `Hnsw`: an HNSW index for `Dimensions` (at most 4000), built by the migrator |
+| `Knowledge:HnswM` / `HnswEfConstruction` / `HnswEfSearch` | 16 / 64 / 100 | HNSW links per node, build breadth, search breadth (at least `SearchCandidates`) |
 | `Memory:RetentionDays` / `MaxPerUser` / `MaxPerTenant` / `MaxRecalled` | 365 / 100 / 500 / 50 | Memory lifetime and limits |
 | `Content:RetentionDays` | 90 | Content of finished runs is erased after this many days; 0 = keep |
 | `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
 | `Conversations:MaxMessages` | 200 | Messages per conversation (at least 1), then 409 `conversation_full`; also bounds the turns `GET /{id}` returns |
+| `Conversations:SummarizeAfterTurns` / `KeepRecentTurns` | 16 / 8 | Summarize once more than this many finished turns are not covered; the newest turns a summary leaves out (0 = no summaries) |
+| `Mcp:Enabled` | `false` | Maps the MCP server of agents with `McpServer = true` |
+| `Delegation:MaxDepth` | 2 | How deep delegations nest (1 = a delegated run may not delegate again; at most 3) |
+| `Conversations:SummaryModel` / `MaxSummaryCharacters` | `DefaultModel` / 4000 | The model that writes summaries; their length |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
 A provider API key may come from a Docker secret named `agentic_<provider>_api_key` (provider name in lower case).
@@ -492,11 +562,22 @@ person (taint), the same change requested before it does not. Tests that drive a
 | A document's content changes while it is indexed | The older job's result is dropped; the newer revision is indexed |
 | Embedding provider down while indexing | Retried with backoff; after `Knowledge:MaxAttempts` the document is `Failed` and not searchable |
 | Embedding provider down while searching | Keyword search only |
+| The HNSW build was interrupted (deploy stopped) | The index is left invalid; the next migrator run drops and builds it again. Search stays correct meanwhile (PostgreSQL ignores an invalid index) |
 | A user without the source's permission searches | No passage of that source, whatever sources the model asks for |
 | A message while the previous turn is still going, or two messages at once | 409 `conversation_busy`; one turn runs, nothing else starts |
 | An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
 | A conversation is deleted while a turn runs | The turn is asked to stop and its content is erased when it does; the other turns at once |
 | Someone else's conversation, or another tenant's | 404 for every route (read with `agentic.runs.read` only) |
+| An MCP client asks for a change | Refused with `approval_required`; nothing runs or is recorded |
+| The process stops during an MCP call | The call's run is failed with `mcp_call_interrupted` by the next worker that finds it; it is never run by a model |
+| A delegated run is still saving when its delegate finishes | `ResolveAgentDelegationJob` checks again shortly; the delegating run's next attempt also takes a finished delegate's result itself |
+| A worker stops after starting a delegate, before suspending | The next attempt finds that delegate and waits for it; no second one starts |
+| The delegate fails or is cancelled | The `agent.delegate` call fails with `delegate_failed` and its failure code; the delegating run goes on |
+| The summary model fails, or the plan has no tokens left for it | No summary is saved; the history drops old turns as before, and the next turn schedules it again |
+| The content of a summarized turn is erased | The summary is dropped and written again from the turns that still have content |
+| A model turn is retried after the answer was partly streamed | The turn streams again from offset 0 (same `turn`); the saved answer is the one that counts |
+| A provider reports no token usage while streaming | Tokens are estimated for that turn and the model is no longer streamed by the process |
+| The hub is down or the user has no open session | The stream is lost; the run is unaffected |
 
 Failure messages on a run are localized texts chosen by code. Provider and exception details go to the log only.
 
@@ -526,6 +607,8 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md),
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
-[ADR-0029](../Decisions/0029-agent-conversations.md), [Agent security model](../Architecture/Agent-Security.md),
+[ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md), [ADR-0031](../Decisions/0031-conversation-summaries.md),
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md), [ADR-0033](../Decisions/0033-agent-delegation.md), [ADR-0034](../Decisions/0034-agent-mcp-server.md),
+[Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).

@@ -31,6 +31,15 @@ editing agent data by hand.
 5. Conversations: `Agentic:Conversations` bounds the history a turn is given (`MaxHistoryTurns`,
    `MaxHistoryCharacters`) and the messages per conversation (`MaxMessages`). Every turn is a run, so the quotas and
    capacity above count turns.
+   Summaries of long conversations (`SummarizeAfterTurns`, `KeepRecentTurns`, `SummaryModel`) cost one model call per
+   summary, charged to `agent_tokens`.
+6. Knowledge with the provider's embeddings: set `AGENTIC_KNOWLEDGE_ENABLED=true`, `AGENTIC_EMBEDDING_MODEL` and
+   `AGENTIC_EMBEDDING_DIMENSIONS`.
+   - For a large corpus, also set `AGENTIC_VECTOR_INDEX=Hnsw`. The overlay gives the migrator the same settings, so
+     the next deploy builds the HNSW index for that dimension (CONCURRENTLY; on a big table give PostgreSQL enough
+     `maintenance_work_mem`).
+   - After changing the dimension, drop the old `ix_knowledge_chunks_embedding_hnsw_<n>` and have the modules send
+     their documents again.
 
 For Anthropic, add a provider with `Kind=Anthropic` and the secret `agentic_anthropic_api_key`
 (`agentic_<provider>_api_key`, provider name in lower case). The scripted provider is refused in Production.
@@ -41,6 +50,9 @@ Before choosing or changing the model, run the model evaluations against it:
 AGENTIC_EVAL_PROVIDER=OpenAiCompatible AGENTIC_EVAL_MODEL=<model id> AGENTIC_EVAL_API_KEY=<key> \
   dotnet test src/Modules/Agentic/Agentic.Tests --filter "Category=ModelEvaluation"
 ```
+
+Add `AGENTIC_EVAL_EMBEDDING_MODEL` (and `AGENTIC_EVAL_EMBEDDING_DIMENSIONS`) to evaluate the embedding model too; the
+streaming evaluation checks that the provider reports token usage while streaming.
 
 They are skipped when the variables are missing, so a green normal run says nothing about a model. Then drive the
 real agents end to end as described in [Testing with a real model](../Modules/Agentic.md#testing-with-a-real-model).
@@ -67,7 +79,7 @@ is busy for the whole model request, so throughput is roughly `WorkerCount / (mo
 | `agent.approvals.pending`, `agent.approvals.oldest_pending.age` | Prometheus | Requests decided within hours; they expire after `Agentic:Approvals:ExpireAfterHours` (72) |
 | `agent.model.tokens{direction}` | Prometheus | Matches the plan quotas and the provider invoice |
 | Traces `agent.run` → `agent.model_turn` / `agent.tool` | Tempo, Jaeger or Seq | A run's spans join the trace of the request that started it |
-| `GET /api/v1/agent-usage` | API (`agentic.runs.read`) | Per tenant and agent: runs, tokens, estimated cost |
+| `GET /api/v1/agent-usage` | API (`agentic.runs.read`) | Per tenant and agent: runs, tokens, estimated cost (conversation summaries included) |
 
 The backlog gauges are refreshed by `RequeueStalledAgentRunsJob` (`Agentic:SweepCron`, every 5 minutes); a series
 older than 20 minutes is dropped, so a silent gauge means the sweep stopped, not an empty backlog. Keep the sweep

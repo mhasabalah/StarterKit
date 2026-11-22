@@ -2,7 +2,7 @@ namespace Agentic.Domains.AgentRuns.Services;
 
 /// <summary>
 /// Removes what people and models WROTE in finished runs (prompt, input, outputs, transcript text, tool arguments and
-/// results, approval payloads and rationale) and keeps the facts (who, when, which agent and tools, status, counters,
+/// results, approval payloads and rationale, and the summary of their conversation) and keeps the facts (who, when, which agent and tools, status, counters,
 /// costs, audit entries). Set-based and idempotent; it never touches a run that is still going, because a run needs its
 /// transcript to continue.
 /// </summary>
@@ -16,6 +16,18 @@ public static class AgentRunContentEraser
             return 0;
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // The runs they delegated to (ADR-0033) carry the same request: their content goes with them.
+        var all = runIds.ToHashSet();
+        var level = runIds.ToList();
+        for (var depth = 0; depth < AgentRun.MaxDepth && level.Count > 0; depth++)
+        {
+            level = await db.Runs.Where(r => r.ParentRunId != null && level.Contains(r.ParentRunId.Value))
+                .Select(r => r.Id).ToListAsync(cancellationToken);
+            level.RemoveAll(id => !all.Add(id));
+        }
+
+        runIds = all;
 
         // Read ONCE: a run that finishes between the statements below must be erased by all of them or by none
         // (finished is final, so this list stays true for the whole transaction).
@@ -44,6 +56,13 @@ public static class AgentRunContentEraser
                 .SetProperty(x => x.OutputJson, (string?)null)
                 .SetProperty(x => x.OutputText, (string?)null)
                 .SetProperty(x => x.ContentErasedAt, now), cancellationToken);
+        // A conversation summary was written from turns' content (ADR-0031): it goes with any of them. The next summary
+        // is written again from the turns whose content still exists.
+        await db.Conversations.Where(c => c.Summary != null && db.Runs.Any(r => finished.Contains(r.Id) && r.ConversationId == c.Id))
+            .ExecuteUpdateAsync(c => c
+                .SetProperty(x => x.Summary, (string?)null)
+                .SetProperty(x => x.SummaryThroughTurn, 0)
+                .SetProperty(x => x.SummaryUpdatedAt, (DateTime?)null), cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return erased;
     }

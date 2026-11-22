@@ -43,17 +43,46 @@ public class GetAgentUsageHandler(AgenticDbContext dbContext, TimeProvider timeP
             .OrderBy(x => x.AgentKey)
             .ToListAsync(cancellationToken);
 
-        var byAgent = rows
-            .Select(x => new AgentUsageByAgentDto(x.AgentKey, new AgentUsageTotalsDto(x.Runs, x.Completed, x.Failed,
-                x.Cancelled, x.Runs - x.Completed - x.Failed - x.Cancelled, x.ModelTurns, x.ToolCalls, x.InputTokens,
-                x.OutputTokens, x.EstimatedCost)))
+        // Model calls outside a run (conversation summaries), counted for the agent they were made for.
+        var calls = await dbContext.ModelUsages.AsNoTracking()
+            .Where(u => u.CreatedAt >= from && u.CreatedAt < to)
+            .GroupBy(u => u.AgentKey)
+            .Select(g => new
+            {
+                AgentKey = g.Key,
+                Summaries = g.Count(u => u.Kind == AgentModelUsageKind.ConversationSummary),
+                InputTokens = g.Sum(u => u.InputTokens),
+                OutputTokens = g.Sum(u => u.OutputTokens),
+                EstimatedCost = g.Sum(u => u.EstimatedCost)
+            })
+            .ToDictionaryAsync(x => x.AgentKey, cancellationToken);
+
+        var byAgent = rows.Select(x => x.AgentKey).Union(calls.Keys).Order(StringComparer.Ordinal)
+            .Select(key =>
+            {
+                var run = rows.FirstOrDefault(r => r.AgentKey == key);
+                calls.TryGetValue(key, out var call);
+                var runs = run?.Runs ?? 0;
+                var completed = run?.Completed ?? 0;
+                var failed = run?.Failed ?? 0;
+                var cancelled = run?.Cancelled ?? 0;
+                var callInput = call?.InputTokens ?? 0;
+                var callOutput = call?.OutputTokens ?? 0;
+                var callCost = call?.EstimatedCost ?? 0;
+                return new AgentUsageByAgentDto(key, new AgentUsageTotalsDto(runs, completed, failed, cancelled,
+                    runs - completed - failed - cancelled, run?.ModelTurns ?? 0, run?.ToolCalls ?? 0,
+                    (run?.InputTokens ?? 0) + callInput, (run?.OutputTokens ?? 0) + callOutput,
+                    (run?.EstimatedCost ?? 0) + callCost, call?.Summaries ?? 0, callInput + callOutput, callCost));
+            })
             .ToList();
 
         var totals = new AgentUsageTotalsDto(
             byAgent.Sum(a => a.Totals.Runs), byAgent.Sum(a => a.Totals.Completed), byAgent.Sum(a => a.Totals.Failed),
             byAgent.Sum(a => a.Totals.Cancelled), byAgent.Sum(a => a.Totals.Active), byAgent.Sum(a => a.Totals.ModelTurns),
             byAgent.Sum(a => a.Totals.ToolCalls), byAgent.Sum(a => a.Totals.InputTokens),
-            byAgent.Sum(a => a.Totals.OutputTokens), byAgent.Sum(a => a.Totals.EstimatedCost));
+            byAgent.Sum(a => a.Totals.OutputTokens), byAgent.Sum(a => a.Totals.EstimatedCost),
+            byAgent.Sum(a => a.Totals.Summaries), byAgent.Sum(a => a.Totals.SummaryTokens),
+            byAgent.Sum(a => a.Totals.SummaryCost));
 
         return new AgentUsageDto(from, to, totals, byAgent);
     }

@@ -1,3 +1,4 @@
+using Agentic.Runtime.Knowledge;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -62,6 +63,12 @@ public sealed class AgenticOptions
     public AgentContentOptions Content { get; set; } = new();
 
     public AgentConversationOptions Conversations { get; set; } = new();
+
+    public AgentStreamingOptions Streaming { get; set; } = new();
+
+    public AgentDelegationOptions Delegation { get; set; } = new();
+
+    public AgentMcpOptions Mcp { get; set; } = new();
 }
 
 /// <summary>Retrieval over documents the modules index (ADR-0028). Off by default; needs an embedding model.</summary>
@@ -99,6 +106,21 @@ public sealed class KnowledgeOptions
     /// <summary>Candidates taken from each of the keyword and the vector search before they are merged.</summary>
     public int SearchCandidates { get; set; } = 40;
 
+    /// <summary>
+    /// <c>None</c>: exact vector search (the default). <c>Hnsw</c>: an approximate HNSW index for the configured
+    /// <see cref="Dimensions"/>, built at deploy time (ADR-0032); requires <see cref="Dimensions"/> (at most 4000).
+    /// </summary>
+    public KnowledgeVectorIndexKind VectorIndex { get; set; } = KnowledgeVectorIndexKind.None;
+
+    /// <summary>HNSW: links per node (<c>m</c>); more is better recall, a larger index and a slower build.</summary>
+    public int HnswM { get; set; } = 16;
+
+    /// <summary>HNSW: candidates while building (<c>ef_construction</c>), at least twice <see cref="HnswM"/>.</summary>
+    public int HnswEfConstruction { get; set; } = 64;
+
+    /// <summary>HNSW: candidates per query (<c>hnsw.ef_search</c>), at least <see cref="SearchCandidates"/>.</summary>
+    public int HnswEfSearch { get; set; } = 100;
+
     /// <summary>Most passages one search returns.</summary>
     public int MaxResults { get; set; } = 8;
 
@@ -128,6 +150,30 @@ public sealed class AgentContentOptions
     public int RetentionDays { get; set; } = 90;
 }
 
+/// <summary>The MCP server of agents with <c>McpServer = true</c> (ADR-0034).</summary>
+public sealed class AgentMcpOptions
+{
+    /// <summary>Maps <c>/api/v1/mcp/{agentKey}</c>. Off by default: nothing is reachable over MCP until it is turned on.</summary>
+    public bool Enabled { get; set; }
+}
+
+/// <summary>Agents handing tasks to other agents (<c>agent.delegate</c>, ADR-0033).</summary>
+public sealed class AgentDelegationOptions
+{
+    /// <summary>How deep delegations may nest: 1 = a run may delegate, a delegated run may not (at most 3).</summary>
+    public int MaxDepth { get; set; } = 2;
+}
+
+/// <summary>The answer's text sent to the initiator while the model writes it (<c>agentic.run-text</c>).</summary>
+public sealed class AgentStreamingOptions
+{
+    /// <summary>Stream answers of runs started by a person or an API key (models opt out with <c>Streaming=false</c>).</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Deltas are collected and sent at most once per interval (and once at the end of the answer).</summary>
+    public int IntervalMilliseconds { get; set; } = 100;
+}
+
 public sealed class AgentConversationOptions
 {
     /// <summary>Earlier turns a conversation turn is given at most (the newest ones; each is a message and its answer).</summary>
@@ -144,6 +190,21 @@ public sealed class AgentConversationOptions
     /// what <c>GET /agent-conversations/{id}</c> returns.
     /// </summary>
     public int MaxMessages { get; set; } = 200;
+
+    /// <summary>
+    /// A summary is written once more than this many finished turns are not covered by it (ADR-0031); 0 = never
+    /// summarize (older turns are simply dropped from the history).
+    /// </summary>
+    public int SummarizeAfterTurns { get; set; } = 16;
+
+    /// <summary>The newest turns a summary always leaves out: they stay in the history word for word.</summary>
+    public int KeepRecentTurns { get; set; } = 8;
+
+    /// <summary>Model key that writes summaries (a key of <c>Agentic:Models</c>); empty = <c>DefaultModel</c>.</summary>
+    public string? SummaryModel { get; set; }
+
+    /// <summary>A longer summary is cut to this length.</summary>
+    public int MaxSummaryCharacters { get; set; } = 4_000;
 }
 
 public sealed class AgentTriggerOptions
@@ -183,6 +244,9 @@ public sealed class AgentModelOptions
     public decimal InputPricePerMillionTokens { get; set; }
 
     public decimal OutputPricePerMillionTokens { get; set; }
+
+    /// <summary>Stream this model's answers when <c>Agentic:Streaming:Enabled</c> (false for a server that cannot).</summary>
+    public bool Streaming { get; set; } = true;
 }
 
 public enum AgentProviderKind
@@ -324,6 +388,23 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:Memory: MaxPerUser, MaxPerTenant and MaxRecalled must be positive.");
         if (options.Conversations.MaxHistoryTurns < 0 || options.Conversations.MaxHistoryCharacters < 0)
             errors.Add("Agentic:Conversations: MaxHistoryTurns and MaxHistoryCharacters must not be negative.");
+        var conversations = options.Conversations;
+        if (conversations.SummarizeAfterTurns < 0)
+            errors.Add("Agentic:Conversations:SummarizeAfterTurns must not be negative.");
+        if (conversations.SummarizeAfterTurns > 0)
+        {
+            if (conversations.KeepRecentTurns < 1 || conversations.KeepRecentTurns >= conversations.SummarizeAfterTurns)
+                errors.Add("Agentic:Conversations:KeepRecentTurns must be at least 1 and less than SummarizeAfterTurns.");
+            if (conversations.MaxSummaryCharacters is < 200 or > AgentConversation.SummaryMaxLength)
+                errors.Add($"Agentic:Conversations:MaxSummaryCharacters must be between 200 and {AgentConversation.SummaryMaxLength}.");
+            if (!string.IsNullOrWhiteSpace(conversations.SummaryModel) && !options.Models.ContainsKey(conversations.SummaryModel))
+                errors.Add($"Agentic:Conversations:SummaryModel '{conversations.SummaryModel}' is not one of Agentic:Models.");
+        }
+
+        if (options.Delegation.MaxDepth is < 1 or > AgentRun.MaxDepth)
+            errors.Add($"Agentic:Delegation:MaxDepth must be between 1 and {AgentRun.MaxDepth}.");
+        if (options.Streaming.IntervalMilliseconds < 0)
+            errors.Add("Agentic:Streaming:IntervalMilliseconds must not be negative.");
         if (options.Conversations.MaxMessages < 1)
             errors.Add("Agentic:Conversations:MaxMessages must be at least 1.");
 
@@ -346,6 +427,17 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:Knowledge:EmbeddingModelId is required.");
         if (knowledge.Dimensions is < 1 or > 16_000)
             errors.Add("Agentic:Knowledge:Dimensions must be between 1 and 16000.");
+        if (knowledge.VectorIndex == KnowledgeVectorIndexKind.Hnsw)
+        {
+            if (knowledge.Dimensions is not (>= 1 and <= KnowledgeVectorIndex.MaxHalfVectorDimensions))
+                errors.Add($"Agentic:Knowledge:VectorIndex=Hnsw needs Dimensions between 1 and {KnowledgeVectorIndex.MaxHalfVectorDimensions}.");
+            if (knowledge.HnswM is < 2 or > 100 || knowledge.HnswEfConstruction < 2 * knowledge.HnswM ||
+                knowledge.HnswEfSearch < knowledge.SearchCandidates || knowledge.HnswEfSearch > 1_000)
+            {
+                errors.Add("Agentic:Knowledge: HnswM must be 2-100, HnswEfConstruction at least twice HnswM, and " +
+                           "HnswEfSearch between SearchCandidates and 1000.");
+            }
+        }
         if (knowledge.ChunkSize < 200 || knowledge.ChunkOverlap < 0 || knowledge.ChunkOverlap > knowledge.ChunkSize / 2)
             errors.Add("Agentic:Knowledge: ChunkSize must be at least 200 and ChunkOverlap at most half of it.");
         if (knowledge.EmbeddingBatchSize < 1 || knowledge.MaxDocumentBytes < 1 || knowledge.MaxPdfPages < 1 ||

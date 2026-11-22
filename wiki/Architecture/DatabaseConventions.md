@@ -87,6 +87,15 @@ Critical updates use `ExpectVersion`; [Concurrency and versions](Concurrency-and
 
 Implement `IDataSeeder` (`SeedAllAsync`, `DbContextType`) and register it in the owning module. Seeding must be idempotent. Use `TenantSeedIds.For(tenantId, seedId)` for stable per-tenant ids. `UseMigration<T>()` runs seeders after migrations when migration is enabled; tenant-data seeders run in the Default tenant scope. Tenancy provisioning uses `MigrateAndSeedAsync` for dedicated tenant databases.
 
+Schema work that depends on configuration (an index sized by a setting) cannot be a migration: implement
+`Shared.Core.Data.IPostMigrationStep` (`DbContextType`, `RunAsync`) and register it in the owning module. It runs
+after that context's migrations wherever they run (`--migrate-only`, boot-time migration in development, dedicated
+tenant databases), on the migration connection and under the migration lock, so never at boot in production. It must
+be idempotent.
+<!--#if (agentic)-->
+Reference: `KnowledgeVectorIndexStep` ([ADR-0032](../Decisions/0032-knowledge-hnsw-index.md)).
+<!--#endif-->
+
 ### Audit trail
 
 Entities implementing `IAuditable` get an `audit_entries` row for each tracked insert, update and delete through `AuditTrailInterceptor`, in the same save transaction. Map `AddAuditTrail()` or `AddTenantAuditTrail()` before tenant filters; tenant-data audit tables also need RLS in the migration. Retention jobs call `PurgeAuditEntriesAsync`.

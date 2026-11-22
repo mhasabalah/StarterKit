@@ -196,7 +196,9 @@ Membership notifications are not sent to the person who made the change.
 | `membership.joined` (non-owner members added by someone else), `membership.role-changed` (the role SET changed) | Tenancy (to the member) | no |
 | `webhooks.endpoint-disabled` | Webhooks (to the tenant owner) | yes (sensitive) |
 | `data-transfer.job-finished` | DataTransfer | yes |
+<!--#if (agentic)-->
 | `agents.approval-required`, `agents.run-finished` | Agentic (to the user the run acts for) | yes |
+<!--#endif-->
 
 ### Browser client
 

@@ -13,6 +13,9 @@ public class AgentConversation : Aggregate<Guid>, IMustHaveTenant
 {
     public const int TitleMaxLength = 120;
 
+    /// <summary>The longest summary the column holds (<c>Conversations:MaxSummaryCharacters</c> is at most this).</summary>
+    public const int SummaryMaxLength = 20_000;
+
     public Guid TenantId { get; set; }
 
     public string AgentKey { get; private set; } = default!;
@@ -33,6 +36,24 @@ public class AgentConversation : Aggregate<Guid>, IMustHaveTenant
     public DateTime LastMessageAt { get; private set; }
 
     public DateTime? DeletedAt { get; private set; }
+
+    /// <summary>
+    /// The model's summary of turns 1..<see cref="SummaryThroughTurn"/> (ADR-0031). Model output, so untrusted; erased
+    /// with the conversation's content.
+    /// </summary>
+    public string? Summary { get; private set; }
+
+    /// <summary>The last turn the summary covers; 0 = no summary.</summary>
+    public int SummaryThroughTurn { get; private set; }
+
+    public DateTime? SummaryUpdatedAt { get; private set; }
+
+    /// <summary>Tokens and estimated cost of every summary written for this conversation.</summary>
+    public long SummaryInputTokens { get; private set; }
+
+    public long SummaryOutputTokens { get; private set; }
+
+    public decimal SummaryCost { get; private set; }
 
     private AgentConversation()
     {
@@ -78,7 +99,33 @@ public class AgentConversation : Aggregate<Guid>, IMustHaveTenant
         Title = trimmed;
     }
 
-    /// <summary>Closes it for good and drops the title; the caller erases the content of its runs.</summary>
+    /// <summary>
+    /// Replaces the summary with one that covers turns 1..<paramref name="throughTurn"/> (it already includes the
+    /// previous summary). False when a summary of those turns or later ones already exists: nothing changes.
+    /// </summary>
+    public bool RecordSummary(string summary, int throughTurn, int maxCharacters, long inputTokens, long outputTokens,
+        decimal cost, DateTime now)
+    {
+        EnsureActive();
+        if (string.IsNullOrWhiteSpace(summary))
+            throw new InvalidAgentConversationException("summary_empty");
+        if (throughTurn < 1 || throughTurn > MessageCount)
+            throw new InvalidAgentConversationException("summary_turn_invalid");
+        if (throughTurn <= SummaryThroughTurn)
+            return false;
+
+        var max = Math.Clamp(maxCharacters, 1, SummaryMaxLength);
+        var text = summary.Trim();
+        Summary = text.Length <= max ? text : text[..max];
+        SummaryThroughTurn = throughTurn;
+        SummaryUpdatedAt = now;
+        SummaryInputTokens += inputTokens;
+        SummaryOutputTokens += outputTokens;
+        SummaryCost += cost;
+        return true;
+    }
+
+    /// <summary>Closes it for good and drops the title and the summary; the caller erases the content of its runs.</summary>
     public void Delete(DateTime now)
     {
         if (Status == AgentConversationStatus.Deleted)
@@ -86,6 +133,15 @@ public class AgentConversation : Aggregate<Guid>, IMustHaveTenant
         Status = AgentConversationStatus.Deleted;
         Title = null;
         DeletedAt = now;
+        EraseSummary();
+    }
+
+    /// <summary>Drops the summary; the next summary is written again from the turns whose content still exists.</summary>
+    public void EraseSummary()
+    {
+        Summary = null;
+        SummaryThroughTurn = 0;
+        SummaryUpdatedAt = null;
     }
 
     /// <summary>Retention: the title is user content, erased with the content of the turns.</summary>

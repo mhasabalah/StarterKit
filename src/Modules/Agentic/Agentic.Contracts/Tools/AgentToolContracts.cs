@@ -143,6 +143,9 @@ public static class AgentToolNames
     /// <summary>The reserved tool a typed agent calls to hand in its result and finish the run.</summary>
     public const string SubmitResult = "agent.submit_result";
 
+    /// <summary>The reserved tool an agent with <c>Delegates</c> calls to hand a task to another agent (ADR-0033).</summary>
+    public const string Delegate = "agent.delegate";
+
     /// <summary>
     /// Model providers allow only letters, digits, <c>_</c> and <c>-</c> in tool names, so the dot of
     /// <c>module.tool</c> is sent as a double underscore (tool names never contain one themselves).

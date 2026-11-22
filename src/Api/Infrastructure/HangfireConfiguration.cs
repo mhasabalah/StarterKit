@@ -75,6 +75,7 @@ public static class HangfireConfiguration
             });
         }
 
+#if (AGENTIC)
         // AI agent runs (Agentic module): a worker is held for the length of a model request, so they get their own
         // server and never delay notifications or the default queue.
         if (servers.Agentic.Enabled)
@@ -86,6 +87,7 @@ public static class HangfireConfiguration
                 options.ServerName = "agentic-server";
             });
         }
+#endif
 
         return services;
     }
@@ -108,13 +110,19 @@ public sealed class HangfireServerRoles
     public HangfireServerRole Default { get; set; } = new() { WorkerCount = 5 };
     public HangfireServerRole Notification { get; set; } = new() { WorkerCount = 4 };
     public HangfireServerRole DataTransfer { get; set; } = new() { WorkerCount = 2 };
+#if (AGENTIC)
     public HangfireServerRole Agentic { get; set; } = new() { WorkerCount = 4 };
+#endif
 
     public static HangfireServerRoles From(IConfiguration configuration)
     {
         var roles = new HangfireServerRoles();
         configuration.GetSection("Hangfire:Servers").Bind(roles);
-        foreach (var role in new[] { roles.Default, roles.Notification, roles.DataTransfer, roles.Agentic })
+        List<HangfireServerRole> all = [roles.Default, roles.Notification, roles.DataTransfer];
+#if (AGENTIC)
+        all.Add(roles.Agentic);
+#endif
+        foreach (var role in all)
         {
             if (role.WorkerCount < 1)
                 throw new InvalidOperationException("Hangfire:Servers:<Name>:WorkerCount must be at least 1.");

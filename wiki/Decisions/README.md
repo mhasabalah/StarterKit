@@ -33,8 +33,15 @@ link it here.
 | [0021](0021-aggregate-version-covers-child-collections.md) | The aggregate version covers its child collections | Accepted | 2026-11-08 |
 | [0022](0022-production-message-transport.md) | PostgreSQL is the default production message transport | Accepted | 2026-11-08 |
 | [0023](0023-durable-sagas-on-module-dbcontexts.md) | Saga state is durable, in the owning module's DbContext | Accepted | 2026-11-08 |
+<!--#if (agentic)-->
 | [0025](0025-agentic-module-and-model-seam.md) | Run AI agents in one module, behind typed tools and an owned model seam | Accepted | 2026-11-13 |
 | [0026](0026-durable-agent-runs-on-hangfire.md) | Run agents as leased, step-checkpointed Hangfire jobs | Accepted | 2026-11-13 |
 | [0027](0027-agent-approvals-triggers-and-policies.md) | Govern agents with payload-bound approvals, explicit triggers and tighten-only tenant policies | Accepted | 2026-11-13 |
 | [0028](0028-agent-knowledge-and-memory-on-pgvector.md) | Give agents knowledge and memory on PostgreSQL with pgvector, behind the same permissions | Accepted | 2026-11-14 |
 | [0029](0029-agent-conversations.md) | Hold agent conversations as one run per turn, with final-answer history and sticky taint | Accepted | 2026-11-22 |
+| [0030](0030-streaming-agent-answers.md) | Stream agent answers as a preview over the notification hub | Accepted | 2026-11-22 |
+| [0031](0031-conversation-summaries.md) | Summarize long agent conversations in a background job, as untrusted history | Accepted | 2026-11-22 |
+| [0032](0032-knowledge-hnsw-index.md) | Index knowledge vectors with HNSW per configured dimension, built after migrations | Accepted | 2026-11-22 |
+| [0033](0033-agent-delegation.md) | Let agents delegate to other agents as child runs, never with more authority | Accepted | 2026-11-22 |
+| [0034](0034-agent-mcp-server.md) | Serve agent tools to external MCP clients through the tool gateway, as tainted calls | Accepted | 2026-11-22 |
+<!--#endif-->

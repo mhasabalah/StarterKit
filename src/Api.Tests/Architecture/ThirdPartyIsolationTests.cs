@@ -15,7 +15,8 @@ namespace Api.Tests.Architecture;
 /// Redis backplane.</item>
 /// <item>Model providers (Microsoft.Extensions.AI and the OpenAI / Anthropic SDKs) stay behind
 /// <c>IAgentModelGateway</c> in Agentic: business modules add agents and tools through <c>Agentic.Contracts</c>, which
-/// references no AI package at all. PdfPig (PDF text for knowledge indexing) stays in Agentic too.</item>
+/// references no AI package at all. PdfPig (PDF text for knowledge indexing) and the MCP SDK (the agents' MCP server,
+/// ADR-0034) stay in Agentic too.</item>
 /// </list>
 /// </summary>
 public sealed class ThirdPartyIsolationTests
@@ -88,6 +89,7 @@ public sealed class ThirdPartyIsolationTests
                                                     || r.StartsWith("Google.Apis", StringComparison.Ordinal)))
             .Should().Equal(["Notification"], "push delivery stays behind IPushProvider; swapping FCM must touch one module");
 
+#if (AGENTIC)
     [Fact]
     public void Model_provider_SDKs_are_used_only_by_the_Agentic_module() =>
         Production.Where(a => References(a).Any(r => ModelProviderPrefixes.Any(p => r == p || r.StartsWith(p + ".", StringComparison.Ordinal))))
@@ -99,6 +101,14 @@ public sealed class ThirdPartyIsolationTests
     public void PdfPig_is_used_only_by_the_Agentic_module() =>
         Production.Where(a => References(a).Any(r => r.StartsWith("UglyToad.PdfPig", StringComparison.Ordinal)))
             .Should().Equal(["Agentic"], "PDF text extraction for knowledge indexing stays in one module");
+
+    [Fact]
+    public void The_MCP_SDK_is_used_only_by_the_Agentic_module() =>
+        Production.Where(a => References(a).Any(r => r.StartsWith("ModelContextProtocol", StringComparison.Ordinal)))
+            .Should().Equal(["Agentic"],
+                "external MCP clients reach tools only through AgentMcpGateway, which decides every call like a tainted run " +
+                "(ADR-0034); a business module never serves MCP itself");
+#endif
 
     private static readonly string[] ModelProviderPrefixes =
         ["Microsoft.Extensions.AI", "OpenAI", "Anthropic", "System.ClientModel", "Microsoft.SemanticKernel", "Microsoft.Agents"];

@@ -117,6 +117,33 @@
   <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
     <value>This tool is not available to this agent.</value>
   </data>
+  <data name="Agent.Tool.delegation_too_deep" xml:space="preserve">
+    <value>This agent cannot hand the task to another agent: the delegation is already as deep as allowed.</value>
+  </data>
+  <data name="Agent.Tool.delegation_refused" xml:space="preserve">
+    <value>The other agent could not be started.</value>
+  </data>
+  <data name="Agent.State.delegation_invalid" xml:space="preserve">
+    <value>The delegation details are not valid.</value>
+  </data>
+  <data name="Agent.State.step_not_open" xml:space="preserve">
+    <value>This step is already closed.</value>
+  </data>
+  <data name="Agent.Failure.mcp_call_interrupted" xml:space="preserve">
+    <value>The MCP call stopped before it finished.</value>
+  </data>
+  <data name="Agent.State.not_an_mcp_call" xml:space="preserve">
+    <value>This run is not an MCP call.</value>
+  </data>
+  <data name="Agent.Mcp.agent_not_found" xml:space="preserve">
+    <value>There is no MCP server for this agent.</value>
+  </data>
+  <data name="Agent.Mcp.tool_not_found" xml:space="preserve">
+    <value>This tool is not available to you over MCP.</value>
+  </data>
+  <data name="Agent.Mcp.approval_required" xml:space="preserve">
+    <value>This action needs a person's approval; start a run of the agent instead.</value>
+  </data>
   <data name="Agent.Tool.forbidden" xml:space="preserve">
     <value>The user is not permitted to do this.</value>
   </data>
@@ -344,6 +371,12 @@
   </data>
   <data name="Agent.Conversation.conversation_busy" xml:space="preserve">
     <value>The previous message is still being answered. Send the next one when it is done.</value>
+  </data>
+  <data name="Agent.Conversation.summary_empty" xml:space="preserve">
+    <value>The summary is empty.</value>
+  </data>
+  <data name="Agent.Conversation.summary_turn_invalid" xml:space="preserve">
+    <value>The summary covers a message the conversation does not have.</value>
   </data>
   <data name="Agent.Conversation.conversation_full" xml:space="preserve">
     <value>The conversation has reached {0} messages. Start a new conversation.</value>

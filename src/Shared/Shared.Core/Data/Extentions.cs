@@ -210,6 +210,7 @@ public static class Extensions
             var context = (DbContext)scope.ServiceProvider.GetRequiredService(contextType);
             await context.Database.EnsureHistoryTableAsync(cancellationToken);
             await context.Database.MigrateAsync(cancellationToken);
+            await RunPostMigrationStepsAsync(scope.ServiceProvider, context, cancellationToken);
         }
     }
 
@@ -307,6 +308,16 @@ public static class Extensions
             await context.Database.MigrateAsync();
             logger.LogInformation("Migrations applied successfully.");
         }
+
+        await RunPostMigrationStepsAsync(scope.ServiceProvider, context, CancellationToken.None);
+    }
+
+    /// <summary>The <see cref="IPostMigrationStep"/>s of this context, on its migration connection (every pass: idempotent).</summary>
+    private static async Task RunPostMigrationStepsAsync(IServiceProvider services, DbContext context,
+        CancellationToken cancellationToken)
+    {
+        foreach (var step in services.GetServices<IPostMigrationStep>().Where(s => s.DbContextType == context.GetType()))
+            await step.RunAsync(context, cancellationToken);
     }
 
     private static async Task SeedDataAsync<TContext>(IServiceProvider serviceProvider)

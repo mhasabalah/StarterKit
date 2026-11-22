@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Agentic.Contracts.Approvals;
 using Agentic.Domains.AgentRuns.Jobs;
+using Agentic.Domains.AgentRuns.Services;
 using Agentic.Runtime.Models;
 using Agentic.Runtime.Security;
 using Agentic.Telemetry;
@@ -46,6 +47,7 @@ public sealed class AgentRunExecutor(
     IOptions<AgenticOptions> options,
     AgenticMetrics metrics,
     AgentRunProgressPublisher progress,
+    AgentRunTextStreams textStreams,
     ILogger<AgentRunExecutor> logger)
 {
     private const int UpdateRetries = 3;
@@ -57,7 +59,8 @@ public sealed class AgentRunExecutor(
     private DateTime Now => timeProvider.GetUtcNow().UtcDateTime;
     private TimeSpan Lease => TimeSpan.FromSeconds(Settings.LeaseSeconds);
 
-    private sealed record Snapshot(AgentRun Run, IReadOnlyList<AgentRunStep> Steps);
+    /// <param name="ParentFinished">A delegated run whose parent finished (ADR-0033): nobody waits for it any more.</param>
+    private sealed record Snapshot(AgentRun Run, IReadOnlyList<AgentRunStep> Steps, bool ParentFinished = false);
 
     private static readonly AgentRunStatus[] FinishedStatuses =
         [AgentRunStatus.Completed, AgentRunStatus.Failed, AgentRunStatus.Cancelled];
@@ -85,6 +88,14 @@ public sealed class AgentRunExecutor(
             if (!Settings.Enabled)
             {
                 await FailAsync(runId, owner, "agents_disabled");
+                return;
+            }
+
+            // An MCP call runs inside its request (ADR-0034). Found by a worker, it was interrupted: never run it as an
+            // agent run, whose model would see a prompt nobody wrote.
+            if (claimed.TriggerKind == AgentTriggerKind.Mcp)
+            {
+                await FailAsync(runId, owner, "mcp_call_interrupted");
                 return;
             }
 
@@ -127,7 +138,7 @@ public sealed class AgentRunExecutor(
             cancellationToken.ThrowIfCancellationRequested();
             var snapshot = await LoadAsync(runId, owner);
 
-            if (snapshot.Run.CancelRequested)
+            if (snapshot.Run.CancelRequested || snapshot.ParentFinished)
             {
                 await UpdateUnderLeaseAsync(runId, owner, run => run.ConfirmCancelled(Now));
                 return;
@@ -167,7 +178,9 @@ public sealed class AgentRunExecutor(
         using (var span = AgenticTelemetry.StartModelTurn(run))
         {
             var started = timeProvider.GetTimestamp();
-            response = await models.CompleteAsync(request, cancellationToken);
+            // The answer's text goes to the initiator while it is written (a preview: the checkpoint below is the answer).
+            await using (var textStream = textStreams.Open(run))
+                response = await models.CompleteAsync(request, textStream, cancellationToken);
             elapsedMs = (long)timeProvider.GetElapsedTime(started).TotalMilliseconds;
             span?.SetTag("agent.model.input_tokens", response.InputTokens);
             span?.SetTag("agent.model.output_tokens", response.OutputTokens);
@@ -288,6 +301,9 @@ public sealed class AgentRunExecutor(
             await FailAsync(run.Id, owner, "initiator_no_longer_authorized");
             return false;
         }
+
+        if (step.ToolName == AgentToolNames.Delegate)
+            return await HandleDelegateAsync(run, step, agent, principal, owner);
 
         var arguments = step.ArgumentsJson ?? "{}";
         var decision = ToolPolicy.Decide(agent, tool, run.Autonomy, run.ChangesNeedApproval, principal.Permissions);
@@ -581,6 +597,108 @@ public sealed class AgentRunExecutor(
         return false;
     }
 
+    /// <summary>
+    /// <c>agent.delegate</c> (ADR-0033): starts a run of another agent for the same person and suspends this run until
+    /// it finishes. The delegated run acts at the lower of the two autonomies, inherits the permission ceiling and the
+    /// taint, may use at most this run's remaining tokens, and goes through <see cref="AgentRunStarter"/> (policy,
+    /// capacity, quota). A retried attempt finds the run it already started (one per step, a unique index) instead of
+    /// starting another. False when this attempt ends (suspended).
+    /// </summary>
+    private async Task<bool> HandleDelegateAsync(AgentRun run, AgentRunStep step, RegisteredAgent agent,
+        AgentPrincipal principal, string owner)
+    {
+        if (agent.Delegation is null)
+        {
+            await RefuseAsync(run, step, owner, null, ToolPolicy.ToolNotAllowed);
+            return true;
+        }
+
+        if (!AgentDelegation.TryParse(step.ArgumentsJson, Settings.Limits.MaxPromptLength, out var arguments, out var error))
+        {
+            await RefuseAsync(run, step, owner, null, "invalid_arguments", error);
+            return true;
+        }
+
+        var child = agent.MayDelegateTo(arguments!.AgentKey) ? registry.FindAgent(arguments.AgentKey) : null;
+        if (child is null)
+        {
+            await RefuseAsync(run, step, owner, null, ToolPolicy.ToolNotAllowed);
+            return true;
+        }
+
+        if (run.Depth + 1 > Settings.Delegation.MaxDepth)
+        {
+            await RefuseAsync(run, step, owner, null, "delegation_too_deep");
+            return true;
+        }
+
+        // The person may start the delegated agent NOW (as for any start); its own tools are checked by its own run.
+        if (child.Definition.RequiredPermission is { } permission && !principal.Permissions.Contains(permission))
+        {
+            await RefuseAsync(run, step, owner, null, ToolPolicy.Forbidden);
+            return true;
+        }
+
+        var remainingTokens = run.MaxTokens - run.TotalTokens;
+        if (remainingTokens <= 0)
+        {
+            await FailAsync(run.Id, owner, "budget_exceeded", "max_tokens");
+            return false;
+        }
+
+        var started = await unitOfWork.RunAsync((services, ct) =>
+            services.GetRequiredService<IAgentRunRepository>().FindDelegateAsync(step.Id, ct), CancellationToken.None);
+        if (started is null)
+        {
+            try
+            {
+                started = await InPrincipalScope(principal, run, (services, ct) => services.GetRequiredService<AgentRunStarter>()
+                    .StartAsync(new AgentRunStart(child, AgentTriggerKind.Delegated, run.InitiatedBy, arguments.Task, null,
+                        run.Culture, run.PermissionCeiling, run.ApiKeyId, StartTainted: run.Tainted, ParentRunId: run.Id,
+                        ParentStepId: step.Id, Depth: run.Depth + 1, AutonomyCeiling: run.Autonomy,
+                        TokenCeiling: remainingTokens), ct), CancellationToken.None);
+            }
+            catch (CustomException ex) when ((int)ex.StatusCode is >= 400 and < 500)
+            {
+                // Refused by the policy, the capacity or the plan: the model is told, as for a refused tool.
+                await RefuseAsync(run, step, owner, null, ex.ErrorCode ?? "delegation_refused", ex.Message);
+                return true;
+            }
+
+            logger.LogInformation("Agent run {RunId}: delegated to {Agent} (run {ChildId})", run.Id, child.Definition.Key,
+                started.Id);
+        }
+
+        var delegated = started;
+        var resumeNow = await SaveUnderLeaseAsync(run.Id, owner, async (current, repository) =>
+        {
+            var currentStep = await repository.GetStepAsync(run.Id, step.Id)
+                              ?? throw new InvalidOperationException($"Agent run {run.Id} has no step {step.Id}.");
+            // A cancel that arrived meanwhile wins: the run stops instead of waiting, and its delegate is cancelled with it.
+            if (current.CancelRequested)
+            {
+                current.ConfirmCancelled(Now);
+                return false;
+            }
+
+            current.AwaitDelegate(currentStep);
+
+            // Finished already (a fast run, or a retried attempt): take its outcome now instead of waiting for it.
+            var latest = await repository.FindDelegateAsync(step.Id);
+            if (latest is not { IsTerminal: true })
+                return false;
+            return current.CompleteDelegation(currentStep, AgentDelegation.Result(latest),
+                latest.Status == AgentRunStatus.Completed, latest.Tainted, latest.TotalTokens, AgentDelegation.DurationMs(latest),
+                Now);
+        });
+
+        if (resumeNow)
+            AgentRunQueue.Enqueue(jobs, run.Id);
+        metrics.RecordToolCall(AgentToolNames.Delegate, resumeNow ? "ok" : "delegated");
+        logger.LogInformation("Agent run {RunId}: waiting for delegated run {ChildId}", run.Id, delegated.Id);
+        return false;
+    }
+
     /// <summary>Not executed: the step is closed with the reason, which is also what the model is told.</summary>
     private async Task RefuseAsync(AgentRun run, AgentRunStep step, string owner, AgentToolDescriptor? tool, string code,
         string? detail = null)
@@ -680,7 +798,10 @@ public sealed class AgentRunExecutor(
             if (run is null || !run.HoldsLease(owner))
                 throw new AgentRunLeaseLostException(runId);
             var steps = await db.Steps.AsNoTracking().Where(s => s.RunId == runId).OrderBy(s => s.Sequence).ToListAsync(ct);
-            return new Snapshot(run, steps);
+            var parentFinished = run.ParentRunId is { } parentId && await db.Runs.AnyAsync(p => p.Id == parentId &&
+                (p.Status == AgentRunStatus.Completed || p.Status == AgentRunStatus.Failed ||
+                 p.Status == AgentRunStatus.Cancelled), ct);
+            return new Snapshot(run, steps, parentFinished);
         }, CancellationToken.None);
 
     /// <summary>
@@ -697,15 +818,23 @@ public sealed class AgentRunExecutor(
                 return (IReadOnlyList<ModelMessage>)[];
 
             var db = services.GetRequiredService<AgenticDbContext>();
+            // A summary covers the oldest turns (ADR-0031): it is sent first, and only the turns after it follow.
+            var summary = await db.Conversations.AsNoTracking()
+                .Where(c => c.Id == conversationId && c.SummaryThroughTurn < run.ConversationTurn)
+                .Select(c => new { c.Summary, c.SummaryThroughTurn })
+                .FirstOrDefaultAsync(ct);
+            var after = summary?.Summary is null ? 0 : summary.SummaryThroughTurn;
             var turns = await db.Runs.AsNoTracking()
-                .Where(r => r.ConversationId == conversationId && r.ConversationTurn < run.ConversationTurn &&
+                .Where(r => r.ConversationId == conversationId && r.ConversationTurn > after &&
+                            r.ConversationTurn < run.ConversationTurn &&
                             FinishedStatuses.Contains(r.Status) && r.ContentErasedAt == null)
                 .OrderByDescending(r => r.ConversationTurn)
                 .Take(limits.MaxHistoryTurns)
                 .Select(r => new ConversationTurn(r.Prompt, r.InputJson, r.OutputText, r.OutputJson, r.Status))
                 .ToListAsync(ct);
             turns.Reverse();
-            return TranscriptBuilder.History(turns, limits.MaxHistoryTurns, limits.MaxHistoryCharacters);
+            return TranscriptBuilder.History(turns, limits.MaxHistoryTurns, limits.MaxHistoryCharacters,
+                after > 0 ? summary!.Summary : null);
         }, CancellationToken.None);
 
     /// <summary>

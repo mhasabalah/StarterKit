@@ -67,9 +67,17 @@ Reference: [implementation guide](../Architecture/CodingStandards.md).
 
 Source: [ThirdPartyIsolationTests.cs](../../src/Api.Tests/Architecture/ThirdPartyIsolationTests.cs). Related rule: `CLAUDE.md` → Hard-won patterns → Mediator pipeline; Notifications; Architecture guardrails.
 
+<!--#if (agentic)-->
 **Fails on:** Production assemblies reference MediatR or SixLabors; concrete notification handlers target abstract/interface events; SkiaSharp, QuestPDF, Sylvan or FirebaseAdmin/Google.Apis references are not confined to their designated module; Microsoft.Extensions.AI, a model-provider SDK (OpenAI, Anthropic) or PdfPig is referenced outside Agentic; SignalR Redis backplane appears outside Notification; Contracts reference MassTransit beyond Abstractions. Exact-one-module assertions also fail if an expected adapter disappears.
+<!--#else-->
+**Fails on:** Production assemblies reference MediatR or SixLabors; concrete notification handlers target abstract/interface events; SkiaSharp, QuestPDF, Sylvan or FirebaseAdmin/Google.Apis references are not confined to their designated module; SignalR Redis backplane appears outside Notification; Contracts reference MassTransit beyond Abstractions. Exact-one-module assertions also fail if an expected adapter disappears.
+<!--#endif-->
 
+<!--#if (agentic)-->
 **Fix:** Use the owned mediator and concrete event handlers. Keep imaging in Attachment, PDFs in Subscriptions, tabular readers in DataTransfer, model providers and PDF text extraction in Agentic and push/backplane infrastructure in Notification; Contracts may use only MassTransit.Abstractions. This test does not enforce package major versions.
+<!--#else-->
+**Fix:** Use the owned mediator and concrete event handlers. Keep imaging in Attachment, PDFs in Subscriptions, tabular readers in DataTransfer, and push/backplane infrastructure in Notification; Contracts may use only MassTransit.Abstractions. This test does not enforce package major versions.
+<!--#endif-->
 
 Reference: [implementation guide](Third-Party-Licenses.md).
 
@@ -123,6 +131,7 @@ Source: [AdminEndpointAuthorizationTests.cs](../../src/Api.Tests/Architecture/Ad
 
 Reference: [implementation guide](Endpoint-Authorization.md).
 
+<!--#if (agentic)-->
 ### AgentToolArchitectureTests
 
 Source: [AgentToolArchitectureTests.cs](../../src/Api.Tests/Architecture/AgentToolArchitectureTests.cs). Related rule: `CLAUDE.md` → Hard-won patterns → AI agents.
@@ -132,6 +141,7 @@ Source: [AgentToolArchitectureTests.cs](../../src/Api.Tests/Architecture/AgentTo
 **Fix:** Send the owning module's commands and queries through `ISender`, so validation, authorization, invariants, domain events and the audit trail apply as for an HTTP request. The test does not inspect what a tool does inside `ExecuteAsync`.
 
 Reference: [implementation guide](../Modules/Agentic.md).
+<!--#endif-->
 
 ### ClientGeneratedKeyTests
 

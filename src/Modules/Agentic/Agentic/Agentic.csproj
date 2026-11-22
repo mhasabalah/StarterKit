@@ -21,6 +21,7 @@
         <PackageReference Include="Microsoft.Extensions.AI" />
         <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
         <PackageReference Include="Anthropic" />
+        <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <!-- PDF text extraction for knowledge indexing (Apache-2.0; only this module: ThirdPartyIsolationTests). -->
         <PackageReference Include="PdfPig" />
     </ItemGroup>

@@ -99,6 +99,9 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// </summary>
     public bool Tainted { get; private set; }
 
+    /// <summary>The <c>agent.delegate</c> step of <see cref="ParentRunId"/> that started this run (ADR-0033).</summary>
+    public Guid? ParentStepId { get; private set; }
+
     /// <summary>
     /// The tenant's policy demands a person for every change this run proposes, whatever the risk (fixed at start).
     /// </summary>
@@ -132,7 +135,11 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// <summary>1 for the first message of <see cref="ConversationId"/>, then 2, 3... (unique per conversation).</summary>
     public int? ConversationTurn { get; private set; }
 
-    /// <summary>The run that delegated to this one, and how deep the delegation is (bounded by <see cref="MaxDepth"/>).</summary>
+    /// <summary>
+    /// The run that delegated to this one (ADR-0033), and how deep the delegation is: 0 for a run a person, a key or
+    /// a trigger started, the parent's depth + 1 otherwise (bounded by <see cref="MaxDepth"/> and
+    /// <c>Agentic:Delegation:MaxDepth</c>).
+    /// </summary>
     public Guid? ParentRunId { get; private set; }
 
     public int Depth { get; private set; }
@@ -151,7 +158,14 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
 
     public bool IsTerminal => Status is AgentRunStatus.Completed or AgentRunStatus.Failed or AgentRunStatus.Cancelled;
 
-    public long TotalTokens => InputTokens + OutputTokens;
+    /// <summary>
+    /// Tokens the runs this one delegated to used (ADR-0033). They count against this run's <see cref="MaxTokens"/>, but
+    /// are reported on the delegated runs, so usage is never counted twice.
+    /// </summary>
+    public long DelegatedTokens { get; private set; }
+
+    /// <summary>What the token budget counts: this run's own tokens and those of its delegates.</summary>
+    public long TotalTokens => InputTokens + OutputTokens + DelegatedTokens;
 
     /// <summary>Correlation id of everything the run does (logs, tool context, audit entries of its changes).</summary>
     public string CorrelationId => CorrelationIdOf(Id);
@@ -180,7 +194,10 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         Guid? apiKeyId = null,
         bool approveAllChanges = false,
         bool tainted = false,
-        int? conversationTurn = null)
+        int? conversationTurn = null,
+        Guid? parentRunId = null,
+        Guid? parentStepId = null,
+        int delegationDepth = 0)
     {
         if (string.IsNullOrWhiteSpace(agentKey) || agentKey.Length > AgentKeyMaxLength)
             throw new InvalidAgentRunStateException("agent_required");
@@ -196,6 +213,11 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             throw new InvalidAgentRunStateException("trigger_key_too_long");
         if (conversationId.HasValue != conversationTurn.HasValue || conversationTurn is < 1)
             throw new InvalidAgentRunStateException("conversation_turn_invalid");
+        if (parentRunId.HasValue != parentStepId.HasValue || parentRunId.HasValue != delegationDepth > 0 ||
+            delegationDepth is < 0 or > MaxDepth || (parentRunId.HasValue && conversationId.HasValue))
+        {
+            throw new InvalidAgentRunStateException("delegation_invalid");
+        }
 
         return new AgentRun
         {
@@ -221,6 +243,9 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             ApiKeyId = apiKeyId,
             ApproveAllChanges = approveAllChanges,
             Tainted = tainted,
+            ParentRunId = parentRunId,
+            ParentStepId = parentStepId,
+            Depth = delegationDepth,
             TraceParent = TextLimits.ClipOrNull(traceParent, TraceParentMaxLength)
         };
     }
@@ -233,7 +258,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// </summary>
     public bool TryClaim(string owner, DateTime now, TimeSpan lease)
     {
-        if (IsTerminal || Status == AgentRunStatus.AwaitingApproval)
+        if (IsTerminal || Status is AgentRunStatus.AwaitingApproval or AgentRunStatus.AwaitingDelegate)
             return false;
         if (Status == AgentRunStatus.Running && LeaseOwner != owner && LeaseUntil > now)
             return false;
@@ -310,6 +335,40 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         ReadyAt = now;
     }
 
+    /// <summary>Waits for the run it delegated to: the worker lets go until that run finishes (ADR-0033).</summary>
+    public void AwaitDelegate(AgentRunStep step)
+    {
+        EnsureRunning();
+        step.AwaitDelegate();
+        Status = AgentRunStatus.AwaitingDelegate;
+        ReleaseLease();
+    }
+
+    /// <summary>
+    /// The delegated run finished: its outcome becomes the result of the <c>agent.delegate</c> call, its tokens count
+    /// against this run's budget (<see cref="DelegatedTokens"/>), its taint carries over, and the run goes back to the
+    /// queue. False when this run no longer waits for that call (nothing changes).
+    /// </summary>
+    public bool CompleteDelegation(AgentRunStep step, string resultJson, bool succeeded, bool tainted, long delegatedTokens,
+        long durationMs, DateTime now)
+    {
+        if (Status != AgentRunStatus.AwaitingDelegate || step.Status != AgentRunStepStatus.AwaitingDelegate || step.RunId != Id)
+            return false;
+
+        if (succeeded)
+            step.Succeed(resultJson, durationMs, now);
+        else
+            step.FailWith("delegate_failed", resultJson, durationMs, now);
+        ToolCalls++;
+        DelegatedTokens += Math.Max(0, delegatedTokens);
+        Tainted |= tainted;
+        ConsecutiveFailures = 0;
+        Status = AgentRunStatus.Queued;
+        LastEnqueuedAt = now;
+        ReadyAt = now;
+        return true;
+    }
+
     private void ReleaseLease()
     {
         LeaseOwner = null;
@@ -354,6 +413,15 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         return AgentRunStep.ToolCall(Id, NextSequence++, turn.Sequence, callId, toolName, argumentsJson);
     }
 
+    /// <summary>The one tool call of an MCP run (ADR-0034): asked for by an external client, so no model turn of ours.</summary>
+    public AgentRunStep PlanExternalToolCall(string callId, string toolName, string argumentsJson)
+    {
+        EnsureRunning();
+        if (TriggerKind != AgentTriggerKind.Mcp || NextSequence != 1)
+            throw new InvalidAgentRunStateException("not_an_mcp_call");
+        return AgentRunStep.ToolCall(Id, NextSequence++, 0, callId, toolName, argumentsJson);
+    }
+
     /// <summary>
     /// A tool call refused as soon as the model asked for it (arguments over the limit): saved WITHOUT its arguments,
     /// already failed, so the model is told and nothing oversized reaches the database.
@@ -385,7 +453,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     public void RequestCancel(DateTime now)
     {
         EnsureNotTerminal();
-        if (Status is AgentRunStatus.Queued or AgentRunStatus.AwaitingApproval)
+        if (Status is AgentRunStatus.Queued or AgentRunStatus.AwaitingApproval or AgentRunStatus.AwaitingDelegate)
         {
             Finish(AgentRunStatus.Cancelled, now);
             return;
@@ -406,6 +474,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         OutputJson = outputJson;
         OutputText = outputText;
         Finish(AgentRunStatus.Completed, now);
+        if (TriggerKind == AgentTriggerKind.Mcp)
+            return; // one external tool call: no module waits for it
         AddIntegrationEvent(new AgentRunCompletedIntegrationEvent
         {
             RunId = Id,
@@ -421,6 +491,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         FailureCode = TextLimits.Clip(code, FailureCodeMaxLength);
         FailureMessage = TextLimits.Clip(message, FailureMessageMaxLength);
         Finish(AgentRunStatus.Failed, now);
+        if (TriggerKind == AgentTriggerKind.Mcp)
+            return;
         AddIntegrationEvent(new AgentRunFailedIntegrationEvent
         {
             RunId = Id,

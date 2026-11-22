@@ -36,7 +36,13 @@
       "type": "parameter",
       "datatype": "bool",
       "defaultValue": "true",
-      "description": "Include the sample modules (Catalog: products, categories, tags, wishlist; Shipping: the AI agent proof of concept) and everything that uses them."
+      "description": "Include the sample modules (Catalog: products, categories, tags, wishlist; Shipping: the AI agent proof of concept, only with --agentic) and everything that uses them."
+    },
+    "agentic": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the Agentic module (AI agents as durable runs, tools, approvals, knowledge, conversations, delegation, MCP server) and everything that uses it, the Shipping sample included."
     },
     "multitenancy": {
       "type": "parameter",
@@ -122,6 +128,10 @@
     "SAMPLE": {
       "type": "computed",
       "value": "(sample)"
+    },
+    "AGENTIC": {
+      "type": "computed",
+      "value": "(agentic)"
     },
     "templateSource": {
       "type": "computed",
@@ -291,7 +301,35 @@
             "src/Api.E2ETests/DataTransfer/DataTransferFlowTests.cs",
             "src/Api.E2ETests/Infrastructure/TestData.cs",
             "wiki/Modules/Catalog.md",
-            "wiki/Modules/Shipping.md"
+            "wiki/Modules/Shipping.md",
+            "tests/load/scenarios/agents.js"
+          ]
+        },
+        {
+          "condition": "(!agentic)",
+          "exclude": [
+            "src/Modules/Agentic/**",
+            "src/Modules/Shipping/**",
+            "src/Api.E2ETests/Agentic/**",
+            "src/Api.E2ETests/Shipping/**",
+            "src/Api.Tests/Architecture/AgentToolArchitectureTests.cs",
+            "docker-compose.agents.yml",
+            "tests/load/scenarios/agents.js",
+            "tools/claude/starterkit-plugin/skills/add-agent-tool/**",
+            "wiki/Modules/Agentic.md",
+            "wiki/Modules/Shipping.md",
+            "wiki/Architecture/Agent-Security.md",
+            "wiki/deployment/Agentic-Operations.md",
+            "wiki/Decisions/0025-agentic-module-and-model-seam.md",
+            "wiki/Decisions/0026-durable-agent-runs-on-hangfire.md",
+            "wiki/Decisions/0027-agent-approvals-triggers-and-policies.md",
+            "wiki/Decisions/0028-agent-knowledge-and-memory-on-pgvector.md",
+            "wiki/Decisions/0029-agent-conversations.md",
+            "wiki/Decisions/0030-streaming-agent-answers.md",
+            "wiki/Decisions/0031-conversation-summaries.md",
+            "wiki/Decisions/0032-knowledge-hnsw-index.md",
+            "wiki/Decisions/0033-agent-delegation.md",
+            "wiki/Decisions/0034-agent-mcp-server.md"
           ]
         },
         {

@@ -50,11 +50,19 @@ flowchart TB
 | Event / flow | Kind | Current reaction |
 |---|---|---|
 | `SubscriptionActivatedIntegrationEvent`, `SubscriptionExpiredIntegrationEvent` | Integration | Tenancy `TenantBillingStatusConsumer` re-reads current billing status to suspend/reactivate; Webhooks `SubscriptionActivatedWebhookConsumer` / `SubscriptionExpiredWebhookConsumer` forward public events. |
+<!--#if (agentic)-->
 | `AgentRunCompletedIntegrationEvent`, `AgentRunFailedIntegrationEvent` (Agentic) | Integration | For the module that owns the agent: it consumes them and re-reads the run with `GetAgentRunByIdQuery`. No consumer ships in the template. |
+<!--#endif-->
 | `UserAvatarChangedIntegrationEvent` (Attachment) | Integration | Identity `UserAvatarChangedConsumer` re-reads the current avatar and updates `ProfilePictureUrl`. |
+<!--#if (agentic)-->
 | `AttachmentDeletedIntegrationEvent` (Attachment) | Integration | Agentic `AttachmentDeletedKnowledgeConsumer` removes the knowledge documents indexed from the file. |
+<!--#endif-->
 | `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | Identity persists a `SessionRevocation` tombstone and outbox fact for session revocation; Notification `UserSessionsRevokedConsumer` closes revoked hub sessions across replicas. Sign-out does not wait for Notification. |
+<!--#if (agentic)-->
 | `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer`, `UserDeletedAgenticConsumer` clean up module-owned data. |
+<!--#else-->
+| `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer` clean up module-owned data. |
+<!--#endif-->
 | Optional sample: `ShipmentReadyForClearanceIntegrationEvent` (Shipping) | Integration | Shipping `ShipmentReadyForClearanceConsumer` starts the shipment preparation agent through `RequestAgentRunCommand` (trigger key per shipment, on behalf of the user who handed it over). |
 | Optional sample: `ProductPublishedIntegrationEvent` | Integration | `ProductPublishedConsumer` re-reads visibility and sends the owner an in-app notification using the event id for correlation; `ProductPublishedWebhookConsumer` forwards it. This flow exists only when the sample is included. |
 | `UserDirectory.Contracts.Events.ImpersonationStartedEvent` | Explicit synchronous notification | Tenancy `ImpersonationAuditHandler` must write the audit before an impersonation token is issued. |

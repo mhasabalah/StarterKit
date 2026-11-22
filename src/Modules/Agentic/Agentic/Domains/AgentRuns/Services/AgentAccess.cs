@@ -115,7 +115,7 @@ public static class AgentRunProjections
     public static readonly Expression<Func<AgentRun, AgentRunDto>> ToDto = r => new AgentRunDto(
         r.Id, r.AgentKey, r.AgentVersion, r.Status, r.TriggerKind, r.InitiatedBy, r.ModelTurns, r.ToolCalls,
         r.InputTokens, r.OutputTokens, r.EstimatedCost, r.CancelRequested, r.FailureCode, r.FailureMessage,
-        r.CreatedAt ?? DateTime.MinValue, r.StartedAt, r.FinishedAt, r.Version, r.ConversationId);
+        r.CreatedAt ?? DateTime.MinValue, r.StartedAt, r.FinishedAt, r.Version, r.ConversationId, r.ParentRunId);
 
     public static readonly Expression<Func<AgentRunStep, AgentRunStepDto>> StepToDto = s => new AgentRunStepDto(
         s.Id, s.Sequence, s.Kind, s.Status, s.ToolName, s.ToolVersion, s.Text, s.ArgumentsJson, s.ResultJson,

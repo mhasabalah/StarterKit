@@ -52,11 +52,30 @@ public sealed record ModelResponse(
     string? FinishReason);
 
 /// <summary>
+/// Receives the answer's text while the model writes it (streaming). A preview only: the response returned by
+/// <see cref="IAgentModelGateway.CompleteAsync(ModelRequest, IModelTextSink?, CancellationToken)"/> is what counts.
+/// Implementations never throw.
+/// </summary>
+public interface IModelTextSink
+{
+    ValueTask WriteAsync(string delta, CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// One request to a configured model. It NEVER executes a tool: tool calls come back as data
 /// (<see cref="ModelResponse.ToolCalls"/>) for the run executor to persist and for the tool gateway to authorize.
 /// </summary>
 public interface IAgentModelGateway
 {
+    /// <param name="request">The request.</param>
+    /// <param name="textSink">
+    /// Optional: receives the answer's text as it is written, when streaming is on for the model
+    /// (<c>Agentic:Streaming:Enabled</c> and <c>Agentic:Models:&lt;key&gt;:Streaming</c>).
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task<ModelResponse> CompleteAsync(ModelRequest request, IModelTextSink? textSink, CancellationToken cancellationToken);
+
+    /// <summary>The request without streaming.</summary>
     Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken);
 }
 

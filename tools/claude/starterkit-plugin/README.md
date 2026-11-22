@@ -24,7 +24,9 @@ Claude Code asks, or run:
 | `add-feature` | Add a command or query slice (contract, validator + handler, Carter endpoint, auth, concurrency) |
 | `add-migration` | Create, review and apply an EF Core migration (+ RLS for tenant tables) |
 | `add-integration-event` | Publish a cross-module fact via the outbox and consume it idempotently |
+<!--#if (agentic)-->
 | `add-agent-tool` | Add an AI agent or a typed agent tool to a module (risk, permission, idempotency, triggers, scripted tests) |
+<!--#endif-->
 | `add-background-job` | Add a tenant-aware Hangfire job that publishes its domain events |
 | `add-permission` | Add a platform or tenant permission and protect endpoints |
 | `add-email-template` | Add a transactional email (enum, model, subject, Liquid) and send it |

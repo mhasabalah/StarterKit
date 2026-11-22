@@ -76,6 +76,9 @@ public sealed class AgentChatClientFactory : IDisposable
     public IChatClient Get(string modelKey) =>
         _clients.GetOrAdd(modelKey, key => new Lazy<IChatClient>(() => Create(key))).Value;
 
+    /// <summary>Tests: answer for <paramref name="modelKey"/> with <paramref name="client"/> (a provider's behaviour).</summary>
+    internal void Use(string modelKey, IChatClient client) => _clients[modelKey] = new Lazy<IChatClient>(client);
+
     private IChatClient Create(string modelKey)
     {
         var settings = _options.Value;

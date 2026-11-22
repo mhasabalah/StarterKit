@@ -1,6 +1,9 @@
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Services;
 using Agentic.Domains.Approvals.Jobs;
+using Agentic.Contracts.Scripting;
+using Agentic.Domains.Conversations.Jobs;
+using Agentic.Domains.Conversations.Services;
 using Agentic.Domains.Knowledge.Jobs;
 using Agentic.Domains.Knowledge.Tools;
 using Agentic.Domains.Memory.Features;
@@ -16,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Notification.Contracts.Realtime;
+using Shared.Core.Data;
 using Shared.Core.Entitlements;
 using Shared.Core.Messaging.Outbox;
 
@@ -57,6 +61,16 @@ public static class AgenticModule
         services.AddScoped<IAgentApprovalRepository, AgentApprovalRepository>();
         services.AddScoped<IAgentPolicyRepository, AgentPolicyRepository>();
         services.AddScoped<AgentRunStarter>();
+        services.AddScoped<AgentDelegationResolver>();
+        services.AddScoped<Runtime.Mcp.AgentMcpGateway>();
+        // The MCP server (ADR-0034): stateless Streamable HTTP; tools are listed and called through the gateway only.
+        services.AddMcpServer(server => server.ServerInfo = new ModelContextProtocol.Protocol.Implementation
+        {
+            Name = "agents", Version = "1.0"
+        })
+            .WithHttpTransport(transport => transport.Stateless = true)
+            .WithListToolsHandler(Domains.Mcp.Features.AgentMcpHandlers.ListToolsAsync)
+            .WithCallToolHandler(Domains.Mcp.Features.AgentMcpHandlers.CallToolAsync);
         services.AddScoped<AgentAccess>();
         services.AddScoped<Domains.Approvals.Features.AgentApprovalDecision>();
         services.AddScoped<AgentPrincipalResolver>();
@@ -71,6 +85,7 @@ public static class AgenticModule
         services.AddSingleton<IAgentModelGateway, ChatClientModelGateway>();
         services.AddSingleton<AgenticMetrics>();
         services.AddSingleton<AgentRunProgressPublisher>();
+        services.AddSingleton<AgentRunTextStreams>();
         // Live progress goes through the Notification hub; without that module (or with real time off) it is a no-op.
         services.TryAddSingleton<IUserEventPublisher, NullUserEventPublisher>();
         services.AddTransient<AgentRunExecutor>();
@@ -78,6 +93,7 @@ public static class AgenticModule
         // Knowledge and memory (ADR-0028): sources come from the modules (AddKnowledgeSource), validated at startup.
         services.AddSingleton<KnowledgeSourceRegistry>();
         services.AddSingleton<IKnowledgeEmbedder, KnowledgeEmbedder>();
+        services.AddSingleton<IPostMigrationStep, KnowledgeVectorIndexStep>(); // the HNSW index, at deploy time (ADR-0032)
         services.AddAgentTool<KnowledgeSearchTool>();
         services.AddAgentTool<MemoryRecallTool>();
         services.AddAgentTool<MemoryRememberTool>();
@@ -96,6 +112,10 @@ public static class AgenticModule
         services.AddTransient<PurgeAgentContentJob>();
         services.AddTransient<IndexKnowledgeDocumentJob>();
         services.AddTransient<RequeueStalledKnowledgeDocumentsJob>();
+        services.AddTransient<SummarizeAgentConversationJob>();
+        services.AddTransient<ResolveAgentDelegationJob>();
+        // The scripted provider's summary writer (tests and demos; the scripted provider is refused in Production).
+        services.AddAgentScript<ConversationSummaryScript>();
 
         return services;
     }

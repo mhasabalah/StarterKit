@@ -223,8 +223,10 @@ Canonical guide: [details](../Modules/DataTransfer.md).
 | `Hangfire:Servers:Notification:WorkerCount` | `4` | Concurrency of the notifications-queue server. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:Servers:DataTransfer:Enabled` | `true` | Run the data-transfer-queue worker server in this replica. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:Servers:DataTransfer:WorkerCount` | `2` | Concurrency of the data-transfer-queue server. | [Guide](../Modules/DataTransfer.md) |
+<!--#if (agentic)-->
 | `Hangfire:Servers:Agentic:Enabled` | `true` | Run the agentic-queue worker server (agent runs) in this replica. | [Guide](../Modules/Agentic.md) |
 | `Hangfire:Servers:Agentic:WorkerCount` | `4` | Concurrency of the agentic-queue server: agent runs executing at the same time in this replica. | [Guide](../Modules/Agentic.md) |
+<!--#endif-->
 | `Hangfire:DashboardAuth:Enabled` | `true` | Enable this configured subsystem/provider. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:DashboardAuth:AllowLocalRequestsWithoutAuthentication` | `false` | Permit unauthenticated local dashboard requests when explicitly enabled. | [Guide](../Modules/DataTransfer.md) |
 | `Hangfire:DashboardAuth:Username` | `"admin"` | Authentication username. | [Guide](../Modules/DataTransfer.md) |
@@ -417,6 +419,7 @@ Options: [DataTransferOptions](../../src/Modules/DataTransfer/DataTransfer/Optio
 | `DataTransfer:Limits:MaxUncompressedBytes` | `524288000` | XLSX: total uncompressed size of the zip entries. | [Guide](../Modules/DataTransfer.md) |
 | `DataTransfer:Limits:MaxZipEntries` | `1000` | XLSX: number of zip entries. | [Guide](../Modules/DataTransfer.md) |
 
+<!--#if (agentic)-->
 ### Agentic
 
 Options: [AgenticOptions](../../src/Modules/Agentic/Agentic/Options/AgenticOptions.cs). Canonical guide: [details](../Modules/Agentic.md).
@@ -477,9 +480,19 @@ Options: [AgenticOptions](../../src/Modules/Agentic/Agentic/Options/AgenticOptio
 | `Agentic:Memory:MaxPerUser` | `100` | Personal memories per user. | [Guide](../Modules/Agentic.md#memory) |
 | `Agentic:Memory:MaxPerTenant` | `500` | Tenant memories per tenant. | [Guide](../Modules/Agentic.md#memory) |
 | `Agentic:Memory:MaxRecalled` | `50` | Most memories `memory.recall` returns. | [Guide](../Modules/Agentic.md#memory) |
+| `Agentic:Knowledge:VectorIndex` | `None` | `Hnsw`: an approximate HNSW index for `Dimensions` (at most 4000), built by the migrator. | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Knowledge:HnswM` / `HnswEfConstruction` / `HnswEfSearch` | `16` / `64` / `100` | HNSW links per node, build breadth, and search breadth (at least `SearchCandidates`). | [Guide](../Modules/Agentic.md#knowledge) |
+| `Agentic:Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | `20` / `24000` | Earlier turns a conversation turn is given at most (0 = none). | [Guide](../Modules/Agentic.md#conversations) |
+| `Agentic:Conversations:MaxMessages` | `200` | Messages per conversation (at least 1), then 409 `conversation_full`. | [Guide](../Modules/Agentic.md#conversations) |
+| `Agentic:Conversations:SummarizeAfterTurns` / `KeepRecentTurns` | `16` / `8` | A summary is written once more finished turns than this are not covered; the newest turns it leaves out (0 = no summaries). | [Guide](../Modules/Agentic.md#conversations) |
+| `Agentic:Conversations:SummaryModel` / `MaxSummaryCharacters` | `DefaultModel` / `4000` | The model that writes summaries; their length. | [Guide](../Modules/Agentic.md#conversations) |
+| `Agentic:Streaming:Enabled` / `IntervalMilliseconds` | `true` / `100` | Stream answers to the initiator (`agentic.run-text`), pieces collected per interval. `Agentic:Models:<key>:Streaming=false` opts a model out. | [Guide](../Modules/Agentic.md#events-notifications-and-progress) |
+| `Agentic:Delegation:MaxDepth` | `2` | How deep delegations nest (at most 3). | [Guide](../Modules/Agentic.md#delegation) |
+| `Agentic:Mcp:Enabled` | `false` | Maps the MCP server of agents with `McpServer = true`. | [Guide](../Modules/Agentic.md#mcp-server) |
 | `Agentic:Content:RetentionDays` | `90` | Content of finished runs is erased this many days after they finished; 0 = keep. | [Guide](../Modules/Agentic.md#erasure-and-retention) |
 
 The section is validated at startup only when `Agentic:Enabled` is true.
+<!--#endif-->
 
 ### Webhooks
 
