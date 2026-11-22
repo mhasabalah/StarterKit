@@ -650,6 +650,11 @@ export const sections = [
         "order": 31
       },
       {
+        "source": "Decisions/0032-knowledge-hnsw-index.md",
+        "label": "0032 knowledge HNSW index",
+        "order": 32
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
         "order": 99

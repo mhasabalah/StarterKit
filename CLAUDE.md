@@ -206,7 +206,9 @@ Notification is the exception: its context is in `Persistence/`.
     (`wiki/Identity/Bot-Protection.md`).
 - **Migrations run at deploy, not boot, in production.** `Database:MigrateOnStartup` (true in dev/tests, false in
   Docker production); `--migrate-only` applies them under a Postgres advisory lock, optionally with
-  `Database:MigrationConnectionString`. Never add migrate/seed work elsewhere in startup.
+  `Database:MigrationConnectionString`. Never add migrate/seed work elsewhere in startup. Configuration-dependent schema
+  work (an index sized by a setting) is an `IPostMigrationStep`, which runs after the context's migrations
+  ([ADR-0032](wiki/Decisions/0032-knowledge-hnsw-index.md)).
 - **Mediator pipeline.** The mediator is OURS (`Shared.Contracts.Mediation`, adapter `Shared.Core.Mediation.Mediator`,
   registered by `AddMediator(assembly)`); never reference MediatR or another mediator package
   ([ADR-0007](wiki/Decisions/0007-owned-mediator-port.md)). It runs `RequestTelemetryBehavior` (span + duration metric; host only) → `ValidationBehavior` →

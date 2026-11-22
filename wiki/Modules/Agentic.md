@@ -10,7 +10,8 @@ references a business module and a business module never references a model SDK.
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector) and
 [ADR-0029](../Decisions/0029-agent-conversations.md) (conversations) and
 [ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers) and
-[ADR-0031](../Decisions/0031-conversation-summaries.md) (conversation summaries).
+[ADR-0031](../Decisions/0031-conversation-summaries.md) (conversation summaries) and
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md) (HNSW vector index).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -244,6 +245,18 @@ Vectors of different embedding models are never compared: a document stores the 
 After changing `Agentic:Knowledge:EmbeddingModelId`, have the owning modules send their documents again: unchanged
 content is then indexed again with the new model.
 
+Vector search is exact by default. For large corpora, set `Knowledge:VectorIndex=Hnsw` with `Knowledge:Dimensions`
+([ADR-0032](../Decisions/0032-knowledge-hnsw-index.md)):
+- The migrator builds a partial HNSW index for that dimension (`ix_knowledge_chunks_embedding_hnsw_<n>`,
+  `KnowledgeVectorIndexStep`, an `IPostMigrationStep`). It builds CONCURRENTLY and rebuilds the index if an earlier
+  build was interrupted.
+- The search then takes the nearest passages from the index, scanned iteratively so that tenant and source filters
+  still leave enough candidates.
+- A query vector of another length falls back to exact search.
+
+Before choosing an embedding model, run `KnowledgeEvaluationTests` against it (`AGENTIC_EVAL_EMBEDDING_MODEL`, skipped
+otherwise): paraphrased English and Arabic questions must rank the passage that answers them first.
+
 ### Memory
 
 `agent_memories` holds personal memories (visible to one user) and tenant memories (everyone; written only with
@@ -396,6 +409,8 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Knowledge:MaxDocumentBytes` / `MaxPdfPages` / `MaxTextLength` | 10 MB / 500 / 1,000,000 | Bounds of one document |
 | `Knowledge:MaxAttempts` / `StalledAfterMinutes` | 4 / 15 | Indexing retries of a provider failure; stall sweep |
 | `Knowledge:SearchCandidates` / `MaxResults` / `EmbeddingBatchSize` | 40 / 8 / 64 | Search breadth and size; embedding batch |
+| `Knowledge:VectorIndex` | `None` | `Hnsw`: an HNSW index for `Dimensions` (at most 4000), built by the migrator |
+| `Knowledge:HnswM` / `HnswEfConstruction` / `HnswEfSearch` | 16 / 64 / 100 | HNSW links per node, build breadth, search breadth (at least `SearchCandidates`) |
 | `Memory:RetentionDays` / `MaxPerUser` / `MaxPerTenant` / `MaxRecalled` | 365 / 100 / 500 / 50 | Memory lifetime and limits |
 | `Content:RetentionDays` | 90 | Content of finished runs is erased after this many days; 0 = keep |
 | `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
@@ -506,6 +521,7 @@ person (taint), the same change requested before it does not. Tests that drive a
 | A document's content changes while it is indexed | The older job's result is dropped; the newer revision is indexed |
 | Embedding provider down while indexing | Retried with backoff; after `Knowledge:MaxAttempts` the document is `Failed` and not searchable |
 | Embedding provider down while searching | Keyword search only |
+| The HNSW build was interrupted (deploy stopped) | The index is left invalid; the next migrator run drops and builds it again. Search stays correct meanwhile (PostgreSQL ignores an invalid index) |
 | A user without the source's permission searches | No passage of that source, whatever sources the model asks for |
 | A message while the previous turn is still going, or two messages at once | 409 `conversation_busy`; one turn runs, nothing else starts |
 | An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
@@ -546,6 +562,6 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
 [ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md), [ADR-0031](../Decisions/0031-conversation-summaries.md),
-[Agent security model](../Architecture/Agent-Security.md),
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md), [Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).

@@ -1,3 +1,4 @@
+using Agentic.Runtime.Knowledge;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -100,6 +101,21 @@ public sealed class KnowledgeOptions
 
     /// <summary>Candidates taken from each of the keyword and the vector search before they are merged.</summary>
     public int SearchCandidates { get; set; } = 40;
+
+    /// <summary>
+    /// <c>None</c>: exact vector search (the default). <c>Hnsw</c>: an approximate HNSW index for the configured
+    /// <see cref="Dimensions"/>, built at deploy time (ADR-0032); requires <see cref="Dimensions"/> (at most 4000).
+    /// </summary>
+    public KnowledgeVectorIndexKind VectorIndex { get; set; } = KnowledgeVectorIndexKind.None;
+
+    /// <summary>HNSW: links per node (<c>m</c>); more is better recall, a larger index and a slower build.</summary>
+    public int HnswM { get; set; } = 16;
+
+    /// <summary>HNSW: candidates while building (<c>ef_construction</c>), at least twice <see cref="HnswM"/>.</summary>
+    public int HnswEfConstruction { get; set; } = 64;
+
+    /// <summary>HNSW: candidates per query (<c>hnsw.ef_search</c>), at least <see cref="SearchCandidates"/>.</summary>
+    public int HnswEfSearch { get; set; } = 100;
 
     /// <summary>Most passages one search returns.</summary>
     public int MaxResults { get; set; } = 8;
@@ -391,6 +407,17 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:Knowledge:EmbeddingModelId is required.");
         if (knowledge.Dimensions is < 1 or > 16_000)
             errors.Add("Agentic:Knowledge:Dimensions must be between 1 and 16000.");
+        if (knowledge.VectorIndex == KnowledgeVectorIndexKind.Hnsw)
+        {
+            if (knowledge.Dimensions is not (>= 1 and <= KnowledgeVectorIndex.MaxHalfVectorDimensions))
+                errors.Add($"Agentic:Knowledge:VectorIndex=Hnsw needs Dimensions between 1 and {KnowledgeVectorIndex.MaxHalfVectorDimensions}.");
+            if (knowledge.HnswM is < 2 or > 100 || knowledge.HnswEfConstruction < 2 * knowledge.HnswM ||
+                knowledge.HnswEfSearch < knowledge.SearchCandidates || knowledge.HnswEfSearch > 1_000)
+            {
+                errors.Add("Agentic:Knowledge: HnswM must be 2-100, HnswEfConstruction at least twice HnswM, and " +
+                           "HnswEfSearch between SearchCandidates and 1000.");
+            }
+        }
         if (knowledge.ChunkSize < 200 || knowledge.ChunkOverlap < 0 || knowledge.ChunkOverlap > knowledge.ChunkSize / 2)
             errors.Add("Agentic:Knowledge: ChunkSize must be at least 200 and ChunkOverlap at most half of it.");
         if (knowledge.EmbeddingBatchSize < 1 || knowledge.MaxDocumentBytes < 1 || knowledge.MaxPdfPages < 1 ||

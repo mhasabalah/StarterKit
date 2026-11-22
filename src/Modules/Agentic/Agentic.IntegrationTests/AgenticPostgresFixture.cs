@@ -302,6 +302,8 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Knowledge.Enabled = true;
         Options.Knowledge.MaxAttempts = 4;
         Options.Knowledge.EmbeddingModelId = "hashing";
+        Options.Knowledge.Dimensions = null;
+        Options.Knowledge.VectorIndex = Agentic.Runtime.Knowledge.KnowledgeVectorIndexKind.None;
         Options.Content.RetentionDays = 90;
         Options.Memory.MaxPerUser = 100;
         Options.Conversations.MaxMessages = 200;

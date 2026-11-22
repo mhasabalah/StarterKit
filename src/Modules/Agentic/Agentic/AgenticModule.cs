@@ -19,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Notification.Contracts.Realtime;
+using Shared.Core.Data;
 using Shared.Core.Entitlements;
 using Shared.Core.Messaging.Outbox;
 
@@ -82,6 +83,7 @@ public static class AgenticModule
         // Knowledge and memory (ADR-0028): sources come from the modules (AddKnowledgeSource), validated at startup.
         services.AddSingleton<KnowledgeSourceRegistry>();
         services.AddSingleton<IKnowledgeEmbedder, KnowledgeEmbedder>();
+        services.AddSingleton<IPostMigrationStep, KnowledgeVectorIndexStep>(); // the HNSW index, at deploy time (ADR-0032)
         services.AddAgentTool<KnowledgeSearchTool>();
         services.AddAgentTool<MemoryRecallTool>();
         services.AddAgentTool<MemoryRememberTool>();

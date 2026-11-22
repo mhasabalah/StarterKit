@@ -102,6 +102,40 @@ public class ModelEvaluationTests
         response.InputTokens.Should().BePositive("usage feeds budgets, quotas and cost");
     }
 
+    private sealed class Pieces : IModelTextSink
+    {
+        public List<string> Deltas { get; } = [];
+
+        public ValueTask WriteAsync(string delta, CancellationToken cancellationToken)
+        {
+            Deltas.Add(delta);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task AStreamedAnswer_ArrivesInPieces_AndStillReportsItsTokenUsage()
+    {
+        var gateway = Gateway();
+        var pieces = new Pieces();
+
+        var response = await gateway.CompleteAsync(new ModelRequest("eval", "eval.orders", Instructions,
+            [new ModelMessage(ModelRole.User, "In two sentences, what can you help me with?")], Tools), pieces,
+            TestContext.Current.CancellationToken);
+
+        pieces.Deltas.Should().HaveCountGreaterThan(1, "a provider that streams sends the answer in pieces");
+        string.Concat(pieces.Deltas).Should().Be(response.Text);
+        response.InputTokens.Should().BePositive("a streamed turn must not look free (ADR-0030)");
+        response.OutputTokens.Should().BePositive();
+
+        // The gateway stops streaming a model that reported no usage (and estimates it): a second answer that still
+        // streams proves the provider's own counts were used.
+        var again = new Pieces();
+        await gateway.CompleteAsync(new ModelRequest("eval", "eval.orders", Instructions,
+            [new ModelMessage(ModelRole.User, "Say hello in five words.")], Tools), again, TestContext.Current.CancellationToken);
+        again.Deltas.Should().NotBeEmpty("the provider reported usage while streaming");
+    }
+
     [Fact]
     public async Task AToolResult_IsUsedInTheAnswer_WithoutAnotherCall()
     {
