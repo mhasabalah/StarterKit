@@ -64,7 +64,8 @@ The Model Context Protocol was evaluated here as a way to expose tools to outsid
   there is no refund if that save then fails) and `agent_tokens` (per saved model turn, the last one included; a
   used-up plan stops the run with `quota_exceeded` before its next step). Capacity:
   `Agentic:Limits:MaxConcurrentRunsPerTenant` and the plan limit `max_concurrent_agent_runs`.
-- Usage is read from the run rows (`GET /agent-usage`); there is no separate usage table.
+- Usage is read from the run rows (`GET /agent-usage`). The only other usage rows are model calls made outside a run
+  (conversation summaries, [ADR-0031](0031-conversation-summaries.md)).
 
 ### Events and progress
 

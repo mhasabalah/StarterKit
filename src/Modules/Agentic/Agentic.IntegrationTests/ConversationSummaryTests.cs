@@ -1,5 +1,6 @@
 using Agentic.Contracts.Conversations;
 using Agentic.Contracts.Scripting;
+using Agentic.Contracts.Usage;
 using Agentic.Data;
 using Agentic.Domains.AgentRuns.Services;
 using Agentic.Domains.Conversations.Jobs;
@@ -104,6 +105,45 @@ public class ConversationSummaryTests
         (await ConversationOfAsync(TenantA, id)).Version.Should().Be(before.Version);
         var next = await _fx.SendAsync(TenantA, new SendAgentConversationMessageCommand(id, "Five", null, before.Version), user);
         next.Run.ConversationId.Should().Be(id);
+    }
+
+    [Fact]
+    public async Task ASummary_IsCountedInTheUsageReport_ForTheConversationsAgent_AndNotInAnotherTenant()
+    {
+        var before = await _fx.SendAsync(TenantA, new GetAgentUsageQuery());
+        var otherBefore = await _fx.SendAsync(TenantB, new GetAgentUsageQuery());
+        var id = await ConversationWithTurnsAsync(Guid.NewGuid(), "One", "Two", "Three", "Four");
+        var runsOnly = await _fx.SendAsync(TenantA, new GetAgentUsageQuery());
+
+        (await SummarizeAsync(TenantA, id)).Should().BeTrue();
+
+        var conversation = await ConversationOfAsync(TenantA, id);
+        var summaryTokens = conversation.SummaryInputTokens + conversation.SummaryOutputTokens;
+        var usage = await _fx.SendAsync(TenantA, new GetAgentUsageQuery());
+        (usage.Totals.Summaries - before.Totals.Summaries).Should().Be(1);
+        (usage.Totals.SummaryTokens - runsOnly.Totals.SummaryTokens).Should().Be(summaryTokens);
+        (usage.Totals.InputTokens + usage.Totals.OutputTokens - runsOnly.Totals.InputTokens - runsOnly.Totals.OutputTokens)
+            .Should().Be(summaryTokens, "the totals add up to what agent_tokens paid for");
+        (usage.Totals.Runs - runsOnly.Totals.Runs).Should().Be(0, "a summary is not a run");
+        usage.ByAgent.Single(a => a.AgentKey == conversation.AgentKey).Totals.Summaries.Should().BePositive();
+
+        (await _fx.SendAsync(TenantB, new GetAgentUsageQuery())).Totals.Should().Be(otherBefore.Totals);
+    }
+
+    [Fact]
+    public async Task ASummaryThatIsNotKept_IsStillCountedInTheUsageReport_BecauseTheModelWasPaid()
+    {
+        var id = await ConversationWithTurnsAsync(Guid.NewGuid(), "One", "Two", "Three", "Four");
+        var before = await _fx.SendAsync(TenantA, new GetAgentUsageQuery());
+        // One token left: the model is called, but the plan cannot pay for the rest, so nothing is kept.
+        _fx.Quota.Limits[EntitlementKeys.AgentTokens] = _fx.Quota.Used(EntitlementKeys.AgentTokens) + 1;
+
+        (await SummarizeAsync(TenantA, id)).Should().BeFalse();
+
+        (await ConversationOfAsync(TenantA, id)).Summary.Should().BeNull();
+        var usage = await _fx.SendAsync(TenantA, new GetAgentUsageQuery());
+        (usage.Totals.Summaries - before.Totals.Summaries).Should().Be(1);
+        (usage.Totals.SummaryTokens - before.Totals.SummaryTokens).Should().BePositive();
     }
 
     [Fact]

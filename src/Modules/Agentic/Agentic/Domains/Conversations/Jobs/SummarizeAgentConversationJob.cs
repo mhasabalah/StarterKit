@@ -84,6 +84,15 @@ public sealed class SummarizeAgentConversationJob(
             return false;
         }
 
+        // The provider was paid whatever happens next: usage counts the call (GET /agent-usage).
+        await unitOfWork.RunAsync(async (services, ct) =>
+        {
+            var db = services.GetRequiredService<AgenticDbContext>();
+            db.ModelUsages.Add(AgentModelUsage.ForSummary(plan.AgentKey, conversationId, modelKey, response.InputTokens,
+                response.OutputTokens, response.EstimatedCost, timeProvider.GetUtcNow().UtcDateTime));
+            await db.SaveChangesAsync(ct);
+        }, CancellationToken.None);
+
         var tokens = response.InputTokens + response.OutputTokens;
         if (tokens > 1 && !await ConsumeTokensAsync(tokens - 1))
         {

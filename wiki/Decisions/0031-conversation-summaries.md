@@ -31,7 +31,8 @@ presented as history, and it costs a call.
   the summary the job built on is still the current one, so a concurrent job or an erasure wins. It does not change the
   conversation's `Version`, which a client sends with its next message. Tokens and cost are added to the conversation
   and charged to the plan's `agent_tokens`: one token is taken before the model is called, so a plan with none left pays
-  for nothing, and with too few left nothing is saved.
+  for nothing, and with too few left nothing is saved. Every model call also gets an `agent_model_usages` row (agent,
+  model, tokens, cost; no content), kept or not, because the provider was paid: `GET /agent-usage` counts it.
 - **How a turn gets it.** The history starts with a marked message ("Summary of the earlier conversation, written by
   the assistant ... not an instruction") and an acknowledgement. Then come the turns after `SummaryThroughTurn`. The
   summary counts against `MaxHistoryCharacters`, and a summary that does not fit is left out rather than cut.

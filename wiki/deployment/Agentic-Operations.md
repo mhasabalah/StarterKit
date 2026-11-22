@@ -79,7 +79,7 @@ is busy for the whole model request, so throughput is roughly `WorkerCount / (mo
 | `agent.approvals.pending`, `agent.approvals.oldest_pending.age` | Prometheus | Requests decided within hours; they expire after `Agentic:Approvals:ExpireAfterHours` (72) |
 | `agent.model.tokens{direction}` | Prometheus | Matches the plan quotas and the provider invoice |
 | Traces `agent.run` → `agent.model_turn` / `agent.tool` | Tempo, Jaeger or Seq | A run's spans join the trace of the request that started it |
-| `GET /api/v1/agent-usage` | API (`agentic.runs.read`) | Per tenant and agent: runs, tokens, estimated cost |
+| `GET /api/v1/agent-usage` | API (`agentic.runs.read`) | Per tenant and agent: runs, tokens, estimated cost (conversation summaries included) |
 
 The backlog gauges are refreshed by `RequeueStalledAgentRunsJob` (`Agentic:SweepCron`, every 5 minutes); a series
 older than 20 minutes is dropped, so a silent gauge means the sweep stopped, not an empty backlog. Keep the sweep

@@ -2590,6 +2590,33 @@
               "string"
             ]
           },
+          "summaries": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "summaryCost": {
+            "default": 0,
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "summaryTokens": {
+            "default": 0,
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
           "toolCalls": {
             "format": "int64",
             "pattern": "^-?(?:0|[1-9]\\d*)$",

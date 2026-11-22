@@ -196,7 +196,9 @@ agent's definition by taking the stricter value, so it can never widen an agent;
 | Plan quota `agent_runs` | one unit per run, at start | start refused, 429 `quota_exceeded` |
 | Plan quota `agent_tokens` | per saved model turn, the last one included | run fails `quota_exceeded` before its next step |
 
-`GET /agent-usage` reports runs, model turns, tool calls, tokens and estimated cost from the run rows.
+`GET /agent-usage` reports runs, model turns, tool calls, tokens and estimated cost from the run rows. It also counts
+the model calls made outside a run (conversation summaries, from `agent_model_usages`), so its tokens add up to what
+`agent_tokens` paid for. `Summaries`, `SummaryTokens` and `SummaryCost` are their share.
 
 ### Events, notifications and progress
 
@@ -303,7 +305,7 @@ sequenceDiagram
 |---|---|
 | What the model is given | Each earlier **finished** turn as a user message and its final answer (`OutputText`, or `OutputJson` as "Result (JSON)"); a failed or cancelled turn as "(This request did not finish.)". Never the tool calls or tool results of earlier turns: the agent reads current data again instead of trusting a stale copy, and old untrusted text is not replayed |
 | How much | The newest turns first, at most `Conversations:MaxHistoryTurns` and `Conversations:MaxHistoryCharacters`; older turns are dropped whole. A turn whose content was erased is left out. History counts against the run's `MaxTokens` |
-| Long conversations | A **summary** of the older turns ([ADR-0031](../Decisions/0031-conversation-summaries.md)). Once more than `Conversations:SummarizeAfterTurns` finished turns are not covered by it, `SummarizeAgentConversationJob` asks `Conversations:SummaryModel` to fold them into the summary, always leaving the newest `KeepRecentTurns` out. Later turns get the summary first (a marked, untrusted message), then the turns after it. Its tokens are charged to `agent_tokens` and recorded on the conversation (`SummaryInputTokens` / `SummaryOutputTokens` / `SummaryCost`; `GET /agent-usage` counts runs only). It is written without changing the conversation's `Version`, and erased with any of its turns' content. `GET /{id}` returns it |
+| Long conversations | A **summary** of the older turns ([ADR-0031](../Decisions/0031-conversation-summaries.md)). Once more than `Conversations:SummarizeAfterTurns` finished turns are not covered by it, `SummarizeAgentConversationJob` asks `Conversations:SummaryModel` to fold them into the summary, always leaving the newest `KeepRecentTurns` out. Later turns get the summary first (a marked, untrusted message), then the turns after it. Its tokens are charged to `agent_tokens` and recorded on the conversation (`SummaryInputTokens` / `SummaryOutputTokens` / `SummaryCost`), and every call is counted in `GET /agent-usage` (`Summaries`), kept or not. It is written without changing the conversation's `Version`, and erased with any of its turns' content. `GET /{id}` returns it |
 | One turn at a time | 409 `conversation_busy` while a turn is queued, running or waiting for an approval. Two messages sent at the same moment are refused by the database: the filtered unique index `ux_agent_runs_active_turn` (one active run per conversation) and `ux_agent_runs_conversation_turn` (unique turn numbers) |
 | Injection across turns | **Sticky taint**: a turn starts tainted when any earlier turn read untrusted content, because that turn's answer is in the history. Every change it proposes then needs a person |
 | Whose | The person who started it (with an API key: that key) continues, renames and deletes it; holders of `agentic.runs.read` may read it; anyone else gets 404, in every tenant but its own |
