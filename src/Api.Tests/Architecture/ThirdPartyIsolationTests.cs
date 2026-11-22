@@ -89,6 +89,7 @@ public sealed class ThirdPartyIsolationTests
                                                     || r.StartsWith("Google.Apis", StringComparison.Ordinal)))
             .Should().Equal(["Notification"], "push delivery stays behind IPushProvider; swapping FCM must touch one module");
 
+#if (AGENTIC)
     [Fact]
     public void Model_provider_SDKs_are_used_only_by_the_Agentic_module() =>
         Production.Where(a => References(a).Any(r => ModelProviderPrefixes.Any(p => r == p || r.StartsWith(p + ".", StringComparison.Ordinal))))
@@ -107,6 +108,7 @@ public sealed class ThirdPartyIsolationTests
             .Should().Equal(["Agentic"],
                 "external MCP clients reach tools only through AgentMcpGateway, which decides every call like a tainted run " +
                 "(ADR-0034); a business module never serves MCP itself");
+#endif
 
     private static readonly string[] ModelProviderPrefixes =
         ["Microsoft.Extensions.AI", "OpenAI", "Anthropic", "System.ClientModel", "Microsoft.SemanticKernel", "Microsoft.Agents"];

@@ -38,7 +38,7 @@ public static class TenantPermissions
     /// <summary>Category CRUD and bulk import/export (Catalog module). Owner and Administrator hold it by default.</summary>
     public const string CategoriesManage = "catalog.categories.manage";
 
-#if (SAMPLE)
+#if (SAMPLE && AGENTIC)
     /// <summary>Create shipments, hand them to customs preparation and prepare declarations (Shipping sample).</summary>
     public const string ShipmentsManage = "shipping.shipments.manage";
 
@@ -61,6 +61,7 @@ public static class TenantPermissions
     /// <summary>Bulk CSV/Excel export (DataTransfer module), plus the definition's own permission.</summary>
     public const string DataExport = "datatransfer.export";
 
+#if (AGENTIC)
     /// <summary>
     /// Start AI agent runs (Agentic module). The agent never exceeds its initiator: every tool call is checked against
     /// the initiator's CURRENT permissions, and each tool also requires its own permission.
@@ -78,13 +79,16 @@ public static class TenantPermissions
 
     /// <summary>Manage the tenant's agent runs: cancel a run someone else started.</summary>
     public const string AgentsManage = "agentic.manage";
+#endif
 
     public static IReadOnlyList<string> All { get; } =
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
         AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport,
+#if (AGENTIC)
         AgentRunsStart, AgentRunsRead, AgentApprovalsDecide, AgentsManage,
-#if (SAMPLE)
+#endif
+#if (SAMPLE && AGENTIC)
         ShipmentsManage, DeclarationsSubmit
 #endif
     ];

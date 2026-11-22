@@ -93,13 +93,17 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
 <!--#if (sample)-->
 - **Catalog**: the sample; products, categories, tags, wishlist.
+<!--#if (agentic)-->
 - **Shipping**: the agent sample; shipments, customs declarations, the shipment preparation agent (the reference for
   adding an agent and its tools to a module) and the conversational `shipping.assistant`.
+<!--#endif-->
 <!--#endif-->
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
+<!--#if (agentic)-->
 - **Agentic**: AI agents as durable runs; owning modules plug in agents and typed tools (`Agentic.Contracts`).
+<!--#endif-->
 
 Shared projects hold **no** business state. Anything with its own schema, jobs or endpoints is a module.
 
@@ -208,7 +212,7 @@ Notification is the exception: its context is in `Persistence/`.
   Docker production); `--migrate-only` applies them under a Postgres advisory lock, optionally with
   `Database:MigrationConnectionString`. Never add migrate/seed work elsewhere in startup. Configuration-dependent schema
   work (an index sized by a setting) is an `IPostMigrationStep`, which runs after the context's migrations
-  ([ADR-0032](wiki/Decisions/0032-knowledge-hnsw-index.md)).
+  (`wiki/Architecture/DatabaseConventions.md`).
 - **Mediator pipeline.** The mediator is OURS (`Shared.Contracts.Mediation`, adapter `Shared.Core.Mediation.Mediator`,
   registered by `AddMediator(assembly)`); never reference MediatR or another mediator package
   ([ADR-0007](wiki/Decisions/0007-owned-mediator-port.md)). It runs `RequestTelemetryBehavior` (span + duration metric; host only) → `ValidationBehavior` →
@@ -321,6 +325,7 @@ Notification is the exception: its context is in `Persistence/`.
     request). `TransferJobRunner` is the pattern.
   - Live progress goes through `IUserEventPublisher` (`Notification.Contracts.Realtime`), throttled; the job row stays
     the source of truth.
+<!--#if (agentic)-->
 - **AI agents** (Agentic, [ADR-0025](wiki/Decisions/0025-agentic-module-and-model-seam.md),
   [ADR-0026](wiki/Decisions/0026-durable-agent-runs-on-hangfire.md),
   [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`):
@@ -375,6 +380,8 @@ Notification is the exception: its context is in `Persistence/`.
   - Summaries ([ADR-0031](wiki/Decisions/0031-conversation-summaries.md)) are written only by
     `SummarizeAgentConversationJob`, from messages and final answers (never tool results), are untrusted history, and
     are erased with the content of any turn they cover.
+<!--#endif-->
+
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.
@@ -422,7 +429,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
 | Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification / Agentic erasure | Integration |
+<!--#if (agentic)-->
 | Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
+<!--#endif-->
 | Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
@@ -470,7 +479,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `TenantIsolationArchitectureTests` | A tenant entity lacks `IMustHaveTenant`; a query filter is unnamed; a unique index lacks `tenant_id` or does not start with it; parameterless `IgnoreQueryFilters()` appears |
 | `EnumStorageTests` | An enum column of any module context is not stored as a string (nine legacy integer columns are listed; never add to the list) |
 | `AdminEndpointAuthorizationTests` | An `/admin` or `/superadmin` route has no admin or permission policy; a used permission policy is unregistered; **any endpoint declares no authorization at all** |
+<!--#if (agentic)-->
 | `AgentToolArchitectureTests` | An agent tool takes a DbContext, a repository, `IServiceProvider` or `IServiceScopeFactory` instead of calling `ISender`, or a tool class lacks `[AgentTool]` / `IAgentTool<,>` |
+<!--#endif-->
 | `ClientGeneratedKeyTests` | A child entity (reached through a collection navigation) has a store-generated Guid key: needs `ValueGeneratedNever()` |
 | `PendingModelChangesTests` (`Api.E2ETests`) | The EF model changed without a migration |
 | `TenantRowLevelSecurityCoverageTests` (`Api.E2ETests`) | A table with `tenant_id` in a tenant-data schema lacks forced RLS + the `tenant_isolation` policy |
@@ -503,7 +514,9 @@ change. **Use the matching skill instead of improvising.**
 | New endpoint / command / query / CRUD | `/starterkit:add-feature` |
 | Schema change / migration | `/starterkit:add-migration` |
 | Cross-module event + consumer | `/starterkit:add-integration-event` |
+<!--#if (agentic)-->
 | AI agent / agent tool in a module | `/starterkit:add-agent-tool` |
+<!--#endif-->
 | Scheduled / background job | `/starterkit:add-background-job` |
 | Permission / endpoint authorization | `/starterkit:add-permission` |
 | Email / WhatsApp message | `/starterkit:add-email-template` |

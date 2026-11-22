@@ -146,9 +146,11 @@ See [Operations](Operations.md) and [Database conventions](../Architecture/Datab
 
 Every database that holds tenant data, dedicated ones and the target of a tenant move included, needs the `vector`
 extension (pgvector) before its migrations run, and both sides of a move need the same pgvector version: the
-Agentic knowledge passages carry a `vector` column that the mover copies in binary form
-([ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)). The repository's PostgreSQL image has
-it; on a managed server, create it as an administrator (`deployment/postgres/scripts/init-rls-roles.sql`).
+Agentic knowledge passages carry a `vector` column that the mover copies in binary form.
+<!--#if (agentic)-->
+See [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md).
+<!--#endif-->
+The repository's PostgreSQL image has it; on a managed server, create it as an administrator (`deployment/postgres/scripts/init-rls-roles.sql`).
 
 ### Storage (attachments)
 

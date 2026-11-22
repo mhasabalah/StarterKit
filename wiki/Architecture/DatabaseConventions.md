@@ -91,7 +91,10 @@ Schema work that depends on configuration (an index sized by a setting) cannot b
 `Shared.Core.Data.IPostMigrationStep` (`DbContextType`, `RunAsync`) and register it in the owning module. It runs
 after that context's migrations wherever they run (`--migrate-only`, boot-time migration in development, dedicated
 tenant databases), on the migration connection and under the migration lock, so never at boot in production. It must
-be idempotent. Reference: `KnowledgeVectorIndexStep` ([ADR-0032](../Decisions/0032-knowledge-hnsw-index.md)).
+be idempotent.
+<!--#if (agentic)-->
+Reference: `KnowledgeVectorIndexStep` ([ADR-0032](../Decisions/0032-knowledge-hnsw-index.md)).
+<!--#endif-->
 
 ### Audit trail
 

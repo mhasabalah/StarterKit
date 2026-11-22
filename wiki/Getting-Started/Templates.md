@@ -81,7 +81,8 @@ compose project GUID are new per project.
 
 | Name | Type / values | Default | Effect |
 |---|---|---|---|
-| `--sample` | bool | `true` | Include the Catalog reference module (products, categories, tags, wishlist) and everything that uses it. |
+| `--sample` | bool | `true` | Include the Catalog reference module (products, categories, tags, wishlist) and everything that uses it, and the Shipping agent sample when `--agentic` is on. |
+| `--agentic` | bool | `true` | Include the Agentic module (AI agents as durable runs, typed tools, approvals, knowledge, conversations, delegation, MCP server) and everything that uses it. |
 | `--multitenancy` | choice: `off`, `shared`, `dedicated` | `off` | Multi-tenancy preset (MultiTenancy:Enabled / DefaultIsolation). It can be switched later without a migration. |
 | `--transport` | choice: `PostgreSql`, `RabbitMq` | `PostgreSql` | Production message transport (MESSAGING_TRANSPORT in .env.example). |
 | `--storage` | choice: `Local`, `AzureBlob`, `S3` | `Local` | Attachment storage provider (Attachment:Storage:Provider). |
@@ -91,6 +92,9 @@ compose project GUID are new per project.
 | `--github-owner` | text | `CHANGE_ME` | GitHub user or organization that owns the new repository (CODEOWNERS, issue links). |
 
 `--sample false` removes the reference module, its E2E flows, sample webhook/dashboard contributions and conditional documentation rows.
+`--agentic false` removes the Agentic module, the Shipping sample, the agent permissions, plan features and telemetry,
+the agents compose overlay, the `add-agent-tool` skill and the agent documentation; pgvector stays in the PostgreSQL
+images, unused.
 
 The product definitions are `.template.config/template.json` and `.template.config/dotnetcli.host.json` in the template repository. Storage changes the Docker production preset; development and tests remain Local. Transport changes `.env.example`; development and tests remain InMemory. `--deploy false` keeps local compose. `--ai-tooling false` removes agent configs and Claude workflows; `--ci false` removes all workflows. Multi-tenancy can change later without a schema migration.
 

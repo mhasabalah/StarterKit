@@ -34,9 +34,15 @@ public sealed partial class TenantIsolationArchitectureTests
         TenantDataContextTypes.Select(t => t.Name).Should().Contain(
         [
 #if (SAMPLE)
-            "CatalogDbContext", "ShippingDbContext",
+            "CatalogDbContext",
 #endif
-            "AttachmentDbContext", "WebhooksDbContext", "DataTransferDbContext", "AgenticDbContext"
+#if (SAMPLE && AGENTIC)
+            "ShippingDbContext",
+#endif
+#if (AGENTIC)
+            "AgenticDbContext",
+#endif
+            "AttachmentDbContext", "WebhooksDbContext", "DataTransferDbContext"
         ]);
 
     [Theory]

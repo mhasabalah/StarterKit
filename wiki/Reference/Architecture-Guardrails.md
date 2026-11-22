@@ -123,6 +123,7 @@ Source: [AdminEndpointAuthorizationTests.cs](../../src/Api.Tests/Architecture/Ad
 
 Reference: [implementation guide](Endpoint-Authorization.md).
 
+<!--#if (agentic)-->
 ### AgentToolArchitectureTests
 
 Source: [AgentToolArchitectureTests.cs](../../src/Api.Tests/Architecture/AgentToolArchitectureTests.cs). Related rule: `CLAUDE.md` → Hard-won patterns → AI agents.
@@ -132,6 +133,7 @@ Source: [AgentToolArchitectureTests.cs](../../src/Api.Tests/Architecture/AgentTo
 **Fix:** Send the owning module's commands and queries through `ISender`, so validation, authorization, invariants, domain events and the audit trail apply as for an HTTP request. The test does not inspect what a tool does inside `ExecuteAsync`.
 
 Reference: [implementation guide](../Modules/Agentic.md).
+<!--#endif-->
 
 ### ClientGeneratedKeyTests
 

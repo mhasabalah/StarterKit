@@ -100,8 +100,11 @@ Both profiles load `infra/observability/configs/alerts.yaml`. No Alertmanager is
 | `AgentApprovalBacklog` | warning / 30m | A proposed action has waited over a day for a decision |
 
 Outbox success means publication, not consumer success. See [messaging operations](../Architecture/Messaging.md#operations),
-[notification operations](../Modules/Notification-Realtime-and-Push.md#operations) and
-[agent operations](Agentic-Operations.md). Missing/no-traffic series
+[notification operations](../Modules/Notification-Realtime-and-Push.md#operations)
+<!--#if (agentic)-->
+and [agent operations](Agentic-Operations.md)
+<!--#endif-->
+. Missing/no-traffic series
 can leave ratio alerts inactive; absence of a firing rule is not evidence of delivery.
 
 ## Configuration

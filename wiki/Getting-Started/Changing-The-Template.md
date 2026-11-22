@@ -22,8 +22,9 @@ Read `CLAUDE.md`, use the SDK pinned in `global.json`, and have Docker available
 
 The repository is the template, so every change is a normal code change. These rules keep it generatable:
 - **Optional code is conditional, not deleted.**
-  - C#: `#if (SAMPLE)` … `#endif`. `Directory.Build.props` defines `SAMPLE` only in the template repository, so the
-    template builds and tests every optional part.
+  - C#: `#if (SAMPLE)` … `#endif`, and `#if (AGENTIC)` for the Agentic module. `Directory.Build.props` defines `SAMPLE`
+    and `AGENTIC` only in the template repository, so the template builds and tests every optional part. The Shipping
+    sample needs both: `#if (SAMPLE && AGENTIC)` in C#, `(sample && agentic)` elsewhere.
   - Project files, `.slnx` and Markdown: `<!--#if (sample)-->` … `<!--#endif-->`.
   - `appsettings*.json`: `//#if (…)` / `//#else` / `//#endif`. A line in an inactive branch is commented out (`//"Key": value,`)
     and is uncommented when its branch is chosen.
@@ -48,6 +49,7 @@ Run the same check locally:
 dotnet new uninstall StarterKit.Templates   # if the published pack is installed: it provides the same templates
 dotnet new install .            # from the repository root (both templates)
 dotnet new starterkit -n Probe -o ../probe --sample false
+dotnet new starterkit -n ProbeNoAgents -o ../probe-no-agents --agentic false   # Catalog without Agentic and Shipping
 cd ../probe && dotnet build Probe.slnx && dotnet test src/Api.Tests && bash scripts/check-docs.sh
 ```
 

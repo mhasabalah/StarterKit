@@ -1158,6 +1158,7 @@ Source: [WebhookEndpointsModule](../../src/Modules/Webhooks/Webhooks/Domains/End
 | POST | `/api/v{version:apiVersion}/webhooks/endpoints/{id:guid}/rotate-secret` | `RequireTenantPermission(TenantPermissions.WebhooksManage)` | `DisallowImpersonation()` | — |
 | POST | `/api/v{version:apiVersion}/webhooks/endpoints/{id:guid}/ping` | `RequireTenantPermission(TenantPermissions.WebhooksManage)` | — | — |
 
+<!--#if (agentic)-->
 ### Agentic
 
 Sources: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs), [AgentApprovalsModule](../../src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalsModule.cs), [AgentPoliciesModule](../../src/Modules/Agentic/Agentic/Domains/Policies/Features/AgentPoliciesModule.cs), [KnowledgeModule](../../src/Modules/Agentic/Agentic/Domains/Knowledge/Features/KnowledgeModule.cs), [AgentMemoriesModule](../../src/Modules/Agentic/Agentic/Domains/Memory/Features/AgentMemoriesModule.cs). Every route answers 404 while `Agentic:Enabled` is false.
@@ -1186,7 +1187,9 @@ Sources: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/F
 The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`; approval requests are listed for deciders and for the user the run acts for; an approver must also hold the proposed tool's own permission; a tenant memory needs `agentic.manage` (403 `memory_tenant_scope_forbidden`) and someone else's personal memory is 404. Anything else is 404.
 
 <!--#if (sample)-->
+<!--#endif-->
 
+<!--#if (agentic)-->
 ### Shipping (sample)
 
 Source: [ShipmentsModule](../../src/Modules/Shipping/Shipping/Domains/Shipments/Features/ShipmentsModule.cs). Present only when the template's `sample` switch is on.
@@ -1209,6 +1212,7 @@ Its tenant permissions:
 | `TenantPermissions.ShipmentsManage` | `shipping.shipments.manage` | Owner; Administrator |
 | `TenantPermissions.DeclarationsSubmit` | `shipping.declarations.submit` | Owner; Administrator |
 
+<!--#endif-->
 <!--#endif-->
 
 ### DataTransfer
