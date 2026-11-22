@@ -8,6 +8,8 @@
 #   secrets/agentic_openai_api_key.txt - the provider API key (one line). Use a key limited to this deployment.
 #   AGENTIC_MODEL_ID in .env            - the provider's model id.
 #   AGENTIC_ENDPOINT in .env (optional) - the base URL for Azure OpenAI or a self-hosted server (empty = api.openai.com).
+#   AGENTIC_INPUT_PRICE_PER_MILLION / AGENTIC_OUTPUT_PRICE_PER_MILLION in .env (optional) - the provider's price per
+#                                         million tokens, so runs and GET /agent-usage report a cost (default 0).
 #   prod: docker compose -f docker-compose.yml -f docker-compose.agents.yml up -d
 #
 # The secret file name follows agentic_<provider>_api_key (provider = the key under Agentic:Providers, here "openai"),
@@ -32,3 +34,5 @@ services:
       Agentic__Providers__openai__Endpoint: ${AGENTIC_ENDPOINT:-}
       Agentic__Models__default__Provider: openai
       Agentic__Models__default__ModelId: ${AGENTIC_MODEL_ID:?set AGENTIC_MODEL_ID in .env (the provider's model id)}
+      Agentic__Models__default__InputPricePerMillionTokens: ${AGENTIC_INPUT_PRICE_PER_MILLION:-0}
+      Agentic__Models__default__OutputPricePerMillionTokens: ${AGENTIC_OUTPUT_PRICE_PER_MILLION:-0}

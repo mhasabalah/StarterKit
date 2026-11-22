@@ -37,3 +37,4 @@ link it here.
 | [0026](0026-durable-agent-runs-on-hangfire.md) | Run agents as leased, step-checkpointed Hangfire jobs | Accepted | 2026-11-13 |
 | [0027](0027-agent-approvals-triggers-and-policies.md) | Govern agents with payload-bound approvals, explicit triggers and tighten-only tenant policies | Accepted | 2026-11-13 |
 | [0028](0028-agent-knowledge-and-memory-on-pgvector.md) | Give agents knowledge and memory on PostgreSQL with pgvector, behind the same permissions | Accepted | 2026-11-14 |
+| [0029](0029-agent-conversations.md) | Hold agent conversations as one run per turn, with final-answer history and sticky taint | Accepted | 2026-11-22 |

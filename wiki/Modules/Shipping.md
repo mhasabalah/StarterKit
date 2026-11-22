@@ -72,6 +72,22 @@ submitted, customs reference). `ShipmentPreparationScript` is its deterministic 
 follows the steps, stops without submitting when a document is missing, and reports a rejected approval. Point the
 model key at a real provider (`Agentic:Models`) and the same tools serve a real model.
 
+### The shipping assistant
+
+`ShippingAssistantAgent` (`shipping.assistant`) is the conversational sample: a free-text agent with
+`Conversational = true`, autonomy `Recommend` and read tools only. A person asks about a shipment by its reference and
+then asks follow-ups that name none ("and how much VAT is due?"); every message is a turn of an
+[agent conversation](Agentic.md#conversations) and is given the earlier turns. It changes nothing: it explains, the
+preparation agent and people act.
+
+| Tool | Risk | Permission | Notes |
+|---|---|---|---|
+| `shipping.find_shipments` | read | any member | Shipments whose reference contains the text, newest first, at most 10 (`GetShipmentsQuery`) |
+| `shipping.get_shipment`, `shipping.estimate_duties`, `shipping.check_documents` | read | any member | As above; reading documents taints the conversation |
+
+`ShippingAssistantScript` is its deterministic model: it finds the reference in the message or, for a follow-up, in
+the earlier turns, then answers about duties when asked, otherwise about the route and status.
+
 ## Endpoints
 
 | Route | Authorization |
@@ -93,6 +109,11 @@ model key at a real provider (`Agentic:Models`) and the same tools serve a real 
 
 `Api.E2ETests/Shipping/ShipmentPreparationAgentE2ETests` runs exactly this over HTTP, plus the missing-document and
 rejection paths.
+
+The assistant: `POST /api/v1/agent-conversations` with `agentKey` `shipping.assistant` and a message that names a
+shipment reference, wait for the turn (`GET /api/v1/agent-runs/{runId}`), then
+`POST /api/v1/agent-conversations/{id}/messages` with a follow-up and read the answers at
+`GET /api/v1/agent-conversations/{id}`. `Api.E2ETests/Shipping/ShippingAssistantConversationE2ETests` runs it.
 
 ## Failure modes and guarantees
 

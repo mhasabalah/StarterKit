@@ -93,8 +93,8 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Subscriptions**: plans, subscriptions, ledger, invoices.
 <!--#if (sample)-->
 - **Catalog**: the sample; products, categories, tags, wishlist.
-- **Shipping**: the agent sample; shipments, customs declarations and the shipment preparation agent (the reference for
-  adding an agent and its tools to a module).
+- **Shipping**: the agent sample; shipments, customs declarations, the shipment preparation agent (the reference for
+  adding an agent and its tools to a module) and the conversational `shipping.assistant`.
 <!--#endif-->
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
@@ -355,6 +355,11 @@ Notification is the exception: its context is in `Persistence/`.
     (`KnowledgeStore`); every raw statement names the tenant as well as relying on RLS.
   - Memory is written by a person or proposed by `memory.remember` (`RequiresApproval`), and recalled only through
     the read tool `memory.recall`. Never inject memories or retrieved text into agent instructions.
+  - Conversations ([ADR-0029](wiki/Decisions/0029-agent-conversations.md)): an agent opts in with
+    `Conversational = true`; every message is a run started through `AgentRunStarter` with its `ConversationId` and
+    `ConversationTurn`. History is rebuilt per model turn from earlier finished turns (message and final answer only,
+    never old tool results). Keep one active turn per conversation (`ux_agent_runs_active_turn`) and the sticky taint
+    (a turn starts tainted when an earlier one was); never put history into agent instructions.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.

@@ -82,6 +82,7 @@ wiki/
 - [0026](Decisions/0026-durable-agent-runs-on-hangfire.md): agent runs are leased, step-checkpointed Hangfire jobs
 - [0027](Decisions/0027-agent-approvals-triggers-and-policies.md): payload-bound approvals, explicit triggers, tighten-only tenant policies
 - [0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md): agent knowledge (hybrid search on pgvector) and approval-gated memory
+- [0029](Decisions/0029-agent-conversations.md): agent conversations (one run per turn, final-answer history, sticky taint)
 
 ## Modules
 
@@ -203,6 +204,7 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | Agents, typed tools, the tool gateway, model providers and durable runs | [Agentic](Modules/Agentic.md), [ADR 0025](Decisions/0025-agentic-module-and-model-seam.md), [ADR 0026](Decisions/0026-durable-agent-runs-on-hangfire.md) |
 | Agent approvals, automatic triggers, tenant policies, quotas and usage | [Agentic](Modules/Agentic.md#human-approval), [ADR 0027](Decisions/0027-agent-approvals-triggers-and-policies.md) |
 | Agent knowledge (indexing, hybrid search, citations), memory, content erasure and retention | [Agentic](Modules/Agentic.md#knowledge), [ADR 0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) |
+| Conversations with agents (multi-turn chat, history, one turn at a time, deletion) and testing with a real model | [Agentic](Modules/Agentic.md#conversations), [ADR 0029](Decisions/0029-agent-conversations.md) |
 | Agent threats (prompt injection, approval bypass, oversized output), alerts and runbook | [Agent security model](Architecture/Agent-Security.md), [Agentic operations](deployment/Agentic-Operations.md) |
 | Distributed caching, tenant keys and explicit invalidation | [Redis](Infrastructure/Redis.md) |
 | HTTP context, Carter injection and ActingUser | [Shared projects](Shared/README.md) |

@@ -1,5 +1,5 @@
 {
-  "reviewed": 112,
+  "reviewed": 113,
   "renderers": {
     "v2": "Mermaid 12.3.0",
     "v1": "Mermaid 12.2.0; unchanged renderer"
@@ -1419,6 +1419,21 @@
       "evidence": [
         "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
         "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 4,
+      "type": "sequenceDiagram",
+      "title": "A conversation turn",
+      "after": "befee2e44fc117798e256fb413caf6ce95273510747f13b513c974a16957614d",
+      "review": "Verified against the conversation handlers and the executor: one save counts the message and inserts the run; the busy and taint checks precede it; history is earlier finished turns (message and final answer) loaded per model turn.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Features/AgentConversationHandlers.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs"
       ],
       "status": "reviewed"
     },

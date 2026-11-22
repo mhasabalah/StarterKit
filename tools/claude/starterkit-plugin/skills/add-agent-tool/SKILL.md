@@ -65,8 +65,14 @@ Reference: `src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationAgen
    - `OutputType` (optional): a record the run must hand in through `agent.submit_result`, with a localized
      FluentValidation validator in the module. `Limits` (optional): lower the global per-run ceilings.
    - `Version` / `MinResumableVersion`: bump when tools or instructions change incompatibly.
+   - `Conversational = true` (optional): people can talk to it at `/api/v1/agent-conversations`. Every message is a
+     run given the earlier turns (message and final answer only). Write the instructions for follow-ups ("use the
+     item the conversation is about"). Reference: `ShippingAssistantAgent`.
 2. **Scripted scenario** (tests, demos, CI without an API key): an `IAgentScript` with `AgentKey` = the agent key,
-   registered with `services.AddAgentScript<<X>Script>()`. Refused in Production.
+   registered with `services.AddAgentScript<<X>Script>()`. Refused in Production. For a conversational agent the
+   earlier turns arrive in `ScriptedTurn.History`; `Prompt` and `TurnNumber` describe the current run only.
+3. **Real model**: before production, run `ModelEvaluationTests` and drive the agent once against the real provider
+   (`wiki/Modules/Agentic.md#testing-with-a-real-model`). Assert outcomes, not the exact order of tool calls.
 
 ## 4. An automatic trigger (optional)
 

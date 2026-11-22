@@ -24,8 +24,13 @@ editing agent data by hand.
 2. Set `AGENTIC_MODEL_ID` (and `AGENTIC_ENDPOINT` for Azure OpenAI or a self-hosted server) in `.env`.
 3. Start with the overlay: `docker compose -f docker-compose.yml -f docker-compose.agents.yml up -d`.
    It sets `Agentic:Enabled=true`, an `OpenAiCompatible` provider named `openai` and the `default` model.
-4. Set the model prices (`Agentic:Models:default:InputPricePerMillionTokens` / `OutputPricePerMillionTokens`) so runs
-   carry a cost estimate, and the plan quotas `agent_runs` / `agent_tokens` for each plan.
+4. Set the model prices so runs carry a cost estimate: `AGENTIC_INPUT_PRICE_PER_MILLION` /
+   `AGENTIC_OUTPUT_PRICE_PER_MILLION` in `.env` (the overlay maps them to
+   `Agentic:Models:default:InputPricePerMillionTokens` / `OutputPricePerMillionTokens`; 0 = cost not tracked). Set the
+   plan quotas `agent_runs` / `agent_tokens` for each plan, and a monthly budget at the provider.
+5. Conversations: `Agentic:Conversations` bounds the history a turn is given (`MaxHistoryTurns`,
+   `MaxHistoryCharacters`) and the messages per conversation (`MaxMessages`). Every turn is a run, so the quotas and
+   capacity above count turns.
 
 For Anthropic, add a provider with `Kind=Anthropic` and the secret `agentic_anthropic_api_key`
 (`agentic_<provider>_api_key`, provider name in lower case). The scripted provider is refused in Production.
@@ -37,7 +42,8 @@ AGENTIC_EVAL_PROVIDER=OpenAiCompatible AGENTIC_EVAL_MODEL=<model id> AGENTIC_EVA
   dotnet test src/Modules/Agentic/Agentic.Tests --filter "Category=ModelEvaluation"
 ```
 
-They are skipped when the variables are missing, so a green normal run says nothing about a model.
+They are skipped when the variables are missing, so a green normal run says nothing about a model. Then drive the
+real agents end to end as described in [Testing with a real model](../Modules/Agentic.md#testing-with-a-real-model).
 
 ### 2. Size the workers
 

@@ -7,7 +7,8 @@ references a business module and a business module never references a model SDK.
 [ADR-0025](../Decisions/0025-agentic-module-and-model-seam.md) (module, tools, model seam),
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md) (durability) and
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md) (approvals, triggers, policies) and
-[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector).
+[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector) and
+[ADR-0029](../Decisions/0029-agent-conversations.md) (conversations).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -19,7 +20,7 @@ executed.
 `AgentRun` owns lifecycle, lease, budgets and counters; `AgentRunStep` is the append-only transcript and the
 checkpoint; `AgentApproval` is one request for a person's decision; `AgentPolicy` is a tenant's settings for one
 agent; `KnowledgeDocument` + `KnowledgeChunk` are what modules made searchable; `AgentMemory` is a fact agents may
-recall. `AgenticDbContext` maps schema `agentic`. `AgenticModuleManifest.Order` is `ModuleOrder.Agentic` (800).
+recall; `AgentConversation` groups the runs (turns) of one person's conversation with a conversational agent. `AgenticDbContext` maps schema `agentic`. `AgenticModuleManifest.Order` is `ModuleOrder.Agentic` (800).
 Source: `src/Modules/Agentic/`.
 
 ### Layout
@@ -245,13 +246,65 @@ content is then indexed again with the new model.
 
 Memories expire after `Agentic:Memory:RetentionDays` and are limited per user and per tenant.
 
+### Conversations
+
+An agent declared with `Conversational = true` can be talked to over several messages at
+`/api/v1/agent-conversations`. A conversation holds no messages itself: **every message is an ordinary run** linked by
+`AgentRun.ConversationId` and numbered by `ConversationTurn` (1, 2, 3...). So each turn keeps everything a run has:
+the initiator's current permissions for every tool call, the tool gateway, approvals, budgets, the `agent_runs`
+quota, durable execution, retention and erasure.
+
+```mermaid
+sequenceDiagram
+  accTitle: A conversation turn
+  accDescr: Each message queues a run; the run is given the earlier turns' messages and answers before the new message.
+  participant U as Person
+  participant A as Conversation endpoints
+  participant DB as agentic schema
+  participant J as ExecuteAgentRunJob
+  participant M as Model
+  U->>A: POST /{id}/messages
+  A->>DB: one turn active? taint of earlier turns
+  A->>DB: count message + insert run (turn n), one save
+  A-->>U: 202 conversation + run
+  J->>DB: earlier finished turns (message, final answer)
+  J->>M: history + new message + tools
+  M-->>J: answer or tool calls (gateway as for any run)
+  J->>DB: run completed (answer)
+```
+*Figure: Each message queues a run; the run is given the earlier turns' messages and answers before the new message.*
+
+| Rule | How |
+|---|---|
+| What the model is given | Each earlier **finished** turn as a user message and its final answer (`OutputText`, or `OutputJson` as "Result (JSON)"); a failed or cancelled turn as "(This request did not finish.)". Never the tool calls or tool results of earlier turns: the agent reads current data again instead of trusting a stale copy, and old untrusted text is not replayed |
+| How much | The newest turns first, at most `Conversations:MaxHistoryTurns` and `Conversations:MaxHistoryCharacters`; older turns are dropped whole. A turn whose content was erased is left out. History counts against the run's `MaxTokens` |
+| One turn at a time | 409 `conversation_busy` while a turn is queued, running or waiting for an approval. Two messages sent at the same moment are refused by the database: the filtered unique index `ux_agent_runs_active_turn` (one active run per conversation) and `ux_agent_runs_conversation_turn` (unique turn numbers) |
+| Injection across turns | **Sticky taint**: a turn starts tainted when any earlier turn read untrusted content, because that turn's answer is in the history. Every change it proposes then needs a person |
+| Whose | The person who started it (with an API key: that key) continues, renames and deletes it; holders of `agentic.runs.read` may read it; anyone else gets 404, in every tenant but its own |
+| Which agents | Only `Conversational` ones (400 `agent_not_conversational`); the agent's permission and allowed triggers are checked again for every message |
+| Size | `Conversations:MaxMessages` messages, then 409 `conversation_full` |
+| Deleting | Stops a turn in progress and erases the content of every turn. A turn still running when its conversation is deleted is erased when it stops; `PurgeAgentContentJob` erases any left over |
+
+Live progress (`agentic.run-progress`) carries the `conversationId`, and the `agent.run` span the tag
+`gen_ai.conversation.id`. `GET /api/v1/agent-runs?conversationId=` lists the runs of one conversation. Answers are not
+streamed token by token: a client shows the step progress, then reads the answer from `GET /{id}`.
+
+<!--#if (sample)-->
+
+The sample is `shipping.assistant` ([Shipping](Shipping.md#the-shipping-assistant)): read-only answers about shipments,
+including follow-ups such as "and how much VAT is due?" that name no shipment.
+
+<!--#endif-->
+
 ### Erasure and retention
 
 - Account erasure (`UserDeletedIntegrationEvent`): the user's personal memories are deleted, their open runs are
   cancelled, and the content of their finished runs (prompt, input, output, transcript text, tool arguments and
-  results, approval payloads) is erased in every tenant. Facts, counters and audit entries stay.
+  results, approval payloads) is erased in every tenant. Facts, counters and audit entries stay. Their conversations
+  are closed and their titles dropped.
 - `PurgeAgentContentJob` (daily) erases the content of runs that finished more than `Agentic:Content:RetentionDays`
-  ago (0 = keep) and deletes expired memories.
+  ago (0 = keep) and deletes expired memories. It also drops the titles of conversations idle for as long, and erases
+  any finished turn of a deleted conversation that was not erased when it stopped.
 - A deleted attachment (`AttachmentDeletedIntegrationEvent`) removes the documents indexed from it.
 
 ### Acting user and tenant
@@ -288,6 +341,9 @@ executes a tool. Provider kinds (`Agentic:Providers:<name>:Kind`):
 | `POST /api/v1/agent-approvals/{id}/approve`, `/reject` | `agentic.approvals.decide` + the tool's permission; no API key, no impersonation |
 | `GET`, `PUT /api/v1/agent-policies/{agentKey}` | `agentic.manage` (PUT: no impersonation) |
 | `GET /api/v1/agent-usage` | `agentic.runs.read` |
+| `POST /api/v1/agent-conversations` (202), `POST /{id}/messages` (202) | `agentic.runs.start` + the agent's `RequiredPermission`, plan feature `agents`, no impersonation, rate limit `create`, optional `Idempotency-Key`; messages only by the owner |
+| `GET /api/v1/agent-conversations`, `/{id}` | tenant member; the list is the caller's own; a conversation is readable by its owner or with `agentic.runs.read` |
+| `PATCH`, `DELETE /api/v1/agent-conversations/{id}` | tenant member, the owner only, no impersonation |
 | `GET /api/v1/knowledge-documents` | `agentic.manage`; status, revision and passage count, no content |
 | `GET`, `POST /api/v1/agent-memories`, `DELETE /{id}` | `agentic.runs.start` (POST and DELETE: no impersonation); a tenant memory needs `agentic.manage`; someone else's memory is 404 |
 
@@ -297,7 +353,8 @@ executes a tool. Provider kinds (`Agentic:Providers:<name>:Kind`):
   span is its child) and `agent.tool`; counters `agent.runs.started`, `agent.runs.finished`, `agent.runs.requeued`,
   `agent.model.turns`, `agent.model.tokens`, `agent.tool.calls`; histogram `agent.run.active.duration`; gauges
   `agent.approvals.pending`, `agent.approvals.oldest_pending.age` and `agent.runs.queued.oldest.age` (refreshed by
-  the stall sweep). A run's spans join the trace of the request that started it. The Prometheus alerts on them and
+  the stall sweep). A run's spans join the trace of the request that started it; a conversation turn's `agent.run`
+  span carries `gen_ai.conversation.id`. The Prometheus alerts on them and
   what to do when one fires: [Agentic operations](../deployment/Agentic-Operations.md).
 - Tenant permissions: `agentic.runs.start`, `agentic.runs.read`, `agentic.approvals.decide`, `agentic.manage`
   (policies, cancel someone else's run).
@@ -312,7 +369,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 |---|---|---|
 | `Enabled` | `false` | Master switch |
 | `DefaultModel` | `default` | Model key of agents that name none |
-| `Models:<key>` | scripted | `Provider`, `ModelId`, `MaxOutputTokens`, prices per million tokens |
+| `Models:<key>` | scripted | `Provider`, `ModelId`, `MaxOutputTokens`, `InputPricePerMillionTokens` / `OutputPricePerMillionTokens` (0 = cost not tracked) |
 | `Providers:<name>` | scripted | `Kind`, `Endpoint`, `ApiKey`, `TimeoutSeconds`, `MaxRetries` |
 | `Limits` | see `AgentRunLimitOptions` | Per-run ceilings: model turns, tool calls, calls per turn, tokens, active seconds, sizes (prompt, input, tool arguments and results, model text) |
 | `LeaseSeconds` / `MaxAttempts` | 300 / 3 | Lease length (extended to cover a model request or tool timeout that is longer); consecutive failed attempts before the run fails |
@@ -329,6 +386,8 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Knowledge:SearchCandidates` / `MaxResults` / `EmbeddingBatchSize` | 40 / 8 / 64 | Search breadth and size; embedding batch |
 | `Memory:RetentionDays` / `MaxPerUser` / `MaxPerTenant` / `MaxRecalled` | 365 / 100 / 500 / 50 | Memory lifetime and limits |
 | `Content:RetentionDays` | 90 | Content of finished runs is erased after this many days; 0 = keep |
+| `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
+| `Conversations:MaxMessages` | 200 | Messages per conversation, then 409 `conversation_full`; 0 = no limit |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
 A provider API key may come from a Docker secret named `agentic_<provider>_api_key` (provider name in lower case).
@@ -384,6 +443,31 @@ scripted scenario.
 Tool rules: call `ISender`; never take a DbContext, a repository or a service provider; never put a tenant id, a user
 id or a permission in the input; make changes idempotent for `AgentToolContext.IdempotencyKey`; never return secrets.
 
+For a conversational agent, set `Conversational = true` and write the instructions for a conversation ("in a follow-up
+question, use the item the conversation is about"). A scripted model reads the earlier turns from
+`ScriptedTurn.History`; `Prompt` and `TurnNumber` describe the current run only.
+
+### Testing with a real model
+
+The scripted provider proves the platform; a real model proves the agent. Before production, and whenever the model
+changes:
+
+1. **Key.** Put the provider key in `secrets/agentic_openai_api_key.txt` (one line, git-ignored), or set
+   `Agentic:Providers:<name>:ApiKey` from the environment. Never in `appsettings` or a committed file. Give the
+   provider account a monthly budget.
+2. **The model alone.** Run `Agentic.Tests/ModelEvaluationTests` with `AGENTIC_EVAL_PROVIDER=OpenAiCompatible` (or
+   `Anthropic`), `AGENTIC_EVAL_MODEL` and `AGENTIC_EVAL_API_KEY` (`dotnet test src/Modules/Agentic/Agentic.Tests
+   --filter Category=ModelEvaluation`): a few hundred tokens per test.
+3. **The agent end to end.** Run the API with `Agentic:Enabled=true`, a provider of kind `OpenAiCompatible` or
+   `Anthropic` and `Agentic:Models:default` pointing at it (`docker-compose.agents.yml`, or environment variables in
+   Development), then drive the agent over HTTP and read its transcript at `/api/v1/agent-runs/{id}/steps`.
+4. **Cost.** Set the model's prices so runs and `GET /api/v1/agent-usage` report money, not only tokens.
+
+What a real model changes compared with a script: it chooses the ORDER of its tool calls and may call several at once.
+The platform's decisions follow from that order. For example, a change requested after an untrusted read waits for a
+person (taint), the same change requested before it does not. Tests that drive a real model therefore assert outcomes
+(what was done, what was refused, what waited for a person), never an exact sequence of steps or approvals.
+
 ## Failure modes and guarantees
 
 | Situation | Outcome |
@@ -409,6 +493,10 @@ id or a permission in the input; make changes idempotent for `AgentToolContext.I
 | Embedding provider down while indexing | Retried with backoff; after `Knowledge:MaxAttempts` the document is `Failed` and not searchable |
 | Embedding provider down while searching | Keyword search only |
 | A user without the source's permission searches | No passage of that source, whatever sources the model asks for |
+| A message while the previous turn is still going, or two messages at once | 409 `conversation_busy`; one turn runs, nothing else starts |
+| An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
+| A conversation is deleted while a turn runs | The turn is asked to stop and its content is erased when it does; the other turns at once |
+| Someone else's conversation, or another tenant's | 404 for every route (read with `agentic.runs.read` only) |
 
 Failure messages on a run are localized texts chosen by code. Provider and exception details go to the log only.
 
@@ -420,7 +508,7 @@ Failure messages on a run are localized texts chosen by code. Provider and excep
   `BackgroundJobEventDispatchTests`, `PendingModelChangesTests`.
 - `Agentic.IntegrationTests`: `AgentRunExecutionTests`, `AgentRunSecurityTests`, `AgentRunRecoveryTests`,
   `AgentRunCancellationTests`, `AgentApprovalTests`, `AgentGovernanceTests`, `AgentRunEventsTests`,
-  `AgentRunTracingTests`, `KnowledgeTests`, `AgentMemoryTests` (on `pgvector/pgvector`).
+  `AgentRunTracingTests`, `KnowledgeTests`, `AgentMemoryTests`, `AgentConversationTests` (on `pgvector/pgvector`).
 - `Agentic.Tests/ModelEvaluationTests` (category `ModelEvaluation`): whether a REAL model uses the tools as agents need.
   Skipped unless `AGENTIC_EVAL_PROVIDER`, `AGENTIC_EVAL_MODEL` and `AGENTIC_EVAL_API_KEY` are set; run them when choosing
   or upgrading a model. They measure the model only: no safety rule depends on them.
@@ -437,6 +525,7 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0025](../Decisions/0025-agentic-module-and-model-seam.md),
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md),
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
-[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md), [Agent security model](../Architecture/Agent-Security.md),
+[ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
+[ADR-0029](../Decisions/0029-agent-conversations.md), [Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).
