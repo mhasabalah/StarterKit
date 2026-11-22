@@ -59,7 +59,8 @@ public sealed class AgentRunExecutor(
     private DateTime Now => timeProvider.GetUtcNow().UtcDateTime;
     private TimeSpan Lease => TimeSpan.FromSeconds(Settings.LeaseSeconds);
 
-    private sealed record Snapshot(AgentRun Run, IReadOnlyList<AgentRunStep> Steps);
+    /// <param name="ParentFinished">A delegated run whose parent finished (ADR-0033): nobody waits for it any more.</param>
+    private sealed record Snapshot(AgentRun Run, IReadOnlyList<AgentRunStep> Steps, bool ParentFinished = false);
 
     private static readonly AgentRunStatus[] FinishedStatuses =
         [AgentRunStatus.Completed, AgentRunStatus.Failed, AgentRunStatus.Cancelled];
@@ -137,7 +138,7 @@ public sealed class AgentRunExecutor(
             cancellationToken.ThrowIfCancellationRequested();
             var snapshot = await LoadAsync(runId, owner);
 
-            if (snapshot.Run.CancelRequested)
+            if (snapshot.Run.CancelRequested || snapshot.ParentFinished)
             {
                 await UpdateUnderLeaseAsync(runId, owner, run => run.ConfirmCancelled(Now));
                 return;
@@ -673,6 +674,13 @@ public sealed class AgentRunExecutor(
         {
             var currentStep = await repository.GetStepAsync(run.Id, step.Id)
                               ?? throw new InvalidOperationException($"Agent run {run.Id} has no step {step.Id}.");
+            // A cancel that arrived meanwhile wins: the run stops instead of waiting, and its delegate is cancelled with it.
+            if (current.CancelRequested)
+            {
+                current.ConfirmCancelled(Now);
+                return false;
+            }
+
             current.AwaitDelegate(currentStep);
 
             // Finished already (a fast run, or a retried attempt): take its outcome now instead of waiting for it.
@@ -680,8 +688,8 @@ public sealed class AgentRunExecutor(
             if (latest is not { IsTerminal: true })
                 return false;
             return current.CompleteDelegation(currentStep, AgentDelegation.Result(latest),
-                latest.Status == AgentRunStatus.Completed, latest.Tainted, latest.InputTokens, latest.OutputTokens,
-                latest.EstimatedCost, AgentDelegation.DurationMs(latest), Now);
+                latest.Status == AgentRunStatus.Completed, latest.Tainted, latest.TotalTokens, AgentDelegation.DurationMs(latest),
+                Now);
         });
 
         if (resumeNow)
@@ -790,7 +798,10 @@ public sealed class AgentRunExecutor(
             if (run is null || !run.HoldsLease(owner))
                 throw new AgentRunLeaseLostException(runId);
             var steps = await db.Steps.AsNoTracking().Where(s => s.RunId == runId).OrderBy(s => s.Sequence).ToListAsync(ct);
-            return new Snapshot(run, steps);
+            var parentFinished = run.ParentRunId is { } parentId && await db.Runs.AnyAsync(p => p.Id == parentId &&
+                (p.Status == AgentRunStatus.Completed || p.Status == AgentRunStatus.Failed ||
+                 p.Status == AgentRunStatus.Cancelled), ct);
+            return new Snapshot(run, steps, parentFinished);
         }, CancellationToken.None);
 
     /// <summary>

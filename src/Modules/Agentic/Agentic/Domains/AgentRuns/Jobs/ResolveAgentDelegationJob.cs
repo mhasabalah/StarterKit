@@ -13,9 +13,14 @@ namespace Agentic.Domains.AgentRuns.Jobs;
 [AutomaticRetry(Attempts = 3)]
 public sealed class ResolveAgentDelegationJob(IUnitOfWorkRunner unitOfWork)
 {
-    public Task ExecuteAsync(Guid childRunId, CancellationToken cancellationToken) =>
-        unitOfWork.RunAsync((services, ct) => services.GetRequiredService<AgentDelegationResolver>().ResolveAsync(childRunId, ct),
-            cancellationToken);
+    public async Task ExecuteAsync(Guid childRunId, CancellationToken cancellationToken)
+    {
+        var outcome = await unitOfWork.RunAsync((services, ct) =>
+            services.GetRequiredService<AgentDelegationResolver>().ResolveAsync(childRunId, ct), cancellationToken);
+        // Still saving its suspension: Hangfire tries again with backoff; RequeueStalledAgentRunsJob is the backstop.
+        if (outcome == AgentDelegationResolver.Outcome.ParentNotYetWaiting)
+            throw new InvalidOperationException($"The parent of agent run {childRunId} does not wait for it yet.");
+    }
 
     public static string Schedule(IBackgroundJobClient jobs, Guid childRunId, TimeSpan delay) =>
         jobs.Schedule<ResolveAgentDelegationJob>(job => job.ExecuteAsync(childRunId, CancellationToken.None), delay);

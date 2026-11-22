@@ -129,7 +129,6 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
         ToolVersion = toolVersion;
     }
 
-    /// <summary>A person rejected the action; <paramref name="resultJson"/> is what the model is told.</summary>
     /// <summary>The <c>agent.delegate</c> call started a run that has not finished yet.</summary>
     public void AwaitDelegate()
     {
@@ -138,6 +137,7 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
         Status = AgentRunStepStatus.AwaitingDelegate;
     }
 
+    /// <summary>A person rejected the action; <paramref name="resultJson"/> is what the model is told.</summary>
     public void Reject(string resultJson, DateTime now) =>
         Close(AgentRunStepStatus.Rejected, "rejected", resultJson, 0, now);
 

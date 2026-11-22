@@ -1183,11 +1183,12 @@ Sources: [AgentRunsModule](../../src/Modules/Agentic/Agentic/Domains/AgentRuns/F
 | GET | `/api/v{version:apiVersion}/agent-memories` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | — | — |
 | POST | `/api/v{version:apiVersion}/agent-memories` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | — |
 | DELETE | `/api/v{version:apiVersion}/agent-memories/{id:guid}` | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | — |
+| POST, GET, DELETE | `/api/v1/mcp/{agentKey}` (MCP Streamable HTTP; mapped only while `Agentic:Mcp:Enabled`) | `RequireTenantPermission(TenantPermissions.AgentRunsStart)` | `DisallowImpersonation()` | `RequireFeature(agents)`; each call is decided by `AgentMcpGateway` |
 
 The handlers narrow further: an agent with a `RequiredPermission` exists only for callers who hold it; a run is readable by its initiator or with `agentic.runs.read` (an API key without that scope reads only the runs it started); cancel is for the initiator or `agentic.manage`; approval requests are listed for deciders and for the user the run acts for; an approver must also hold the proposed tool's own permission; a tenant memory needs `agentic.manage` (403 `memory_tenant_scope_forbidden`) and someone else's personal memory is 404. Anything else is 404.
 
-<!--#if (sample)-->
 <!--#endif-->
+<!--#if (sample)-->
 
 <!--#if (agentic)-->
 ### Shipping (sample)

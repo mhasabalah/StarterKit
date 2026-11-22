@@ -93,6 +93,20 @@ public class ConversationSummaryTests
     }
 
     [Fact]
+    public async Task ASummary_DoesNotChangeTheConversationsVersion_SoTheNextMessageWithItIsAccepted()
+    {
+        var user = Guid.NewGuid();
+        var id = await ConversationWithTurnsAsync(user, "One", "Two", "Three", "Four");
+        var before = await ConversationOfAsync(TenantA, id);
+
+        (await SummarizeAsync(TenantA, id)).Should().BeTrue();
+
+        (await ConversationOfAsync(TenantA, id)).Version.Should().Be(before.Version);
+        var next = await _fx.SendAsync(TenantA, new SendAgentConversationMessageCommand(id, "Five", null, before.Version), user);
+        next.Run.ConversationId.Should().Be(id);
+    }
+
+    [Fact]
     public async Task ASecondSummaryJob_ForTheSameTurns_WritesNothing_AndCostsNothing()
     {
         var id = await ConversationWithTurnsAsync(Guid.NewGuid(), "One", "Two", "Three", "Four");
@@ -130,9 +144,12 @@ public class ConversationSummaryTests
         var id = await ConversationWithTurnsAsync(Guid.NewGuid(), "One", "Two", "Three", "Four");
         _fx.Quota.Limits[EntitlementKeys.AgentTokens] = _fx.Quota.Used(EntitlementKeys.AgentTokens);
 
+        var used = _fx.Quota.Used(EntitlementKeys.AgentTokens);
+
         (await SummarizeAsync(TenantA, id)).Should().BeFalse();
 
         (await ConversationOfAsync(TenantA, id)).Summary.Should().BeNull();
+        _fx.Quota.Used(EntitlementKeys.AgentTokens).Should().Be(used, "no model is called for a plan without tokens");
     }
 
     [Fact]

@@ -99,13 +99,12 @@ Both profiles load `infra/observability/configs/alerts.yaml`. No Alertmanager is
 | `AgentRunQueueBacklog` | warning / 10m | A queued run waited over 10 minutes for an `agentic` worker |
 | `AgentApprovalBacklog` | warning / 30m | A proposed action has waited over a day for a decision |
 
-Outbox success means publication, not consumer success. See [messaging operations](../Architecture/Messaging.md#operations),
-[notification operations](../Modules/Notification-Realtime-and-Push.md#operations)
+Outbox success means publication, not consumer success. See [messaging operations](../Architecture/Messaging.md#operations)
+and [notification operations](../Modules/Notification-Realtime-and-Push.md#operations).
 <!--#if (agentic)-->
-and [agent operations](Agentic-Operations.md)
+Agent alerts have their own runbook: [agent operations](Agentic-Operations.md).
 <!--#endif-->
-. Missing/no-traffic series
-can leave ratio alerts inactive; absence of a firing rule is not evidence of delivery.
+Missing/no-traffic series can leave ratio alerts inactive; absence of a firing rule is not evidence of delivery.
 
 ## Configuration
 

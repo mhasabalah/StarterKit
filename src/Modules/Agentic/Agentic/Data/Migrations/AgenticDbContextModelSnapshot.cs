@@ -95,6 +95,10 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("culture");
 
+                    b.Property<long>("DelegatedTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("delegated_tokens");
+
                     b.Property<int>("Depth")
                         .HasColumnType("integer")
                         .HasColumnName("depth");

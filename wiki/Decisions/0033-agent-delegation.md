@@ -37,14 +37,18 @@ agent built for it. The obvious ways to do it would break earlier guarantees:
 - **Waiting is durable.** The delegating run is saved as `AwaitingDelegate`, and its step as `AwaitingDelegate`, with
   no lease.
   - When the delegated run finishes, `ResumeParentOnDelegateFinishedEventHandler` turns its outcome (status, answer
-    or typed result, failure code) into the step's result. It adds the delegated run's tokens and cost to the
-    parent's, carries its taint over, and queues the parent again.
-  - A parent that was still saving its suspension is caught by a delayed `ResolveAgentDelegationJob`, or by its own
-    next attempt.
+    or typed result, failure code) into the step's result. It adds the delegated run's tokens to the parent's
+    `DelegatedTokens` (they count against the parent's budget, but usage reports them once, on the delegated run),
+    carries its taint over, and queues the parent again.
+  - A parent that was still saving its suspension is caught by a delayed `ResolveAgentDelegationJob` (retried with
+    backoff), by its own next attempt, or by `RequeueStalledAgentRunsJob`, which resumes any parent whose delegate
+    already finished (a lost event).
   - A retried attempt finds the run it already started (unique index `ux_agent_runs_parent_step`) instead of
     starting another.
 - **Cascades.**
-  - Cancelling a run cancels the runs it delegated to.
+  - Cancelling a run cancels the runs it delegated to (retried against a running delegate's checkpoints). A delegated
+    run also stops at its next checkpoint once its parent has finished. A cancel requested while a run delegates wins
+    over its suspension.
   - Erasing a run's content erases theirs.
   - A delegated run that finishes after its parent's content was erased is erased when it stops.
   - A conversation turn that waits for a delegate counts as its active turn.

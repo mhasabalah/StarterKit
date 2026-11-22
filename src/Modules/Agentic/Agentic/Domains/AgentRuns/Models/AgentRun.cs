@@ -158,7 +158,14 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
 
     public bool IsTerminal => Status is AgentRunStatus.Completed or AgentRunStatus.Failed or AgentRunStatus.Cancelled;
 
-    public long TotalTokens => InputTokens + OutputTokens;
+    /// <summary>
+    /// Tokens the runs this one delegated to used (ADR-0033). They count against this run's <see cref="MaxTokens"/>, but
+    /// are reported on the delegated runs, so usage is never counted twice.
+    /// </summary>
+    public long DelegatedTokens { get; private set; }
+
+    /// <summary>What the token budget counts: this run's own tokens and those of its delegates.</summary>
+    public long TotalTokens => InputTokens + OutputTokens + DelegatedTokens;
 
     /// <summary>Correlation id of everything the run does (logs, tool context, audit entries of its changes).</summary>
     public string CorrelationId => CorrelationIdOf(Id);
@@ -338,12 +345,12 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     }
 
     /// <summary>
-    /// The delegated run finished: its outcome becomes the result of the <c>agent.delegate</c> call, its tokens and
-    /// cost are added to this run's (so this run's budget bounds the whole delegation), its taint carries over, and
-    /// the run goes back to the queue. False when this run no longer waits for that call (nothing changes).
+    /// The delegated run finished: its outcome becomes the result of the <c>agent.delegate</c> call, its tokens count
+    /// against this run's budget (<see cref="DelegatedTokens"/>), its taint carries over, and the run goes back to the
+    /// queue. False when this run no longer waits for that call (nothing changes).
     /// </summary>
-    public bool CompleteDelegation(AgentRunStep step, string resultJson, bool succeeded, bool tainted, long inputTokens,
-        long outputTokens, decimal cost, long durationMs, DateTime now)
+    public bool CompleteDelegation(AgentRunStep step, string resultJson, bool succeeded, bool tainted, long delegatedTokens,
+        long durationMs, DateTime now)
     {
         if (Status != AgentRunStatus.AwaitingDelegate || step.Status != AgentRunStepStatus.AwaitingDelegate || step.RunId != Id)
             return false;
@@ -353,9 +360,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         else
             step.FailWith("delegate_failed", resultJson, durationMs, now);
         ToolCalls++;
-        InputTokens += Math.Max(0, inputTokens);
-        OutputTokens += Math.Max(0, outputTokens);
-        EstimatedCost += Math.Max(0, cost);
+        DelegatedTokens += Math.Max(0, delegatedTokens);
         Tainted |= tainted;
         ConsecutiveFailures = 0;
         Status = AgentRunStatus.Queued;

@@ -86,7 +86,11 @@ public sealed class AgentMcpGateway(
                 access.PermissionCeiling, access.ApiKeyId, StartTainted: true, Enqueue: false), ct);
             var repository = services.GetRequiredService<IAgentRunRepository>();
             var tracked = await repository.GetByIdAsync(started.Id, ct) ?? started;
-            tracked.TryClaim($"mcp:{Environment.MachineName}", Now, TimeSpan.FromSeconds(Settings.LeaseSeconds));
+            // The lease outlives the tool's own timeout, so the stalled-run sweep never takes a call that is still running.
+            var lease = TimeSpan.FromSeconds(Settings.LeaseSeconds);
+            if (tool.Timeout + TimeSpan.FromSeconds(30) > lease)
+                lease = tool.Timeout + TimeSpan.FromSeconds(30);
+            tracked.TryClaim($"mcp:{Environment.MachineName}", Now, lease);
             var planned = tracked.PlanExternalToolCall($"mcp_{Guid.NewGuid():N}", tool.Name, argumentsJson);
             planned.MarkExecuting(tool.Version, Now);
             repository.AddSteps([planned]);

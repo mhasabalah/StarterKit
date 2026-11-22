@@ -99,7 +99,6 @@ public class AgentConversation : Aggregate<Guid>, IMustHaveTenant
         Title = trimmed;
     }
 
-    /// <summary>Closes it for good and drops the title; the caller erases the content of its runs.</summary>
     /// <summary>
     /// Replaces the summary with one that covers turns 1..<paramref name="throughTurn"/> (it already includes the
     /// previous summary). False when a summary of those turns or later ones already exists: nothing changes.
@@ -126,6 +125,7 @@ public class AgentConversation : Aggregate<Guid>, IMustHaveTenant
         return true;
     }
 
+    /// <summary>Closes it for good and drops the title and the summary; the caller erases the content of its runs.</summary>
     public void Delete(DateTime now)
     {
         if (Status == AgentConversationStatus.Deleted)

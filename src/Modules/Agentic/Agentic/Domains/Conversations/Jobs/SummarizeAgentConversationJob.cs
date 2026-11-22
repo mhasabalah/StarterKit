@@ -15,8 +15,10 @@ namespace Agentic.Domains.Conversations.Jobs;
 /// <para>
 /// The summary sees exactly what the history would: each turn's message and final answer, never tool results. It is
 /// model output and therefore untrusted (the sticky taint already covers it, because it comes from the runs). The
-/// tokens count against the plan's <c>agent_tokens</c> quota. Best effort: a provider failure, a quota that cannot
-/// cover it or a concurrent change leaves the conversation as it was, and the next finished turn tries again.
+/// tokens count against the plan's <c>agent_tokens</c> quota (one token is taken before the model is called, so a plan
+/// with none left pays for nothing). Best effort: a provider failure, a quota that cannot cover it or a concurrent change
+/// leaves the conversation as it was, and the next finished turn tries again. The summary is written without changing
+/// the conversation's <c>Version</c>.
 /// </para>
 /// </summary>
 [Queue(AgenticOptions.Queue)]
@@ -62,6 +64,14 @@ public sealed class SummarizeAgentConversationJob(
 
         // The owner's tokens, plan and audit identity: the summary is written on their behalf.
         using var actingUser = ActingUser.Begin(plan.OwnerId, $"agent-conversation:{conversationId:D}");
+
+        // One token first: a plan with none left is not charged a model call whose summary could not be kept.
+        if (!await ConsumeTokensAsync(1))
+        {
+            logger.LogInformation("Agent conversation {ConversationId}: no agent tokens left for a summary", conversationId);
+            return false;
+        }
+
         ModelResponse response;
         try
         {
@@ -75,15 +85,10 @@ public sealed class SummarizeAgentConversationJob(
         }
 
         var tokens = response.InputTokens + response.OutputTokens;
-        if (tokens > 0)
+        if (tokens > 1 && !await ConsumeTokensAsync(tokens - 1))
         {
-            var quota = await unitOfWork.RunAsync((services, ct) => services.GetRequiredService<IQuotaService>()
-                .TryConsumeAsync(EntitlementKeys.AgentTokens, tokens, ct), CancellationToken.None);
-            if (!quota.Allowed)
-            {
-                logger.LogInformation("Agent conversation {ConversationId}: no agent tokens left for the summary", conversationId);
-                return false;
-            }
+            logger.LogInformation("Agent conversation {ConversationId}: no agent tokens left for the summary", conversationId);
+            return false;
         }
 
         if (string.IsNullOrWhiteSpace(response.Text))
@@ -92,41 +97,52 @@ public sealed class SummarizeAgentConversationJob(
             return false;
         }
 
-        try
+        var throughTurn = plan.Turns[^1].Turn;
+        var saved = await unitOfWork.RunAsync(async (services, ct) =>
         {
-            var saved = await unitOfWork.RunAsync(async (services, ct) =>
-            {
-                var conversations = services.GetRequiredService<IAgentConversationRepository>();
-                var conversation = await conversations.GetByIdAsync(conversationId, ct);
-                // Deleted meanwhile, or the summary this one was built on is no longer the current one (another
-                // summary was written, or a content erasure dropped it): keep what is there.
-                if (conversation is null || conversation.Status != AgentConversationStatus.Active ||
-                    (conversation.Summary is null ? 0 : conversation.SummaryThroughTurn) != plan.ThroughTurn)
-                {
-                    return false;
-                }
+            var db = services.GetRequiredService<AgenticDbContext>();
+            var conversation = await db.Conversations.AsNoTracking().FirstOrDefaultAsync(c => c.Id == conversationId, ct);
+            // Deleted meanwhile: nothing is kept.
+            if (conversation is null || conversation.Status != AgentConversationStatus.Active)
+                return false;
 
-                var recorded = conversation.RecordSummary(response.Text, plan.Turns[^1].Turn, limits.MaxSummaryCharacters,
-                    response.InputTokens, response.OutputTokens, response.EstimatedCost, timeProvider.GetUtcNow().UtcDateTime);
-                if (recorded)
-                    await conversations.SaveChangesAsync(ct);
-                return recorded;
-            }, CancellationToken.None);
-
-            if (saved)
+            // The aggregate's rules (a turn the conversation has, newer than the summary there, cut to the limit), applied
+            // to a copy: the summary is then written with one guarded statement, so the conversation's Version, which a
+            // client sends with its next message, never changes behind its back.
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            if (!conversation.RecordSummary(response.Text, throughTurn, limits.MaxSummaryCharacters, response.InputTokens,
+                    response.OutputTokens, response.EstimatedCost, now))
             {
-                logger.LogInformation("Agent conversation {ConversationId}: summary written through turn {Turn} ({Tokens} tokens)",
-                    conversationId, plan.Turns[^1].Turn, tokens);
+                return false;
             }
 
-            return saved;
-        }
-        catch (Exception ex) when (ex.IsConcurrencyConflict() || ex is AgentConversationBusyException)
+            var summary = conversation.Summary;
+            var written = await db.Conversations
+                .Where(c => c.Id == conversationId && c.Status == AgentConversationStatus.Active &&
+                            (c.Summary == null ? 0 : c.SummaryThroughTurn) == plan.ThroughTurn)
+                .ExecuteUpdateAsync(c => c
+                    .SetProperty(x => x.Summary, summary)
+                    .SetProperty(x => x.SummaryThroughTurn, throughTurn)
+                    .SetProperty(x => x.SummaryUpdatedAt, now)
+                    .SetProperty(x => x.SummaryInputTokens, x => x.SummaryInputTokens + response.InputTokens)
+                    .SetProperty(x => x.SummaryOutputTokens, x => x.SummaryOutputTokens + response.OutputTokens)
+                    .SetProperty(x => x.SummaryCost, x => x.SummaryCost + response.EstimatedCost), ct);
+            // 0 rows: another summary was written, or a content erasure dropped the one this was built on.
+            return written == 1;
+        }, CancellationToken.None);
+
+        if (saved)
         {
-            logger.LogInformation("Agent conversation {ConversationId}: changed while the summary was written; skipped", conversationId);
-            return false;
+            logger.LogInformation("Agent conversation {ConversationId}: summary written through turn {Turn} ({Tokens} tokens)",
+                conversationId, throughTurn, tokens);
         }
+
+        return saved;
     }
+
+    private async Task<bool> ConsumeTokensAsync(long tokens) =>
+        (await unitOfWork.RunAsync((services, ct) => services.GetRequiredService<IQuotaService>()
+            .TryConsumeAsync(EntitlementKeys.AgentTokens, tokens, ct), CancellationToken.None)).Allowed;
 
     /// <summary>What to summarize, or null when nothing needs it.</summary>
     private static async Task<Plan?> PlanAsync(AgenticDbContext db, Guid conversationId, AgentConversationOptions limits,

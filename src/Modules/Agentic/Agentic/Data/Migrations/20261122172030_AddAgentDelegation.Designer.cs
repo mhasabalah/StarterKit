@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Agentic.Data.Migrations
 {
     [DbContext(typeof(AgenticDbContext))]
-    [Migration("20261122160701_AddAgentDelegation")]
+    [Migration("20261122172030_AddAgentDelegation")]
     partial class AddAgentDelegation
     {
         /// <inheritdoc />
@@ -97,6 +97,10 @@ namespace Agentic.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("culture");
+
+                    b.Property<long>("DelegatedTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("delegated_tokens");
 
                     b.Property<int>("Depth")
                         .HasColumnType("integer")

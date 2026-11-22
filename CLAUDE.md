@@ -432,7 +432,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 <!--#if (agentic)-->
 | Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
 <!--#endif-->
+<!--#if (agentic)-->
 | Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
+<!--#endif-->
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |

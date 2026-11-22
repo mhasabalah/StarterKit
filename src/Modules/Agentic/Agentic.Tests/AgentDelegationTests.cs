@@ -112,12 +112,14 @@ public class AgentDelegationTests
         run.Status.Should().Be(AgentRunStatus.AwaitingDelegate);
         run.LeaseOwner.Should().BeNull();
         run.TryClaim("other", now, TimeSpan.FromMinutes(5)).Should().BeFalse();
-        run.CompleteDelegation(step, """{"ok":true}""", true, true, 100, 50, 0.1m, 10, now).Should().BeTrue();
+        run.CompleteDelegation(step, """{"ok":true}""", true, true, 150, 10, now).Should().BeTrue();
         run.Status.Should().Be(AgentRunStatus.Queued);
         run.Tainted.Should().BeTrue();
-        run.InputTokens.Should().Be(110);
+        run.InputTokens.Should().Be(10, "the delegate's tokens are reported on the delegate");
+        run.DelegatedTokens.Should().Be(150);
+        run.TotalTokens.Should().Be(165, "but they count against this run's budget");
         run.ToolCalls.Should().Be(1);
-        run.CompleteDelegation(step, "{}", true, false, 1, 1, 0, 0, now).Should().BeFalse("only once");
+        run.CompleteDelegation(step, "{}", true, false, 1, 0, now).Should().BeFalse("only once");
 
         run.TryClaim("worker", now, TimeSpan.FromMinutes(5));
         var second = run.PlanToolCall(run.RecordModelTurn(null, "m", "tool_calls", 1, 1, 0, 1, now), "c2", AgentToolNames.Delegate, "{}");

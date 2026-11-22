@@ -2,6 +2,7 @@ using Agentic.Domains.AgentRuns.Events;
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Runtime.Execution;
 using Hangfire;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Agentic.Domains.AgentRuns.EventHandlers;
 
@@ -44,32 +45,58 @@ public sealed class ResumeParentOnDelegateFinishedEventHandler(
 /// </summary>
 public sealed class CancelDelegatesOnRunFinishedEventHandler(
     AgenticDbContext dbContext,
+    IUnitOfWorkRunner unitOfWork,
     TimeProvider timeProvider,
     ILogger<CancelDelegatesOnRunFinishedEventHandler> logger) : INotificationHandler<AgentRunFinishedEvent>
 {
+    private const int Attempts = 3;
+
     private static readonly AgentRunStatus[] FinishedStatuses =
         [AgentRunStatus.Completed, AgentRunStatus.Failed, AgentRunStatus.Cancelled];
 
     public async Task Handle(AgentRunFinishedEvent notification, CancellationToken cancellationToken)
     {
-        try
-        {
-            var children = await dbContext.Runs
-                .Where(r => r.ParentRunId == notification.RunId && !FinishedStatuses.Contains(r.Status))
-                .ToListAsync(cancellationToken);
-            if (children.Count == 0)
-                return;
+        var children = await dbContext.Runs.AsNoTracking()
+            .Where(r => r.ParentRunId == notification.RunId && !FinishedStatuses.Contains(r.Status))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
 
-            var now = timeProvider.GetUtcNow().UtcDateTime;
-            foreach (var child in children)
-                child.RequestCancel(now);
-            await dbContext.SaveChangesAsync(cancellationToken);
+        foreach (var childId in children)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    // Its own unit of work: a running delegate saves checkpoints concurrently, so a conflict reloads and
+                    // asks again; the delegate's own loop also stops at its next checkpoint once its parent is finished.
+                    await unitOfWork.RunAsync(async (services, ct) =>
+                    {
+                        var runs = services.GetRequiredService<IAgentRunRepository>();
+                        if (await runs.GetByIdAsync(childId, ct) is { IsTerminal: false } child)
+                        {
+                            child.RequestCancel(timeProvider.GetUtcNow().UtcDateTime);
+                            await runs.SaveChangesAsync(ct);
+                        }
+
+                        return true;
+                    }, CancellationToken.None);
+                    break;
+                }
+                catch (Exception ex) when (ex.IsConcurrencyConflict() && attempt < Attempts)
+                {
+                    logger.LogDebug(ex, "Delegated run {ChildId} changed while it was cancelled; trying again", childId);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning(ex, "Agent run {RunId}: the delegated run {ChildId} was not cancelled (it stops when it " +
+                                          "sees its parent finished)", notification.RunId, childId);
+                    break;
+                }
+            }
+        }
+
+        if (children.Count > 0)
             logger.LogInformation("Agent run {RunId} finished: {Count} delegated run(s) asked to stop", notification.RunId,
                 children.Count);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "Agent run {RunId}: its delegated runs were not cancelled", notification.RunId);
-        }
     }
 }

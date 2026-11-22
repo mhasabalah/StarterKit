@@ -110,8 +110,7 @@ public sealed class AgentDelegationResolver(
             return step.IsOpen ? Outcome.ParentNotYetWaiting : Outcome.Nothing;
 
         if (!parent.CompleteDelegation(step, AgentDelegation.Result(child), child.Status == AgentRunStatus.Completed,
-                child.Tainted, child.InputTokens, child.OutputTokens, child.EstimatedCost, AgentDelegation.DurationMs(child),
-                timeProvider.GetUtcNow().UtcDateTime))
+                child.Tainted, child.TotalTokens, AgentDelegation.DurationMs(child), timeProvider.GetUtcNow().UtcDateTime))
         {
             return Outcome.Nothing;
         }

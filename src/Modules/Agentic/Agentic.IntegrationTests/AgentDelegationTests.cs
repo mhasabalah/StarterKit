@@ -75,7 +75,8 @@ public class AgentDelegationTests
         finished.Status.Should().Be(AgentRunStatus.Completed);
         finished.OutputText.Should().Contain("A-1 is red.").And.Contain(child.Id.ToString());
         var doneChild = await _fx.RunOfAsync(TenantA, child.Id);
-        finished.InputTokens.Should().BeGreaterThan(doneChild.InputTokens, "the delegate's tokens count against the parent too");
+        finished.DelegatedTokens.Should().Be(doneChild.TotalTokens, "the delegate's tokens count against the parent's budget");
+        finished.InputTokens.Should().BeLessThan(finished.TotalTokens, "and are reported once, on the delegate");
         (await DelegateStepAsync(TenantA, parent.Id)).Status.Should().Be(AgentRunStepStatus.Succeeded);
         _fx.Jobs.For(parent.Id).Should().HaveCountGreaterThanOrEqualTo(2, "started, then queued again after the delegate");
     }
@@ -177,6 +178,44 @@ public class AgentDelegationTests
 
         (await _fx.RunOfAsync(TenantA, parent.Id)).Status.Should().Be(AgentRunStatus.Cancelled);
         (await _fx.RunOfAsync(TenantA, child.Id)).Status.Should().Be(AgentRunStatus.Cancelled);
+    }
+
+    [Fact]
+    public async Task AParentWhoseResumeWasLost_IsResumedByTheSweep()
+    {
+        Script(_ => ScriptedReply.Say("A-1 is red."));
+        var parent = await _fx.StartAsync(TenantA, TestAgents.Delegator, "Go");
+        await _fx.RunAsync(TenantA, parent.Id);
+        var child = (await ChildrenOfAsync(TenantA, parent.Id)).Single();
+        await _fx.RunAsync(TenantA, child.Id);
+        var step = await DelegateStepAsync(TenantA, parent.Id);
+        // The delegate finished, but the event that resumes its parent was lost (a crash after the delegate's commit).
+        await _fx.AdminExecAsync($"update agentic.agent_runs set status = 'AwaitingDelegate' where id = '{parent.Id}'; " +
+                                 $"update agentic.agent_run_steps set status = 'AwaitingDelegate', result_json = null where id = '{step.Id}'");
+
+        var resumed = await _fx.InTenantAsync(TenantA, sp => sp.GetRequiredService<Domains.AgentRuns.Jobs.RequeueStalledAgentRunsJob>()
+            .ResumeFinishedDelegationsAsync());
+
+        resumed.Should().Be(1);
+        (await _fx.RunOfAsync(TenantA, parent.Id)).Status.Should().Be(AgentRunStatus.Queued);
+        (await DelegateStepAsync(TenantA, parent.Id)).Status.Should().Be(AgentRunStepStatus.Succeeded);
+    }
+
+    [Fact]
+    public async Task ADelegatedRunWhoseParentFinished_StopsAtItsNextCheckpoint()
+    {
+        Script(_ => ScriptedReply.Say("never"));
+        var parent = await _fx.StartAsync(TenantA, TestAgents.Delegator, "Go");
+        await _fx.RunAsync(TenantA, parent.Id);
+        var child = (await ChildrenOfAsync(TenantA, parent.Id)).Single();
+        // The parent ended without its cancel reaching the delegate (a lost cascade).
+        await _fx.AdminExecAsync($"update agentic.agent_runs set status = 'Cancelled', finished_at = now() where id = '{parent.Id}'");
+        var turnsBefore = _fx.Board.Turns;
+
+        await _fx.RunAsync(TenantA, child.Id);
+
+        (await _fx.RunOfAsync(TenantA, child.Id)).Status.Should().Be(AgentRunStatus.Cancelled);
+        _fx.Board.Turns.Should().Be(turnsBefore, "no model is asked for a request nobody waits for");
     }
 
     [Fact]

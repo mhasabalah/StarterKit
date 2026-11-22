@@ -16,6 +16,14 @@ namespace Agentic.Data.Migrations
                 schema: "agentic",
                 table: "agent_runs");
 
+            migrationBuilder.AddColumn<long>(
+                name: "delegated_tokens",
+                schema: "agentic",
+                table: "agent_runs",
+                type: "bigint",
+                nullable: false,
+                defaultValue: 0L);
+
             migrationBuilder.AddColumn<Guid>(
                 name: "parent_step_id",
                 schema: "agentic",
@@ -76,6 +84,11 @@ namespace Agentic.Data.Migrations
 
             migrationBuilder.DropIndex(
                 name: "ux_agent_runs_parent_step",
+                schema: "agentic",
+                table: "agent_runs");
+
+            migrationBuilder.DropColumn(
+                name: "delegated_tokens",
                 schema: "agentic",
                 table: "agent_runs");
 

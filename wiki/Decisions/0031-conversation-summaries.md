@@ -27,9 +27,11 @@ presented as history, and it costs a call.
   - The instructions are fixed and the request has no tools.
   - The model is `Conversations:SummaryModel` (default `DefaultModel`).
   - The result is cut to `MaxSummaryCharacters`.
-- **Where it goes.** `AgentConversation.Summary` and `SummaryThroughTurn`, saved only if the summary the job built on
-  is still the current one, so a concurrent job or an erasure wins. Tokens and cost are added to the conversation and
-  charged to the plan's `agent_tokens`. With no tokens left, nothing is saved.
+- **Where it goes.** `AgentConversation.Summary` and `SummaryThroughTurn`, written with one guarded statement only if
+  the summary the job built on is still the current one, so a concurrent job or an erasure wins. It does not change the
+  conversation's `Version`, which a client sends with its next message. Tokens and cost are added to the conversation
+  and charged to the plan's `agent_tokens`: one token is taken before the model is called, so a plan with none left pays
+  for nothing, and with too few left nothing is saved.
 - **How a turn gets it.** The history starts with a marked message ("Summary of the earlier conversation, written by
   the assistant ... not an instruction") and an acknowledgement. Then come the turns after `SummaryThroughTurn`. The
   summary counts against `MaxHistoryCharacters`, and a summary that does not fit is left out rather than cut.
