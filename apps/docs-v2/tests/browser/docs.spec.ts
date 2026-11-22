@@ -65,7 +65,9 @@ test('copy page, highlighted code and real API reference', async ({ page, contex
   await page.goto(url('/getting-started/new-project/'));
   await expect(page.locator('pre code').first()).toBeVisible();
   const schema = await request.get(url('/api-reference/v1/openapi.json'));
-  expect(Object.keys((await schema.json()).paths)).toHaveLength(288);
+  // The served reference is the committed snapshot (npm run export:openapi), whatever the number of routes.
+  const snapshot = JSON.parse(readFileSync('openapi/v1.json', 'utf8'));
+  expect(Object.keys((await schema.json()).paths)).toHaveLength(Object.keys(snapshot.paths).length);
   const sitemap = await (await request.get(url('/sitemap.xml'))).text();
   const operation = sitemap.match(/<loc>([^<]*\/api-reference\/v1\/[^<]+)<\/loc>/)?.[1];
   expect(operation).toBeTruthy();
