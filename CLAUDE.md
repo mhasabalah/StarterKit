@@ -69,7 +69,11 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 |---|---|
 | `src/Api` | Host: `Program.cs`, appsettings, Dockerfile, host-level endpoints |
 | `src/Modules/<M>/<M>`, `<M>.Contracts` | Module implementation + its public contracts |
+<!--#if (agentic)-->
 | `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Agentic, Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
+<!--#else-->
+| `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
+<!--#endif-->
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
 | `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
 | `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
@@ -161,7 +165,11 @@ Notification is the exception: its context is in `Persistence/`.
    1. `AddDockerSecrets` → `AddSharedInfrastructure` (auth policies, CORS, localization, paging, ...)
    2. `AddMultiTenancy` → Hangfire → rate limiting → Seq → `AddModules()` (MassTransit → enum lookup → modules)
    3. Modules in `ModuleOrder`: Identity 0 → Tenancy 100 → Attachment 200 → Catalog 300 → Subscriptions 400 →
+<!--#if (agentic)-->
       Webhooks 500 → DataTransfer 600 → **new modules 700** → Agentic 800 → Notification 900 (guarded by
+<!--#else-->
+      Webhooks 500 → DataTransfer 600 → **new modules 700** → Notification 900 (guarded by
+<!--#endif-->
       `ModuleDiscoveryTests`)
 2. Middleware:
    1. `UseTrustedForwardedHeaders` (first) → `UseConfigurableCors` → `UseErrorHandling` (outside auth, so 401/403
@@ -390,8 +398,12 @@ Notification is the exception: its context is in `Persistence/`.
 - **Web.** `IHttpContextService` is in `Shared.Core.Web`; add the `using` explicitly. Avoid `[FromServices]`; Carter
   resolves parameters.
 - **Multi-tenancy** (`Shared.Core.MultiTenancy`, `wiki/MultiTenancy/*`):
+<!--#if (agentic)-->
   - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer,
     Agentic).
+<!--#else-->
+  - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer).
+<!--#endif-->
     - Every entity there, children included, is `IMustHaveTenant`.
     - Unique indexes start with `TenantId`.
     - `ApplyTenantFilters(builder)` is the LAST line of `OnModelCreating`.
@@ -428,7 +440,11 @@ The full guide is `wiki/Architecture/Messaging.md`.
 <!--#endif-->
 | Subscriptions `SubscriptionActivated/ExpiredIntegrationEvent` → Tenancy `TenantBillingStatusConsumer` | Integration |
 | Attachment `UserAvatarChangedIntegrationEvent` → Identity `UserAvatarChangedConsumer` | Integration |
+<!--#if (agentic)-->
 | Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification / Agentic erasure | Integration |
+<!--#else-->
+| Identity `UserDeletedIntegrationEvent` (in `UserDirectory.Contracts`) → Attachment / Tenancy / Notification erasure | Integration |
+<!--#endif-->
 <!--#if (agentic)-->
 | Agentic `AgentRunCompleted/FailedIntegrationEvent` → the module that owns the agent | Integration |
 <!--#endif-->
@@ -474,7 +490,11 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `ModuleDiscoveryTests` | A `src/Modules` folder is not discovered by the host, a module lacks exactly one `<M>ModuleManifest`, or `ModuleOrder` breaks a startup constraint |
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. The module list is discovered from the host. |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
+<!--#if (agentic)-->
 | `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; Microsoft.Extensions.AI, a model-provider SDK (OpenAI, Anthropic), the MCP SDK or PdfPig leaves Agentic; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+<!--#else-->
+| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+<!--#endif-->
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `SagaArchitectureTests` | A saga is registered through MassTransit directly (in-memory repository) instead of `AddDurableSagaStateMachine`, or its state is not mapped in a module DbContext |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |

@@ -87,8 +87,9 @@ groups:
           summary: "Real-time notification events are failing"
           description: "{{ $value }} hub send(s) failed in 10m. Check Redis (the SignalR backplane) and the API log 'Real-time ... failed'. Inbox data is unaffected; users see updates only after a refresh/reconnect."
 
+  #if (agentic)
   - name: agents
-    # Agentic module (meter StarterKit.Agentic). Every series exists only when Agentic:Enabled=true, so these rules
+    # Agentic module (its meter ends in .Agentic). Every series exists only when Agentic:Enabled=true, so these rules
     # stay silent in products that do not use agents. Names are matched with and without the unit/_total suffixes the
     # collector may add. Runbook: wiki/deployment/Agentic-Operations.md.
     rules:
@@ -158,3 +159,5 @@ groups:
         annotations:
           summary: "Agent actions wait more than a day for approval"
           description: "{{ $value }}s for the oldest. Approvers need agentic.approvals.decide AND the tool's own permission; check that someone holds both and receives the in-app notices (GET /api/v1/agent-approvals) (wiki/deployment/Agentic-Operations.md)."
+  #endif
+# End of the rule groups.

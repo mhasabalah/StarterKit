@@ -301,7 +301,8 @@
             "src/Api.E2ETests/DataTransfer/DataTransferFlowTests.cs",
             "src/Api.E2ETests/Infrastructure/TestData.cs",
             "wiki/Modules/Catalog.md",
-            "wiki/Modules/Shipping.md"
+            "wiki/Modules/Shipping.md",
+            "tests/load/scenarios/agents.js"
           ]
         },
         {
@@ -313,6 +314,7 @@
             "src/Api.E2ETests/Shipping/**",
             "src/Api.Tests/Architecture/AgentToolArchitectureTests.cs",
             "docker-compose.agents.yml",
+            "tests/load/scenarios/agents.js",
             "tools/claude/starterkit-plugin/skills/add-agent-tool/**",
             "wiki/Modules/Agentic.md",
             "wiki/Modules/Shipping.md",

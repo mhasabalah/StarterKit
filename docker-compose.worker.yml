@@ -5,8 +5,10 @@
 # src/Api/Infrastructure/HangfireConfiguration.cs). Here the `worker` runs ONLY the data-transfer server (bulk
 # CSV/Excel import/export, DataTransfer module) and the `api` stops processing that queue, so a 200k-row import never
 # competes with HTTP traffic for CPU and memory. Every instance can still enqueue jobs and serve the dashboard.
+#if (agentic)
 # Agent runs (queue `agentic`, Agentic module) stay on the `api`; to move them too, set
 # Hangfire__Servers__Agentic__Enabled to "false" on `api` and "true" on `worker`.
+#endif
 #   dev:  docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.worker.yml up -d
 #   prod: docker compose -f docker-compose.yml -f docker-compose.worker.yml up -d
 # Scale out: `docker compose ... up -d --scale worker=2` (jobs are leased in the database, so replicas never run the
@@ -29,7 +31,9 @@ services:
     environment:
       Hangfire__Servers__Default__Enabled: "false"
       Hangfire__Servers__Notification__Enabled: "false"
+#if (agentic)
       Hangfire__Servers__Agentic__Enabled: "false"
+#endif
       Hangfire__Servers__DataTransfer__Enabled: "true"
       Hangfire__Servers__DataTransfer__WorkerCount: ${DATATRANSFER_WORKERS:-2}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-starterkit-api}-worker

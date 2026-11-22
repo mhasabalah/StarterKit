@@ -205,7 +205,11 @@ dotnet test StarterKit.slnx            # needs Docker (Testcontainers)
 | Level | Where | Run |
 |---|---|---|
 | Unit | `src/Modules/<M>/<M>.Tests` | `dotnet test src/Modules/Catalog/Catalog.Tests` |
+<!--#if (agentic)-->
 | Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Agentic, Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
+<!--#else-->
+| Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
+<!--#endif-->
 | Architecture guardrails | `src/Api.Tests/Architecture` | `dotnet test src/Api.Tests` |
 | HTTP end-to-end (+ multi-tenant) | `src/Api.E2ETests` | `dotnet test src/Api.E2ETests` |
 | Shared kernel / Aspire | `src/Shared/Shared.Core.Tests`, `src/Aspire/AppHost.Tests` | `dotnet test <project>` |
@@ -253,7 +257,9 @@ wiki/                         # developer documentation
 | `/starterkit:add-aggregate` · `/starterkit:add-feature` | entities, then command/query slices with endpoints |
 | `/starterkit:add-migration` | EF migrations with tenant RLS |
 | `/starterkit:add-integration-event` · `/starterkit:add-background-job` | outbox events and consumers; tenant-aware Hangfire jobs |
+<!--#if (agentic)-->
 | `/starterkit:add-agent-tool` | an AI agent or typed agent tool in a module (risk, permission, idempotency, triggers) |
+<!--#endif-->
 | `/starterkit:add-permission` · `/starterkit:add-email-template` | authorization; notifications |
 | `/starterkit:write-tests` · `/starterkit:review` | tests at every level; interactive senior review |
 | `/starterkit:new-project` · `/starterkit:update-docs` | bootstrapping from the template; docs hygiene |

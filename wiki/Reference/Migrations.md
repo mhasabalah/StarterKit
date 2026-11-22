@@ -17,7 +17,9 @@ Create, inspect and apply a migration without losing module ownership or tenant 
 | Subscriptions | `SubscriptionsDbContext` | `subscriptions` | `src/Modules/Subscriptions/Subscriptions/Data/Migrations` | Control plane |
 | Webhooks | `WebhooksDbContext` | `webhooks` | `src/Modules/Webhooks/Webhooks/Data/Migrations` | Tenant data |
 | DataTransfer | `DataTransferDbContext` | `datatransfer` | `src/Modules/DataTransfer/DataTransfer/Data/Migrations` | Tenant data |
+<!--#if (agentic)-->
 | Agentic | `AgenticDbContext` | `agentic` | `src/Modules/Agentic/Agentic/Data/Migrations` | Tenant data |
+<!--#endif-->
 | Notification | `NotificationDbContext` | `notification` | `src/Modules/Notification/Notification/Data/Migrations` | Control plane |
 
 Notification's context lives in `Persistence/`; its migrations still live in `Data/Migrations`. The shared connection is `ConnectionStrings:starterkit`; tenant-data contexts can also target dedicated tenant databases. The message transport owns the separate `transport` schema, not another module DbContext.

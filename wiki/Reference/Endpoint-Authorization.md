@@ -1488,10 +1488,12 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 | `TenantPermissions.SsoManage` | `tenant.sso.manage` | Owner; Administrator |
 | `TenantPermissions.DataImport` | `datatransfer.import` | Owner; Administrator |
 | `TenantPermissions.DataExport` | `datatransfer.export` | Owner; Administrator |
+<!--#if (agentic)-->
 | `TenantPermissions.AgentRunsStart` | `agentic.runs.start` | Owner; Administrator |
 | `TenantPermissions.AgentRunsRead` | `agentic.runs.read` | Owner; Administrator |
 | `TenantPermissions.AgentApprovalsDecide` | `agentic.approvals.decide` | Owner; Administrator |
 | `TenantPermissions.AgentsManage` | `agentic.manage` | Owner; Administrator |
+<!--#endif-->
 
 ## Configuration
 

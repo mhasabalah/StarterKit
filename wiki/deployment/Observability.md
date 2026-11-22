@@ -92,12 +92,14 @@ Both profiles load `infra/observability/configs/alerts.yaml`. No Alertmanager is
 | `PushDeliveryFailing` | warning / 10m | Transient/rejected device sends > 20%, with > 20 sends in 15m |
 | `PushRejectedByProvider` | warning / 15m | More than ten rejected device sends in 30m; inspect provider credentials/payload |
 | `RealtimeSendErrors` | warning / 10m | More than five failed real-time sends in 10m; inspect Redis/backplane |
+<!--#if (agentic)-->
 | `AgentRunFailureRateHigh` | warning / 15m | Over 25% of finished agent runs failed in 30m, with more than ten runs |
 | `AgentModelUnavailable` | critical / 5m | More than two runs of one agent gave up on the model provider in 15m |
 | `AgentToolOutcomeUnknown` | warning / 0m | A non-idempotent tool was interrupted: a person must check the record |
 | `AgentRunsStalling` | warning / 10m | The sweep queued more than five stalled runs again in 30m |
 | `AgentRunQueueBacklog` | warning / 10m | A queued run waited over 10 minutes for an `agentic` worker |
 | `AgentApprovalBacklog` | warning / 30m | A proposed action has waited over a day for a decision |
+<!--#endif-->
 
 Outbox success means publication, not consumer success. See [messaging operations](../Architecture/Messaging.md#operations)
 and [notification operations](../Modules/Notification-Realtime-and-Push.md#operations).

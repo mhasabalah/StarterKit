@@ -65,8 +65,10 @@ services:
       Identity__OtpHmacKey: ${OTP_HMAC_KEY:?run make loadtest-env or copy .env.loadtest.example}
       Identity__SeedAdmin__Password: ${LOAD_ADMIN_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
       Hangfire__DashboardAuth__Password: ${HANGFIRE_DASHBOARD_PASSWORD:?run make loadtest-env or copy .env.loadtest.example}
+#if (agentic)
       # Agents (scripted model) for the opt-in k6 scenario `agents`: LOAD_AGENTS=true make loadtest-up.
       Agentic__Enabled: ${LOAD_AGENTS:-false}
+#endif
     volumes:
       # Not part of the published image (Api.csproj: CopyToPublishDirectory=Never): the profile exists only here.
       - ./src/Api/appsettings.LoadTest.json:/app/appsettings.LoadTest.json:ro
