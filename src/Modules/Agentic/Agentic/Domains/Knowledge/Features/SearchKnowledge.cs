@@ -74,7 +74,7 @@ public class SearchKnowledgeHandler(
 
         var top = Math.Clamp(query.Top, 1, settings.Knowledge.MaxResults);
         var hits = await KnowledgeStore.SearchAsync(dbContext, tenantId, query.Query, vector, embedder.ModelIdentity,
-            allowed, settings.Knowledge.SearchCandidates, top * 3, cancellationToken);
+            allowed, settings.Knowledge.SearchCandidates, top * 3, cancellationToken, KnowledgeVectorIndex.From(settings));
         hits = await FilterByDocumentPolicyAsync(hits, cancellationToken);
 
         return hits.Take(top)

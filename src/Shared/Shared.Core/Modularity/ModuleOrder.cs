@@ -26,11 +26,13 @@ public static class ModuleOrder
     /// <summary>Where new business modules go: after the platform modules, before Notification.</summary>
     public const int Default = 700;
 
+#if (AGENTIC)
     /// <summary>
     /// AI agents: after every business module (whose agents and tools it runs), before Notification. Order matters only
     /// for readability here: the agent registry is built when the host starts, from every module's registrations.
     /// </summary>
     public const int Agentic = 800;
+#endif
 
     public const int Notification = 900;
 }

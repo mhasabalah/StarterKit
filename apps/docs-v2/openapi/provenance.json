@@ -3,5 +3,5 @@
   "endpoint": "/openapi/v1.json",
   "command": "npm run export:openapi",
   "normalization": "Sorted object keys; deployment server replaced by api.example.com",
-  "paths": 288
+  "paths": 300
 }

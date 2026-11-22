@@ -10,6 +10,7 @@
     "/^---[\\s\\S]*?---/m"
   ],
   "words": [
+    "Streamable",
     "pgvector",
     "HNSW",
     "tsvector",

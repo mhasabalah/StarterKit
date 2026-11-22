@@ -635,9 +635,39 @@ export const sections = [
         "order": 28
       },
       {
+        "source": "Decisions/0029-agent-conversations.md",
+        "label": "0029 agent conversations",
+        "order": 29
+      },
+      {
+        "source": "Decisions/0030-streaming-agent-answers.md",
+        "label": "0030 streaming agent answers",
+        "order": 30
+      },
+      {
+        "source": "Decisions/0031-conversation-summaries.md",
+        "label": "0031 conversation summaries",
+        "order": 31
+      },
+      {
+        "source": "Decisions/0032-knowledge-hnsw-index.md",
+        "label": "0032 knowledge HNSW index",
+        "order": 32
+      },
+      {
+        "source": "Decisions/0033-agent-delegation.md",
+        "label": "0033 agent delegation",
+        "order": 33
+      },
+      {
+        "source": "Decisions/0034-agent-mcp-server.md",
+        "label": "0034 agent MCP server",
+        "order": 34
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 29
+        "order": 99
       }
     ]
   }

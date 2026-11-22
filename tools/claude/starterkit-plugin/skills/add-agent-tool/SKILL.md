@@ -6,8 +6,14 @@ description: Add an AI agent or a typed agent tool to a StarterKit module throug
 # Add an agent or an agent tool
 
 Background: `wiki/Modules/Agentic.md` (how runs execute, the tool gateway, approvals) and
-`wiki/Architecture/Agent-Security.md` (threats and controls). The complete reference is the Shipping sample:
-`src/Modules/Shipping/Shipping/Domains/Agents/` (five tools, a typed agent, a script) and its trigger consumer.
+`wiki/Architecture/Agent-Security.md` (threats and controls).
+<!--#if (sample)-->
+The complete reference is the Shipping sample: `src/Modules/Shipping/Shipping/Domains/Agents/` (five tools, a typed
+agent, a conversational agent, a script) and its trigger consumer.
+<!--#else-->
+Small references are the Agentic test tools and agents: `src/Modules/Agentic/Agentic.Tests/TestTools.cs` and
+`TestAgents` in `src/Modules/Agentic/Agentic.IntegrationTests/AgenticPostgresFixture.cs`.
+<!--#endif-->
 
 **Not for:** a new business command (write it first with `add-feature`; a tool only adapts it), or changing the
 Agentic module itself.
@@ -26,7 +32,11 @@ rules; the model learns them from tool results and error codes.
 
 ## 2. A tool
 
+<!--#if (sample)-->
 Templates and the reference: `src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationTools.cs`.
+<!--#else-->
+Templates: `src/Modules/Agentic/Agentic.Tests/TestTools.cs` (one tool per risk level).
+<!--#endif-->
 
 1. **Input record**: only what a model may choose (ids it was given, a note, a filter). **Never** a tenant id, a user
    id, a permission or an amount the system computes. Those come from `AgentToolContext` or the command. The JSON
@@ -52,7 +62,11 @@ Templates and the reference: `src/Modules/Shipping/Shipping/Domains/Agents/Shipm
 
 ## 3. An agent
 
+<!--#if (sample)-->
 Reference: `src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationAgent.cs`.
+<!--#else-->
+Reference: `TestAgents` in `src/Modules/Agentic/Agentic.IntegrationTests/AgenticPostgresFixture.cs`.
+<!--#endif-->
 
 1. `services.AddAgent(new AgentDefinition { ... })` with:
    - `Key = "<module>.<name>"`, `Name` / `Description` as `LocalizedText` (en + ar).
@@ -65,8 +79,17 @@ Reference: `src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationAgen
    - `OutputType` (optional): a record the run must hand in through `agent.submit_result`, with a localized
      FluentValidation validator in the module. `Limits` (optional): lower the global per-run ceilings.
    - `Version` / `MinResumableVersion`: bump when tools or instructions change incompatibly.
+   - `Conversational = true` (optional): people can talk to it at `/api/v1/agent-conversations`. Every message is a
+     run given the earlier turns (message and final answer only). Write the instructions for follow-ups ("use the
+     item the conversation is about"); ids are not in the history, so a follow-up looks the item up again.
+<!--#if (sample)-->
+     Reference: `ShippingAssistantAgent`.
+<!--#endif-->
 2. **Scripted scenario** (tests, demos, CI without an API key): an `IAgentScript` with `AgentKey` = the agent key,
-   registered with `services.AddAgentScript<<X>Script>()`. Refused in Production.
+   registered with `services.AddAgentScript<<X>Script>()`. Refused in Production. For a conversational agent the
+   earlier turns arrive in `ScriptedTurn.History`; `Prompt` and `TurnNumber` describe the current run only.
+3. **Real model**: before production, run `ModelEvaluationTests` and drive the agent once against the real provider
+   (`wiki/Modules/Agentic.md#testing-with-a-real-model`). Assert outcomes, not the exact order of tool calls.
 
 ## 4. An automatic trigger (optional)
 
@@ -74,18 +97,25 @@ Reference: `src/Modules/Shipping/Shipping/Domains/Agents/ShipmentPreparationAgen
 2. Its consumer sends `RequestAgentRunCommand(agentKey, AgentTriggerKind.Event, "<stable key per fact>", <the real user
    who caused it>, prompt, input)`. The trigger key makes a redelivery return the same run.
 3. Catch `NotFoundException` / `ForbiddenException` (agents off, user may not start it), log and return; let anything
-   else throw so the bus retries. Reference: `ShipmentReadyForClearanceConsumer`.
+   else throw so the bus retries.
+<!--#if (sample)-->
+   Reference: `ShipmentReadyForClearanceConsumer`.
+<!--#endif-->
 4. Never invent a system user: an automatic run acts for a real, current member.
 
 ## 5. Tests
 
-- **Unit**: the tool's mapping (mock `ISender`), the result validator, the script's turns
-  (`Shipping.Tests/ShippingDomainTests`).
+- **Unit**: the tool's mapping (mock `ISender`), the result validator, the script's turns.
 - **Integration** on Postgres: the commands the tools call, including idempotency of the mutation tools, cross-tenant
-  ids (404) and stale versions (`Shipping.IntegrationTests/ShippingFlowTests`).
-- **E2E** with agents on (`AgentsEnabledE2ETestFactory`): start or trigger the run, wait for `AwaitingApproval`,
-  approve with the `payloadHash`, wait for `Completed`; plus rejection and a refused path
-  (`Api.E2ETests/Shipping/ShipmentPreparationAgentE2ETests`).
+  ids (404) and stale versions.
+- **E2E** with agents on: start or trigger the run, wait for `AwaitingApproval`, approve with the `payloadHash`, wait
+  for `Completed`; plus rejection and a refused path.
+<!--#if (sample)-->
+- References: `Shipping.Tests/ShippingDomainTests`, `Shipping.IntegrationTests/ShippingFlowTests` and
+  `Api.E2ETests/Shipping/ShipmentPreparationAgentE2ETests` (`AgentsEnabledE2ETestFactory`).
+<!--#else-->
+- References: `Agentic.IntegrationTests/AgentApprovalTests` (approvals) and `AgentRunExecutionTests` (the gateway).
+<!--#endif-->
 - `dotnet test src/Api.Tests` (tool architecture, boundaries, third-party isolation).
 
 ## 6. Docs

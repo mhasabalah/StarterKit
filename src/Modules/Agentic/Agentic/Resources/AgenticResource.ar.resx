@@ -69,6 +69,9 @@
   <data name="Agent.State.budget_invalid" xml:space="preserve">
     <value>حدود التشغيل غير صالحة.</value>
   </data>
+  <data name="Agent.State.conversation_turn_invalid" xml:space="preserve">
+    <value>يحتاج دور المحادثة إلى محادثته ورقم دور يبدأ من 1.</value>
+  </data>
   <data name="Agent.State.trigger_key_too_long" xml:space="preserve">
     <value>مفتاح المشغِّل طويل جداً.</value>
   </data>
@@ -113,6 +116,33 @@
   </data>
   <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
     <value>هذه الأداة غير متاحة لهذا الوكيل.</value>
+  </data>
+  <data name="Agent.Tool.delegation_too_deep" xml:space="preserve">
+    <value>لا يمكن لهذا الوكيل تفويض المهمة إلى وكيل آخر: تم بلوغ الحد الأقصى لعمق التفويض.</value>
+  </data>
+  <data name="Agent.Tool.delegation_refused" xml:space="preserve">
+    <value>تعذر بدء الوكيل الآخر.</value>
+  </data>
+  <data name="Agent.State.delegation_invalid" xml:space="preserve">
+    <value>بيانات التفويض غير صالحة.</value>
+  </data>
+  <data name="Agent.State.step_not_open" xml:space="preserve">
+    <value>هذه الخطوة مغلقة بالفعل.</value>
+  </data>
+  <data name="Agent.Failure.mcp_call_interrupted" xml:space="preserve">
+    <value>توقف استدعاء MCP قبل أن يكتمل.</value>
+  </data>
+  <data name="Agent.State.not_an_mcp_call" xml:space="preserve">
+    <value>هذا التشغيل ليس استدعاء MCP.</value>
+  </data>
+  <data name="Agent.Mcp.agent_not_found" xml:space="preserve">
+    <value>لا يوجد خادم MCP لهذا الوكيل.</value>
+  </data>
+  <data name="Agent.Mcp.tool_not_found" xml:space="preserve">
+    <value>هذه الأداة غير متاحة لك عبر MCP.</value>
+  </data>
+  <data name="Agent.Mcp.approval_required" xml:space="preserve">
+    <value>هذا الإجراء يحتاج إلى موافقة شخص؛ ابدأ تشغيلاً للوكيل بدلاً من ذلك.</value>
   </data>
   <data name="Agent.Tool.forbidden" xml:space="preserve">
     <value>لا يملك المستخدم صلاحية القيام بذلك.</value>
@@ -311,5 +341,44 @@
   </data>
   <data name="Agent.Error.memory_person_only" xml:space="preserve">
     <value>يكتب الأشخاص الذكريات؛ ويمكن للوكيل فقط اقتراح ذكرى للموافقة عليها.</value>
+  </data>
+  <data name="Validation.Message.Required" xml:space="preserve">
+    <value>الرسالة مطلوبة.</value>
+  </data>
+  <data name="Validation.Message.MaxLength" xml:space="preserve">
+    <value>يجب ألا تتجاوز الرسالة {0} حرفًا.</value>
+  </data>
+  <data name="Validation.Conversation.Title.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز العنوان {0} حرفًا.</value>
+  </data>
+  <data name="Agent.Conversation.not_found" xml:space="preserve">
+    <value>المحادثة '{0}' غير موجودة.</value>
+  </data>
+  <data name="Agent.Conversation.agent_required" xml:space="preserve">
+    <value>الوكيل مطلوب.</value>
+  </data>
+  <data name="Agent.Conversation.owner_required" xml:space="preserve">
+    <value>يجب أن يكون للمحادثة مالك.</value>
+  </data>
+  <data name="Agent.Conversation.title_too_long" xml:space="preserve">
+    <value>العنوان طويل جدًا.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_deleted" xml:space="preserve">
+    <value>تم حذف المحادثة.</value>
+  </data>
+  <data name="Agent.Conversation.agent_not_conversational" xml:space="preserve">
+    <value>الوكيل '{0}' لا يدعم المحادثات.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_busy" xml:space="preserve">
+    <value>ما زال الرد على الرسالة السابقة جاريًا. أرسل الرسالة التالية بعد اكتماله.</value>
+  </data>
+  <data name="Agent.Conversation.summary_empty" xml:space="preserve">
+    <value>الملخص فارغ.</value>
+  </data>
+  <data name="Agent.Conversation.summary_turn_invalid" xml:space="preserve">
+    <value>الملخص يغطي رسالة غير موجودة في المحادثة.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_full" xml:space="preserve">
+    <value>بلغت المحادثة {0} رسالة. ابدأ محادثة جديدة.</value>
   </data>
 </root>

@@ -10,6 +10,9 @@ public interface IAgentRunRepository
 
     Task<AgentRunStep?> GetStepAsync(Guid runId, Guid stepId, CancellationToken cancellationToken = default);
 
+    /// <summary>The run an <c>agent.delegate</c> step started, if any (read-only).</summary>
+    Task<AgentRun?> FindDelegateAsync(Guid parentStepId, CancellationToken cancellationToken = default);
+
     Task AddAsync(AgentRun run, CancellationToken cancellationToken = default);
 
     /// <summary>Adds steps (saved with the next <see cref="SaveChangesAsync"/>).</summary>
@@ -29,6 +32,9 @@ public interface IAgentRunRepository
 
 public class AgentRunRepository(AgenticDbContext context) : IAgentRunRepository
 {
+    public Task<AgentRun?> FindDelegateAsync(Guid parentStepId, CancellationToken cancellationToken = default) =>
+        context.Runs.AsNoTracking().FirstOrDefaultAsync(r => r.ParentStepId == parentStepId, cancellationToken);
+
     public Task<AgentRun?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.Runs.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 

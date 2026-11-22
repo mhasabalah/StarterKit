@@ -24,6 +24,36 @@ public class AgentRunEventsTests
     private static int Status(Notification.Contracts.Realtime.UserEvent e) => (int)e.Data["status"]!;
 
     [Fact]
+    public async Task AnAnswer_IsStreamedToTheInitiator_InOrder_AndTheStreamAddsUpToTheSavedAnswer()
+    {
+        _fx.Options.Streaming.IntervalMilliseconds = 0; // every piece is sent, so the order is visible
+        _fx.Board.Play(ScriptedReply.Say("The item A-1 is in stock and ships today."));
+        var started = await _fx.StartAsync(TenantA);
+
+        await _fx.RunAsync(TenantA, started.Id);
+
+        var run = await _fx.SendAsync(TenantA, new GetAgentRunByIdQuery(started.Id));
+        var text = _fx.Events.For(started.Id, AgentRunTextStreams.EventType);
+        text.Should().HaveCountGreaterThan(1).And.OnlyContain(e => e.User == TestCaller.Alice);
+        text.Select(e => (int)e.Event.Data["offset"]!).Should().BeInAscendingOrder();
+        string.Concat(text.Select(e => (string)e.Event.Data["delta"]!)).Should().Be(run.OutputText);
+        _fx.Events.For(started.Id).Should().OnlyContain(e => !e.Event.Data.ContainsKey("delta"),
+            "progress events still carry no content");
+    }
+
+    [Fact]
+    public async Task WithStreamingOff_NoTextIsSent()
+    {
+        _fx.Options.Streaming.Enabled = false;
+        _fx.Board.Play(ScriptedReply.Say("Done."));
+        var started = await _fx.StartAsync(TenantA);
+
+        await _fx.RunAsync(TenantA, started.Id);
+
+        _fx.Events.For(started.Id, AgentRunTextStreams.EventType).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ACompletedRun_WritesOneCompletedEvent_ToTheOutbox_InTheFinishingTransaction()
     {
         _fx.Board.Play(ScriptedReply.Call(GetItemTool.Name, """{"code":"A-1"}"""));

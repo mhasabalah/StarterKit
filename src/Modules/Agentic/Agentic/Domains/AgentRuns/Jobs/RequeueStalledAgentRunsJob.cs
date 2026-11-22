@@ -1,5 +1,6 @@
 using Agentic.Contracts.Approvals;
 using Agentic.Telemetry;
+using Agentic.Runtime.Execution;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -106,6 +107,48 @@ public sealed class RequeueStalledAgentRunsJob(
 
         metrics.RecordRequeued(stalled.Count);
 
-        return stalled.Count;
+        return stalled.Count + await ResumeFinishedDelegationsAsync();
+    }
+
+    /// <summary>
+    /// Backstop of delegation (ADR-0033): a run waiting for a delegate that already finished (the finished event was lost
+    /// with a crash, or the parent was still saving its suspension) is given the outcome and queued again.
+    /// </summary>
+    public async Task<int> ResumeFinishedDelegationsAsync()
+    {
+        var finished = await unitOfWork.RunAsync((services, ct) =>
+        {
+            var db = services.GetRequiredService<AgenticDbContext>();
+            return db.Runs.AsNoTracking()
+                .Where(child => child.ParentStepId != null &&
+                                (child.Status == AgentRunStatus.Completed || child.Status == AgentRunStatus.Failed ||
+                                 child.Status == AgentRunStatus.Cancelled) &&
+                                db.Runs.Any(parent => parent.Id == child.ParentRunId && parent.Status == AgentRunStatus.AwaitingDelegate))
+                .OrderBy(child => child.FinishedAt)
+                .Select(child => child.Id)
+                .Take(BatchSize)
+                .ToListAsync(ct);
+        }, CancellationToken.None);
+
+        var resumed = 0;
+        foreach (var childId in finished)
+        {
+            try
+            {
+                var outcome = await unitOfWork.RunAsync((services, ct) =>
+                    services.GetRequiredService<AgentDelegationResolver>().ResolveAsync(childId, ct), CancellationToken.None);
+                if (outcome == AgentDelegationResolver.Outcome.Resumed)
+                {
+                    resumed++;
+                    logger.LogWarning("Agent run delegated {ChildId} had finished; its parent was resumed by the sweep", childId);
+                }
+            }
+            catch (Exception ex) when (ex.IsConcurrencyConflict())
+            {
+                logger.LogInformation("Agent run delegated {ChildId}: its parent changed meanwhile; the next sweep looks again", childId);
+            }
+        }
+
+        return resumed;
     }
 }

@@ -69,6 +69,9 @@
   <data name="Agent.State.budget_invalid" xml:space="preserve">
     <value>The run limits are not valid.</value>
   </data>
+  <data name="Agent.State.conversation_turn_invalid" xml:space="preserve">
+    <value>A conversation turn needs its conversation and a turn number from 1.</value>
+  </data>
   <data name="Agent.State.trigger_key_too_long" xml:space="preserve">
     <value>The trigger key is too long.</value>
   </data>
@@ -113,6 +116,33 @@
   </data>
   <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
     <value>This tool is not available to this agent.</value>
+  </data>
+  <data name="Agent.Tool.delegation_too_deep" xml:space="preserve">
+    <value>This agent cannot hand the task to another agent: the delegation is already as deep as allowed.</value>
+  </data>
+  <data name="Agent.Tool.delegation_refused" xml:space="preserve">
+    <value>The other agent could not be started.</value>
+  </data>
+  <data name="Agent.State.delegation_invalid" xml:space="preserve">
+    <value>The delegation details are not valid.</value>
+  </data>
+  <data name="Agent.State.step_not_open" xml:space="preserve">
+    <value>This step is already closed.</value>
+  </data>
+  <data name="Agent.Failure.mcp_call_interrupted" xml:space="preserve">
+    <value>The MCP call stopped before it finished.</value>
+  </data>
+  <data name="Agent.State.not_an_mcp_call" xml:space="preserve">
+    <value>This run is not an MCP call.</value>
+  </data>
+  <data name="Agent.Mcp.agent_not_found" xml:space="preserve">
+    <value>There is no MCP server for this agent.</value>
+  </data>
+  <data name="Agent.Mcp.tool_not_found" xml:space="preserve">
+    <value>This tool is not available to you over MCP.</value>
+  </data>
+  <data name="Agent.Mcp.approval_required" xml:space="preserve">
+    <value>This action needs a person's approval; start a run of the agent instead.</value>
   </data>
   <data name="Agent.Tool.forbidden" xml:space="preserve">
     <value>The user is not permitted to do this.</value>
@@ -311,5 +341,44 @@
   </data>
   <data name="Agent.Error.memory_person_only" xml:space="preserve">
     <value>Memories are written by people; an agent can only propose one for approval.</value>
+  </data>
+  <data name="Validation.Message.Required" xml:space="preserve">
+    <value>The message is required.</value>
+  </data>
+  <data name="Validation.Message.MaxLength" xml:space="preserve">
+    <value>The message must be at most {0} characters.</value>
+  </data>
+  <data name="Validation.Conversation.Title.MaxLength" xml:space="preserve">
+    <value>The title must be at most {0} characters.</value>
+  </data>
+  <data name="Agent.Conversation.not_found" xml:space="preserve">
+    <value>The conversation '{0}' was not found.</value>
+  </data>
+  <data name="Agent.Conversation.agent_required" xml:space="preserve">
+    <value>The agent is required.</value>
+  </data>
+  <data name="Agent.Conversation.owner_required" xml:space="preserve">
+    <value>The conversation needs an owner.</value>
+  </data>
+  <data name="Agent.Conversation.title_too_long" xml:space="preserve">
+    <value>The title is too long.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_deleted" xml:space="preserve">
+    <value>The conversation was deleted.</value>
+  </data>
+  <data name="Agent.Conversation.agent_not_conversational" xml:space="preserve">
+    <value>The agent '{0}' does not hold conversations.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_busy" xml:space="preserve">
+    <value>The previous message is still being answered. Send the next one when it is done.</value>
+  </data>
+  <data name="Agent.Conversation.summary_empty" xml:space="preserve">
+    <value>The summary is empty.</value>
+  </data>
+  <data name="Agent.Conversation.summary_turn_invalid" xml:space="preserve">
+    <value>The summary covers a message the conversation does not have.</value>
+  </data>
+  <data name="Agent.Conversation.conversation_full" xml:space="preserve">
+    <value>The conversation has reached {0} messages. Start a new conversation.</value>
   </data>
 </root>

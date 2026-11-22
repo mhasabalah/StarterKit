@@ -37,6 +37,11 @@ public static class ShippingModule
         services.AddAgentTool<SubmitDeclarationTool>();
         services.AddAgentScript<ShipmentPreparationScript>();
 
+        // The conversational sample: read-only answers about shipments over several messages.
+        services.AddAgent(ShippingAssistantAgent.Definition);
+        services.AddAgentTool<FindShipmentsTool>();
+        services.AddAgentScript<ShippingAssistantScript>();
+
         services.AddMediator(ShippingRoot.AssemblyName);
         services.AddCarterWithAssemblies(ShippingRoot.AssemblyName);
 

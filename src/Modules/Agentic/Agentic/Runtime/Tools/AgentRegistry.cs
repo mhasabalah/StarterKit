@@ -13,6 +13,11 @@ public sealed record RegisteredAgent(
     JsonElement? OutputSchema)
 {
     public bool Allows(string toolName) => Tools.Any(t => t.Name == toolName);
+
+    /// <summary>The <c>agent.delegate</c> declaration of an agent with <c>Delegates</c> (ADR-0033); null otherwise.</summary>
+    public (string Description, JsonElement Schema)? Delegation { get; init; }
+
+    public bool MayDelegateTo(string agentKey) => Definition.Delegates.Contains(agentKey, StringComparer.Ordinal);
 }
 
 /// <summary>
@@ -44,6 +49,10 @@ public sealed partial class AgentRegistry
             if (!_agents.TryAdd(definition.Key, agent))
                 throw new InvalidOperationException($"Two agents use the key '{definition.Key}'.");
         }
+
+        foreach (var agent in _agents.Values.ToList())
+            _agents[agent.Definition.Key] = DescribeDelegation(agent);
+        EnsureNoDelegationCycle();
     }
 
     public IReadOnlyCollection<RegisteredAgent> Agents => _agents.Values;
@@ -82,8 +91,8 @@ public sealed partial class AgentRegistry
                 "(lower case letters, digits and single underscores).");
         }
 
-        if (attribute.Name == AgentToolNames.SubmitResult)
-            throw new InvalidOperationException($"'{AgentToolNames.SubmitResult}' is reserved ({toolType.FullName}).");
+        if (attribute.Name is AgentToolNames.SubmitResult or AgentToolNames.Delegate)
+            throw new InvalidOperationException($"'{attribute.Name}' is reserved ({toolType.FullName}).");
         if (string.IsNullOrWhiteSpace(attribute.Description))
             throw new InvalidOperationException($"Agent tool '{attribute.Name}' needs a description for the model.");
         if (attribute.TimeoutSeconds < 1)
@@ -170,6 +179,82 @@ public sealed partial class AgentRegistry
 
         JsonElement? outputSchema = definition.OutputType is { } output ? SchemaOf(output) : null;
         return new RegisteredAgent(definition, tools, outputSchema);
+    }
+
+    // ----- delegation (ADR-0033) ---------------------------------------------------------------------------------
+
+    private static readonly string[] DelegateRequired = ["agentKey", "task"];
+
+    private RegisteredAgent DescribeDelegation(RegisteredAgent agent)
+    {
+        var definition = agent.Definition;
+        if (definition.Delegates.Count == 0)
+            return agent;
+        if (definition.Delegates.Distinct(StringComparer.Ordinal).Count() != definition.Delegates.Count)
+            throw new InvalidOperationException($"Agent '{definition.Key}' lists a delegate twice.");
+
+        var lines = new List<string>(definition.Delegates.Count);
+        foreach (var key in definition.Delegates)
+        {
+            if (key == definition.Key)
+                throw new InvalidOperationException($"Agent '{definition.Key}' cannot delegate to itself.");
+            var target = FindAgent(key) ?? throw new InvalidOperationException(
+                $"Agent '{definition.Key}' delegates to '{key}', which no module registered (AddAgent).");
+            if (!target.Definition.AllowedTriggers.Contains(AgentTriggerKind.Delegated))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{definition.Key}' delegates to '{key}', which does not allow the trigger Delegated.");
+            }
+
+            var about = target.Definition.Description?.En ?? target.Definition.Name.En;
+            lines.Add($"- {key}: {about}{(target.OutputSchema is null ? string.Empty : " (answers with a structured result)")}");
+        }
+
+        var description =
+            "Hands a task to another agent and returns its final answer. Use it when a listed agent is the right one for " +
+            "part of the work. The task must say everything that agent needs: it does not see this conversation. Agents:\n" +
+            string.Join("\n", lines);
+        var schema = JsonSerializer.SerializeToElement(new Dictionary<string, object>
+        {
+            ["type"] = "object",
+            ["properties"] = new Dictionary<string, object>
+            {
+                ["agentKey"] = new Dictionary<string, object>
+                {
+                    ["type"] = "string", ["enum"] = definition.Delegates.ToArray(), ["description"] = "The agent to hand the task to."
+                },
+                ["task"] = new Dictionary<string, object>
+                {
+                    ["type"] = "string", ["description"] = "The task, with every detail the agent needs."
+                }
+            },
+            ["required"] = DelegateRequired,
+            ["additionalProperties"] = false
+        });
+        return agent with { Delegation = (description, schema) };
+    }
+
+    private void EnsureNoDelegationCycle()
+    {
+        var done = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var start in _agents.Keys)
+            Visit(start, []);
+
+        void Visit(string key, List<string> path)
+        {
+            if (path.Contains(key, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Agents delegate to each other in a cycle: {string.Join(" -> ", path.Append(key))}.");
+            }
+
+            if (!done.Add(key))
+                return;
+            path.Add(key);
+            foreach (var next in _agents[key].Definition.Delegates)
+                Visit(next, path);
+            path.RemoveAt(path.Count - 1);
+        }
     }
 
     [GeneratedRegex(@"^[a-z][a-z0-9]*(\.[a-z][a-z0-9_]*)+$")]

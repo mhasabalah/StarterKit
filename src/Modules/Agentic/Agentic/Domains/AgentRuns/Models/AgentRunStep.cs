@@ -71,7 +71,7 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
 
     /// <summary>Not handled to the end yet: the run cannot ask the model again before it is.</summary>
     public bool IsOpen => Status is AgentRunStepStatus.Pending or AgentRunStepStatus.Executing
-        or AgentRunStepStatus.AwaitingApproval;
+        or AgentRunStepStatus.AwaitingApproval or AgentRunStepStatus.AwaitingDelegate;
 
     private AgentRunStep()
     {
@@ -127,6 +127,14 @@ public class AgentRunStep : Entity<Guid>, IMustHaveTenant
         EnsureOpen();
         Status = AgentRunStepStatus.AwaitingApproval;
         ToolVersion = toolVersion;
+    }
+
+    /// <summary>The <c>agent.delegate</c> call started a run that has not finished yet.</summary>
+    public void AwaitDelegate()
+    {
+        if (Kind != AgentRunStepKind.ToolCall || !IsOpen)
+            throw new InvalidAgentRunStateException("step_not_open");
+        Status = AgentRunStepStatus.AwaitingDelegate;
     }
 
     /// <summary>A person rejected the action; <paramref name="resultJson"/> is what the model is told.</summary>

@@ -91,6 +91,17 @@ public sealed class UserDeletedAgenticConsumer(
             return await AgentRunContentEraser.EraseAsync(db, ids, now, ct);
         }, cancellationToken);
 
+        // 5. Their conversations: closed for good, titles and summaries dropped (the turns were erased above as their runs).
+        await unitOfWork.RunAsync((services, ct) => services.GetRequiredService<AgenticDbContext>().Conversations
+            .Where(c => c.OwnerId == userId && c.Status != AgentConversationStatus.Deleted)
+            .ExecuteUpdateAsync(c => c
+                .SetProperty(x => x.Status, AgentConversationStatus.Deleted)
+                .SetProperty(x => x.Title, (string?)null)
+                .SetProperty(x => x.Summary, (string?)null)
+                .SetProperty(x => x.SummaryThroughTurn, 0)
+                .SetProperty(x => x.SummaryUpdatedAt, (DateTime?)null)
+                .SetProperty(x => x.DeletedAt, now), ct), cancellationToken);
+
         if (memories + erased > 0 || running > 0)
         {
             logger.LogInformation(

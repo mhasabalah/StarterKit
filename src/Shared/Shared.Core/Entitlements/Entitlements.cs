@@ -43,6 +43,7 @@ public static class EntitlementKeys
     /// </summary>
     public const string DataTransferRows = "data_transfer_rows";
 
+#if (AGENTIC)
     /// <summary>Plan feature: AI agents (Agentic module).</summary>
     public const string Agents = "agents";
 
@@ -57,6 +58,7 @@ public static class EntitlementKeys
 
     /// <summary>Plan limit: agent runs of one tenant that may be queued, running or waiting at the same time.</summary>
     public const string MaxConcurrentAgentRuns = "max_concurrent_agent_runs";
+#endif
 }
 
 /// <summary>Default when no billing module is installed: everything is allowed, nothing is limited.</summary>

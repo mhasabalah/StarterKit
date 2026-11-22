@@ -30,6 +30,8 @@ public static class AgenticTelemetry
         activity?.SetTag("agent.trigger", run.TriggerKind.ToString());
         activity?.SetTag("agent.attempt", run.Attempts);
         activity?.SetTag("correlation.id", run.CorrelationId);
+        if (run.ConversationId is { } conversationId)
+            activity?.SetTag("gen_ai.conversation.id", conversationId); // OpenTelemetry GenAI semantic convention
         return activity;
     }
 

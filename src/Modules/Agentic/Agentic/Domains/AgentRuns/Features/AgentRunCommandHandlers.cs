@@ -53,8 +53,7 @@ public class StartAgentRunHandler(AgentRegistry registry, AgentAccess access, Ag
             throw new AgentAccessDeniedException("trigger_not_allowed", definition.Key, trigger);
 
         var run = await starter.StartAsync(new AgentRunStart(agent, trigger, access.UserId, command.Prompt,
-            command.InputJson, AgenticText.CurrentCulture, access.PermissionCeiling, access.ApiKeyId,
-            SessionId: command.SessionId), cancellationToken);
+            command.InputJson, AgenticText.CurrentCulture, access.PermissionCeiling, access.ApiKeyId), cancellationToken);
         return AgentRunProjections.Map(run);
     }
 }

@@ -200,4 +200,78 @@ public class ShippingDomainTests
         result.GetProperty("submitted").GetBoolean().Should().BeFalse();
         result.GetProperty("findings")[0].GetString().Should().Contain("rejected");
     }
+
+    // ----- the conversational assistant's scripted scenario ------------------------------------------------------
+
+    private static ScriptedReply Ask(string prompt, IReadOnlyList<ScriptedHistoryTurn>? history = null,
+        params (string Tool, object Result)[] results) =>
+        new ShippingAssistantScript().Next(new ScriptedTurn(ShippingAssistantAgent.Key, prompt, results.Length + 1,
+            results.Select(r => new ScriptedToolResult(r.Tool, JsonSerializer.Serialize(r.Result, JsonSerializerOptions.Web))).ToList(),
+            history));
+
+    private static readonly (string, object) FoundShp1 = ("shipping.find_shipments", new
+    {
+        shipments = new[] { new { id = ShipmentId, reference = "SHP-001", originCountry = "CN", destinationCountry = "AE", hsCode = "8471.30", status = "ReadyForClearance" } }
+    });
+
+    [Fact]
+    public void TheAssistant_HandsPreparationToThePreparationAgent_AndReportsWhatItFound()
+    {
+        var call = Ask("Please prepare SHP-001 for clearance", null, FoundShp1).ToolCalls!.Single();
+        call.Tool.Should().Be(Agentic.Contracts.Tools.AgentToolNames.Delegate);
+        call.ArgumentsJson.Should().Contain(ShipmentPreparationAgent.Key).And.Contain(ShipmentId.ToString()).And.Contain("SHP-001");
+
+        var delegated = ("agent.delegate", (object)new
+        {
+            runId = Guid.NewGuid(),
+            status = "Completed",
+            result = new { findings = new[] { "Not submitted: missing PackingList." }, submitted = false }
+        });
+        Ask("Please prepare SHP-001 for clearance", null, FoundShp1, delegated).Text
+            .Should().Contain("not submitted").And.Contain("PackingList");
+
+        var failed = ("agent.delegate", (object)new { runId = Guid.NewGuid(), status = "Failed", failureCode = "forbidden" });
+        Ask("Please prepare SHP-001 for clearance", null, FoundShp1, failed).Text.Should().Contain("did not finish").And.Contain("forbidden");
+    }
+
+    [Fact]
+    public void TheAssistant_MayOnlyDelegateToThePreparationAgent_WhichAcceptsDelegatedRuns()
+    {
+        ShippingAssistantAgent.Definition.Delegates.Should().Equal(ShipmentPreparationAgent.Key);
+        ShipmentPreparationAgent.Definition.AllowedTriggers.Should().Contain(Agentic.Contracts.Agents.AgentTriggerKind.Delegated);
+        ShippingAssistantAgent.Definition.Tools.Should().OnlyContain(t => t.StartsWith("shipping.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void TheAssistant_FindsTheShipmentNamedInTheMessage_ThenAnswersFromIt()
+    {
+        var find = Ask("Where is SHP-001?").ToolCalls!.Single();
+        find.Tool.Should().Be("shipping.find_shipments");
+        find.ArgumentsJson.Should().Contain("SHP-001");
+
+        Ask("Where is SHP-001?", null, FoundShp1).Text.Should().Contain("CN").And.Contain("AE").And.Contain("ReadyForClearance");
+    }
+
+    [Fact]
+    public void TheAssistant_TakesTheShipmentOfAFollowUp_FromTheEarlierTurns()
+    {
+        var history = new[] { new ScriptedHistoryTurn("Where is SHP-001?", "SHP-001 goes from CN to AE.") };
+
+        Ask("And how much VAT is due?", history).ToolCalls!.Single().ArgumentsJson.Should().Contain("SHP-001");
+        var estimate = Ask("And how much VAT is due?", history, FoundShp1).ToolCalls!.Single();
+        estimate.Tool.Should().Be("shipping.estimate_duties");
+        estimate.ArgumentsJson.Should().Contain(ShipmentId.ToString());
+
+        Ask("And how much VAT is due?", history, FoundShp1,
+                ("shipping.estimate_duties", new { duty = 0m, vat = 50m, total = 50m, currency = "USD" }))
+            .Text.Should().Contain("VAT 50.00 USD");
+    }
+
+    [Fact]
+    public void TheAssistant_AsksWhichShipment_WhenNoneWasNamed_AndSaysWhenItDoesNotExist()
+    {
+        Ask("What is the status?").Text.Should().Contain("Which shipment");
+        Ask("Where is SHP-404?", null, ("shipping.find_shipments", new { shipments = Array.Empty<object>() }))
+            .Text.Should().Contain("no shipment").And.Contain("SHP-404");
+    }
 }

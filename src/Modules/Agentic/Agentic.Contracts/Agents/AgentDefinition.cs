@@ -42,7 +42,15 @@ public enum AgentTriggerKind
 
     /// <summary>A recurring job.</summary>
     [LocalizedDescription("Schedule", "جدولة")]
-    Schedule = 4
+    Schedule = 4,
+
+    /// <summary>Started by another agent's <c>agent.delegate</c> call, for the same person (ADR-0033).</summary>
+    [LocalizedDescription("Another agent", "وكيل آخر")]
+    Delegated = 5,
+
+    /// <summary>One tool call by an external MCP client, recorded as a run (ADR-0034); never started otherwise.</summary>
+    [LocalizedDescription("MCP client", "عميل MCP")]
+    Mcp = 6
 }
 
 /// <summary>Per-run budgets an agent may LOWER below the module defaults (<c>Agentic:Limits</c>); never raise.</summary>
@@ -100,6 +108,27 @@ public sealed record AgentDefinition
     public IReadOnlyList<AgentTriggerKind> AllowedTriggers { get; init; } = [AgentTriggerKind.User, AgentTriggerKind.Api];
 
     public AgentLimits? Limits { get; init; }
+
+    /// <summary>
+    /// True: people can hold a conversation with this agent (<c>/api/v1/agent-conversations</c>). Every message is a
+    /// run that sees the earlier turns of its conversation (each turn's message and final answer). Task agents that do
+    /// one job per run leave it false.
+    /// </summary>
+    public bool Conversational { get; init; }
+
+    /// <summary>
+    /// Agents this one may hand a task to with the built-in tool <c>agent.delegate</c> (ADR-0033). Each must allow the
+    /// trigger <see cref="AgentTriggerKind.Delegated"/>. The delegated run acts for the same person, at the lower of the
+    /// two autonomies, starts tainted when this run is, and its tokens count against this run's budget.
+    /// </summary>
+    public IReadOnlyList<string> Delegates { get; init; } = [];
+
+    /// <summary>
+    /// Offers this agent's tools to external MCP clients at <c>/api/v1/mcp/{key}</c> (ADR-0034), when
+    /// <c>Agentic:Mcp:Enabled</c>. A client acts as the person (or API key) that signs in, only with the tools that person
+    /// may run right now without an approval: in practice, read-only tools.
+    /// </summary>
+    public bool McpServer { get; init; }
 }
 
 public static class AgentServiceCollectionExtensions
@@ -121,7 +150,8 @@ public sealed record AgentDto(
     LocalizedText Name,
     LocalizedText? Description,
     AgentAutonomy Autonomy,
-    bool HasTypedOutput);
+    bool HasTypedOutput,
+    bool Conversational = false);
 
 public sealed record AgentToolDto(
     string Name,

@@ -18,7 +18,9 @@ public static class NotificationCategoryGroups
     public const string Catalog = "catalog";
     public const string DataTransfer = "data-transfer";
     public const string Webhooks = "webhooks";
+#if (AGENTIC)
     public const string Agents = "agents";
+#endif
     public const string System = "system";
 
     /// <summary>Every group with its bilingual display name and which channels a user may mute, in presentation order.</summary>
@@ -30,7 +32,9 @@ public static class NotificationCategoryGroups
         new(Catalog, new LocalizedText("Catalog", "الكتالوج"), true, true, true),
         new(DataTransfer, new LocalizedText("Imports and exports", "الاستيراد والتصدير"), true, true, true),
         new(Webhooks, new LocalizedText("Webhooks", "الويب هوكس"), true, true, true),
+#if (AGENTIC)
         new(Agents, new LocalizedText("AI agents", "وكلاء الذكاء الاصطناعي"), true, true, true),
+#endif
         new(System, new LocalizedText("System", "النظام"), true, true, true),
     ];
 

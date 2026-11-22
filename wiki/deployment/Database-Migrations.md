@@ -16,7 +16,10 @@ Apply migrations and seeds under PostgreSQL advisory locks while keeping runtime
   EXISTS vector`. The repository's `infra/postgres` image includes it; on a managed service, allow-list it. When the
   migration role may not create extensions, run `deployment/postgres/scripts/init-rls-roles.sql` (it creates the
   extension) or `CREATE EXTENSION vector;` as an administrator in every database first, dedicated tenant databases
-  included ([ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md)).
+  included.
+<!--#if (agentic)-->
+  See [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md).
+<!--#endif-->
 
 ## Steps
 

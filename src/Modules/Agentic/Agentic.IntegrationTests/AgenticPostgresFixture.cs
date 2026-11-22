@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using Agentic.Contracts.Agents;
 using Agentic.Contracts.Approvals;
+using Agentic.Contracts.Conversations;
 using Agentic.Contracts.Knowledge;
 using Agentic.Contracts.Runs;
 using Agentic.Contracts.Scripting;
@@ -212,6 +213,26 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>Work inside a request of <paramref name="user"/> (or the current caller) in <paramref name="tenant"/>.</summary>
+    public async Task<T> AsCallerAsync<T>(TenantInfo tenant, Func<IServiceProvider, Task<T>> work, Guid? user = null,
+        IReadOnlyCollection<string>? apiKeyScopes = null)
+    {
+        using (TenantScope.Begin(tenant))
+        {
+            await using var scope = Services.CreateAsyncScope();
+            var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+            accessor.HttpContext = Caller.HttpContext(user ?? Caller.UserId, apiKeyScopes);
+            try
+            {
+                return await work(scope.ServiceProvider);
+            }
+            finally
+            {
+                accessor.HttpContext = null;
+            }
+        }
+    }
+
     /// <summary>A command sent by a consumer or a job: the tenant is set, there is no HTTP request and no caller.</summary>
     public Task<T> SendWithoutRequestAsync<T>(TenantInfo tenant, IRequest<T> request) =>
         InTenantAsync(tenant, sp => sp.GetRequiredService<ISender>().Send(request));
@@ -228,6 +249,14 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
     public Task<AgentRunDto> StartAsync(TenantInfo tenant, string agentKey = TestAgents.Assistant, string prompt = "Do it",
         Guid? user = null, IReadOnlyCollection<string>? apiKeyScopes = null, Guid? apiKeyId = null) =>
         SendAsync(tenant, new StartAgentRunCommand(agentKey, prompt), user, apiKeyScopes, apiKeyId);
+
+    public Task<AgentConversationTurnDto> StartConversationAsync(TenantInfo tenant, string message, Guid? user = null,
+        string agentKey = TestAgents.Chat, string? title = null) =>
+        SendAsync(tenant, new StartAgentConversationCommand(agentKey, message, Title: title), user);
+
+    public Task<AgentConversationTurnDto> SendMessageAsync(TenantInfo tenant, Guid conversationId, string message,
+        Guid? user = null, long? version = null) =>
+        SendAsync(tenant, new SendAgentConversationMessageCommand(conversationId, message, Version: version), user);
 
     /// <summary>Runs the queued Hangfire job exactly like the agentic server would (the tenant restored, nothing else).</summary>
     public Task RunAsync(TenantInfo tenant, Guid runId, CancellationToken cancellationToken = default) =>
@@ -293,8 +322,22 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Knowledge.Enabled = true;
         Options.Knowledge.MaxAttempts = 4;
         Options.Knowledge.EmbeddingModelId = "hashing";
+        Options.Knowledge.Dimensions = null;
+        Options.Knowledge.VectorIndex = Agentic.Runtime.Knowledge.KnowledgeVectorIndexKind.None;
         Options.Content.RetentionDays = 90;
         Options.Memory.MaxPerUser = 100;
+        Options.Conversations.MaxMessages = 200;
+        Options.Conversations.MaxHistoryTurns = 20;
+        Options.Conversations.MaxHistoryCharacters = 24_000;
+        var conversations = new AgentConversationOptions();
+        Options.Conversations.SummarizeAfterTurns = conversations.SummarizeAfterTurns;
+        Options.Conversations.KeepRecentTurns = conversations.KeepRecentTurns;
+        Options.Conversations.MaxSummaryCharacters = conversations.MaxSummaryCharacters;
+        Options.Conversations.SummaryModel = null;
+        Options.Delegation.MaxDepth = 2;
+        Options.Mcp.Enabled = true;
+        Options.Streaming.Enabled = true;
+        Options.Streaming.IntervalMilliseconds = 100;
         Caller.Reset();
         World.Reset();
         Board.Reset();
@@ -540,6 +583,12 @@ public static class TestAgents
     public const string Restricted = "test.restricted";
     public const string Automatic = "test.automatic";
     public const string Researcher = "test.researcher";
+    public const string Chat = "test.chat";
+    public const string Delegator = "test.delegator";
+    public const string Worker = "test.worker";
+    public const string Leaf = "test.leaf";
+    public const string Mcp = "test.mcp";
+    public const string McpRestricted = "test.mcp-restricted";
 
     public static readonly AgentDefinition[] All =
     [
@@ -570,6 +619,7 @@ public static class TestAgents
             Name = new LocalizedText("Restricted", "مقيَّد"),
             Instructions = "Only for webhook managers.",
             RequiredPermission = TenantPermissions.WebhooksManage,
+            AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Api, AgentTriggerKind.Delegated],
             Tools = [GetItemTool.Name]
         },
         new()
@@ -588,6 +638,61 @@ public static class TestAgents
             Instructions = "Answer from the organization's documents and remember the user's preferences.",
             Autonomy = AgentAutonomy.Prepare,
             Tools = ["knowledge.search", "memory.recall", "memory.remember", CreateNoteTool.Name]
+        },
+        new()
+        {
+            Key = Chat,
+            Name = new LocalizedText("Chat", "محادثة"),
+            Instructions = "Talk with the user about their items and notes.",
+            Autonomy = AgentAutonomy.Execute,
+            Conversational = true,
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name, CreateNoteTool.Name, SendMailTool.Name]
+        },
+        new()
+        {
+            Key = Delegator,
+            Name = new LocalizedText("Delegator", "مفوِّض"),
+            Instructions = "Hand item work to the worker.",
+            Autonomy = AgentAutonomy.Prepare,
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name],
+            Delegates = [Worker, Restricted]
+        },
+        new()
+        {
+            Key = Worker,
+            Name = new LocalizedText("Worker", "منفِّذ"),
+            Description = new LocalizedText("Looks up items and writes notes.", "يبحث عن العناصر ويكتب الملاحظات."),
+            Instructions = "Do the item task you are given.",
+            Autonomy = AgentAutonomy.Execute,
+            AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Delegated],
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name, CreateNoteTool.Name, SendMailTool.Name],
+            Delegates = [Leaf]
+        },
+        new()
+        {
+            Key = Mcp,
+            Name = new LocalizedText("MCP tools", "أدوات MCP"),
+            Instructions = "Offered to MCP clients.",
+            Autonomy = AgentAutonomy.Execute,
+            McpServer = true,
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name, SlowLookupTool.Name, CreateNoteTool.Name, SendMailTool.Name]
+        },
+        new()
+        {
+            Key = McpRestricted,
+            Name = new LocalizedText("Restricted MCP tools", "أدوات MCP مقيدة"),
+            Instructions = "Offered to webhook managers only.",
+            McpServer = true,
+            RequiredPermission = TenantPermissions.WebhooksManage,
+            Tools = [GetItemTool.Name]
+        },
+        new()
+        {
+            Key = Leaf,
+            Name = new LocalizedText("Leaf", "ورقة"),
+            Instructions = "Look up one item.",
+            AllowedTriggers = [AgentTriggerKind.Delegated],
+            Tools = [GetItemTool.Name]
         }
     ];
 }
@@ -833,8 +938,9 @@ public sealed class RecordingUserEvents : IUserEventPublisher
 {
     private readonly ConcurrentQueue<(Guid User, UserEvent Event)> _events = new();
 
-    public IReadOnlyList<(Guid User, UserEvent Event)> For(Guid runId) =>
-        _events.Where(e => e.Event.Data.TryGetValue("runId", out var id) && Equals(id, runId)).ToList();
+    /// <summary>The events of one type (progress by default) about a run, in order.</summary>
+    public IReadOnlyList<(Guid User, UserEvent Event)> For(Guid runId, string type = Agentic.Runtime.Execution.AgentRunProgressPublisher.EventType) =>
+        _events.Where(e => e.Event.Type == type && e.Event.Data.TryGetValue("runId", out var id) && Equals(id, runId)).ToList();
 
     public Task PublishAsync(Guid userId, UserEvent userEvent, CancellationToken cancellationToken = default)
     {

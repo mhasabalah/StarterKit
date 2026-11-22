@@ -8,6 +8,11 @@
 #   secrets/agentic_openai_api_key.txt - the provider API key (one line). Use a key limited to this deployment.
 #   AGENTIC_MODEL_ID in .env            - the provider's model id.
 #   AGENTIC_ENDPOINT in .env (optional) - the base URL for Azure OpenAI or a self-hosted server (empty = api.openai.com).
+#   AGENTIC_INPUT_PRICE_PER_MILLION / AGENTIC_OUTPUT_PRICE_PER_MILLION in .env (optional) - the provider's price per
+#                                         million tokens, so runs and GET /agent-usage report a cost (default 0).
+#   AGENTIC_KNOWLEDGE_ENABLED, AGENTIC_EMBEDDING_MODEL, AGENTIC_EMBEDDING_DIMENSIONS, AGENTIC_VECTOR_INDEX in .env
+#                                         (optional) - knowledge search with the provider's embeddings; VectorIndex=Hnsw
+#                                         builds the HNSW index for that dimension when the migrator runs (ADR-0032).
 #   prod: docker compose -f docker-compose.yml -f docker-compose.agents.yml up -d
 #
 # The secret file name follows agentic_<provider>_api_key (provider = the key under Agentic:Providers, here "openai"),
@@ -21,14 +26,29 @@ secrets:
   agentic_openai_api_key:
     file: ./secrets/agentic_openai_api_key.txt
 
+# The same settings for the API and the one-shot migrator (which builds the knowledge vector index at deploy time).
+x-agentic-environment: &agentic-environment
+  Agentic__Enabled: "true"
+  Agentic__Providers__openai__Kind: OpenAiCompatible
+  Agentic__Providers__openai__Endpoint: ${AGENTIC_ENDPOINT:-}
+  Agentic__Models__default__Provider: openai
+  Agentic__Models__default__ModelId: ${AGENTIC_MODEL_ID:?set AGENTIC_MODEL_ID in .env (the provider's model id)}
+  Agentic__Models__default__InputPricePerMillionTokens: ${AGENTIC_INPUT_PRICE_PER_MILLION:-0}
+  Agentic__Models__default__OutputPricePerMillionTokens: ${AGENTIC_OUTPUT_PRICE_PER_MILLION:-0}
+  Agentic__Knowledge__Enabled: ${AGENTIC_KNOWLEDGE_ENABLED:-false}
+  Agentic__Knowledge__EmbeddingProvider: openai
+  Agentic__Knowledge__EmbeddingModelId: ${AGENTIC_EMBEDDING_MODEL:-text-embedding-3-small}
+  Agentic__Knowledge__Dimensions: ${AGENTIC_EMBEDDING_DIMENSIONS:-}
+  Agentic__Knowledge__VectorIndex: ${AGENTIC_VECTOR_INDEX:-None}
+
 services:
 
   api:
     secrets:
       - agentic_openai_api_key
-    environment:
-      Agentic__Enabled: "true"
-      Agentic__Providers__openai__Kind: OpenAiCompatible
-      Agentic__Providers__openai__Endpoint: ${AGENTIC_ENDPOINT:-}
-      Agentic__Models__default__Provider: openai
-      Agentic__Models__default__ModelId: ${AGENTIC_MODEL_ID:?set AGENTIC_MODEL_ID in .env (the provider's model id)}
+    environment: *agentic-environment
+
+  migrator:
+    secrets:
+      - agentic_openai_api_key
+    environment: *agentic-environment

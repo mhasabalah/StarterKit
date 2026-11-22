@@ -18,6 +18,8 @@ public class AgenticDbContext(DbContextOptions<AgenticDbContext> options)
     public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
     public DbSet<KnowledgeChunk> KnowledgeChunks => Set<KnowledgeChunk>();
     public DbSet<AgentMemory> Memories => Set<AgentMemory>();
+    public DbSet<AgentConversation> Conversations => Set<AgentConversation>();
+    public DbSet<AgentModelUsage> ModelUsages => Set<AgentModelUsage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

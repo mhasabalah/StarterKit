@@ -20,6 +20,7 @@ Decide the switches first, then generate. See [Templates](Templates.md) for ever
 |---|---|---|
 | Name | `-n Acme` (slug `acme`, env prefix `ACME_`) | Everything |
 | Catalog reference module | `--sample true\|false` | The `src/Modules/Catalog` folder and everything that uses it |
+| AI agents | `--agentic true\|false` | The `src/Modules/Agentic` folder (and the Shipping sample) and everything that uses them |
 | Multi-tenancy | `--multitenancy off\|shared\|dedicated` | `MultiTenancy:*` in `appsettings.json` and `.env.example` ([Overview](../MultiTenancy/Overview.md)) |
 | Messaging transport (prod) | `--transport PostgreSql\|RabbitMq` | `MESSAGING_TRANSPORT` in `.env.example` ([Messaging](../Architecture/Messaging.md)) |
 | File storage | `--storage Local\|AzureBlob\|S3` | `Attachment:Storage:Provider` in `appsettings.Docker.json` (production) ([Storage-Providers](../Attachment/Storage-Providers.md)) |
