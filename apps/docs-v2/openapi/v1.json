@@ -1721,6 +1721,21 @@
               "$ref": "#/components/schemas/AgentConversationMessageDto"
             },
             "type": "array"
+          },
+          "summary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summaryThroughTurn": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
           }
         },
         "required": [
@@ -2229,6 +2244,13 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
+              "string"
+            ]
+          },
+          "parentRunId": {
+            "format": "uuid",
+            "type": [
+              "null",
               "string"
             ]
           },
