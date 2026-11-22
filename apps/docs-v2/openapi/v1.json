@@ -1711,6 +1711,193 @@
       "AgentAutonomy": {
         "type": "integer"
       },
+      "AgentConversationDetailDto": {
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/AgentConversationDto"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentConversationMessageDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "conversation",
+          "messages"
+        ],
+        "type": "object"
+      },
+      "AgentConversationDto": {
+        "properties": {
+          "agentKey": {
+            "type": "string"
+          },
+          "busy": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastMessageAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "messageCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentConversationStatus"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "agentKey",
+          "title",
+          "status",
+          "messageCount",
+          "busy",
+          "createdAt",
+          "lastMessageAt",
+          "version"
+        ],
+        "type": "object"
+      },
+      "AgentConversationMessageDto": {
+        "properties": {
+          "answer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "failureCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inputJson": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inputTokens": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "outputJson": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "outputTokens": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "runId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentRunStatus"
+          }
+        },
+        "required": [
+          "runId",
+          "message",
+          "inputJson",
+          "answer",
+          "outputJson",
+          "status",
+          "failureCode",
+          "inputTokens",
+          "outputTokens",
+          "createdAt",
+          "finishedAt"
+        ],
+        "type": "object"
+      },
+      "AgentConversationStatus": {
+        "type": "integer"
+      },
+      "AgentConversationTurnDto": {
+        "properties": {
+          "conversationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "conversationVersion": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "run": {
+            "$ref": "#/components/schemas/AgentRunDto"
+          }
+        },
+        "required": [
+          "conversationId",
+          "conversationVersion",
+          "run"
+        ],
+        "type": "object"
+      },
       "AgentDetailDto": {
         "properties": {
           "agent": {
@@ -1733,6 +1920,10 @@
         "properties": {
           "autonomy": {
             "$ref": "#/components/schemas/AgentAutonomy"
+          },
+          "conversational": {
+            "default": false,
+            "type": "boolean"
           },
           "description": {
             "oneOf": [
@@ -1771,6 +1962,73 @@
           "hasTypedOutput"
         ],
         "type": "object"
+      },
+      "AgentMemoryDto": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "ownerUserId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AgentMemoryScope"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AgentMemorySource"
+          },
+          "sourceRunId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "ownerUserId",
+          "content",
+          "source",
+          "sourceRunId",
+          "createdBy",
+          "createdAt",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AgentMemoryScope": {
+        "type": "integer"
+      },
+      "AgentMemorySource": {
+        "type": "integer"
       },
       "AgentPolicyDto": {
         "properties": {
@@ -1903,6 +2161,13 @@
           },
           "cancelRequested": {
             "type": "boolean"
+          },
+          "conversationId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "createdAt": {
             "format": "date-time",
@@ -2864,6 +3129,183 @@
         },
         "type": "object"
       },
+      "ApiResponseOfAgentConversationDetailDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentConversationDetailDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfAgentConversationDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentConversationDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfAgentConversationTurnDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentConversationTurnDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "ApiResponseOfAgentDetailDto": {
         "properties": {
           "code": {
@@ -2882,6 +3324,65 @@
               },
               {
                 "$ref": "#/components/schemas/AgentDetailDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfAgentMemoryDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentMemoryDto"
               }
             ]
           },
@@ -4339,6 +4840,65 @@
         },
         "type": "object"
       },
+      "ApiResponseOfCreateShipmentResult": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreateShipmentResult"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "ApiResponseOfCreateSubscriptionResult": {
         "properties": {
           "code": {
@@ -4652,6 +5212,65 @@
               },
               {
                 "$ref": "#/components/schemas/DashboardStatsDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfDeclarationDraftDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeclarationDraftDto"
               }
             ]
           },
@@ -5713,6 +6332,65 @@
               },
               {
                 "$ref": "#/components/schemas/DisableTwoFactorResult"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfDutyEstimateDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DutyEstimateDto"
               }
             ]
           },
@@ -9308,6 +9986,124 @@
         },
         "type": "object"
       },
+      "ApiResponseOfPaginatedResultOfAgentConversationDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaginatedResultOfAgentConversationDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfPaginatedResultOfAgentMemoryDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaginatedResultOfAgentMemoryDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "ApiResponseOfPaginatedResultOfAgentRunDto": {
         "properties": {
           "code": {
@@ -9680,6 +10476,65 @@
               },
               {
                 "$ref": "#/components/schemas/PaginatedResultOfInvoiceDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfPaginatedResultOfKnowledgeDocumentDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaginatedResultOfKnowledgeDocumentDto"
               }
             ]
           },
@@ -10388,6 +11243,65 @@
               },
               {
                 "$ref": "#/components/schemas/PaginatedResultOfProductHistoryEntryDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfPaginatedResultOfShipmentDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaginatedResultOfShipmentDto"
               }
             ]
           },
@@ -13574,6 +14488,65 @@
               },
               {
                 "$ref": "#/components/schemas/SetupTwoFactorResult"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfShipmentDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShipmentDto"
               }
             ]
           },
@@ -17291,6 +18264,20 @@
         ],
         "type": "object"
       },
+      "CreateAgentMemoryRequest": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AgentMemoryScope"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
       "CreateApiKeyRequest": {
         "properties": {
           "expiresInDays": {
@@ -17948,6 +18935,73 @@
         ],
         "type": "object"
       },
+      "CreateShipmentRequest": {
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "declaredValue": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "destinationCountry": {
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ShipmentDocumentInput"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "hsCode": {
+            "type": "string"
+          },
+          "originCountry": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "weightKg": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "originCountry",
+          "destinationCountry",
+          "hsCode",
+          "declaredValue",
+          "currency",
+          "weightKg",
+          "documents"
+        ],
+        "type": "object"
+      },
+      "CreateShipmentResult": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "CreateSubscriptionRequest": {
         "properties": {
           "couponCode": {
@@ -18280,6 +19334,96 @@
         },
         "type": "object"
       },
+      "DeclarationDraftDto": {
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "customsValue": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "duty": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "hsCode": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shipmentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeclarationStatus"
+          },
+          "submissionReference": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vat": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "shipmentId",
+          "hsCode",
+          "customsValue",
+          "duty",
+          "vat",
+          "currency",
+          "notes",
+          "status",
+          "submissionReference",
+          "submittedAt",
+          "version"
+        ],
+        "type": "object"
+      },
+      "DeclarationStatus": {
+        "type": "integer"
+      },
       "DeleteAttachmentResponse": {
         "properties": {
           "success": {
@@ -18564,6 +19708,79 @@
         },
         "required": [
           "email"
+        ],
+        "type": "object"
+      },
+      "DutyEstimateDto": {
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "customsValue": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "destinationCountry": {
+            "type": "string"
+          },
+          "duty": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "dutyRate": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "hsCode": {
+            "type": "string"
+          },
+          "total": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "vat": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "vatRate": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "hsCode",
+          "destinationCountry",
+          "customsValue",
+          "dutyRate",
+          "duty",
+          "vatRate",
+          "vat",
+          "total",
+          "currency"
         ],
         "type": "object"
       },
@@ -19742,6 +20959,90 @@
         "type": "object"
       },
       "JsonElement": {},
+      "KnowledgeDocumentDto": {
+        "properties": {
+          "attachmentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "chunkCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "embeddingModel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "externalRef": {
+            "type": "string"
+          },
+          "failureCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "indexedAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revision": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "sourceKey": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KnowledgeDocumentStatus"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sourceKey",
+          "externalRef",
+          "title",
+          "attachmentId",
+          "status",
+          "revision",
+          "chunkCount",
+          "embeddingModel",
+          "failureCode",
+          "indexedAt",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "KnowledgeDocumentStatus": {
+        "type": "integer"
+      },
       "LeaveTenantResult": {
         "properties": {
           "tenantId": {
@@ -21254,6 +22555,58 @@
         },
         "type": "object"
       },
+      "PaginatedResultOfAgentConversationDto": {
+        "properties": {
+          "orderBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "orderByDesc": {
+            "type": "boolean"
+          },
+          "pageInfoResult": {
+            "$ref": "#/components/schemas/PageInfoResult"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/AgentConversationDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PaginatedResultOfAgentMemoryDto": {
+        "properties": {
+          "orderBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "orderByDesc": {
+            "type": "boolean"
+          },
+          "pageInfoResult": {
+            "$ref": "#/components/schemas/PageInfoResult"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/AgentMemoryDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "PaginatedResultOfAgentRunDto": {
         "properties": {
           "orderBy": {
@@ -21427,6 +22780,32 @@
           "result": {
             "items": {
               "$ref": "#/components/schemas/InvoiceDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PaginatedResultOfKnowledgeDocumentDto": {
+        "properties": {
+          "orderBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "orderByDesc": {
+            "type": "boolean"
+          },
+          "pageInfoResult": {
+            "$ref": "#/components/schemas/PageInfoResult"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeDocumentDto"
             },
             "type": [
               "null",
@@ -21765,6 +23144,32 @@
           "result": {
             "items": {
               "$ref": "#/components/schemas/ProductHistoryEntryDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PaginatedResultOfShipmentDto": {
+        "properties": {
+          "orderBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "orderByDesc": {
+            "type": "boolean"
+          },
+          "pageInfoResult": {
+            "$ref": "#/components/schemas/PageInfoResult"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/ShipmentDto"
             },
             "type": [
               "null",
@@ -22867,6 +24272,20 @@
           "key",
           "name",
           "enabled"
+        ],
+        "type": "object"
+      },
+      "PrepareDeclarationRequest": {
+        "properties": {
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "notes"
         ],
         "type": "object"
       },
@@ -24330,6 +25749,29 @@
         ],
         "type": "object"
       },
+      "RenameAgentConversationRequest": {
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
       "RenamePasskeyRequest": {
         "properties": {
           "name": {
@@ -25076,6 +26518,27 @@
         ],
         "type": "object"
       },
+      "SendAgentConversationMessageRequest": {
+        "properties": {
+          "input": {},
+          "message": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
       "SendEmailConfirmationResult": {
         "properties": {
           "message": {
@@ -25331,6 +26794,134 @@
           "authenticatorUri"
         ],
         "type": "object"
+      },
+      "ShipmentDocumentDto": {
+        "properties": {
+          "content": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ShipmentDocumentKind"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reference",
+          "content"
+        ],
+        "type": "object"
+      },
+      "ShipmentDocumentInput": {
+        "properties": {
+          "content": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ShipmentDocumentKind"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reference",
+          "content"
+        ],
+        "type": "object"
+      },
+      "ShipmentDocumentKind": {
+        "type": "integer"
+      },
+      "ShipmentDto": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "declaredValue": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "destinationCountry": {
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ShipmentDocumentDto"
+            },
+            "type": "array"
+          },
+          "hsCode": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "originCountry": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShipmentStatus"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "weightKg": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "originCountry",
+          "destinationCountry",
+          "hsCode",
+          "declaredValue",
+          "currency",
+          "weightKg",
+          "status",
+          "documents",
+          "createdAt",
+          "version"
+        ],
+        "type": "object"
+      },
+      "ShipmentStatus": {
+        "type": "integer"
       },
       "SortBy": {
         "enum": [
@@ -25911,6 +27502,28 @@
         },
         "type": "object"
       },
+      "StartAgentConversationRequest": {
+        "properties": {
+          "agentKey": {
+            "type": "string"
+          },
+          "input": {},
+          "message": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "agentKey",
+          "message"
+        ],
+        "type": "object"
+      },
       "StartAgentRunRequest": {
         "properties": {
           "agentKey": {
@@ -25918,13 +27531,6 @@
           },
           "input": {},
           "prompt": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "sessionId": {
-            "format": "uuid",
             "type": [
               "null",
               "string"
@@ -29040,6 +30646,23 @@
           "challengeToken",
           "code",
           "recoveryCode"
+        ],
+        "type": "object"
+      },
+      "VersionRequest": {
+        "properties": {
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version"
         ],
         "type": "object"
       },
@@ -37315,6 +38938,523 @@
         ]
       }
     },
+    "/api/v1/agent-conversations": {
+      "get": {
+        "description": "Your conversations, most recent activity first. Filter: agentKey.",
+        "operationId": "GetAgentConversations",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "AgentKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageNumber",
+            "schema": {
+              "default": 1,
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageSize",
+            "schema": {
+              "default": 10,
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortBy",
+            "schema": {
+              "$ref": "#/components/schemas/SortBy"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortColumn",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfPaginatedResultOfAgentConversationDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "My conversations",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "post": {
+        "description": "Starts a conversation with a conversational agent and queues the turn that answers the first message. The agent acts with the caller's own permissions, re-checked for every tool call. Send an `Idempotency-Key` header to make a retried request return the same turn.",
+        "operationId": "StartAgentConversation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartAgentConversationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfAgentConversationTurnDto"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Start a conversation with an agent",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agent-conversations/{id}": {
+      "delete": {
+        "description": "Deletes your conversation: a turn in progress is stopped and the content of every turn (messages, answers, tool arguments and results) is erased. Counters and the audit trail stay.",
+        "operationId": "DeleteAgentConversation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfboolean"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Delete a conversation",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "get": {
+        "description": "The conversation with every turn, oldest first: your own, or any with `agentic.runs.read`.",
+        "operationId": "GetAgentConversationById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfAgentConversationDetailDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Conversation",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "patch": {
+        "description": "Sets or clears the title of your conversation.",
+        "operationId": "RenameAgentConversation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameAgentConversationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfAgentConversationDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Rename a conversation",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agent-conversations/{id}/messages": {
+      "post": {
+        "description": "Queues the next turn of your conversation. The agent is given the earlier turns (each message and its answer). 409 `conversation_busy` while the previous turn is still running or waiting for an approval; 409 `conversation_full` when the conversation has as many messages as allowed.",
+        "operationId": "SendAgentConversationMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendAgentConversationMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfAgentConversationTurnDto"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Send a message",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agent-memories": {
+      "get": {
+        "description": "Your personal memories and the tenant's memories that have not expired, newest first (paged; filter: scope).",
+        "operationId": "GetAgentMemories",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "Scope",
+            "schema": {
+              "$ref": "#/components/schemas/AgentMemoryScope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageNumber",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfPaginatedResultOfAgentMemoryDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          }
+        },
+        "summary": "Agent memories",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "post": {
+        "description": "A personal memory, or a tenant memory (needs `agentic.manage`, 403 `memory_tenant_scope_forbidden` otherwise). 409 `memory_limit_reached` when the limit is reached.",
+        "operationId": "CreateAgentMemory",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentMemoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfAgentMemoryDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Write a memory",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/api/v1/agent-memories/{id}": {
+      "delete": {
+        "description": "One of your memories, or a tenant memory with `agentic.manage`.",
+        "operationId": "DeleteAgentMemory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfboolean"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Delete a memory",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
     "/api/v1/agent-policies/{agentKey}": {
       "get": {
         "description": "The tenant's policy for an agent (the defaults when none was set).",
@@ -37429,7 +39569,7 @@
     },
     "/api/v1/agent-runs": {
       "get": {
-        "description": "Newest first: the caller's own runs (every run with `agentic.runs.read`). Filters: agentKey, status.",
+        "description": "Newest first: the caller's own runs (every run with `agentic.runs.read`). Filters: agentKey, status, conversationId.",
         "operationId": "GetAgentRuns",
         "parameters": [
           {
@@ -37444,6 +39584,14 @@
             "name": "Status",
             "schema": {
               "$ref": "#/components/schemas/AgentRunStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ConversationId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
             }
           },
           {
@@ -40094,6 +42242,78 @@
         },
         "tags": [
           "Invoices"
+        ]
+      }
+    },
+    "/api/v1/knowledge-documents": {
+      "get": {
+        "description": "The tenant's indexed documents with their status, revision, passage count and embedding model. Content is not returned.",
+        "operationId": "GetKnowledgeDocuments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "SourceKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Status",
+            "schema": {
+              "$ref": "#/components/schemas/KnowledgeDocumentStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageNumber",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfPaginatedResultOfKnowledgeDocumentDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          }
+        },
+        "summary": "Knowledge documents",
+        "tags": [
+          "Agents"
         ]
       }
     },
@@ -43767,6 +45987,458 @@
         "summary": "Add To Wishlist",
         "tags": [
           "Wishlist"
+        ]
+      }
+    },
+    "/api/v1/shipping/declarations/{id}/submit": {
+      "post": {
+        "description": "External and irreversible: 409 `documents_missing` while a required document is missing.",
+        "operationId": "SubmitDeclaration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VersionRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfDeclarationDraftDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Submit a declaration to customs",
+        "tags": [
+          "Shipping"
+        ]
+      }
+    },
+    "/api/v1/shipping/shipments": {
+      "get": {
+        "description": "Newest first; `search` matches the reference.",
+        "operationId": "GetShipments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "Search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageNumber",
+            "schema": {
+              "default": 1,
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageSize",
+            "schema": {
+              "default": 10,
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortBy",
+            "schema": {
+              "$ref": "#/components/schemas/SortBy"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortColumn",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfPaginatedResultOfShipmentDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "List shipments",
+        "tags": [
+          "Shipping"
+        ]
+      },
+      "post": {
+        "description": "A shipment with its documents. The reference is unique in the tenant.",
+        "operationId": "CreateShipment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShipmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfCreateShipmentResult"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Create a shipment",
+        "tags": [
+          "Shipping"
+        ]
+      }
+    },
+    "/api/v1/shipping/shipments/{id}": {
+      "get": {
+        "operationId": "GetShipmentById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfShipmentDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Shipment",
+        "tags": [
+          "Shipping"
+        ]
+      }
+    },
+    "/api/v1/shipping/shipments/{id}/declaration": {
+      "get": {
+        "operationId": "GetShipmentDeclaration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfDeclarationDraftDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Declaration of a shipment",
+        "tags": [
+          "Shipping"
+        ]
+      },
+      "post": {
+        "operationId": "PrepareShipmentDeclaration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PrepareDeclarationRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfDeclarationDraftDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Prepare the declaration draft",
+        "tags": [
+          "Shipping"
+        ]
+      }
+    },
+    "/api/v1/shipping/shipments/{id}/duties": {
+      "get": {
+        "description": "Duties and VAT from the sample's deterministic tariff rules.",
+        "operationId": "EstimateShipmentDuties",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfDutyEstimateDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Duty estimate",
+        "tags": [
+          "Shipping"
+        ]
+      }
+    },
+    "/api/v1/shipping/shipments/{id}/ready-for-clearance": {
+      "post": {
+        "description": "Starts the shipment preparation agent on your behalf (when agents are enabled): it estimates duties, prepares the declaration draft, checks the documents and asks a person before it submits.",
+        "operationId": "MarkShipmentReadyForClearance",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VersionRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfShipmentDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Hand a shipment to customs preparation",
+        "tags": [
+          "Shipping"
         ]
       }
     },
@@ -47762,6 +50434,9 @@
     },
     {
       "name": "DataTransfer"
+    },
+    {
+      "name": "Shipping"
     },
     {
       "name": "Agents"
