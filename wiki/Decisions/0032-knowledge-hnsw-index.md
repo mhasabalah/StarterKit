@@ -67,6 +67,6 @@ run at deploy time, never at boot in production, and that nothing else does migr
 
 ## Related
 
-[Agentic module](../Modules/Agentic.md#knowledge), [ADR-0028](0028-agent-knowledge-and-memory-on-pgvector.md),
+[Agentic module](../Agentic/Knowledge-And-Memory.md), [ADR-0028](0028-agent-knowledge-and-memory-on-pgvector.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [Database conventions](../Architecture/DatabaseConventions.md),
 [ADR index](README.md).

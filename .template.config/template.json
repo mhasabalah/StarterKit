@@ -317,6 +317,7 @@
             "tests/load/scenarios/agents.js",
             "tools/claude/starterkit-plugin/skills/add-agent-tool/**",
             "wiki/Modules/Agentic.md",
+            "wiki/Agentic/**",
             "wiki/Modules/Shipping.md",
             "wiki/Architecture/Agent-Security.md",
             "wiki/deployment/Agentic-Operations.md",

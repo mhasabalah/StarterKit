@@ -185,9 +185,84 @@ export const sections = [
         "order": 8
       },
       {
-        "source": "Modules/Agentic.md",
         "label": "Agentic",
-        "order": 9
+        "items": [
+          {
+            "source": "Modules/Agentic.md",
+            "label": "Overview",
+            "order": 1
+          },
+          {
+            "source": "Agentic/Runs.md",
+            "label": "Runs and durable execution",
+            "order": 2
+          },
+          {
+            "source": "Agentic/Tools-And-The-Gateway.md",
+            "label": "Tools and the gateway",
+            "order": 3
+          },
+          {
+            "source": "Agentic/Approvals.md",
+            "label": "Human approval",
+            "order": 4
+          },
+          {
+            "source": "Agentic/Triggers-Policies-And-Quotas.md",
+            "label": "Triggers, policies and quotas",
+            "order": 5
+          },
+          {
+            "source": "Agentic/Conversations.md",
+            "label": "Conversations and streaming",
+            "order": 6
+          },
+          {
+            "source": "Agentic/Knowledge-And-Memory.md",
+            "label": "Knowledge and memory",
+            "order": 7
+          },
+          {
+            "source": "Agentic/Delegation.md",
+            "label": "Delegation",
+            "order": 8
+          },
+          {
+            "source": "Agentic/MCP-Server.md",
+            "label": "MCP server",
+            "order": 9
+          },
+          {
+            "source": "Agentic/Events-And-Data-Lifecycle.md",
+            "label": "Events and data lifecycle",
+            "order": 10
+          },
+          {
+            "source": "Agentic/Models-And-Evaluation.md",
+            "label": "Models and evaluation",
+            "order": 11
+          },
+          {
+            "source": "Agentic/Adding-An-Agent.md",
+            "label": "Adding an agent",
+            "order": 12
+          },
+          {
+            "source": "Agentic/Configuration.md",
+            "label": "Configuration",
+            "order": 13
+          },
+          {
+            "source": "Agentic/API-And-Observability.md",
+            "label": "API and observability",
+            "order": 14
+          },
+          {
+            "source": "Agentic/Failure-Modes.md",
+            "label": "Failure modes",
+            "order": 15
+          }
+        ]
       },
       {
         "source": "Modules/Shipping.md",

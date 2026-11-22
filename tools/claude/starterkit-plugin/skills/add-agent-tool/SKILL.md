@@ -89,7 +89,7 @@ Reference: `TestAgents` in `src/Modules/Agentic/Agentic.IntegrationTests/Agentic
    registered with `services.AddAgentScript<<X>Script>()`. Refused in Production. For a conversational agent the
    earlier turns arrive in `ScriptedTurn.History`; `Prompt` and `TurnNumber` describe the current run only.
 3. **Real model**: before production, run `ModelEvaluationTests` and drive the agent once against the real provider
-   (`wiki/Modules/Agentic.md#testing-with-a-real-model`). Assert outcomes, not the exact order of tool calls.
+   (`wiki/Agentic/Models-And-Evaluation.md`). Assert outcomes, not the exact order of tool calls.
 
 ## 4. An automatic trigger (optional)
 

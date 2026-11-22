@@ -28,7 +28,7 @@ public sealed record RenameAgentConversationRequest(string? Title, long? Version
 /// Conversations with agents (<c>/api/v1/agent-conversations</c>). Each message queues a turn (an agent run) and returns
 /// 202 with it; the turn runs in the background like any run (Hangfire queue <c>agentic</c>, live progress on
 /// <c>agentic.run-progress</c> with the <c>conversationId</c>). Read the answer with <c>GET /{id}</c>. Every route
-/// answers 404 while <c>Agentic:Enabled</c> is false. See wiki/Modules/Agentic.md#conversations.
+/// answers 404 while <c>Agentic:Enabled</c> is false. See wiki/Agentic/Conversations.md.
 /// </summary>
 public class AgentConversationsModule : ICarterModule
 {

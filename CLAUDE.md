@@ -336,7 +336,7 @@ Notification is the exception: its context is in `Persistence/`.
 <!--#if (agentic)-->
 - **AI agents** (Agentic, [ADR-0025](wiki/Decisions/0025-agentic-module-and-model-seam.md),
   [ADR-0026](wiki/Decisions/0026-durable-agent-runs-on-hangfire.md),
-  [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`):
+  [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`, one page per part in `wiki/Agentic/`):
   - A module adds an agent with `AddAgent(new AgentDefinition { ... })` and tools with `AddAgentTool<T>()`
     (`Agentic.Contracts`). Never reference the Agentic implementation, `Microsoft.Extensions.AI` or a provider SDK
     outside the Agentic module.

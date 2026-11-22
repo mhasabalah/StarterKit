@@ -78,5 +78,5 @@ permissions and, after untrusted content was read, by a person
 
 ## Related
 
-[Agentic module](../Modules/Agentic.md#conversations), [Agent security model](../Architecture/Agent-Security.md),
+[Agentic module](../Agentic/Conversations.md), [Agent security model](../Architecture/Agent-Security.md),
 [ADR index](README.md), and `/starterkit:update-docs`.

@@ -75,5 +75,5 @@ Constraints from earlier decisions:
 
 ## Related
 
-[Agentic module](../Modules/Agentic.md#mcp-server), [Agent security model](../Architecture/Agent-Security.md),
+[Agentic module](../Agentic/MCP-Server.md), [Agent security model](../Architecture/Agent-Security.md),
 [ADR-0025](0025-agentic-module-and-model-seam.md), [ADR index](README.md).

@@ -106,7 +106,21 @@ wiki/
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
 <!--#if (agentic)-->
-- [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (model seam, tool gateway, adding an agent)
+- [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (overview, the five rules, architecture, guide map)
+  - [Runs and durable execution](Agentic/Runs.md): lifecycle, how a worker executes a run, leases, retries, budgets, acting as the person
+  - [Tools and the tool gateway](Agentic/Tools-And-The-Gateway.md): what a tool declares, the decision order, autonomy against risk, taint, typed results
+  - [Human approval](Agentic/Approvals.md): when a person is asked, the payload an approval binds, who decides, expiry
+  - [Triggers, policies, quotas and usage](Agentic/Triggers-Policies-And-Quotas.md): automatic runs, tenant policies, plan quotas, the usage report
+  - [Conversations, streaming and summaries](Agentic/Conversations.md): multi-turn chat, history, live answers, summaries
+  - [Knowledge and memory](Agentic/Knowledge-And-Memory.md): indexing, hybrid search, the HNSW index, memories
+  - [Delegation between agents](Agentic/Delegation.md): child runs that never gain authority
+  - [MCP server](Agentic/MCP-Server.md): an agent's read tools for IDEs and desktop assistants
+  - [Events and data lifecycle](Agentic/Events-And-Data-Lifecycle.md): integration events, notifications, progress, retention and erasure
+  - [Models, providers and evaluation](Agentic/Models-And-Evaluation.md): the model seam, providers, proving a real model
+  - [Adding an agent](Agentic/Adding-An-Agent.md): step by step, with a checklist
+  - [Configuration](Agentic/Configuration.md): every setting, grouped
+  - [API, permissions and observability](Agentic/API-And-Observability.md): routes, permissions, error codes, metrics and traces
+  - [Failure modes and guarantees](Agentic/Failure-Modes.md): what happens when something goes wrong, and the tests that hold it
 <!--#endif-->
 <!--#if (sample)-->
 <!--#if (agentic)-->
@@ -218,9 +232,9 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | Bulk definitions, replayable batches, dry runs, worker queues and requester scope | [DataTransfer](Modules/DataTransfer.md) |
 <!--#if (agentic)-->
 | Agents, typed tools, the tool gateway, model providers and durable runs | [Agentic](Modules/Agentic.md), [ADR 0025](Decisions/0025-agentic-module-and-model-seam.md), [ADR 0026](Decisions/0026-durable-agent-runs-on-hangfire.md) |
-| Agent approvals, automatic triggers, tenant policies, quotas and usage | [Agentic](Modules/Agentic.md#human-approval), [ADR 0027](Decisions/0027-agent-approvals-triggers-and-policies.md) |
-| Agent knowledge (indexing, hybrid search, citations), memory, content erasure and retention | [Agentic](Modules/Agentic.md#knowledge), [ADR 0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) |
-| Conversations with agents (multi-turn chat, history, one turn at a time, deletion) and testing with a real model | [Agentic](Modules/Agentic.md#conversations), [ADR 0029](Decisions/0029-agent-conversations.md) |
+| Agent approvals, automatic triggers, tenant policies, quotas and usage | [Approvals](Agentic/Approvals.md), [Triggers and quotas](Agentic/Triggers-Policies-And-Quotas.md), [ADR 0027](Decisions/0027-agent-approvals-triggers-and-policies.md) |
+| Agent knowledge (indexing, hybrid search, citations), memory, content erasure and retention | [Knowledge and memory](Agentic/Knowledge-And-Memory.md), [Data lifecycle](Agentic/Events-And-Data-Lifecycle.md), [ADR 0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) |
+| Conversations with agents (multi-turn chat, history, one turn at a time, deletion) and testing with a real model | [Conversations](Agentic/Conversations.md), [Models and evaluation](Agentic/Models-And-Evaluation.md), [ADR 0029](Decisions/0029-agent-conversations.md) |
 | Agent threats (prompt injection, approval bypass, oversized output), alerts and runbook | [Agent security model](Architecture/Agent-Security.md), [Agentic operations](deployment/Agentic-Operations.md) |
 <!--#endif-->
 | Distributed caching, tenant keys and explicit invalidation | [Redis](Infrastructure/Redis.md) |
@@ -254,7 +268,7 @@ Use this map with `CLAUDE.md`: the rulebook defines constraints, while these can
 | Migration | `/starterkit:add-migration` | [Migrations](Reference/Migrations.md) |
 | Cross-module event | `/starterkit:add-integration-event` | [Messaging](Architecture/Messaging.md) |
 <!--#if (agentic)-->
-| AI agent or agent tool | `/starterkit:add-agent-tool` | [Agentic](Modules/Agentic.md), [Agent security model](Architecture/Agent-Security.md) |
+| AI agent or agent tool | `/starterkit:add-agent-tool` | [Adding an agent](Agentic/Adding-An-Agent.md), [Agent security model](Architecture/Agent-Security.md) |
 <!--#endif-->
 | Background job | `/starterkit:add-background-job` | [Messaging](Architecture/Messaging.md), CLAUDE.md |
 | Permission | `/starterkit:add-permission` | [Permissions-2FA](Identity/Permissions-2FA-and-Admin-Audit.md) |

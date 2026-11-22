@@ -85,6 +85,6 @@ agent built for it. The obvious ways to do it would break earlier guarantees:
 
 ## Related
 
-[Agentic module](../Modules/Agentic.md#delegation), [Agent security model](../Architecture/Agent-Security.md),
+[Agentic module](../Agentic/Delegation.md), [Agent security model](../Architecture/Agent-Security.md),
 [ADR-0026](0026-durable-agent-runs-on-hangfire.md), [ADR-0027](0027-agent-approvals-triggers-and-policies.md),
 [ADR index](README.md).
