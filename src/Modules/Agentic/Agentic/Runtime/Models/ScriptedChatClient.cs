@@ -112,8 +112,17 @@ public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : ICha
         var conversation = messages.Skip(system + historyMessages).ToList();
 
         var history = new List<ScriptedHistoryTurn>();
+        string? summary = null;
         for (var i = 0; i + 1 < earlier.Count; i += 2)
+        {
+            if (i == 0 && earlier[i].Text.StartsWith(Execution.TranscriptBuilder.SummaryHeader, StringComparison.Ordinal))
+            {
+                summary = earlier[i].Text[Execution.TranscriptBuilder.SummaryHeader.Length..].Trim();
+                continue;
+            }
+
             history.Add(new ScriptedHistoryTurn(earlier[i].Text, earlier[i + 1].Text));
+        }
 
         var prompt = conversation.FirstOrDefault(m => m.Role == ChatRole.User)?.Text;
         var turnNumber = conversation.Count(m => m.Role == ChatRole.Assistant) + 1;
@@ -128,7 +137,7 @@ public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : ICha
             .Select(r => new ScriptedToolResult(toolByCall.GetValueOrDefault(r.CallId, string.Empty), ToJson(r.Result)))
             .ToList();
 
-        return new ScriptedTurn(agentKey, prompt, turnNumber, results, history);
+        return new ScriptedTurn(agentKey, prompt, turnNumber, results, history, summary);
     }
 
     private static string ToJson(object? result) => result switch

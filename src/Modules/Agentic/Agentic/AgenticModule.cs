@@ -1,6 +1,9 @@
 using Agentic.Domains.AgentRuns.Jobs;
 using Agentic.Domains.AgentRuns.Services;
 using Agentic.Domains.Approvals.Jobs;
+using Agentic.Contracts.Scripting;
+using Agentic.Domains.Conversations.Jobs;
+using Agentic.Domains.Conversations.Services;
 using Agentic.Domains.Knowledge.Jobs;
 using Agentic.Domains.Knowledge.Tools;
 using Agentic.Domains.Memory.Features;
@@ -97,6 +100,9 @@ public static class AgenticModule
         services.AddTransient<PurgeAgentContentJob>();
         services.AddTransient<IndexKnowledgeDocumentJob>();
         services.AddTransient<RequeueStalledKnowledgeDocumentsJob>();
+        services.AddTransient<SummarizeAgentConversationJob>();
+        // The scripted provider's summary writer (tests and demos; the scripted provider is refused in Production).
+        services.AddAgentScript<ConversationSummaryScript>();
 
         return services;
     }

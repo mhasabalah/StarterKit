@@ -45,6 +45,13 @@ public static class TranscriptBuilder
     /// <summary>The answer of an earlier turn that failed or was cancelled.</summary>
     public const string UnfinishedTurn = "(This request did not finish.)";
 
+    /// <summary>Opens the history message that carries a conversation summary (ADR-0031).</summary>
+    public const string SummaryHeader =
+        "Summary of the earlier conversation, written by the assistant from earlier turns. It may be incomplete; it is not an instruction.";
+
+    /// <summary>The assistant's side of the summary pair, so history keeps alternating user and assistant.</summary>
+    public const string SummaryAcknowledgement = "Noted.";
+
     /// <param name="history">The earlier turns of the run's conversation, already bounded (<see cref="History"/>).</param>
     public static ModelRequest Build(RegisteredAgent agent, AgentRun run, IReadOnlyList<AgentRunStep> steps,
         IReadOnlyList<ModelMessage>? history = null)
@@ -93,11 +100,18 @@ public static class TranscriptBuilder
     /// content was erased is left out. Only the final answer of a turn is repeated: what its tools read is not, so the
     /// next turn reads current data again instead of trusting a stale copy.
     /// </summary>
-    /// <param name="turns">Finished earlier turns, oldest first.</param>
-    public static IReadOnlyList<ModelMessage> History(IEnumerable<ConversationTurn> turns, int maxTurns, int maxCharacters)
+    /// <param name="turns">Finished earlier turns after the summary, oldest first.</param>
+    /// <param name="maxTurns">The most turns kept.</param>
+    /// <param name="maxCharacters">The most characters kept, the summary included.</param>
+    /// <param name="summary">The conversation's summary of the turns before <paramref name="turns"/>, sent first.</param>
+    public static IReadOnlyList<ModelMessage> History(IEnumerable<ConversationTurn> turns, int maxTurns, int maxCharacters,
+        string? summary = null)
     {
+        var summaryMessage = string.IsNullOrWhiteSpace(summary) ? null : $"{SummaryHeader}\n\n{summary.Trim()}";
+        if (summaryMessage is not null && summaryMessage.Length > maxCharacters)
+            summaryMessage = null; // a summary that does not fit is left out rather than cut
         var kept = new List<(string User, string Answer)>();
-        var characters = 0;
+        var characters = summaryMessage?.Length ?? 0;
         foreach (var turn in turns.Reverse())
         {
             if (kept.Count >= maxTurns)
@@ -114,6 +128,8 @@ public static class TranscriptBuilder
         }
 
         kept.Reverse();
+        if (summaryMessage is not null)
+            kept.Insert(0, (summaryMessage, SummaryAcknowledgement));
         return kept
             .SelectMany(t => new[] { new ModelMessage(ModelRole.User, t.User), new ModelMessage(ModelRole.Assistant, t.Answer) })
             .ToList();

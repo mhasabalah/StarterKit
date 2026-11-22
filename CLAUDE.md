@@ -363,6 +363,9 @@ Notification is the exception: its context is in `Persistence/`.
   - Streaming ([ADR-0030](wiki/Decisions/0030-streaming-agent-answers.md)): answers reach the initiator as
     `agentic.run-text` through `AgentRunTextStream` (a preview; the saved run is the answer). Never stream tool
     arguments, never send the stream to anyone but the initiator, and never store partial text.
+  - Summaries ([ADR-0031](wiki/Decisions/0031-conversation-summaries.md)) are written only by
+    `SummarizeAgentConversationJob`, from messages and final answers (never tool results), are untrusted history, and
+    are erased with the content of any turn they cover.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.

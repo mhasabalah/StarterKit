@@ -345,6 +345,12 @@
   <data name="Agent.Conversation.conversation_busy" xml:space="preserve">
     <value>The previous message is still being answered. Send the next one when it is done.</value>
   </data>
+  <data name="Agent.Conversation.summary_empty" xml:space="preserve">
+    <value>The summary is empty.</value>
+  </data>
+  <data name="Agent.Conversation.summary_turn_invalid" xml:space="preserve">
+    <value>The summary covers a message the conversation does not have.</value>
+  </data>
   <data name="Agent.Conversation.conversation_full" xml:space="preserve">
     <value>The conversation has reached {0} messages. Start a new conversation.</value>
   </data>

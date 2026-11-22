@@ -645,6 +645,11 @@ export const sections = [
         "order": 30
       },
       {
+        "source": "Decisions/0031-conversation-summaries.md",
+        "label": "0031 conversation summaries",
+        "order": 31
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
         "order": 99

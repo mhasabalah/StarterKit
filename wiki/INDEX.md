@@ -84,6 +84,7 @@ wiki/
 - [0028](Decisions/0028-agent-knowledge-and-memory-on-pgvector.md): agent knowledge (hybrid search on pgvector) and approval-gated memory
 - [0029](Decisions/0029-agent-conversations.md): agent conversations (one run per turn, final-answer history, sticky taint)
 - [0030](Decisions/0030-streaming-agent-answers.md): agent answers streamed to the initiator as a preview over the notification hub
+- [0031](Decisions/0031-conversation-summaries.md): long agent conversations summarized in a background job, as untrusted history
 
 ## Modules
 

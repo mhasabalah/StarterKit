@@ -700,15 +700,23 @@ public sealed class AgentRunExecutor(
                 return (IReadOnlyList<ModelMessage>)[];
 
             var db = services.GetRequiredService<AgenticDbContext>();
+            // A summary covers the oldest turns (ADR-0031): it is sent first, and only the turns after it follow.
+            var summary = await db.Conversations.AsNoTracking()
+                .Where(c => c.Id == conversationId && c.SummaryThroughTurn < run.ConversationTurn)
+                .Select(c => new { c.Summary, c.SummaryThroughTurn })
+                .FirstOrDefaultAsync(ct);
+            var after = summary?.Summary is null ? 0 : summary.SummaryThroughTurn;
             var turns = await db.Runs.AsNoTracking()
-                .Where(r => r.ConversationId == conversationId && r.ConversationTurn < run.ConversationTurn &&
+                .Where(r => r.ConversationId == conversationId && r.ConversationTurn > after &&
+                            r.ConversationTurn < run.ConversationTurn &&
                             FinishedStatuses.Contains(r.Status) && r.ContentErasedAt == null)
                 .OrderByDescending(r => r.ConversationTurn)
                 .Take(limits.MaxHistoryTurns)
                 .Select(r => new ConversationTurn(r.Prompt, r.InputJson, r.OutputText, r.OutputJson, r.Status))
                 .ToListAsync(ct);
             turns.Reverse();
-            return TranscriptBuilder.History(turns, limits.MaxHistoryTurns, limits.MaxHistoryCharacters);
+            return TranscriptBuilder.History(turns, limits.MaxHistoryTurns, limits.MaxHistoryCharacters,
+                after > 0 ? summary!.Summary : null);
         }, CancellationToken.None);
 
     /// <summary>

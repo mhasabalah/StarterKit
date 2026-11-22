@@ -39,3 +39,4 @@ link it here.
 | [0028](0028-agent-knowledge-and-memory-on-pgvector.md) | Give agents knowledge and memory on PostgreSQL with pgvector, behind the same permissions | Accepted | 2026-11-14 |
 | [0029](0029-agent-conversations.md) | Hold agent conversations as one run per turn, with final-answer history and sticky taint | Accepted | 2026-11-22 |
 | [0030](0030-streaming-agent-answers.md) | Stream agent answers as a preview over the notification hub | Accepted | 2026-11-22 |
+| [0031](0031-conversation-summaries.md) | Summarize long agent conversations in a background job, as untrusted history | Accepted | 2026-11-22 |

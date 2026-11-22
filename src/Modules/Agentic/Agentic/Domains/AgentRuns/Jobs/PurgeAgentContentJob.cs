@@ -60,10 +60,14 @@ public sealed class PurgeAgentContentJob(
                 total += erased;
             } while (erased >= BatchSize);
 
-            // Conversation titles are user content too: dropped once the conversation is idle for as long.
+            // Conversation titles and summaries are content too: dropped once the conversation is idle for as long.
             total += await unitOfWork.RunAsync((services, ct) => services.GetRequiredService<AgenticDbContext>().Conversations
-                .Where(c => c.Title != null && c.LastMessageAt < cutoff)
-                .ExecuteUpdateAsync(c => c.SetProperty(x => x.Title, (string?)null), ct), CancellationToken.None);
+                .Where(c => (c.Title != null || c.Summary != null) && c.LastMessageAt < cutoff)
+                .ExecuteUpdateAsync(c => c
+                    .SetProperty(x => x.Title, (string?)null)
+                    .SetProperty(x => x.Summary, (string?)null)
+                    .SetProperty(x => x.SummaryThroughTurn, 0)
+                    .SetProperty(x => x.SummaryUpdatedAt, (DateTime?)null), ct), CancellationToken.None);
         }
 
         // Backstop for deleted conversations: a turn that finished after the deletion and was not erased then.

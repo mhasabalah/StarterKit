@@ -91,9 +91,12 @@ public sealed record AgentConversationMessageDto(
     DateTime CreatedAt,
     DateTime? FinishedAt);
 
+/// <param name="Summary">The model's summary of turns 1..<paramref name="SummaryThroughTurn"/> (it may be incomplete).</param>
 public sealed record AgentConversationDetailDto(
     AgentConversationDto Conversation,
-    IReadOnlyList<AgentConversationMessageDto> Messages);
+    IReadOnlyList<AgentConversationMessageDto> Messages,
+    string? Summary = null,
+    int SummaryThroughTurn = 0);
 
 /// <summary>What starting a conversation or sending a message returns: the conversation and the queued turn.</summary>
 public sealed record AgentConversationTurnDto(Guid ConversationId, long ConversationVersion, AgentRunDto Run);

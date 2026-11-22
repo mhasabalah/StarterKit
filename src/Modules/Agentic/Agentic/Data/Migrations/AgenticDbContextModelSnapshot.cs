@@ -630,6 +630,32 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
 
+                    b.Property<string>("Summary")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)")
+                        .HasColumnName("summary");
+
+                    b.Property<decimal>("SummaryCost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("summary_cost");
+
+                    b.Property<long>("SummaryInputTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("summary_input_tokens");
+
+                    b.Property<long>("SummaryOutputTokens")
+                        .HasColumnType("bigint")
+                        .HasColumnName("summary_output_tokens");
+
+                    b.Property<int>("SummaryThroughTurn")
+                        .HasColumnType("integer")
+                        .HasColumnName("summary_through_turn");
+
+                    b.Property<DateTime?>("SummaryUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("summary_updated_at");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");

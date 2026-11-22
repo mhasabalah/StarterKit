@@ -9,7 +9,8 @@ references a business module and a business module never references a model SDK.
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md) (approvals, triggers, policies) and
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector) and
 [ADR-0029](../Decisions/0029-agent-conversations.md) (conversations) and
-[ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers).
+[ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers) and
+[ADR-0031](../Decisions/0031-conversation-summaries.md) (conversation summaries).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -287,6 +288,7 @@ sequenceDiagram
 |---|---|
 | What the model is given | Each earlier **finished** turn as a user message and its final answer (`OutputText`, or `OutputJson` as "Result (JSON)"); a failed or cancelled turn as "(This request did not finish.)". Never the tool calls or tool results of earlier turns: the agent reads current data again instead of trusting a stale copy, and old untrusted text is not replayed |
 | How much | The newest turns first, at most `Conversations:MaxHistoryTurns` and `Conversations:MaxHistoryCharacters`; older turns are dropped whole. A turn whose content was erased is left out. History counts against the run's `MaxTokens` |
+| Long conversations | A **summary** of the older turns ([ADR-0031](../Decisions/0031-conversation-summaries.md)). Once more than `Conversations:SummarizeAfterTurns` finished turns are not covered by it, `SummarizeAgentConversationJob` asks `Conversations:SummaryModel` to fold them into the summary, always leaving the newest `KeepRecentTurns` out. Later turns get the summary first (a marked, untrusted message), then the turns after it. Its tokens are charged to `agent_tokens`, and it is erased with any of its turns' content. `GET /{id}` returns it |
 | One turn at a time | 409 `conversation_busy` while a turn is queued, running or waiting for an approval. Two messages sent at the same moment are refused by the database: the filtered unique index `ux_agent_runs_active_turn` (one active run per conversation) and `ux_agent_runs_conversation_turn` (unique turn numbers) |
 | Injection across turns | **Sticky taint**: a turn starts tainted when any earlier turn read untrusted content, because that turn's answer is in the history. Every change it proposes then needs a person |
 | Whose | The person who started it (with an API key: that key) continues, renames and deletes it; holders of `agentic.runs.read` may read it; anyone else gets 404, in every tenant but its own |
@@ -295,8 +297,8 @@ sequenceDiagram
 | Deleting | Stops a turn in progress and erases the content of every turn. A turn still running when its conversation is deleted is erased when it stops; `PurgeAgentContentJob` erases any left over |
 
 Live progress (`agentic.run-progress`) carries the `conversationId`, and the `agent.run` span the tag
-`gen_ai.conversation.id`. `GET /api/v1/agent-runs?conversationId=` lists the runs of one conversation. Answers are not
-streamed token by token: a client shows the step progress, then reads the answer from `GET /{id}`.
+`gen_ai.conversation.id`. `GET /api/v1/agent-runs?conversationId=` lists the runs of one conversation. The answer is
+streamed to its initiator as `agentic.run-text` (a preview); the saved turn in `GET /{id}` is the answer.
 
 <!--#if (sample)-->
 
@@ -398,6 +400,8 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Content:RetentionDays` | 90 | Content of finished runs is erased after this many days; 0 = keep |
 | `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
 | `Conversations:MaxMessages` | 200 | Messages per conversation (at least 1), then 409 `conversation_full`; also bounds the turns `GET /{id}` returns |
+| `Conversations:SummarizeAfterTurns` / `KeepRecentTurns` | 16 / 8 | Summarize once more than this many finished turns are not covered; the newest turns a summary leaves out (0 = no summaries) |
+| `Conversations:SummaryModel` / `MaxSummaryCharacters` | `DefaultModel` / 4000 | The model that writes summaries; their length |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
 A provider API key may come from a Docker secret named `agentic_<provider>_api_key` (provider name in lower case).
@@ -507,6 +511,8 @@ person (taint), the same change requested before it does not. Tests that drive a
 | An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
 | A conversation is deleted while a turn runs | The turn is asked to stop and its content is erased when it does; the other turns at once |
 | Someone else's conversation, or another tenant's | 404 for every route (read with `agentic.runs.read` only) |
+| The summary model fails, or the plan has no tokens left for it | No summary is saved; the history drops old turns as before, and the next turn schedules it again |
+| The content of a summarized turn is erased | The summary is dropped and written again from the turns that still have content |
 | A model turn is retried after the answer was partly streamed | The turn streams again from offset 0 (same `turn`); the saved answer is the one that counts |
 | A provider reports no token usage while streaming | Tokens are estimated for that turn and the model is no longer streamed by the process |
 | The hub is down or the user has no open session | The stream is lost; the run is unaffected |
@@ -539,7 +545,7 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md),
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
-[ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md),
+[ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md), [ADR-0031](../Decisions/0031-conversation-summaries.md),
 [Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).

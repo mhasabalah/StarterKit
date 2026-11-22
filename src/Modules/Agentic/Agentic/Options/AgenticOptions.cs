@@ -156,6 +156,21 @@ public sealed class AgentConversationOptions
     /// what <c>GET /agent-conversations/{id}</c> returns.
     /// </summary>
     public int MaxMessages { get; set; } = 200;
+
+    /// <summary>
+    /// A summary is written once more than this many finished turns are not covered by it (ADR-0031); 0 = never
+    /// summarize (older turns are simply dropped from the history).
+    /// </summary>
+    public int SummarizeAfterTurns { get; set; } = 16;
+
+    /// <summary>The newest turns a summary always leaves out: they stay in the history word for word.</summary>
+    public int KeepRecentTurns { get; set; } = 8;
+
+    /// <summary>Model key that writes summaries (a key of <c>Agentic:Models</c>); empty = <c>DefaultModel</c>.</summary>
+    public string? SummaryModel { get; set; }
+
+    /// <summary>A longer summary is cut to this length.</summary>
+    public int MaxSummaryCharacters { get; set; } = 4_000;
 }
 
 public sealed class AgentTriggerOptions
@@ -339,6 +354,19 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:Memory: MaxPerUser, MaxPerTenant and MaxRecalled must be positive.");
         if (options.Conversations.MaxHistoryTurns < 0 || options.Conversations.MaxHistoryCharacters < 0)
             errors.Add("Agentic:Conversations: MaxHistoryTurns and MaxHistoryCharacters must not be negative.");
+        var conversations = options.Conversations;
+        if (conversations.SummarizeAfterTurns < 0)
+            errors.Add("Agentic:Conversations:SummarizeAfterTurns must not be negative.");
+        if (conversations.SummarizeAfterTurns > 0)
+        {
+            if (conversations.KeepRecentTurns < 1 || conversations.KeepRecentTurns >= conversations.SummarizeAfterTurns)
+                errors.Add("Agentic:Conversations:KeepRecentTurns must be at least 1 and less than SummarizeAfterTurns.");
+            if (conversations.MaxSummaryCharacters is < 200 or > AgentConversation.SummaryMaxLength)
+                errors.Add($"Agentic:Conversations:MaxSummaryCharacters must be between 200 and {AgentConversation.SummaryMaxLength}.");
+            if (!string.IsNullOrWhiteSpace(conversations.SummaryModel) && !options.Models.ContainsKey(conversations.SummaryModel))
+                errors.Add($"Agentic:Conversations:SummaryModel '{conversations.SummaryModel}' is not one of Agentic:Models.");
+        }
+
         if (options.Streaming.IntervalMilliseconds < 0)
             errors.Add("Agentic:Streaming:IntervalMilliseconds must not be negative.");
         if (options.Conversations.MaxMessages < 1)

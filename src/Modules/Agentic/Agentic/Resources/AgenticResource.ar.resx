@@ -345,6 +345,12 @@
   <data name="Agent.Conversation.conversation_busy" xml:space="preserve">
     <value>ما زال الرد على الرسالة السابقة جاريًا. أرسل الرسالة التالية بعد اكتماله.</value>
   </data>
+  <data name="Agent.Conversation.summary_empty" xml:space="preserve">
+    <value>الملخص فارغ.</value>
+  </data>
+  <data name="Agent.Conversation.summary_turn_invalid" xml:space="preserve">
+    <value>الملخص يغطي رسالة غير موجودة في المحادثة.</value>
+  </data>
   <data name="Agent.Conversation.conversation_full" xml:space="preserve">
     <value>بلغت المحادثة {0} رسالة. ابدأ محادثة جديدة.</value>
   </data>

@@ -307,6 +307,11 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Conversations.MaxMessages = 200;
         Options.Conversations.MaxHistoryTurns = 20;
         Options.Conversations.MaxHistoryCharacters = 24_000;
+        var conversations = new AgentConversationOptions();
+        Options.Conversations.SummarizeAfterTurns = conversations.SummarizeAfterTurns;
+        Options.Conversations.KeepRecentTurns = conversations.KeepRecentTurns;
+        Options.Conversations.MaxSummaryCharacters = conversations.MaxSummaryCharacters;
+        Options.Conversations.SummaryModel = null;
         Options.Streaming.Enabled = true;
         Options.Streaming.IntervalMilliseconds = 100;
         Caller.Reset();

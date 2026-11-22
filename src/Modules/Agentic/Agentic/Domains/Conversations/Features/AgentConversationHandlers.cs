@@ -326,7 +326,12 @@ public class GetAgentConversationByIdHandler(AgenticDbContext dbContext, AgentAc
             .Select(r => new AgentConversationMessageDto(r.Id, r.Prompt, r.InputJson, r.OutputText, r.OutputJson, r.Status,
                 r.FailureCode, r.InputTokens, r.OutputTokens, r.CreatedAt ?? DateTime.MinValue, r.FinishedAt))
             .ToListAsync(cancellationToken);
-        return new AgentConversationDetailDto(conversation, messages);
+        var summary = await dbContext.Conversations.AsNoTracking()
+            .Where(c => c.Id == conversation.Id)
+            .Select(c => new { c.Summary, c.SummaryThroughTurn })
+            .FirstAsync(cancellationToken);
+        return new AgentConversationDetailDto(conversation, messages, summary.Summary,
+            summary.Summary is null ? 0 : summary.SummaryThroughTurn);
     }
 }
 
