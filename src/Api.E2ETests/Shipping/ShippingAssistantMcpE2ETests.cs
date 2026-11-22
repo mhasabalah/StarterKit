@@ -4,6 +4,9 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using Shared.Core.Authorization;
 using Shipping.Contracts.Shipments;
 using Xunit;
@@ -74,6 +77,49 @@ public class ShippingAssistantMcpE2ETests(AgentsEnabledE2EFixture fixture)
             .GetProperty("result").EnumerateArray();
         runs.Should().Contain(r => r.GetProperty("agentKey").GetString() == "shipping.assistant" &&
                                    r.GetProperty("triggerKind").GetInt32() == 6);
+    }
+
+    [Fact]
+    public async Task TheMcpClientOfTheSdk_Connects_ListsTheReadTools_AndCallsOne()
+    {
+        var user = await fixture.SeedUserAsync(RoleConstants.User, RoleConstants.Admin);
+        var http = fixture.Factory.CreateClientAs(user, RoleConstants.User, RoleConstants.Admin);
+        var reference = "SDK-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        (await http.PostAsJsonAsync("/api/v1/shipping/shipments", new
+        {
+            reference,
+            originCountry = "CN",
+            destinationCountry = "AE",
+            hsCode = "8471.30",
+            declaredValue = 1000m,
+            currency = "USD",
+            weightKg = 120m,
+            documents = new[] { new { kind = ShipmentDocumentKind.CommercialInvoice, reference = "INV-1", content = "10 laptops." } }
+        })).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // What an IDE or a desktop assistant does: initialize, list, call (Streamable HTTP, the person's own token).
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(http.BaseAddress!, Route),
+            TransportMode = HttpTransportMode.StreamableHttp,
+            Name = "e2e"
+        }, http, NullLoggerFactory.Instance, ownsHttpClient: false);
+        await using var mcp = await McpClient.CreateAsync(transport, cancellationToken: TestContext.Current.CancellationToken);
+
+        mcp.ServerInfo.Should().NotBeNull();
+        var tools = await mcp.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
+        tools.Select(t => t.Name).Should().BeEquivalentTo(
+            ["shipping.find_shipments", "shipping.get_shipment", "shipping.estimate_duties", "shipping.check_documents"]);
+
+        var result = await mcp.CallToolAsync("shipping.find_shipments",
+            new Dictionary<string, object?> { ["reference"] = reference }, cancellationToken: TestContext.Current.CancellationToken);
+        result.IsError.Should().NotBe(true);
+        result.Content.OfType<TextContentBlock>().Single().Text.Should().Contain(reference);
+
+        var refused = await mcp.CallToolAsync("shipping.find_shipments",
+            new Dictionary<string, object?> { ["reference"] = reference, ["tenantId"] = Guid.NewGuid() },
+            cancellationToken: TestContext.Current.CancellationToken);
+        refused.IsError.Should().BeTrue("arguments outside the tool's input are refused");
     }
 
     [Fact]
