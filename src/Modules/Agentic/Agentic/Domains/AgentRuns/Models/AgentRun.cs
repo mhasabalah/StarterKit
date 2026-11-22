@@ -99,6 +99,9 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// </summary>
     public bool Tainted { get; private set; }
 
+    /// <summary>The <c>agent.delegate</c> step of <see cref="ParentRunId"/> that started this run (ADR-0033).</summary>
+    public Guid? ParentStepId { get; private set; }
+
     /// <summary>
     /// The tenant's policy demands a person for every change this run proposes, whatever the risk (fixed at start).
     /// </summary>
@@ -132,7 +135,11 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// <summary>1 for the first message of <see cref="ConversationId"/>, then 2, 3... (unique per conversation).</summary>
     public int? ConversationTurn { get; private set; }
 
-    /// <summary>The run that delegated to this one, and how deep the delegation is (bounded by <see cref="MaxDepth"/>).</summary>
+    /// <summary>
+    /// The run that delegated to this one (ADR-0033), and how deep the delegation is: 0 for a run a person, a key or
+    /// a trigger started, the parent's depth + 1 otherwise (bounded by <see cref="MaxDepth"/> and
+    /// <c>Agentic:Delegation:MaxDepth</c>).
+    /// </summary>
     public Guid? ParentRunId { get; private set; }
 
     public int Depth { get; private set; }
@@ -180,7 +187,10 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         Guid? apiKeyId = null,
         bool approveAllChanges = false,
         bool tainted = false,
-        int? conversationTurn = null)
+        int? conversationTurn = null,
+        Guid? parentRunId = null,
+        Guid? parentStepId = null,
+        int delegationDepth = 0)
     {
         if (string.IsNullOrWhiteSpace(agentKey) || agentKey.Length > AgentKeyMaxLength)
             throw new InvalidAgentRunStateException("agent_required");
@@ -196,6 +206,11 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             throw new InvalidAgentRunStateException("trigger_key_too_long");
         if (conversationId.HasValue != conversationTurn.HasValue || conversationTurn is < 1)
             throw new InvalidAgentRunStateException("conversation_turn_invalid");
+        if (parentRunId.HasValue != parentStepId.HasValue || parentRunId.HasValue != delegationDepth > 0 ||
+            delegationDepth is < 0 or > MaxDepth || (parentRunId.HasValue && conversationId.HasValue))
+        {
+            throw new InvalidAgentRunStateException("delegation_invalid");
+        }
 
         return new AgentRun
         {
@@ -221,6 +236,9 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
             ApiKeyId = apiKeyId,
             ApproveAllChanges = approveAllChanges,
             Tainted = tainted,
+            ParentRunId = parentRunId,
+            ParentStepId = parentStepId,
+            Depth = delegationDepth,
             TraceParent = TextLimits.ClipOrNull(traceParent, TraceParentMaxLength)
         };
     }
@@ -233,7 +251,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     /// </summary>
     public bool TryClaim(string owner, DateTime now, TimeSpan lease)
     {
-        if (IsTerminal || Status == AgentRunStatus.AwaitingApproval)
+        if (IsTerminal || Status is AgentRunStatus.AwaitingApproval or AgentRunStatus.AwaitingDelegate)
             return false;
         if (Status == AgentRunStatus.Running && LeaseOwner != owner && LeaseUntil > now)
             return false;
@@ -308,6 +326,42 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         Status = AgentRunStatus.Queued;
         LastEnqueuedAt = now;
         ReadyAt = now;
+    }
+
+    /// <summary>Waits for the run it delegated to: the worker lets go until that run finishes (ADR-0033).</summary>
+    public void AwaitDelegate(AgentRunStep step)
+    {
+        EnsureRunning();
+        step.AwaitDelegate();
+        Status = AgentRunStatus.AwaitingDelegate;
+        ReleaseLease();
+    }
+
+    /// <summary>
+    /// The delegated run finished: its outcome becomes the result of the <c>agent.delegate</c> call, its tokens and
+    /// cost are added to this run's (so this run's budget bounds the whole delegation), its taint carries over, and
+    /// the run goes back to the queue. False when this run no longer waits for that call (nothing changes).
+    /// </summary>
+    public bool CompleteDelegation(AgentRunStep step, string resultJson, bool succeeded, bool tainted, long inputTokens,
+        long outputTokens, decimal cost, long durationMs, DateTime now)
+    {
+        if (Status != AgentRunStatus.AwaitingDelegate || step.Status != AgentRunStepStatus.AwaitingDelegate || step.RunId != Id)
+            return false;
+
+        if (succeeded)
+            step.Succeed(resultJson, durationMs, now);
+        else
+            step.FailWith("delegate_failed", resultJson, durationMs, now);
+        ToolCalls++;
+        InputTokens += Math.Max(0, inputTokens);
+        OutputTokens += Math.Max(0, outputTokens);
+        EstimatedCost += Math.Max(0, cost);
+        Tainted |= tainted;
+        ConsecutiveFailures = 0;
+        Status = AgentRunStatus.Queued;
+        LastEnqueuedAt = now;
+        ReadyAt = now;
+        return true;
     }
 
     private void ReleaseLease()
@@ -385,7 +439,7 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
     public void RequestCancel(DateTime now)
     {
         EnsureNotTerminal();
-        if (Status is AgentRunStatus.Queued or AgentRunStatus.AwaitingApproval)
+        if (Status is AgentRunStatus.Queued or AgentRunStatus.AwaitingApproval or AgentRunStatus.AwaitingDelegate)
         {
             Finish(AgentRunStatus.Cancelled, now);
             return;

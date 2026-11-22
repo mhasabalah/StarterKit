@@ -17,9 +17,11 @@ public sealed class EraseDeletedConversationTurnEventHandler(
     {
         try
         {
+            // A turn of a deleted conversation, or a run delegated from a run whose content was already erased.
             var deleted = await dbContext.Runs.AnyAsync(r =>
                 r.Id == notification.RunId && r.ContentErasedAt == null &&
-                dbContext.Conversations.Any(c => c.Id == r.ConversationId && c.Status == AgentConversationStatus.Deleted),
+                (dbContext.Conversations.Any(c => c.Id == r.ConversationId && c.Status == AgentConversationStatus.Deleted) ||
+                 dbContext.Runs.Any(p => p.Id == r.ParentRunId && p.ContentErasedAt != null)),
                 cancellationToken);
             if (deleted)
                 await AgentRunContentEraser.EraseAsync(dbContext, [notification.RunId], timeProvider.GetUtcNow().UtcDateTime,

@@ -215,6 +215,34 @@ public class ShippingDomainTests
     });
 
     [Fact]
+    public void TheAssistant_HandsPreparationToThePreparationAgent_AndReportsWhatItFound()
+    {
+        var call = Ask("Please prepare SHP-001 for clearance", null, FoundShp1).ToolCalls!.Single();
+        call.Tool.Should().Be(Agentic.Contracts.Tools.AgentToolNames.Delegate);
+        call.ArgumentsJson.Should().Contain(ShipmentPreparationAgent.Key).And.Contain(ShipmentId.ToString()).And.Contain("SHP-001");
+
+        var delegated = ("agent.delegate", (object)new
+        {
+            runId = Guid.NewGuid(),
+            status = "Completed",
+            result = new { findings = new[] { "Not submitted: missing PackingList." }, submitted = false }
+        });
+        Ask("Please prepare SHP-001 for clearance", null, FoundShp1, delegated).Text
+            .Should().Contain("not submitted").And.Contain("PackingList");
+
+        var failed = ("agent.delegate", (object)new { runId = Guid.NewGuid(), status = "Failed", failureCode = "forbidden" });
+        Ask("Please prepare SHP-001 for clearance", null, FoundShp1, failed).Text.Should().Contain("did not finish").And.Contain("forbidden");
+    }
+
+    [Fact]
+    public void TheAssistant_MayOnlyDelegateToThePreparationAgent_WhichAcceptsDelegatedRuns()
+    {
+        ShippingAssistantAgent.Definition.Delegates.Should().Equal(ShipmentPreparationAgent.Key);
+        ShipmentPreparationAgent.Definition.AllowedTriggers.Should().Contain(Agentic.Contracts.Agents.AgentTriggerKind.Delegated);
+        ShippingAssistantAgent.Definition.Tools.Should().OnlyContain(t => t.StartsWith("shipping.", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void TheAssistant_FindsTheShipmentNamedInTheMessage_ThenAnswersFromIt()
     {
         var find = Ask("Where is SHP-001?").ToolCalls!.Single();

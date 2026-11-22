@@ -66,11 +66,16 @@ public static class ShippingAssistantAgent
             call shipping.find_shipments with its reference first and use the id it returns, also in a follow-up question
             (take the reference from the earlier messages). Read the shipment, its duties or its documents only as the
             question needs. If a tool refuses your arguments, correct them and try again before answering.
-            Answer briefly with the facts the tools returned. You cannot change anything: if the user asks for a change,
-            say which action in the application does it.
+            Answer briefly with the facts the tools returned. You cannot change anything yourself. When the user asks to
+            prepare a shipment for customs clearance, find it, then hand the work to shipping.shipment-preparation with
+            agent.delegate; the task must name the shipment id and its reference. A person approves the submission.
+            Report what the preparation agent found. For any other change, say which action in the application does it.
             """,
         Tools = ["shipping.find_shipments", "shipping.get_shipment", "shipping.estimate_duties", "shipping.check_documents"],
-        Autonomy = AgentAutonomy.Recommend,
+        // Its own tools only read. The autonomy bounds what it may delegate: the preparation agent prepares a draft
+        // and proposes the submission to a person (ADR-0033).
+        Delegates = [ShipmentPreparationAgent.Key],
+        Autonomy = AgentAutonomy.Execute,
         Conversational = true,
         AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Api],
         Limits = new AgentLimits(MaxModelTurns: 6, MaxToolCalls: 6)
@@ -107,6 +112,30 @@ public sealed partial class ShippingAssistantScript : IAgentScript
             return ScriptedReply.Say($"I found no shipment with the reference {reference}.");
         var id = shipment.GetProperty("id").GetGuid();
 
+        if (AsksToPrepare().IsMatch(prompt))
+        {
+            var prepared = Last(turn, AgentToolNames.Delegate);
+            if (prepared is null)
+            {
+                return Call(AgentToolNames.Delegate, new
+                {
+                    agentKey = ShipmentPreparationAgent.Key,
+                    task = $"Prepare shipment {id} ({reference}) for customs clearance."
+                });
+            }
+
+            if (prepared.Value.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object)
+            {
+                var findings = string.Join(" ", result.GetProperty("findings").EnumerateArray().Select(f => f.GetString()));
+                return ScriptedReply.Say(result.GetProperty("submitted").GetBoolean()
+                    ? $"{reference} was prepared and submitted. {findings}"
+                    : $"{reference} was prepared but not submitted. {findings}");
+            }
+
+            return ScriptedReply.Say(
+                $"The preparation of {reference} did not finish ({prepared.Value.GetProperty("failureCode").GetString() ?? prepared.Value.GetProperty("status").GetString()}).");
+        }
+
         if (AsksAboutDuties().IsMatch(prompt))
         {
             var estimate = Last(turn, "shipping.estimate_duties");
@@ -138,4 +167,7 @@ public sealed partial class ShippingAssistantScript : IAgentScript
 
     [GeneratedRegex(@"\b(vat|duty|duties|tax|taxes)\b", RegexOptions.IgnoreCase)]
     private static partial Regex AsksAboutDuties();
+
+    [GeneratedRegex(@"\b(prepare|clearance|clear)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AsksToPrepare();
 }

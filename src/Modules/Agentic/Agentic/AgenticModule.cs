@@ -61,6 +61,7 @@ public static class AgenticModule
         services.AddScoped<IAgentApprovalRepository, AgentApprovalRepository>();
         services.AddScoped<IAgentPolicyRepository, AgentPolicyRepository>();
         services.AddScoped<AgentRunStarter>();
+        services.AddScoped<AgentDelegationResolver>();
         services.AddScoped<AgentAccess>();
         services.AddScoped<Domains.Approvals.Features.AgentApprovalDecision>();
         services.AddScoped<AgentPrincipalResolver>();
@@ -103,6 +104,7 @@ public static class AgenticModule
         services.AddTransient<IndexKnowledgeDocumentJob>();
         services.AddTransient<RequeueStalledKnowledgeDocumentsJob>();
         services.AddTransient<SummarizeAgentConversationJob>();
+        services.AddTransient<ResolveAgentDelegationJob>();
         // The scripted provider's summary writer (tests and demos; the scripted provider is refused in Production).
         services.AddAgentScript<ConversationSummaryScript>();
 

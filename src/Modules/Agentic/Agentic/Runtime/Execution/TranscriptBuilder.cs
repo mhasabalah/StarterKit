@@ -90,6 +90,8 @@ public static class TranscriptBuilder
             .ToList();
         if (agent.OutputSchema is { } outputSchema)
             tools.Add(new ModelToolDeclaration(AgentToolNames.SubmitResult, SubmitResultDescription, outputSchema));
+        if (agent.Delegation is { } delegation)
+            tools.Add(new ModelToolDeclaration(AgentToolNames.Delegate, delegation.Description, delegation.Schema));
 
         return new ModelRequest(run.ModelKey, run.AgentKey, Instructions(agent, typed), messages, tools, history?.Count ?? 0);
     }

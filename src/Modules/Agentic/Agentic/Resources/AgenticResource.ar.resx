@@ -117,6 +117,18 @@
   <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
     <value>هذه الأداة غير متاحة لهذا الوكيل.</value>
   </data>
+  <data name="Agent.Tool.delegation_too_deep" xml:space="preserve">
+    <value>لا يمكن لهذا الوكيل تفويض المهمة إلى وكيل آخر: تم بلوغ الحد الأقصى لعمق التفويض.</value>
+  </data>
+  <data name="Agent.Tool.delegation_refused" xml:space="preserve">
+    <value>تعذر بدء الوكيل الآخر.</value>
+  </data>
+  <data name="Agent.State.delegation_invalid" xml:space="preserve">
+    <value>بيانات التفويض غير صالحة.</value>
+  </data>
+  <data name="Agent.State.step_not_open" xml:space="preserve">
+    <value>هذه الخطوة مغلقة بالفعل.</value>
+  </data>
   <data name="Agent.Tool.forbidden" xml:space="preserve">
     <value>لا يملك المستخدم صلاحية القيام بذلك.</value>
   </data>

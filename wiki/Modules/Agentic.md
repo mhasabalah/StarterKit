@@ -11,7 +11,8 @@ references a business module and a business module never references a model SDK.
 [ADR-0029](../Decisions/0029-agent-conversations.md) (conversations) and
 [ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers) and
 [ADR-0031](../Decisions/0031-conversation-summaries.md) (conversation summaries) and
-[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md) (HNSW vector index).
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md) (HNSW vector index) and
+[ADR-0033](../Decisions/0033-agent-delegation.md) (delegation between agents).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -316,9 +317,28 @@ streamed to its initiator as `agentic.run-text` (a preview); the saved turn in `
 <!--#if (sample)-->
 
 The sample is `shipping.assistant` ([Shipping](Shipping.md#the-shipping-assistant)): read-only answers about shipments,
-including follow-ups such as "and how much VAT is due?" that name no shipment.
+including follow-ups such as "and how much VAT is due?" that name no shipment, and "prepare it for clearance", which it
+delegates to the preparation agent.
 
 <!--#endif-->
+
+### Delegation
+
+An agent hands a task to another agent with the built-in tool `agent.delegate {agentKey, task}`
+([ADR-0033](../Decisions/0033-agent-delegation.md)). It gets the tool only when its definition lists `Delegates`, and
+the schema names only those agents.
+
+| Rule | How |
+|---|---|
+| Who may be delegated to | The agents in `Delegates`. Each must allow `AgentTriggerKind.Delegated`; startup refuses unknown agents, self-delegation and cycles. Any other key is refused with `tool_not_allowed` |
+| As whom | The same person (`InitiatedBy`), permission ceiling and API key. The person must hold the delegate's `RequiredPermission` now (`forbidden` otherwise) |
+| With what authority | The lower of the two runs' autonomies. Taint is inherited, so a tainted run's delegate needs a person for every change |
+| How much | At most the delegating run's remaining tokens. When the delegate finishes, its tokens and cost are added to the delegating run's, so one budget bounds the whole delegation. Depth is bounded by `Delegation:MaxDepth` (`delegation_too_deep`) |
+| How it waits | The delegating run and its step are `AwaitingDelegate`, holding no worker. The finished delegate's status and answer (or typed result, or failure code) become the step's result, its taint carries over, and the run is queued again |
+| Starting it | Through `AgentRunStarter`: the tenant policy, capacity and the `agent_runs` quota apply. A refusal is told to the model like a refused tool. A retried attempt finds the delegate it already started (`ux_agent_runs_parent_step`) |
+| Cascades | Cancelling a run cancels its delegates; erasing a run's content erases theirs |
+
+A delegated run is listed like any run, with `parentRunId` and trigger `Delegated`; its approvals are decided as usual.
 
 ### Erasure and retention
 
@@ -416,6 +436,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
 | `Conversations:MaxMessages` | 200 | Messages per conversation (at least 1), then 409 `conversation_full`; also bounds the turns `GET /{id}` returns |
 | `Conversations:SummarizeAfterTurns` / `KeepRecentTurns` | 16 / 8 | Summarize once more than this many finished turns are not covered; the newest turns a summary leaves out (0 = no summaries) |
+| `Delegation:MaxDepth` | 2 | How deep delegations nest (1 = a delegated run may not delegate again; at most 3) |
 | `Conversations:SummaryModel` / `MaxSummaryCharacters` | `DefaultModel` / 4000 | The model that writes summaries; their length |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
 
@@ -527,6 +548,9 @@ person (taint), the same change requested before it does not. Tests that drive a
 | An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
 | A conversation is deleted while a turn runs | The turn is asked to stop and its content is erased when it does; the other turns at once |
 | Someone else's conversation, or another tenant's | 404 for every route (read with `agentic.runs.read` only) |
+| A delegated run is still saving when its delegate finishes | `ResolveAgentDelegationJob` checks again shortly; the delegating run's next attempt also takes a finished delegate's result itself |
+| A worker stops after starting a delegate, before suspending | The next attempt finds that delegate and waits for it; no second one starts |
+| The delegate fails or is cancelled | The `agent.delegate` call fails with `delegate_failed` and its failure code; the delegating run goes on |
 | The summary model fails, or the plan has no tokens left for it | No summary is saved; the history drops old turns as before, and the next turn schedules it again |
 | The content of a summarized turn is erased | The summary is dropped and written again from the turns that still have content |
 | A model turn is retried after the answer was partly streamed | The turn streams again from offset 0 (same `turn`); the saved answer is the one that counts |
@@ -562,6 +586,7 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
 [ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md), [ADR-0031](../Decisions/0031-conversation-summaries.md),
-[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md), [Agent security model](../Architecture/Agent-Security.md),
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md), [ADR-0033](../Decisions/0033-agent-delegation.md),
+[Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).

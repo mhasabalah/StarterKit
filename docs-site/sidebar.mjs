@@ -655,6 +655,11 @@ export const sections = [
         "order": 32
       },
       {
+        "source": "Decisions/0033-agent-delegation.md",
+        "label": "0033 agent delegation",
+        "order": 33
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
         "order": 99

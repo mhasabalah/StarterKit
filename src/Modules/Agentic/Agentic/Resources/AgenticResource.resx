@@ -117,6 +117,18 @@
   <data name="Agent.Tool.tool_not_allowed" xml:space="preserve">
     <value>This tool is not available to this agent.</value>
   </data>
+  <data name="Agent.Tool.delegation_too_deep" xml:space="preserve">
+    <value>This agent cannot hand the task to another agent: the delegation is already as deep as allowed.</value>
+  </data>
+  <data name="Agent.Tool.delegation_refused" xml:space="preserve">
+    <value>The other agent could not be started.</value>
+  </data>
+  <data name="Agent.State.delegation_invalid" xml:space="preserve">
+    <value>The delegation details are not valid.</value>
+  </data>
+  <data name="Agent.State.step_not_open" xml:space="preserve">
+    <value>This step is already closed.</value>
+  </data>
   <data name="Agent.Tool.forbidden" xml:space="preserve">
     <value>The user is not permitted to do this.</value>
   </data>

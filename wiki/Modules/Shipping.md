@@ -75,10 +75,12 @@ model key at a real provider (`Agentic:Models`) and the same tools serve a real 
 ### The shipping assistant
 
 `ShippingAssistantAgent` (`shipping.assistant`) is the conversational sample: a free-text agent with
-`Conversational = true`, autonomy `Recommend` and read tools only. A person asks about a shipment by its reference and
-then asks follow-ups that name none ("and how much VAT is due?"); every message is a turn of an
-[agent conversation](Agentic.md#conversations) and is given the earlier turns. It changes nothing: it explains, the
-preparation agent and people act.
+`Conversational = true` and read tools only. A person asks about a shipment by its reference and then asks follow-ups
+that name none ("and how much VAT is due?"); every message is a turn of an
+[agent conversation](Agentic.md#conversations) and is given the earlier turns. It changes nothing itself: "prepare it
+for clearance" is [delegated](Agentic.md#delegation) to `shipping.shipment-preparation` (its only `Delegates` entry),
+which runs for the same person, needs `shipments.manage`, and proposes the submission to a person. Its autonomy is
+`Execute` only so that delegate can propose that submission; its own tools stay read-only.
 
 | Tool | Risk | Permission | Notes |
 |---|---|---|---|
@@ -86,7 +88,8 @@ preparation agent and people act.
 | `shipping.get_shipment`, `shipping.estimate_duties`, `shipping.check_documents` | read | any member | As above; reading documents taints the conversation |
 
 `ShippingAssistantScript` is its deterministic model: it finds the reference in the message or, for a follow-up, in
-the earlier turns, then answers about duties when asked, otherwise about the route and status.
+the earlier turns, then delegates when asked to prepare, answers about duties when asked, otherwise about the route
+and status.
 
 ## Endpoints
 

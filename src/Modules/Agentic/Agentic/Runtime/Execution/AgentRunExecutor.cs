@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Agentic.Contracts.Approvals;
 using Agentic.Domains.AgentRuns.Jobs;
+using Agentic.Domains.AgentRuns.Services;
 using Agentic.Runtime.Models;
 using Agentic.Runtime.Security;
 using Agentic.Telemetry;
@@ -291,6 +292,9 @@ public sealed class AgentRunExecutor(
             await FailAsync(run.Id, owner, "initiator_no_longer_authorized");
             return false;
         }
+
+        if (step.ToolName == AgentToolNames.Delegate)
+            return await HandleDelegateAsync(run, step, agent, principal, owner);
 
         var arguments = step.ArgumentsJson ?? "{}";
         var decision = ToolPolicy.Decide(agent, tool, run.Autonomy, run.ChangesNeedApproval, principal.Permissions);
@@ -581,6 +585,101 @@ public sealed class AgentRunExecutor(
         });
 
         metrics.RecordToolCall(AgentToolNames.SubmitResult, "ok");
+        return false;
+    }
+
+    /// <summary>
+    /// <c>agent.delegate</c> (ADR-0033): starts a run of another agent for the same person and suspends this run until
+    /// it finishes. The delegated run acts at the lower of the two autonomies, inherits the permission ceiling and the
+    /// taint, may use at most this run's remaining tokens, and goes through <see cref="AgentRunStarter"/> (policy,
+    /// capacity, quota). A retried attempt finds the run it already started (one per step, a unique index) instead of
+    /// starting another. False when this attempt ends (suspended).
+    /// </summary>
+    private async Task<bool> HandleDelegateAsync(AgentRun run, AgentRunStep step, RegisteredAgent agent,
+        AgentPrincipal principal, string owner)
+    {
+        if (agent.Delegation is null)
+        {
+            await RefuseAsync(run, step, owner, null, ToolPolicy.ToolNotAllowed);
+            return true;
+        }
+
+        if (!AgentDelegation.TryParse(step.ArgumentsJson, Settings.Limits.MaxPromptLength, out var arguments, out var error))
+        {
+            await RefuseAsync(run, step, owner, null, "invalid_arguments", error);
+            return true;
+        }
+
+        var child = agent.MayDelegateTo(arguments!.AgentKey) ? registry.FindAgent(arguments.AgentKey) : null;
+        if (child is null)
+        {
+            await RefuseAsync(run, step, owner, null, ToolPolicy.ToolNotAllowed);
+            return true;
+        }
+
+        if (run.Depth + 1 > Settings.Delegation.MaxDepth)
+        {
+            await RefuseAsync(run, step, owner, null, "delegation_too_deep");
+            return true;
+        }
+
+        // The person may start the delegated agent NOW (as for any start); its own tools are checked by its own run.
+        if (child.Definition.RequiredPermission is { } permission && !principal.Permissions.Contains(permission))
+        {
+            await RefuseAsync(run, step, owner, null, ToolPolicy.Forbidden);
+            return true;
+        }
+
+        var remainingTokens = run.MaxTokens - run.TotalTokens;
+        if (remainingTokens <= 0)
+        {
+            await FailAsync(run.Id, owner, "budget_exceeded", "max_tokens");
+            return false;
+        }
+
+        var started = await unitOfWork.RunAsync((services, ct) =>
+            services.GetRequiredService<IAgentRunRepository>().FindDelegateAsync(step.Id, ct), CancellationToken.None);
+        if (started is null)
+        {
+            try
+            {
+                started = await InPrincipalScope(principal, run, (services, ct) => services.GetRequiredService<AgentRunStarter>()
+                    .StartAsync(new AgentRunStart(child, AgentTriggerKind.Delegated, run.InitiatedBy, arguments.Task, null,
+                        run.Culture, run.PermissionCeiling, run.ApiKeyId, StartTainted: run.Tainted, ParentRunId: run.Id,
+                        ParentStepId: step.Id, Depth: run.Depth + 1, AutonomyCeiling: run.Autonomy,
+                        TokenCeiling: remainingTokens), ct), CancellationToken.None);
+            }
+            catch (CustomException ex) when ((int)ex.StatusCode is >= 400 and < 500)
+            {
+                // Refused by the policy, the capacity or the plan: the model is told, as for a refused tool.
+                await RefuseAsync(run, step, owner, null, ex.ErrorCode ?? "delegation_refused", ex.Message);
+                return true;
+            }
+
+            logger.LogInformation("Agent run {RunId}: delegated to {Agent} (run {ChildId})", run.Id, child.Definition.Key,
+                started.Id);
+        }
+
+        var delegated = started;
+        var resumeNow = await SaveUnderLeaseAsync(run.Id, owner, async (current, repository) =>
+        {
+            var currentStep = await repository.GetStepAsync(run.Id, step.Id)
+                              ?? throw new InvalidOperationException($"Agent run {run.Id} has no step {step.Id}.");
+            current.AwaitDelegate(currentStep);
+
+            // Finished already (a fast run, or a retried attempt): take its outcome now instead of waiting for it.
+            var latest = await repository.FindDelegateAsync(step.Id);
+            if (latest is not { IsTerminal: true })
+                return false;
+            return current.CompleteDelegation(currentStep, AgentDelegation.Result(latest),
+                latest.Status == AgentRunStatus.Completed, latest.Tainted, latest.InputTokens, latest.OutputTokens,
+                latest.EstimatedCost, AgentDelegation.DurationMs(latest), Now);
+        });
+
+        if (resumeNow)
+            AgentRunQueue.Enqueue(jobs, run.Id);
+        metrics.RecordToolCall(AgentToolNames.Delegate, resumeNow ? "ok" : "delegated");
+        logger.LogInformation("Agent run {RunId}: waiting for delegated run {ChildId}", run.Id, delegated.Id);
         return false;
     }
 

@@ -86,6 +86,7 @@ wiki/
 - [0030](Decisions/0030-streaming-agent-answers.md): agent answers streamed to the initiator as a preview over the notification hub
 - [0031](Decisions/0031-conversation-summaries.md): long agent conversations summarized in a background job, as untrusted history
 - [0032](Decisions/0032-knowledge-hnsw-index.md): HNSW index of knowledge vectors per configured dimension, built after migrations
+- [0033](Decisions/0033-agent-delegation.md): agents delegate to other agents as child runs, never with more authority
 
 ## Modules
 

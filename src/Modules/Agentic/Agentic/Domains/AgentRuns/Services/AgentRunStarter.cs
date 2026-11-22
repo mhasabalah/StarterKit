@@ -20,7 +20,12 @@ public sealed record AgentRunStart(
     string? TriggerKey = null,
     Guid? ConversationId = null,
     int? ConversationTurn = null,
-    bool StartTainted = false);
+    bool StartTainted = false,
+    Guid? ParentRunId = null,
+    Guid? ParentStepId = null,
+    int Depth = 0,
+    AgentAutonomy? AutonomyCeiling = null,
+    long? TokenCeiling = null);
 
 /// <summary>
 /// The one place a run is created, for every kind of trigger. The caller has decided WHO may start (endpoint policy,
@@ -47,7 +52,7 @@ public sealed class AgentRunStarter(
     ILogger<AgentRunStarter> logger)
 {
     private static readonly AgentRunStatus[] ActiveStatuses =
-        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval];
+        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval, AgentRunStatus.AwaitingDelegate];
 
     public async Task<AgentRun> StartAsync(AgentRunStart start, CancellationToken cancellationToken)
     {
@@ -67,6 +72,12 @@ public sealed class AgentRunStarter(
         await EnsureCapacityAsync(settings, cancellationToken);
 
         var autonomy = policy.AutonomyCeiling is { } ceiling && ceiling < definition.Autonomy ? ceiling : definition.Autonomy;
+        // A delegated run never acts with more autonomy than the run that delegated (ADR-0033).
+        if (start.AutonomyCeiling is { } parent && parent < autonomy)
+            autonomy = parent;
+        var budget = Budget(settings.Limits, definition.Limits, policy);
+        if (start.TokenCeiling is { } tokens)
+            budget = budget with { MaxTokens = Math.Max(1, Math.Min(budget.MaxTokens, tokens)) };
         var run = AgentRun.Start(
             definition.Key,
             definition.Version,
@@ -76,7 +87,7 @@ public sealed class AgentRunStarter(
             start.InitiatedBy,
             start.Prompt?.Trim(),
             start.InputJson,
-            Budget(settings.Limits, definition.Limits, policy),
+            budget,
             start.Culture,
             start.PermissionCeiling,
             start.TriggerKey,
@@ -85,7 +96,10 @@ public sealed class AgentRunStarter(
             start.ApiKeyId,
             policy.RequireApprovalForChanges,
             start.StartTainted,
-            start.ConversationTurn);
+            start.ConversationTurn,
+            start.ParentRunId,
+            start.ParentStepId,
+            start.Depth);
         run.MarkEnqueued(timeProvider.GetUtcNow().UtcDateTime);
 
         // Consumed last, once everything that can refuse the run without touching the database has passed (the

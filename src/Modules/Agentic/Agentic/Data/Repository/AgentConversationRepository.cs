@@ -25,7 +25,7 @@ public interface IAgentConversationRepository
 public class AgentConversationRepository(AgenticDbContext context) : IAgentConversationRepository
 {
     private static readonly AgentRunStatus[] ActiveStatuses =
-        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval];
+        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval, AgentRunStatus.AwaitingDelegate];
 
     public Task<AgentConversation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.Conversations.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);

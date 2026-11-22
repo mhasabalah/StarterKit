@@ -365,6 +365,10 @@ Notification is the exception: its context is in `Persistence/`.
   - Streaming ([ADR-0030](wiki/Decisions/0030-streaming-agent-answers.md)): answers reach the initiator as
     `agentic.run-text` through `AgentRunTextStream` (a preview; the saved run is the answer). Never stream tool
     arguments, never send the stream to anyone but the initiator, and never store partial text.
+  - Delegation ([ADR-0033](wiki/Decisions/0033-agent-delegation.md)): an agent lists `Delegates` (each allows
+    `AgentTriggerKind.Delegated`) and calls `agent.delegate`; the delegate is a child run started through
+    `AgentRunStarter` for the same person, at the lower autonomy, inheriting taint and the token budget. Never call
+    another agent's tools directly or run a delegate inside a tool call.
   - Summaries ([ADR-0031](wiki/Decisions/0031-conversation-summaries.md)) are written only by
     `SummarizeAgentConversationJob`, from messages and final answers (never tool results), are untrusted history, and
     are erased with the content of any turn they cover.

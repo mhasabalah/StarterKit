@@ -201,6 +201,10 @@ namespace Agentic.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("parent_run_id");
 
+                    b.Property<Guid?>("ParentStepId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_step_id");
+
                     b.PrimitiveCollection<string[]>("PermissionCeiling")
                         .HasColumnType("text[]")
                         .HasColumnName("permission_ceiling");
@@ -262,13 +266,21 @@ namespace Agentic.Data.Migrations
                     b.HasIndex("ConversationId")
                         .HasDatabaseName("ix_agent_runs_conversation_id");
 
+                    b.HasIndex("ParentRunId")
+                        .HasDatabaseName("ix_agent_runs_parent_run_id");
+
                     b.HasIndex("TenantId", "ConversationId")
                         .IsUnique()
                         .HasDatabaseName("ux_agent_runs_active_turn")
-                        .HasFilter("conversation_id IS NOT NULL AND status IN ('Queued', 'Running', 'AwaitingApproval')");
+                        .HasFilter("conversation_id IS NOT NULL AND status IN ('Queued', 'Running', 'AwaitingApproval', 'AwaitingDelegate')");
 
                     b.HasIndex("TenantId", "CreatedAt")
                         .HasDatabaseName("ix_agent_runs_tenant_id_created_at");
+
+                    b.HasIndex("TenantId", "ParentStepId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_agent_runs_parent_step")
+                        .HasFilter("parent_step_id IS NOT NULL");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("ix_agent_runs_tenant_id_status");
@@ -1196,6 +1208,12 @@ namespace Agentic.Data.Migrations
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_agent_runs_agent_conversations_conversation_id");
+
+                    b.HasOne("Agentic.Domains.AgentRuns.Models.AgentRun", null)
+                        .WithMany()
+                        .HasForeignKey("ParentRunId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_agent_runs_agent_runs_parent_run_id");
                 });
 
             modelBuilder.Entity("Agentic.Domains.AgentRuns.Models.AgentRunStep", b =>

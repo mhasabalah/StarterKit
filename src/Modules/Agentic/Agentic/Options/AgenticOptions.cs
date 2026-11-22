@@ -65,6 +65,8 @@ public sealed class AgenticOptions
     public AgentConversationOptions Conversations { get; set; } = new();
 
     public AgentStreamingOptions Streaming { get; set; } = new();
+
+    public AgentDelegationOptions Delegation { get; set; } = new();
 }
 
 /// <summary>Retrieval over documents the modules index (ADR-0028). Off by default; needs an embedding model.</summary>
@@ -144,6 +146,13 @@ public sealed class AgentContentOptions
     /// after the run finished (counters, statuses and audit entries stay). 0 = keep them.
     /// </summary>
     public int RetentionDays { get; set; } = 90;
+}
+
+/// <summary>Agents handing tasks to other agents (<c>agent.delegate</c>, ADR-0033).</summary>
+public sealed class AgentDelegationOptions
+{
+    /// <summary>How deep delegations may nest: 1 = a run may delegate, a delegated run may not (at most 3).</summary>
+    public int MaxDepth { get; set; } = 2;
 }
 
 /// <summary>The answer's text sent to the initiator while the model writes it (<c>agentic.run-text</c>).</summary>
@@ -383,6 +392,8 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
                 errors.Add($"Agentic:Conversations:SummaryModel '{conversations.SummaryModel}' is not one of Agentic:Models.");
         }
 
+        if (options.Delegation.MaxDepth is < 1 or > AgentRun.MaxDepth)
+            errors.Add($"Agentic:Delegation:MaxDepth must be between 1 and {AgentRun.MaxDepth}.");
         if (options.Streaming.IntervalMilliseconds < 0)
             errors.Add("Agentic:Streaming:IntervalMilliseconds must not be negative.");
         if (options.Conversations.MaxMessages < 1)

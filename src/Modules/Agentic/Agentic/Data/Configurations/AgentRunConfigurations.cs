@@ -14,9 +14,12 @@ public class AgentRunConfiguration : IEntityTypeConfiguration<AgentRun>
     /// <summary>Turn numbers are unique per conversation: the order of the history, and a second guard against a race.</summary>
     public const string ConversationTurnIndexName = "ux_agent_runs_conversation_turn";
 
+    /// <summary>One delegated run per <c>agent.delegate</c> call: a retried attempt finds it instead of starting another.</summary>
+    public const string DelegateStepIndexName = "ux_agent_runs_parent_step";
+
     /// <summary>The statuses of a turn in progress, as stored (enums are strings).</summary>
     public const string ActiveTurnFilter =
-        "conversation_id IS NOT NULL AND status IN ('Queued', 'Running', 'AwaitingApproval')";
+        "conversation_id IS NOT NULL AND status IN ('Queued', 'Running', 'AwaitingApproval', 'AwaitingDelegate')";
 
     public void Configure(EntityTypeBuilder<AgentRun> builder)
     {
@@ -67,6 +70,16 @@ public class AgentRunConfiguration : IEntityTypeConfiguration<AgentRun>
             .IsUnique()
             .HasFilter(ActiveTurnFilter)
             .HasDatabaseName(ActiveTurnIndexName);
+
+        // A delegated run belongs to a run of the same tenant (ADR-0033); runs are never hard-deleted.
+        builder.HasOne<AgentRun>()
+            .WithMany()
+            .HasForeignKey(r => r.ParentRunId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => new { r.TenantId, r.ParentStepId })
+            .IsUnique()
+            .HasFilter("parent_step_id IS NOT NULL")
+            .HasDatabaseName(DelegateStepIndexName);
     }
 }
 

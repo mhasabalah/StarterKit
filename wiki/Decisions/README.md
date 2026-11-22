@@ -41,3 +41,4 @@ link it here.
 | [0030](0030-streaming-agent-answers.md) | Stream agent answers as a preview over the notification hub | Accepted | 2026-11-22 |
 | [0031](0031-conversation-summaries.md) | Summarize long agent conversations in a background job, as untrusted history | Accepted | 2026-11-22 |
 | [0032](0032-knowledge-hnsw-index.md) | Index knowledge vectors with HNSW per configured dimension, built after migrations | Accepted | 2026-11-22 |
+| [0033](0033-agent-delegation.md) | Let agents delegate to other agents as child runs, never with more authority | Accepted | 2026-11-22 |

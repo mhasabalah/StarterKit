@@ -314,6 +314,7 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Conversations.KeepRecentTurns = conversations.KeepRecentTurns;
         Options.Conversations.MaxSummaryCharacters = conversations.MaxSummaryCharacters;
         Options.Conversations.SummaryModel = null;
+        Options.Delegation.MaxDepth = 2;
         Options.Streaming.Enabled = true;
         Options.Streaming.IntervalMilliseconds = 100;
         Caller.Reset();
@@ -562,6 +563,9 @@ public static class TestAgents
     public const string Automatic = "test.automatic";
     public const string Researcher = "test.researcher";
     public const string Chat = "test.chat";
+    public const string Delegator = "test.delegator";
+    public const string Worker = "test.worker";
+    public const string Leaf = "test.leaf";
 
     public static readonly AgentDefinition[] All =
     [
@@ -592,6 +596,7 @@ public static class TestAgents
             Name = new LocalizedText("Restricted", "مقيَّد"),
             Instructions = "Only for webhook managers.",
             RequiredPermission = TenantPermissions.WebhooksManage,
+            AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Api, AgentTriggerKind.Delegated],
             Tools = [GetItemTool.Name]
         },
         new()
@@ -619,6 +624,34 @@ public static class TestAgents
             Autonomy = AgentAutonomy.Execute,
             Conversational = true,
             Tools = [GetItemTool.Name, ReadDocumentTool.Name, CreateNoteTool.Name, SendMailTool.Name]
+        },
+        new()
+        {
+            Key = Delegator,
+            Name = new LocalizedText("Delegator", "مفوِّض"),
+            Instructions = "Hand item work to the worker.",
+            Autonomy = AgentAutonomy.Prepare,
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name],
+            Delegates = [Worker, Restricted]
+        },
+        new()
+        {
+            Key = Worker,
+            Name = new LocalizedText("Worker", "منفِّذ"),
+            Description = new LocalizedText("Looks up items and writes notes.", "يبحث عن العناصر ويكتب الملاحظات."),
+            Instructions = "Do the item task you are given.",
+            Autonomy = AgentAutonomy.Execute,
+            AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Delegated],
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name, CreateNoteTool.Name, SendMailTool.Name],
+            Delegates = [Leaf]
+        },
+        new()
+        {
+            Key = Leaf,
+            Name = new LocalizedText("Leaf", "ورقة"),
+            Instructions = "Look up one item.",
+            AllowedTriggers = [AgentTriggerKind.Delegated],
+            Tools = [GetItemTool.Name]
         }
     ];
 }

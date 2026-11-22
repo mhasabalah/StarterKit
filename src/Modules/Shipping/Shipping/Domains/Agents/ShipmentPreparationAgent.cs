@@ -66,7 +66,8 @@ public static class ShipmentPreparationAgent
         Autonomy = AgentAutonomy.Execute,
         OutputType = typeof(ShipmentPreparationResult),
         RequiredPermission = TenantPermissions.ShipmentsManage,
-        AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Api, AgentTriggerKind.Event],
+        // Delegated: the shipping assistant hands "prepare this shipment" to this agent (ADR-0033).
+        AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Api, AgentTriggerKind.Event, AgentTriggerKind.Delegated],
         Limits = new AgentLimits(MaxModelTurns: 10, MaxToolCalls: 10)
     };
 

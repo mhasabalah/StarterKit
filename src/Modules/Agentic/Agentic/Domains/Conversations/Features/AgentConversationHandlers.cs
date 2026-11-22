@@ -339,7 +339,7 @@ public class GetAgentConversationByIdHandler(AgenticDbContext dbContext, AgentAc
 public static class AgentConversationProjections
 {
     private static readonly AgentRunStatus[] ActiveStatuses =
-        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval];
+        [AgentRunStatus.Queued, AgentRunStatus.Running, AgentRunStatus.AwaitingApproval, AgentRunStatus.AwaitingDelegate];
 
     /// <summary>The DTO, with <c>Busy</c> computed in the same query.</summary>
     public static Expression<Func<AgentConversation, AgentConversationDto>> ToDto(IQueryable<AgentRun> runs) => c =>

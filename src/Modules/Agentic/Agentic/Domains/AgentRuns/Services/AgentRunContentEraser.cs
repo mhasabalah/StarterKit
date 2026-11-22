@@ -17,6 +17,18 @@ public static class AgentRunContentEraser
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
+        // The runs they delegated to (ADR-0033) carry the same request: their content goes with them.
+        var all = runIds.ToHashSet();
+        var level = runIds.ToList();
+        for (var depth = 0; depth < AgentRun.MaxDepth && level.Count > 0; depth++)
+        {
+            level = await db.Runs.Where(r => r.ParentRunId != null && level.Contains(r.ParentRunId.Value))
+                .Select(r => r.Id).ToListAsync(cancellationToken);
+            level.RemoveAll(id => !all.Add(id));
+        }
+
+        runIds = all;
+
         // Read ONCE: a run that finishes between the statements below must be erased by all of them or by none
         // (finished is final, so this list stays true for the whole transaction).
         var finished = await db.Runs.Where(r => runIds.Contains(r.Id) &&
