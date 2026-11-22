@@ -67,6 +67,8 @@ public sealed class AgenticOptions
     public AgentStreamingOptions Streaming { get; set; } = new();
 
     public AgentDelegationOptions Delegation { get; set; } = new();
+
+    public AgentMcpOptions Mcp { get; set; } = new();
 }
 
 /// <summary>Retrieval over documents the modules index (ADR-0028). Off by default; needs an embedding model.</summary>
@@ -146,6 +148,13 @@ public sealed class AgentContentOptions
     /// after the run finished (counters, statuses and audit entries stay). 0 = keep them.
     /// </summary>
     public int RetentionDays { get; set; } = 90;
+}
+
+/// <summary>The MCP server of agents with <c>McpServer = true</c> (ADR-0034).</summary>
+public sealed class AgentMcpOptions
+{
+    /// <summary>Maps <c>/api/v1/mcp/{agentKey}</c>. Off by default: nothing is reachable over MCP until it is turned on.</summary>
+    public bool Enabled { get; set; }
 }
 
 /// <summary>Agents handing tasks to other agents (<c>agent.delegate</c>, ADR-0033).</summary>

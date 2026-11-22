@@ -369,6 +369,9 @@ Notification is the exception: its context is in `Persistence/`.
     `AgentTriggerKind.Delegated`) and calls `agent.delegate`; the delegate is a child run started through
     `AgentRunStarter` for the same person, at the lower autonomy, inheriting taint and the token budget. Never call
     another agent's tools directly or run a delegate inside a tool call.
+  - MCP server ([ADR-0034](wiki/Decisions/0034-agent-mcp-server.md)): agents opt in with `McpServer = true`
+    (`Agentic:Mcp:Enabled`). Every MCP call goes through `AgentMcpGateway` (ToolPolicy with taint, so no changes) and
+    is recorded as an `Mcp` run. Never map MCP elsewhere or let an MCP call skip the gateway.
   - Summaries ([ADR-0031](wiki/Decisions/0031-conversation-summaries.md)) are written only by
     `SummarizeAgentConversationJob`, from messages and final answers (never tool results), are untrusted history, and
     are erased with the content of any turn they cover.
@@ -460,7 +463,7 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `ModuleDiscoveryTests` | A `src/Modules` folder is not discovered by the host, a module lacks exactly one `<M>ModuleManifest`, or `ModuleOrder` breaks a startup constraint |
 | `ModuleBoundaryTests` | A module references another module's implementation; Contracts reference implementations; Shared references a module; a non-Identity module uses `Identity.Contracts`. The module list is discovered from the host. |
 | `NamingConventionTests` | Handler/Command/Query/Validator/Event/EndPoint/Module suffixes are wrong, or handlers sit in Contracts |
-| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; Microsoft.Extensions.AI, a model-provider SDK (OpenAI, Anthropic) or PdfPig leaves Agentic; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
+| `ThirdPartyIsolationTests` | MediatR or ImageSharp is referenced; SkiaSharp leaves Attachment (image adapter) or QuestPDF leaves Subscriptions (licenses: `wiki/Reference/Third-Party-Licenses.md`); FirebaseAdmin/Google.Apis or the SignalR Redis backplane leave Notification; Sylvan (CSV/XLSX) leaves DataTransfer; Microsoft.Extensions.AI, a model-provider SDK (OpenAI, Anthropic), the MCP SDK or PdfPig leaves Agentic; a Contracts project references the bus (only `MassTransit.Abstractions` for `[MessageUrn]`) |
 | `MessagingArchitectureTests` | Events are outside `.Contracts/.../IntegrationEvents`, have a bad or duplicate URN, or are also mediator notifications; consumers sit outside modules; outbox contexts and registrations mismatch; Contracts reference Shared.Core/Messaging. **Register new events in the expected list.** |
 | `SagaArchitectureTests` | A saga is registered through MassTransit directly (in-memory repository) instead of `AddDurableSagaStateMachine`, or its state is not mapped in a module DbContext |
 | `BackgroundJobEventDispatchTests` | A job, orchestrator, hosted service or consumer saves without `IUnitOfWorkRunner`/`IDomainEventDispatcher` |

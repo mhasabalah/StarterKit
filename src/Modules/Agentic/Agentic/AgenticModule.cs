@@ -62,6 +62,15 @@ public static class AgenticModule
         services.AddScoped<IAgentPolicyRepository, AgentPolicyRepository>();
         services.AddScoped<AgentRunStarter>();
         services.AddScoped<AgentDelegationResolver>();
+        services.AddScoped<Runtime.Mcp.AgentMcpGateway>();
+        // The MCP server (ADR-0034): stateless Streamable HTTP; tools are listed and called through the gateway only.
+        services.AddMcpServer(server => server.ServerInfo = new ModelContextProtocol.Protocol.Implementation
+        {
+            Name = "agents", Version = "1.0"
+        })
+            .WithHttpTransport(transport => transport.Stateless = true)
+            .WithListToolsHandler(Domains.Mcp.Features.AgentMcpHandlers.ListToolsAsync)
+            .WithCallToolHandler(Domains.Mcp.Features.AgentMcpHandlers.CallToolAsync);
         services.AddScoped<AgentAccess>();
         services.AddScoped<Domains.Approvals.Features.AgentApprovalDecision>();
         services.AddScoped<AgentPrincipalResolver>();

@@ -90,6 +90,14 @@ public sealed class AgentRunExecutor(
                 return;
             }
 
+            // An MCP call runs inside its request (ADR-0034). Found by a worker, it was interrupted: never run it as an
+            // agent run, whose model would see a prompt nobody wrote.
+            if (claimed.TriggerKind == AgentTriggerKind.Mcp)
+            {
+                await FailAsync(runId, owner, "mcp_call_interrupted");
+                return;
+            }
+
             var agent = registry.FindAgent(claimed.AgentKey);
             if (agent is null)
             {

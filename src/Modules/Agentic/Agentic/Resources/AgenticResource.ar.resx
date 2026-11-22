@@ -129,6 +129,21 @@
   <data name="Agent.State.step_not_open" xml:space="preserve">
     <value>هذه الخطوة مغلقة بالفعل.</value>
   </data>
+  <data name="Agent.Failure.mcp_call_interrupted" xml:space="preserve">
+    <value>توقف استدعاء MCP قبل أن يكتمل.</value>
+  </data>
+  <data name="Agent.State.not_an_mcp_call" xml:space="preserve">
+    <value>هذا التشغيل ليس استدعاء MCP.</value>
+  </data>
+  <data name="Agent.Mcp.agent_not_found" xml:space="preserve">
+    <value>لا يوجد خادم MCP لهذا الوكيل.</value>
+  </data>
+  <data name="Agent.Mcp.tool_not_found" xml:space="preserve">
+    <value>هذه الأداة غير متاحة لك عبر MCP.</value>
+  </data>
+  <data name="Agent.Mcp.approval_required" xml:space="preserve">
+    <value>هذا الإجراء يحتاج إلى موافقة شخص؛ ابدأ تشغيلاً للوكيل بدلاً من ذلك.</value>
+  </data>
   <data name="Agent.Tool.forbidden" xml:space="preserve">
     <value>لا يملك المستخدم صلاحية القيام بذلك.</value>
   </data>

@@ -213,6 +213,26 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>Work inside a request of <paramref name="user"/> (or the current caller) in <paramref name="tenant"/>.</summary>
+    public async Task<T> AsCallerAsync<T>(TenantInfo tenant, Func<IServiceProvider, Task<T>> work, Guid? user = null,
+        IReadOnlyCollection<string>? apiKeyScopes = null)
+    {
+        using (TenantScope.Begin(tenant))
+        {
+            await using var scope = Services.CreateAsyncScope();
+            var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+            accessor.HttpContext = Caller.HttpContext(user ?? Caller.UserId, apiKeyScopes);
+            try
+            {
+                return await work(scope.ServiceProvider);
+            }
+            finally
+            {
+                accessor.HttpContext = null;
+            }
+        }
+    }
+
     /// <summary>A command sent by a consumer or a job: the tenant is set, there is no HTTP request and no caller.</summary>
     public Task<T> SendWithoutRequestAsync<T>(TenantInfo tenant, IRequest<T> request) =>
         InTenantAsync(tenant, sp => sp.GetRequiredService<ISender>().Send(request));
@@ -315,6 +335,7 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Conversations.MaxSummaryCharacters = conversations.MaxSummaryCharacters;
         Options.Conversations.SummaryModel = null;
         Options.Delegation.MaxDepth = 2;
+        Options.Mcp.Enabled = true;
         Options.Streaming.Enabled = true;
         Options.Streaming.IntervalMilliseconds = 100;
         Caller.Reset();
@@ -566,6 +587,8 @@ public static class TestAgents
     public const string Delegator = "test.delegator";
     public const string Worker = "test.worker";
     public const string Leaf = "test.leaf";
+    public const string Mcp = "test.mcp";
+    public const string McpRestricted = "test.mcp-restricted";
 
     public static readonly AgentDefinition[] All =
     [
@@ -644,6 +667,24 @@ public static class TestAgents
             AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Delegated],
             Tools = [GetItemTool.Name, ReadDocumentTool.Name, CreateNoteTool.Name, SendMailTool.Name],
             Delegates = [Leaf]
+        },
+        new()
+        {
+            Key = Mcp,
+            Name = new LocalizedText("MCP tools", "أدوات MCP"),
+            Instructions = "Offered to MCP clients.",
+            Autonomy = AgentAutonomy.Execute,
+            McpServer = true,
+            Tools = [GetItemTool.Name, ReadDocumentTool.Name, SlowLookupTool.Name, CreateNoteTool.Name, SendMailTool.Name]
+        },
+        new()
+        {
+            Key = McpRestricted,
+            Name = new LocalizedText("Restricted MCP tools", "أدوات MCP مقيدة"),
+            Instructions = "Offered to webhook managers only.",
+            McpServer = true,
+            RequiredPermission = TenantPermissions.WebhooksManage,
+            Tools = [GetItemTool.Name]
         },
         new()
         {

@@ -75,6 +75,8 @@ public static class ShippingAssistantAgent
         // Its own tools only read. The autonomy bounds what it may delegate: the preparation agent prepares a draft
         // and proposes the submission to a person (ADR-0033).
         Delegates = [ShipmentPreparationAgent.Key],
+        // MCP clients (an IDE, a desktop assistant) may use its read tools as the person who signs in (ADR-0034).
+        McpServer = true,
         Autonomy = AgentAutonomy.Execute,
         Conversational = true,
         AllowedTriggers = [AgentTriggerKind.User, AgentTriggerKind.Api],

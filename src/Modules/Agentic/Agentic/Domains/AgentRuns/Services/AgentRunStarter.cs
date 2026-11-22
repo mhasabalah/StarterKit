@@ -25,7 +25,8 @@ public sealed record AgentRunStart(
     Guid? ParentStepId = null,
     int Depth = 0,
     AgentAutonomy? AutonomyCeiling = null,
-    long? TokenCeiling = null);
+    long? TokenCeiling = null,
+    bool Enqueue = true);
 
 /// <summary>
 /// The one place a run is created, for every kind of trigger. The caller has decided WHO may start (endpoint policy,
@@ -110,7 +111,8 @@ public sealed class AgentRunStarter(
             throw new QuotaExceededException(EntitlementKeys.AgentRuns, quota.Used, quota.Limit);
 
         await repository.AddAsync(run, cancellationToken);
-        AgentRunQueue.Enqueue(jobs, run.Id);
+        if (start.Enqueue)
+            AgentRunQueue.Enqueue(jobs, run.Id); // an MCP call runs in its request instead (ADR-0034)
 
         metrics.RecordStarted(run);
         logger.LogInformation("Agent run {RunId} of {Agent} v{Version} queued ({Trigger}, autonomy {Autonomy})", run.Id,

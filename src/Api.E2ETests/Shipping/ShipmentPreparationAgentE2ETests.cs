@@ -24,7 +24,8 @@ public sealed class AgentsEnabledE2ETestFactory(string connectionString) : E2ETe
         base.ConfigureWebHost(builder);
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Agentic:Enabled"] = "true"
+            ["Agentic:Enabled"] = "true",
+            ["Agentic:Mcp:Enabled"] = "true"
         }));
     }
 }

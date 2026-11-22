@@ -87,6 +87,7 @@ wiki/
 - [0031](Decisions/0031-conversation-summaries.md): long agent conversations summarized in a background job, as untrusted history
 - [0032](Decisions/0032-knowledge-hnsw-index.md): HNSW index of knowledge vectors per configured dimension, built after migrations
 - [0033](Decisions/0033-agent-delegation.md): agents delegate to other agents as child runs, never with more authority
+- [0034](Decisions/0034-agent-mcp-server.md): agent tools served to external MCP clients through the tool gateway, as tainted calls
 
 ## Modules
 

@@ -82,6 +82,11 @@ public sealed class AgentRunFinishedEventHandler(
             if (run is not null)
                 await progress.PublishAsync(run);
 
+            // An MCP call is answered to its client at once, and a delegated run's outcome reaches the person through the
+            // run that delegated: neither is worth a notification of its own.
+            if (run?.TriggerKind is AgentTriggerKind.Mcp or AgentTriggerKind.Delegated)
+                return;
+
             await notifications
                 .For(notification.InitiatedBy, AgentApprovalRequestedEventHandler.Culture(notification.Culture))
                 .WithInApp(Content(notification))

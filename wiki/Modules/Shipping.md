@@ -80,7 +80,8 @@ that name none ("and how much VAT is due?"); every message is a turn of an
 [agent conversation](Agentic.md#conversations) and is given the earlier turns. It changes nothing itself: "prepare it
 for clearance" is [delegated](Agentic.md#delegation) to `shipping.shipment-preparation` (its only `Delegates` entry),
 which runs for the same person, needs `shipments.manage`, and proposes the submission to a person. Its autonomy is
-`Execute` only so that delegate can propose that submission; its own tools stay read-only.
+`Execute` only so that delegate can propose that submission; its own tools stay read-only. With `McpServer = true`, its
+read tools are also offered to MCP clients at `/api/v1/mcp/shipping.assistant` when `Agentic:Mcp:Enabled` is on.
 
 | Tool | Risk | Permission | Notes |
 |---|---|---|---|

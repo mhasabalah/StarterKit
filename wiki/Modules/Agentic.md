@@ -12,7 +12,8 @@ references a business module and a business module never references a model SDK.
 [ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers) and
 [ADR-0031](../Decisions/0031-conversation-summaries.md) (conversation summaries) and
 [ADR-0032](../Decisions/0032-knowledge-hnsw-index.md) (HNSW vector index) and
-[ADR-0033](../Decisions/0033-agent-delegation.md) (delegation between agents).
+[ADR-0033](../Decisions/0033-agent-delegation.md) (delegation between agents) and
+[ADR-0034](../Decisions/0034-agent-mcp-server.md) (MCP server).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -340,6 +341,21 @@ the schema names only those agents.
 
 A delegated run is listed like any run, with `parentRunId` and trigger `Delegated`; its approvals are decided as usual.
 
+### MCP server
+
+An agent with `McpServer = true` offers its tools to external MCP clients (an IDE, a desktop assistant) at
+`/api/v1/mcp/{agentKey}` when `Agentic:Mcp:Enabled` is on ([ADR-0034](../Decisions/0034-agent-mcp-server.md)).
+- **Protocol.** Streamable HTTP, stateless, with a JWT or an API key (`Authorization` header).
+- **What a client is offered.** The agent's tools that the signed-in person may run now without an approval. The
+  gateway decides each one as for a run that read untrusted content, so changes are refused with `approval_required`
+  and clients get the read tools.
+- **What a call becomes.** A run with trigger `Mcp` and one tool step: audited, retained and erased like any run, and
+  counted against `agent_runs` and capacity. It raises no event and no notification.
+
+A client configuration names the URL and a header, for example
+`{"url": "https://api.example.com/api/v1/mcp/<agent-key>", "headers": {"X-Api-Key": "CHANGE_ME"}}`; use an API key
+limited to what the client should read.
+
 ### Erasure and retention
 
 - Account erasure (`UserDeletedIntegrationEvent`): the user's personal memories are deleted, their open runs are
@@ -389,6 +405,7 @@ executes a tool. Provider kinds (`Agentic:Providers:<name>:Kind`):
 | `GET /api/v1/agent-conversations`, `/{id}` | tenant member; the list is the caller's own; a conversation is readable by its owner or with `agentic.runs.read` |
 | `PATCH`, `DELETE /api/v1/agent-conversations/{id}` | tenant member, the owner only, no impersonation |
 | `GET /api/v1/knowledge-documents` | `agentic.manage`; status, revision and passage count, no content |
+| `POST`, `GET`, `DELETE /api/v1/mcp/{agentKey}` (MCP Streamable HTTP) | `agentic.runs.start` + the agent's `RequiredPermission`, plan feature `agents`, no impersonation; only while `Agentic:Mcp:Enabled` and for agents with `McpServer = true` |
 | `GET`, `POST /api/v1/agent-memories`, `DELETE /{id}` | `agentic.runs.start` (POST and DELETE: no impersonation); a tenant memory needs `agentic.manage`; someone else's memory is 404 |
 
 ### Metrics, traces, permissions
@@ -436,6 +453,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `Conversations:MaxHistoryTurns` / `MaxHistoryCharacters` | 20 / 24000 | Earlier turns a conversation turn is given at most (0 = none) |
 | `Conversations:MaxMessages` | 200 | Messages per conversation (at least 1), then 409 `conversation_full`; also bounds the turns `GET /{id}` returns |
 | `Conversations:SummarizeAfterTurns` / `KeepRecentTurns` | 16 / 8 | Summarize once more than this many finished turns are not covered; the newest turns a summary leaves out (0 = no summaries) |
+| `Mcp:Enabled` | `false` | Maps the MCP server of agents with `McpServer = true` |
 | `Delegation:MaxDepth` | 2 | How deep delegations nest (1 = a delegated run may not delegate again; at most 3) |
 | `Conversations:SummaryModel` / `MaxSummaryCharacters` | `DefaultModel` / 4000 | The model that writes summaries; their length |
 | `Hangfire:Servers:Agentic` | enabled, 4 workers | The server of the `agentic` queue |
@@ -548,6 +566,8 @@ person (taint), the same change requested before it does not. Tests that drive a
 | An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
 | A conversation is deleted while a turn runs | The turn is asked to stop and its content is erased when it does; the other turns at once |
 | Someone else's conversation, or another tenant's | 404 for every route (read with `agentic.runs.read` only) |
+| An MCP client asks for a change | Refused with `approval_required`; nothing runs or is recorded |
+| The process stops during an MCP call | The call's run is failed with `mcp_call_interrupted` by the next worker that finds it; it is never run by a model |
 | A delegated run is still saving when its delegate finishes | `ResolveAgentDelegationJob` checks again shortly; the delegating run's next attempt also takes a finished delegate's result itself |
 | A worker stops after starting a delegate, before suspending | The next attempt finds that delegate and waits for it; no second one starts |
 | The delegate fails or is cancelled | The `agent.delegate` call fails with `delegate_failed` and its failure code; the delegating run goes on |
@@ -586,7 +606,7 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
 [ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md), [ADR-0031](../Decisions/0031-conversation-summaries.md),
-[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md), [ADR-0033](../Decisions/0033-agent-delegation.md),
+[ADR-0032](../Decisions/0032-knowledge-hnsw-index.md), [ADR-0033](../Decisions/0033-agent-delegation.md), [ADR-0034](../Decisions/0034-agent-mcp-server.md),
 [Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).

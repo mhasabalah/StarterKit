@@ -131,6 +131,8 @@
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
     <PackageVersion Include="OpenAI" Version="2.14.0" />
+    <!-- MCP server of the Agentic module (ADR-0034): stays inside Agentic, like the model SDKs. -->
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
     <PackageVersion Include="Anthropic" Version="13.8.0" />
     <!-- PDF text layer for knowledge indexing (Apache-2.0). -->
     <PackageVersion Include="PdfPig" Version="0.1.16" />

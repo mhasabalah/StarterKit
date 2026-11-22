@@ -408,6 +408,15 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         return AgentRunStep.ToolCall(Id, NextSequence++, turn.Sequence, callId, toolName, argumentsJson);
     }
 
+    /// <summary>The one tool call of an MCP run (ADR-0034): asked for by an external client, so no model turn of ours.</summary>
+    public AgentRunStep PlanExternalToolCall(string callId, string toolName, string argumentsJson)
+    {
+        EnsureRunning();
+        if (TriggerKind != AgentTriggerKind.Mcp || NextSequence != 1)
+            throw new InvalidAgentRunStateException("not_an_mcp_call");
+        return AgentRunStep.ToolCall(Id, NextSequence++, 0, callId, toolName, argumentsJson);
+    }
+
     /// <summary>
     /// A tool call refused as soon as the model asked for it (arguments over the limit): saved WITHOUT its arguments,
     /// already failed, so the model is told and nothing oversized reaches the database.
@@ -460,6 +469,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         OutputJson = outputJson;
         OutputText = outputText;
         Finish(AgentRunStatus.Completed, now);
+        if (TriggerKind == AgentTriggerKind.Mcp)
+            return; // one external tool call: no module waits for it
         AddIntegrationEvent(new AgentRunCompletedIntegrationEvent
         {
             RunId = Id,
@@ -475,6 +486,8 @@ public class AgentRun : Aggregate<Guid>, IMustHaveTenant
         FailureCode = TextLimits.Clip(code, FailureCodeMaxLength);
         FailureMessage = TextLimits.Clip(message, FailureMessageMaxLength);
         Finish(AgentRunStatus.Failed, now);
+        if (TriggerKind == AgentTriggerKind.Mcp)
+            return;
         AddIntegrationEvent(new AgentRunFailedIntegrationEvent
         {
             RunId = Id,

@@ -660,6 +660,11 @@ export const sections = [
         "order": 33
       },
       {
+        "source": "Decisions/0034-agent-mcp-server.md",
+        "label": "0034 agent MCP server",
+        "order": 34
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
         "order": 99
