@@ -55,8 +55,13 @@ permissions and, after untrusted content was read, by a person
 - Once a conversation reads untrusted content, its later changes always wait for a person. Starting a new
   conversation resets this.
 - Enforced by `AgentConversationTests` (unit: history, aggregate; integration: follow-up, busy and race, privacy,
-  taint, limits, delete, erasure), the E2E test of the Shipping assistant, `PendingModelChangesTests` and
-  `TenantRowLevelSecurityCoverageTests`.
+  taint, limits, delete, erasure), `PendingModelChangesTests` and `TenantRowLevelSecurityCoverageTests`.
+
+<!--#if (sample)-->
+
+- The conversational sample `shipping.assistant` runs end to end over HTTP in `ShippingAssistantConversationE2ETests`.
+
+<!--#endif-->
 
 ## Alternatives considered
 
