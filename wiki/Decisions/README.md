@@ -45,3 +45,5 @@ link it here.
 | [0033](0033-agent-delegation.md) | Let agents delegate to other agents as child runs, never with more authority | Accepted | 2026-11-22 |
 | [0034](0034-agent-mcp-server.md) | Serve agent tools to external MCP clients through the tool gateway, as tainted calls | Accepted | 2026-11-22 |
 <!--#endif-->
+
+Background for these decisions: [Architecture overview](../Architecture/Overview.md).
