@@ -71,6 +71,7 @@ public static class AgenticModule
         services.AddSingleton<IAgentModelGateway, ChatClientModelGateway>();
         services.AddSingleton<AgenticMetrics>();
         services.AddSingleton<AgentRunProgressPublisher>();
+        services.AddSingleton<AgentRunTextStreams>();
         // Live progress goes through the Notification hub; without that module (or with real time off) it is a no-op.
         services.TryAddSingleton<IUserEventPublisher, NullUserEventPublisher>();
         services.AddTransient<AgentRunExecutor>();

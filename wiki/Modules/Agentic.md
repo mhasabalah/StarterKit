@@ -8,7 +8,8 @@ references a business module and a business module never references a model SDK.
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md) (durability) and
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md) (approvals, triggers, policies) and
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md) (knowledge and memory on pgvector) and
-[ADR-0029](../Decisions/0029-agent-conversations.md) (conversations).
+[ADR-0029](../Decisions/0029-agent-conversations.md) (conversations) and
+[ADR-0030](../Decisions/0030-streaming-agent-answers.md) (streaming answers).
 
 Data plane (`ITenantDataContext`, schema `agentic`): every row carries `tenant_id` and has forced RLS. The outbox
 carries `AgentRunCompletedIntegrationEvent` and `AgentRunFailedIntegrationEvent`; approvals and policies are in the
@@ -203,8 +204,16 @@ agent's definition by taking the stricter value, so it can never widen an agent;
   `Agentic:ProgressIntervalMilliseconds`; a change of status is always sent). Payload: `runId`, `agentKey`, `status`,
   `modelTurns`, `toolCalls`, `cancelRequested`, `failureCode`, `stepSequence`, `stepKind`, `stepStatus`, `tool`. The
   run row stays the source of truth.
+- Streamed answer ([ADR-0030](../Decisions/0030-streaming-agent-answers.md)): user event `agentic.run-text` to the
+  initiator while the model writes. Payload: `runId`, `conversationId`, `turn` (the model turn of the run), `offset`,
+  `delta`.
+  - Pieces are collected for `Agentic:Streaming:IntervalMilliseconds`, and the rest is sent when the turn ends.
+  - Only runs started by a person or an API key stream.
+  - A retried turn starts again at offset 0 with the same `turn`, so a client resets that turn.
+  - It is a preview: the saved run (or conversation) holds the answer.
 
-None of these carries prompts, tool arguments or results.
+Apart from the streamed answer, which goes only to the initiator, none of these carries prompts, tool arguments or
+results.
 
 ### Knowledge
 
@@ -375,6 +384,7 @@ Section `Agentic` (`AgenticOptions`), validated at startup when enabled:
 | `LeaseSeconds` / `MaxAttempts` | 300 / 3 | Lease length (extended to cover a model request or tool timeout that is longer); consecutive failed attempts before the run fails |
 | `StalledAfterMinutes` / `SweepCron` | 10 / every 5 min | `RequeueStalledAgentRunsJob` queues again a run without a live lease that was not queued recently |
 | `ProgressIntervalMilliseconds` | 1000 | Throttle of live progress events |
+| `Streaming:Enabled` / `IntervalMilliseconds` | `true` / 100 | Stream answers to the initiator (`agentic.run-text`); pieces are collected per interval. `Models:<key>:Streaming=false` opts a model out |
 | `Triggers:MaxAutomaticRunsPerHour` | 60 | Automatic runs per agent, tenant and hour; 0 = no limit |
 | `Approvals:ExpireAfterHours` / `RequireDifferentApprover` / `ExpiryCron` | 72 / false / every 10 min | Approval expiry and the four-eyes rule |
 | `Telemetry:CaptureContent` | `false` | Adds prompts and tool content to model spans |
@@ -497,6 +507,9 @@ person (taint), the same change requested before it does not. Tests that drive a
 | An earlier turn read untrusted content | Every later turn of the conversation starts tainted: its changes wait for a person |
 | A conversation is deleted while a turn runs | The turn is asked to stop and its content is erased when it does; the other turns at once |
 | Someone else's conversation, or another tenant's | 404 for every route (read with `agentic.runs.read` only) |
+| A model turn is retried after the answer was partly streamed | The turn streams again from offset 0 (same `turn`); the saved answer is the one that counts |
+| A provider reports no token usage while streaming | Tokens are estimated for that turn and the model is no longer streamed by the process |
+| The hub is down or the user has no open session | The stream is lost; the run is unaffected |
 
 Failure messages on a run are localized texts chosen by code. Provider and exception details go to the log only.
 
@@ -526,6 +539,7 @@ Under load: the opt-in k6 scenario `agents` runs the Shipping demo ([Load testin
 [ADR-0026](../Decisions/0026-durable-agent-runs-on-hangfire.md),
 [ADR-0027](../Decisions/0027-agent-approvals-triggers-and-policies.md),
 [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md),
-[ADR-0029](../Decisions/0029-agent-conversations.md), [Agent security model](../Architecture/Agent-Security.md),
+[ADR-0029](../Decisions/0029-agent-conversations.md), [ADR-0030](../Decisions/0030-streaming-agent-answers.md),
+[Agent security model](../Architecture/Agent-Security.md),
 [Agentic operations](../deployment/Agentic-Operations.md), [DataTransfer](DataTransfer.md) (the same job pattern),
 [Shared projects](../Shared/README.md) (`ActingUser`).

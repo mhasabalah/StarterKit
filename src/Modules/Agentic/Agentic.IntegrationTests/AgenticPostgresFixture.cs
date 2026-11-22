@@ -307,6 +307,8 @@ public sealed class AgenticPostgresFixture : IAsyncLifetime
         Options.Conversations.MaxMessages = 200;
         Options.Conversations.MaxHistoryTurns = 20;
         Options.Conversations.MaxHistoryCharacters = 24_000;
+        Options.Streaming.Enabled = true;
+        Options.Streaming.IntervalMilliseconds = 100;
         Caller.Reset();
         World.Reset();
         Board.Reset();
@@ -855,8 +857,9 @@ public sealed class RecordingUserEvents : IUserEventPublisher
 {
     private readonly ConcurrentQueue<(Guid User, UserEvent Event)> _events = new();
 
-    public IReadOnlyList<(Guid User, UserEvent Event)> For(Guid runId) =>
-        _events.Where(e => e.Event.Data.TryGetValue("runId", out var id) && Equals(id, runId)).ToList();
+    /// <summary>The events of one type (progress by default) about a run, in order.</summary>
+    public IReadOnlyList<(Guid User, UserEvent Event)> For(Guid runId, string type = Agentic.Runtime.Execution.AgentRunProgressPublisher.EventType) =>
+        _events.Where(e => e.Event.Type == type && e.Event.Data.TryGetValue("runId", out var id) && Equals(id, runId)).ToList();
 
     public Task PublishAsync(Guid userId, UserEvent userEvent, CancellationToken cancellationToken = default)
     {

@@ -360,6 +360,9 @@ Notification is the exception: its context is in `Persistence/`.
     `ConversationTurn`. History is rebuilt per model turn from earlier finished turns (message and final answer only,
     never old tool results). Keep one active turn per conversation (`ux_agent_runs_active_turn`) and the sticky taint
     (a turn starts tainted when an earlier one was); never put history into agent instructions.
+  - Streaming ([ADR-0030](wiki/Decisions/0030-streaming-agent-answers.md)): answers reach the initiator as
+    `agentic.run-text` through `AgentRunTextStream` (a preview; the saved run is the answer). Never stream tool
+    arguments, never send the stream to anyone but the initiator, and never store partial text.
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
 - **Caching.** Use Redis via `IDistributedCache`. Build tenant data keys with `ITenantCacheKeys.For(key)`.

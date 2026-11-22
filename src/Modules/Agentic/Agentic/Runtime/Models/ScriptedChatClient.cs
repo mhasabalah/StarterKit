@@ -67,9 +67,33 @@ public sealed class ScriptedChatClient(IEnumerable<IAgentScript> scripts) : ICha
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // Like a provider: the text arrives in pieces (one word at a time), then the calls, then the usage.
         var response = await GetResponseAsync(messages, options, cancellationToken);
-        foreach (var update in response.ToChatResponseUpdates())
-            yield return update;
+        var message = response.Messages[0];
+        var text = message.Text;
+        var start = 0;
+        while (start < text.Length)
+        {
+            var end = text.IndexOf(' ', start + 1);
+            end = end < 0 ? text.Length : end;
+            yield return new ChatResponseUpdate(ChatRole.Assistant, text[start..end])
+            {
+                MessageId = response.ResponseId, ModelId = response.ModelId
+            };
+            start = end;
+        }
+
+        yield return new ChatResponseUpdate(ChatRole.Assistant, message.Contents.Where(c => c is not TextContent).ToList())
+        {
+            MessageId = response.ResponseId,
+            ModelId = response.ModelId,
+            FinishReason = response.FinishReason
+        };
+        yield return new ChatResponseUpdate
+        {
+            MessageId = response.ResponseId,
+            Contents = [new UsageContent(response.Usage!)]
+        };
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null) =>

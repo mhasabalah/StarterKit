@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Agentic.Runtime.Models;
@@ -8,11 +10,29 @@ namespace Agentic.Runtime.Models;
 /// <see cref="IAgentModelGateway"/> over <see cref="IChatClient"/> (Microsoft.Extensions.AI): the one seam every
 /// provider sits behind. Tools are sent as DECLARATIONS only (name, description, schema), so no client can invoke
 /// anything, and the function-invoking middleware is deliberately never added.
+/// <para>
+/// <b>Streaming.</b> With a text sink and streaming on for the model, the request is streamed: text deltas go to the
+/// sink as they arrive, and the updates are assembled into the same <see cref="ChatResponse"/> a non-streamed request
+/// returns (text, tool calls, usage, finish reason). A provider that reports no usage while streaming would make the
+/// turn look free, so its tokens are estimated for that turn and the model is no longer streamed by this process.
+/// </para>
 /// </summary>
-public sealed class ChatClientModelGateway(AgentChatClientFactory clients, IOptions<AgenticOptions> options)
+public sealed class ChatClientModelGateway(
+    AgentChatClientFactory clients,
+    IOptions<AgenticOptions> options,
+    ILogger<ChatClientModelGateway>? logger = null)
     : IAgentModelGateway
 {
-    public async Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken)
+    private readonly ILogger _logger = logger ?? NullLogger<ChatClientModelGateway>.Instance;
+
+    /// <summary>Models whose provider sent no usage while streaming: they are no longer streamed.</summary>
+    private readonly ConcurrentDictionary<string, bool> _noStreamingUsage = new(StringComparer.OrdinalIgnoreCase);
+
+    public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) =>
+        CompleteAsync(request, null, cancellationToken);
+
+    public async Task<ModelResponse> CompleteAsync(ModelRequest request, IModelTextSink? textSink,
+        CancellationToken cancellationToken)
     {
         if (!options.Value.Models.TryGetValue(request.ModelKey, out var model))
             throw new InvalidOperationException($"Agentic:Models has no model '{request.ModelKey}'.");
@@ -34,10 +54,15 @@ public sealed class ChatClientModelGateway(AgentChatClientFactory clients, IOpti
         if (chatOptions.Tools.Count == 0)
             chatOptions.Tools = null;
 
+        var messages = ToChatMessages(request);
+        var stream = textSink is not null && options.Value.Streaming.Enabled && model.Streaming &&
+                     !_noStreamingUsage.ContainsKey(request.ModelKey);
         ChatResponse response;
         try
         {
-            response = await client.GetResponseAsync(ToChatMessages(request), chatOptions, cancellationToken);
+            response = stream
+                ? await StreamAsync(client, messages, chatOptions, textSink!, cancellationToken)
+                : await client.GetResponseAsync(messages, chatOptions, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -56,6 +81,20 @@ public sealed class ChatClientModelGateway(AgentChatClientFactory clients, IOpti
             .Select(c => new ModelToolCall(c.CallId, AgentToolNames.FromWire(c.Name), SerializeArguments(c.Arguments)))
             .ToList();
 
+        if (stream && response.Usage is null)
+        {
+            _noStreamingUsage[request.ModelKey] = true;
+            _logger.LogWarning("The model {Model} reported no token usage while streaming; its tokens are estimated for " +
+                               "this turn and it is no longer streamed", request.ModelKey);
+            response.Usage = new UsageDetails
+            {
+                InputTokenCount = EstimateTokens(messages.Sum(m => m.Text.Length)),
+                OutputTokenCount = EstimateTokens(response.Text.Length +
+                                                  response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>()
+                                                      .Sum(f => SerializeArguments(f.Arguments).Length))
+            };
+        }
+
         var inputTokens = response.Usage?.InputTokenCount ?? 0;
         var outputTokens = response.Usage?.OutputTokenCount ?? 0;
         var cost = (inputTokens * model.InputPricePerMillionTokens + outputTokens * model.OutputPricePerMillionTokens) / 1_000_000m;
@@ -69,6 +108,23 @@ public sealed class ChatClientModelGateway(AgentChatClientFactory clients, IOpti
             response.ModelId ?? model.ModelId,
             response.FinishReason?.Value);
     }
+
+    private static async Task<ChatResponse> StreamAsync(IChatClient client, List<ChatMessage> messages,
+        ChatOptions chatOptions, IModelTextSink sink, CancellationToken cancellationToken)
+    {
+        var updates = new List<ChatResponseUpdate>();
+        await foreach (var update in client.GetStreamingResponseAsync(messages, chatOptions, cancellationToken))
+        {
+            updates.Add(update);
+            if (update.Text is { Length: > 0 } delta)
+                await sink.WriteAsync(delta, cancellationToken);
+        }
+
+        return updates.ToChatResponse();
+    }
+
+    /// <summary>About four characters per token: only when a provider reports nothing.</summary>
+    private static long EstimateTokens(int characters) => characters == 0 ? 0 : (characters + 3) / 4;
 
     private static List<ChatMessage> ToChatMessages(ModelRequest request)
     {

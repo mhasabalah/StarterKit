@@ -46,6 +46,7 @@ public sealed class AgentRunExecutor(
     IOptions<AgenticOptions> options,
     AgenticMetrics metrics,
     AgentRunProgressPublisher progress,
+    AgentRunTextStreams textStreams,
     ILogger<AgentRunExecutor> logger)
 {
     private const int UpdateRetries = 3;
@@ -167,7 +168,9 @@ public sealed class AgentRunExecutor(
         using (var span = AgenticTelemetry.StartModelTurn(run))
         {
             var started = timeProvider.GetTimestamp();
-            response = await models.CompleteAsync(request, cancellationToken);
+            // The answer's text goes to the initiator while it is written (a preview: the checkpoint below is the answer).
+            await using (var textStream = textStreams.Open(run))
+                response = await models.CompleteAsync(request, textStream, cancellationToken);
             elapsedMs = (long)timeProvider.GetElapsedTime(started).TotalMilliseconds;
             span?.SetTag("agent.model.input_tokens", response.InputTokens);
             span?.SetTag("agent.model.output_tokens", response.OutputTokens);

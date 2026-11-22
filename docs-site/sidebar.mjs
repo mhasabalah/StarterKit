@@ -640,9 +640,14 @@ export const sections = [
         "order": 29
       },
       {
+        "source": "Decisions/0030-streaming-agent-answers.md",
+        "label": "0030 streaming agent answers",
+        "order": 30
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
-        "order": 30
+        "order": 99
       }
     ]
   }

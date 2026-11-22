@@ -62,6 +62,8 @@ public sealed class AgenticOptions
     public AgentContentOptions Content { get; set; } = new();
 
     public AgentConversationOptions Conversations { get; set; } = new();
+
+    public AgentStreamingOptions Streaming { get; set; } = new();
 }
 
 /// <summary>Retrieval over documents the modules index (ADR-0028). Off by default; needs an embedding model.</summary>
@@ -128,6 +130,16 @@ public sealed class AgentContentOptions
     public int RetentionDays { get; set; } = 90;
 }
 
+/// <summary>The answer's text sent to the initiator while the model writes it (<c>agentic.run-text</c>).</summary>
+public sealed class AgentStreamingOptions
+{
+    /// <summary>Stream answers of runs started by a person or an API key (models opt out with <c>Streaming=false</c>).</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Deltas are collected and sent at most once per interval (and once at the end of the answer).</summary>
+    public int IntervalMilliseconds { get; set; } = 100;
+}
+
 public sealed class AgentConversationOptions
 {
     /// <summary>Earlier turns a conversation turn is given at most (the newest ones; each is a message and its answer).</summary>
@@ -183,6 +195,9 @@ public sealed class AgentModelOptions
     public decimal InputPricePerMillionTokens { get; set; }
 
     public decimal OutputPricePerMillionTokens { get; set; }
+
+    /// <summary>Stream this model's answers when <c>Agentic:Streaming:Enabled</c> (false for a server that cannot).</summary>
+    public bool Streaming { get; set; } = true;
 }
 
 public enum AgentProviderKind
@@ -324,6 +339,8 @@ public sealed class AgenticOptionsValidator : IValidateOptions<AgenticOptions>
             errors.Add("Agentic:Memory: MaxPerUser, MaxPerTenant and MaxRecalled must be positive.");
         if (options.Conversations.MaxHistoryTurns < 0 || options.Conversations.MaxHistoryCharacters < 0)
             errors.Add("Agentic:Conversations: MaxHistoryTurns and MaxHistoryCharacters must not be negative.");
+        if (options.Streaming.IntervalMilliseconds < 0)
+            errors.Add("Agentic:Streaming:IntervalMilliseconds must not be negative.");
         if (options.Conversations.MaxMessages < 1)
             errors.Add("Agentic:Conversations:MaxMessages must be at least 1.");
 
