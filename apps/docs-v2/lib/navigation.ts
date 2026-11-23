@@ -13,7 +13,7 @@ const sectionChips: Record<string, [string, string]> = {
   Identity: ['Id', 'foundations'], Attachments: ['At', 'foundations'], Subscriptions: ['Sb', 'foundations'],
   'Shared services': ['Ar', 'practices'], Deployment: ['Dp', 'practices'], Infrastructure: ['If', 'practices'],
   Testing: ['Ts', 'practices'], Reference: ['Rf', 'practices'], Decisions: ['Dc', 'practices'], 'API reference v1': ['Ap', 'api'],
-  Notification: ['Nt', 'connected'],
+  Notification: ['Nt', 'connected'], Agentic: ['Ag', 'connected'],
   // Groups that are not chart elements carry a neutral chip, so every top-level entry reads the same way.
   Concepts: ['Co', 'api'], Modules: ['Mo', 'api'], Operations: ['Op', 'api'],
 };
@@ -97,26 +97,28 @@ function regroupModules(children: PageTree.Node[]): PageTree.Node[] {
 }
 
 /** Fumadocs matches normalized URLs; the public Next.js routes retain trailing slashes. */
-export function prepareNavigation(nodes: PageTree.Node[], parent = 'docs', plain = false): PageTree.Node[] {
+// inModule: the pages of a module group; the group row carries the module chip, so its pages do not repeat it.
+export function prepareNavigation(nodes: PageTree.Node[], parent = 'docs', plain = false, inModule = false): PageTree.Node[] {
   nodes = nodes.map((node) => node.type === 'folder' && node.name === 'Modules' && parent === 'docs'
     ? { ...node, children: regroupModules(node.children) } : node);
   return nodes.map((node, position) => {
     const $id = `${parent}/${position}`;
     if (node.type === 'page') {
       const url = node.url.startsWith('/') ? node.url.replace(/\/$/, '') || '/' : node.url;
-      const Icon = plain ? undefined : pageIcon(url);
-      return { ...node, $id, url, icon: node.icon ?? (plain ? undefined : pageChip(url)) ?? (Icon && createElement(Icon, { 'aria-hidden': true })) };
+      const Icon = plain || inModule ? undefined : pageIcon(url);
+      return { ...node, $id, url, icon: node.icon ?? (plain || inModule ? undefined : pageChip(url)) ?? (Icon && createElement(Icon, { 'aria-hidden': true })) };
     }
     if (node.type === 'folder') {
       // API tag groups are plain rows: their names repeat module names, but they are endpoints, not chart elements.
       const Icon = plain || typeof node.name !== 'string' ? undefined : sectionIcons[node.name] ?? FolderOpen;
       const sectionChip = !plain && typeof node.name === 'string' ? sectionChips[node.name] : undefined;
       const api = parent === 'docs' && node.name === 'API reference v1';
+      const moduleGroup = typeof node.name === 'string' && node.name in moduleOrder;
       return {
         ...node, $id, defaultOpen: false,
         icon: node.icon ?? (sectionChip ? chip(sectionChip) : Icon && createElement(Icon, { 'aria-hidden': true })),
-        index: node.index ? prepareNavigation([node.index], `${$id}/index`, plain)[0] as PageTree.Item : undefined,
-        children: prepareNavigation(node.children, $id, plain || api),
+        index: node.index ? prepareNavigation([node.index], `${$id}/index`, plain, moduleGroup)[0] as PageTree.Item : undefined,
+        children: prepareNavigation(node.children, $id, plain || api, moduleGroup),
       };
     }
     return { ...node, $id };
