@@ -46,5 +46,8 @@ link it here.
 | [0034](0034-agent-mcp-server.md) | Serve agent tools to external MCP clients through the tool gateway, as tainted calls | Accepted | 2026-11-22 |
 <!--#endif-->
 | [0035](0035-architecture-model-likec4-and-excalidraw-hero.md) | Describe the running system with one LikeC4 architecture model, plus one hand-drawn big picture | Accepted | 2026-11-23 |
+<!--#if (agentic)-->
+| [0036](0036-agentic-stays-in-process.md) | Keep Agentic in the monolith, scale it with worker replicas, and extract it only on named triggers | Accepted | 2026-11-23 |
+<!--#endif-->
 
 Background for these decisions: [Architecture overview](../Architecture/Overview.md).

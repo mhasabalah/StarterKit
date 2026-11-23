@@ -750,6 +750,11 @@ export const sections = [
         "order": 35
       },
       {
+        "source": "Decisions/0036-agentic-stays-in-process.md",
+        "label": "0036 Agentic stays in-process",
+        "order": 36
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
         "order": 99
