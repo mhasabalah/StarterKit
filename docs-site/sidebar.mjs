@@ -150,9 +150,69 @@ export const sections = [
     "label": "Modules",
     "items": [
       {
-        "source": "Modules/Catalog.md",
-        "label": "Catalog (reference)",
-        "order": 1
+        "label": "Identity",
+        "items": [
+          {
+            "source": "Identity/README.md",
+            "label": "Overview",
+            "order": 1
+          },
+          {
+            "source": "Identity/Users-and-Admins-API.md",
+            "label": "Users and admins API",
+            "order": 2
+          },
+          {
+            "source": "Identity/Permissions-2FA-and-Admin-Audit.md",
+            "label": "Permissions, 2FA and admin audit",
+            "order": 3
+          },
+          {
+            "source": "Identity/Passkeys.md",
+            "label": "Passkeys",
+            "order": 4
+          },
+          {
+            "source": "Identity/Enterprise-SSO.md",
+            "label": "Enterprise SSO",
+            "order": 5
+          },
+          {
+            "source": "Identity/SCIM.md",
+            "label": "SCIM",
+            "order": 6
+          },
+          {
+            "source": "Identity/Frontend-Integration.md",
+            "label": "Frontend integration",
+            "order": 7
+          },
+          {
+            "source": "Identity/Bot-Protection.md",
+            "label": "Bot protection",
+            "order": 8
+          },
+          {
+            "source": "Identity/Replacing-the-Identity-Provider.md",
+            "label": "Replacing the identity provider",
+            "order": 9
+          },
+          {
+            "source": "Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
+            "label": "JWT technical guide",
+            "order": 10
+          },
+          {
+            "source": "Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md",
+            "label": "JWT frontend guide",
+            "order": 11
+          },
+          {
+            "source": "Identity/jwt/TokenRefreshStrategies.md",
+            "label": "Token refresh strategies",
+            "order": 12
+          }
+        ]
       },
       {
         "source": "Modules/Tenancy.md",
@@ -160,33 +220,88 @@ export const sections = [
         "order": 2
       },
       {
-        "source": "Modules/Subscriptions.md",
-        "label": "Subscriptions",
-        "order": 3
+        "label": "Attachments",
+        "items": [
+          {
+            "source": "Attachment/README.md",
+            "label": "Overview",
+            "order": 1
+          },
+          {
+            "source": "Attachment/Uploads.md",
+            "label": "Uploads",
+            "order": 2
+          },
+          {
+            "source": "Attachment/Storage-Providers.md",
+            "label": "Storage providers",
+            "order": 3
+          },
+          {
+            "source": "Attachment/Image-Processing.md",
+            "label": "Image processing",
+            "order": 4
+          },
+          {
+            "source": "Attachment/Security.md",
+            "label": "Security",
+            "order": 5
+          },
+          {
+            "source": "Attachment/Reliability.md",
+            "label": "Reliability",
+            "order": 6
+          },
+          {
+            "source": "Attachment/Configuration.md",
+            "label": "Configuration",
+            "order": 7
+          }
+        ]
       },
       {
-        "source": "Modules/Notification.md",
-        "label": "Notification",
+        "source": "Modules/Catalog.md",
+        "label": "Catalog (reference)",
         "order": 4
       },
       {
-        "source": "Modules/Notification-Realtime-and-Push.md",
-        "label": "Notification Realtime and Push",
-        "order": 5
-      },
-      {
-        "source": "Modules/Notification-Email-Design-System.md",
-        "label": "Notification Email Design System",
-        "order": 6
+        "label": "Subscriptions",
+        "items": [
+          {
+            "source": "Modules/Subscriptions.md",
+            "label": "Overview",
+            "order": 1
+          },
+          {
+            "source": "Subscriptions/Billing.md",
+            "label": "Billing",
+            "order": 2
+          },
+          {
+            "source": "Subscriptions/Online-Payments.md",
+            "label": "Online payments",
+            "order": 3
+          },
+          {
+            "source": "Subscriptions/PaymentMethods-Frontend-Integration.md",
+            "label": "Payment methods frontend integration",
+            "order": 4
+          }
+        ]
       },
       {
         "source": "Modules/Webhooks.md",
         "label": "Webhooks",
-        "order": 7
+        "order": 6
       },
       {
         "source": "Modules/DataTransfer.md",
-        "label": "Data Transfer",
+        "label": "Data transfer",
+        "order": 7
+      },
+      {
+        "source": "Modules/Shipping.md",
+        "label": "Shipping (agent sample)",
         "order": 8
       },
       {
@@ -270,131 +385,21 @@ export const sections = [
         ]
       },
       {
-        "source": "Modules/Shipping.md",
-        "label": "Shipping (agent sample)",
-        "order": 10
-      },
-      {
-        "label": "Identity",
+        "label": "Notification",
         "items": [
           {
-            "source": "Identity/README.md",
+            "source": "Modules/Notification.md",
             "label": "Overview",
             "order": 1
           },
           {
-            "source": "Identity/Users-and-Admins-API.md",
-            "label": "Users and Admins API",
+            "source": "Modules/Notification-Realtime-and-Push.md",
+            "label": "Realtime and push",
             "order": 2
           },
           {
-            "source": "Identity/Permissions-2FA-and-Admin-Audit.md",
-            "label": "Permissions 2FA and Admin Audit",
-            "order": 3
-          },
-          {
-            "source": "Identity/Passkeys.md",
-            "label": "Passkeys",
-            "order": 4
-          },
-          {
-            "source": "Identity/Enterprise-SSO.md",
-            "label": "Enterprise SSO",
-            "order": 5
-          },
-          {
-            "source": "Identity/SCIM.md",
-            "label": "SCIM",
-            "order": 6
-          },
-          {
-            "source": "Identity/Frontend-Integration.md",
-            "label": "Frontend Integration",
-            "order": 7
-          },
-          {
-            "source": "Identity/Bot-Protection.md",
-            "label": "Bot Protection",
-            "order": 8
-          },
-          {
-            "source": "Identity/Replacing-the-Identity-Provider.md",
-            "label": "Replacing the Identity Provider",
-            "order": 9
-          },
-          {
-            "source": "Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md",
-            "label": "JWT technical guide",
-            "order": 10
-          },
-          {
-            "source": "Identity/jwt/JWT-AUTH-FRONTEND-GUIDE.md",
-            "label": "JWT frontend guide",
-            "order": 11
-          },
-          {
-            "source": "Identity/jwt/TokenRefreshStrategies.md",
-            "label": "Token Refresh Strategies",
-            "order": 12
-          }
-        ]
-      },
-      {
-        "label": "Attachments",
-        "items": [
-          {
-            "source": "Attachment/README.md",
-            "label": "Overview",
-            "order": 1
-          },
-          {
-            "source": "Attachment/Uploads.md",
-            "label": "Uploads",
-            "order": 2
-          },
-          {
-            "source": "Attachment/Storage-Providers.md",
-            "label": "Storage Providers",
-            "order": 3
-          },
-          {
-            "source": "Attachment/Image-Processing.md",
-            "label": "Image Processing",
-            "order": 4
-          },
-          {
-            "source": "Attachment/Security.md",
-            "label": "Security",
-            "order": 5
-          },
-          {
-            "source": "Attachment/Reliability.md",
-            "label": "Reliability",
-            "order": 6
-          },
-          {
-            "source": "Attachment/Configuration.md",
-            "label": "Configuration",
-            "order": 7
-          }
-        ]
-      },
-      {
-        "label": "Subscriptions",
-        "items": [
-          {
-            "source": "Subscriptions/Billing.md",
-            "label": "Billing",
-            "order": 1
-          },
-          {
-            "source": "Subscriptions/Online-Payments.md",
-            "label": "Online Payments",
-            "order": 2
-          },
-          {
-            "source": "Subscriptions/PaymentMethods-Frontend-Integration.md",
-            "label": "Payment Methods Frontend Integration",
+            "source": "Modules/Notification-Email-Design-System.md",
+            "label": "Email design system",
             "order": 3
           }
         ]
