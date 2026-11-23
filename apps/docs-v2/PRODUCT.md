@@ -13,8 +13,12 @@ template, or are about to, and come to the documentation mid-task: find the guid
 a deployment step, read it, and get back to their editor. Many arrive from search or a deep link rather than the home
 page; the home page is their map and launchpad.
 
-Secondary (not designed for first): tech leads evaluating the template, and AI coding agents reading `llms.txt` /
-`llms-full.txt` and per-page Markdown.
+Home page, equally primary: developers and tech leads evaluating the template. They arrive at the home page asking
+what StarterKit is built on, how it is structured, what it already does, and why they should start from it instead of
+from scratch; the home answers that with facts (the stack, the architecture in three rules, what ships on day one),
+each linked to its guide, before the paths into the guide.
+
+Secondary (not designed for first): AI coding agents reading `llms.txt` / `llms-full.txt` and per-page Markdown.
 
 ## Product Purpose
 
@@ -28,7 +32,8 @@ technical pages without fatigue.
 
 StarterKit is a modular monolith on ASP.NET Core 10: one host, separately owned modules that compose into one system,
 with boundaries enforced by architecture tests rather than convention. The documentation is the reasoning behind
-that system written beside the implementation (rules, guardrails, ADRs), not a marketing site for it.
+that system written beside the implementation (rules, guardrails, ADRs), not a marketing site for it. The home page
+does make the case for using it, but only with checkable facts: real packages, real modules, real rules, each one a link.
 
 ## Operating Context
 

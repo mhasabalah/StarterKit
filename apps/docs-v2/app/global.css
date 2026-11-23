@@ -288,6 +288,41 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .home-stratum-head p { text-wrap: pretty; max-width: 38rem; color: var(--sk-muted); font-size: 1.0625rem; line-height: 1.6; }
 .home-stratum-head code, .home-proof > div > p code { padding: 1px 5px; border-radius: 3px; background: var(--sk-paper); box-shadow: 0 0 0 1px var(--sk-rule); }
 
+/* Why stratum: what a team gets on day one, what it is built on, and the architecture in three rules. */
+.home-why { padding-block: var(--stratum); border-top: 1px solid var(--sk-rule); }
+.why-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(32px, 5vw, 80px); margin-top: 36px; }
+.why-grid h3 { padding-bottom: 12px; border-bottom: 2px solid var(--sk-ink); font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+.why-day-one ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(20px, 3vw, 40px); }
+.why-capability { display: grid; grid-template-columns: 22px minmax(0, 1fr) 15px; gap: 12px; align-items: start; height: 100%; padding: 14px 0; border-bottom: 1px solid var(--sk-rule); color: var(--sk-text); }
+.why-capability .element-chip { margin-top: 1px; transition: background-color 220ms var(--sk-ease), color 220ms var(--sk-ease); }
+.why-capability-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.why-capability b { color: var(--sk-ink); font: 700 .9375rem/1.3 var(--font-display); letter-spacing: -.01em; }
+.why-capability-text > span { font-size: .875rem; line-height: 1.55; color: var(--sk-muted); text-wrap: pretty; }
+.why-capability > svg { margin-top: 3px; color: var(--sk-ink); opacity: 0; transform: translateX(-6px); transition: opacity 220ms var(--sk-ease), transform 220ms var(--sk-ease); }
+.why-capability:hover .element-chip, .why-capability:focus-visible .element-chip { background: var(--sk-ink); color: var(--sk-paper); }
+.why-capability:hover b, .why-capability:focus-visible b { text-decoration: underline; text-underline-offset: .16em; }
+.why-capability:hover > svg, .why-capability:focus-visible > svg { opacity: 1; transform: none; }
+.why-stack dl > div { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--sk-rule); }
+.why-stack dt { padding-top: 3px; color: var(--sk-ink); font-size: .8125rem; font-weight: 600; }
+.why-stack dd { display: flex; flex-wrap: wrap; gap: 6px; }
+.why-stack dd span { padding: 3px 8px; border-radius: 3px; background: var(--sk-paper); box-shadow: 0 0 0 1px var(--sk-rule); color: var(--sk-text); font-size: .8125rem; line-height: 1.4; white-space: nowrap; }
+.why-shape { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: clamp(40px, 5vw, 64px); border-top: 2px solid var(--sk-ink); }
+.why-shape li { padding: 20px clamp(16px, 2vw, 28px) 4px; }
+.why-shape li:first-child { padding-inline-start: 0; }
+.why-shape li + li { border-inline-start: 1px solid var(--sk-rule); }
+.why-shape h3 { font-size: 1.25rem; font-weight: 800; letter-spacing: -.025em; line-height: 1.2; }
+.why-shape p { margin-top: 8px; max-width: 34ch; color: var(--sk-muted); line-height: 1.6; text-wrap: pretty; }
+@media (max-width: 1100px) {
+  .why-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .why-day-one ul { grid-template-columns: minmax(0, 1fr); }
+  .why-shape { grid-template-columns: minmax(0, 1fr); }
+  .why-shape li { padding-inline: 0; padding-bottom: 16px; }
+  .why-shape li + li { border-inline-start: 0; border-top: 1px solid var(--sk-rule); }
+  .why-stack dl > div { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
+
 /* Quiet stratum: three ways in. Each path shows a printed plate of where it ends. */
 .home-routes { padding-block: var(--stratum); border-top: 1px solid var(--sk-rule); }
 .home-routes ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 36px; border-top: 2px solid var(--sk-ink); }

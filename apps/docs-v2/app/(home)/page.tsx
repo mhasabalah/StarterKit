@@ -58,6 +58,45 @@ const guardrails = [
   { test: 'PendingModelChangesTests', fails: 'The EF model changed without a migration.' },
 ];
 
+/**
+ * What a team gets on day one. Each row is a chart element (so its family, symbol and guide are real and the
+ * row disappears if the element has no pages); the detail names only what the module ships.
+ */
+const capabilities: { symbol: string; title: string; detail: string }[] = [
+  { symbol: 'Id', title: 'Identity', detail: 'JWT with rotating refresh tokens, roles and permissions, 2FA, passkeys, SSO (OIDC and SAML), SCIM, API keys.' },
+  { symbol: 'Tn', title: 'Multi-tenancy', detail: 'Tenants, branches and memberships on a shared or a dedicated database, isolated by row-level security.' },
+  { symbol: 'Sb', title: 'Billing', detail: 'Plans, entitlements and quotas, a ledger, PDF invoices and Stripe payments.' },
+  { symbol: 'At', title: 'Files', detail: 'Local, Azure Blob or S3 storage, image processing and malware scanning that fails closed.' },
+  { symbol: 'Nt', title: 'Notifications', detail: 'Email and WhatsApp with fallback, an in-app inbox over SignalR, and push.' },
+  { symbol: 'Wh', title: 'Webhooks', detail: 'Signed outbound webhooks per tenant, with retries and a delivery log.' },
+  { symbol: 'Dt', title: 'Bulk import and export', detail: 'CSV and Excel jobs with a dry run, an error report and resume after a crash.' },
+  { symbol: 'Ag', title: 'AI agents', detail: 'Durable agent runs with typed tools, approvals, knowledge on pgvector and an MCP server.' },
+  { symbol: 'Ar', title: 'Observability', detail: 'OpenTelemetry traces, metrics and logs, with Grafana, Tempo, Loki and Prometheus locally.' },
+  { symbol: 'Dp', title: 'Deployment', detail: 'Docker and Nginx, a GitHub Actions pipeline with an approval gate, migrations at deploy, rollback.' },
+];
+const elements = [...modules, ...practices];
+const dayOne = capabilities.flatMap((capability) => {
+  const element = elements.find((candidate) => candidate.symbol === capability.symbol);
+  return element ? [{ ...capability, family: element.family, url: element.url }] : [];
+});
+
+/** The stack by job, from Directory.Packages.props (versions on the technology stack page). */
+const stack: { job: string; parts: string[] }[] = [
+  { job: 'Runtime', parts: ['ASP.NET Core 10', 'Carter', 'FluentValidation', 'Scalar'] },
+  { job: 'Data', parts: ['PostgreSQL 16', 'pgvector', 'EF Core 10'] },
+  { job: 'Messaging and jobs', parts: ['MassTransit 8', 'Transactional outbox', 'Hangfire'] },
+  { job: 'Cache and real time', parts: ['Redis', 'SignalR'] },
+  { job: 'Operations', parts: ['OpenTelemetry', '.NET Aspire', 'Docker', 'Nginx'] },
+  { job: 'Testing', parts: ['xUnit v3', 'Testcontainers', 'Architecture tests'] },
+];
+
+/** The architecture in three claims, each one a rule the code keeps. */
+const shape = [
+  { title: 'One host', detail: 'A modular monolith: one deployable API, modules discovered from their manifests. No network between modules.' },
+  { title: 'Modules own their data', detail: 'Each module has its own schema and talks to the others only through contracts and outbox events.' },
+  { title: 'The build keeps it that way', detail: 'Architecture tests fail the build when a boundary, a tenant rule or an authorization declaration breaks.' },
+];
+
 /** Long test names may wrap only between words of their PascalCase name. */
 const breakable = (name: string) => name.split(/(?=[A-Z])/).flatMap((part, index) => index === 0 ? [part] : [<wbr key={index} />, part]);
 
@@ -85,6 +124,38 @@ export default function Home() {
         </div>
       </div>
       <ModuleChart modules={modules} practices={practices} families={families} />
+    </section>
+
+    <section className="home-why" aria-labelledby="why-title">
+      <div className="home-stratum-head">
+        <h2 id="why-title">Start from what every SaaS needs on day one</h2>
+        <p>StarterKit is a .NET template for multi-tenant products. Generate it and identity, tenancy, billing, messaging and observability are already wired, tested and documented, so the first sprint goes on your product, not on plumbing.</p>
+      </div>
+      <div className="why-grid">
+        <div className="why-day-one">
+          <h3>Ready on day one</h3>
+          <ul>{dayOne.map(({ symbol, title, detail, family, url }) => <li key={symbol}>
+            <Link href={url} className="why-capability" data-family={family}>
+              <span className="element-chip" aria-hidden="true">{symbol}</span>
+              <span className="why-capability-text"><b>{title}</b><span>{detail}</span></span>
+              <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </li>)}</ul>
+        </div>
+        <div className="why-stack">
+          <h3>Built on</h3>
+          <dl>{stack.map(({ job, parts }) => <div key={job}>
+            <dt>{job}</dt>
+            <dd>{parts.map((part) => <span key={part}>{part}</span>)}</dd>
+          </div>)}</dl>
+          <Link href="/architecture/technologystack/" className="home-more">Every package, with its version<ArrowRight size={15} aria-hidden="true" /></Link>
+        </div>
+      </div>
+      <ol className="why-shape" aria-label="The architecture in three rules">{shape.map(({ title, detail }) => <li key={title}>
+        <h3>{title}</h3>
+        <p>{detail}</p>
+      </li>)}</ol>
+      <Link href="/architecture/overview/" className="home-more">How the architecture fits together<ArrowRight size={15} aria-hidden="true" /></Link>
     </section>
 
     <section className="home-routes" aria-labelledby="routes-title">
