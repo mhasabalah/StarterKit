@@ -70,3 +70,23 @@ test('documentation pages carry their chart element beside the title', async ({ 
   await page.goto(base + '/decisions/');
   await expect(page.locator('.page-head .element-tile')).toHaveAttribute('aria-label', /^Decisions section, \d+ pages$/);
 });
+
+test('the request journey steps through real stations and can be paused', async ({ page }) => {
+  test.setTimeout(45000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(base + '/');
+  const journey = page.locator('.journey');
+  await journey.scrollIntoViewIfNeeded();
+  const stations = journey.locator('.journey-station');
+  await expect(stations).toHaveCount(12);
+  await page.mouse.move(0, 0);
+  await expect(stations.nth(1)).toHaveAttribute('aria-current', 'step', { timeout: 12000 });
+  await journey.getByRole('button', { name: 'Pause' }).click();
+  await expect(journey.getByRole('button', { name: 'Play' })).toBeVisible();
+  await stations.nth(8).click();
+  await expect(stations.nth(8)).toHaveAttribute('aria-current', 'step');
+  await expect(journey.getByRole('heading', { level: 3 })).toHaveText('Interceptors in one SaveChanges');
+  await expect(journey.locator('.journey-card[data-current] .journey-ends li').first()).toContainText('409');
+  await journey.getByRole('button', { name: 'Next station' }).click();
+  await expect(stations.nth(9)).toHaveAttribute('aria-current', 'step');
+});

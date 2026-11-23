@@ -225,7 +225,7 @@ The home is a 1360px max-width page with a fluid gutter (clamp 16-48px). The her
 
 The chart is a 6-column grid with a 1px gap, so neighbouring cell outlines meet as one printed hairline. Modules are placed by order: Identity 000 top-left, Notification 900 top-right, the chart key spanning columns 2-5 between them, 100-600 across the second row, then Shipping 700, the dashed "your module" 700 cell and Agentic 800. The practices series is a separate 4-column ruled block below; then the legend. At 760px the chart reflows by whole cells to 3 columns (practices to 2), the key moves above.
 
-Strata below the hero (three ways in; guardrails and decisions; footer) are separated by a 1px rule and a deep vertical gap (clamp 56-96px). Their content hangs from a 2px ink rule.
+Strata below the hero (three ways in; the request journey; guardrails and decisions; the colophon footer) are separated by a 1px rule and a deep vertical gap (clamp 56-96px). Each opens on a split head (heading in five columns, a one-line purpose in muted on the right, collapsing to one column at 760px), and its content hangs from a 2px ink rule.
 
 The docs shell keeps the Fumadocs Glass layout: a flush sidebar on the ground colour with a 1px right rule (no floating card from 768px), a ruled sticky running head (search, Ask AI, theme), the reading column at 70ch, and a labelled, ruled outline in the right gutter from 1280px. Touch targets in the sidebar grow to 42px below 768px.
 
@@ -309,6 +309,15 @@ The chart cell. A near-square family-tint cell (min 112px) with order and page c
 ### Your Module Cell (signature)
 The dashed empty 700 slot beside Shipping. At rest: transparent, dashed strong hairline, a plus and "Your module" in muted. On hover or focus the border goes solid ink, the cell inverts, and the name is replaced by the command that fills it (`dotnet new starterkit-module`, mono).
 
+### Request Journey (signature)
+`components/request-journey.tsx`, under "Follow one request through the system". A paper plate under a 2px ink rule: twelve stations of a `POST /api/v1/products` in the order the code runs them (host pipeline, inside the module, one transaction, leaving the request), each a ground cell with a mono step number and a display label, grouped under ruled stage names. The current station prints as an ink tile (inversion only, no lift); while playing it carries a 2px timer hairline. Below, a 2px rail fills to the current station (scaleX) and a small ink diamond rides it (translateX), both 600ms. All twelve cards share one grid cell, so the panel holds the tallest card's height and nothing below it moves; the current card swaps quietly from a visible default (240ms, opacity .6 to 1, rise 4px) to the station's title, the real call in a mono chip, two sentences, a link to the guide, and a ruled "Can end the request here" list of status codes (danger tint for 4xx/5xx, connected tint for 2xx). It advances every 8s (long enough to read a station) only while on screen, pauses on hover or focus, has Pause/Play and previous/next controls with the stage and position printed beside them (no label above the title), and never auto-plays under reduced motion. Station cells tighten under 1280px and reflow to 6 columns at 1180px and 4 at 520px (stage names drop; the footer names the stage; the diamond drops because one rail cannot point at a tile in a wrapped grid, and the fill remains as progress).
+
+### Route Plates
+Each "way in" opens on a printed plate (a 2px cell with the cell rule) of where the path ends: the template command over four ruled cells for the generated `src/` folders, the host/modules/contracts stack (module chips in their family tints), or the slice layout as a mono tree. Hover or focus inverts the plate to ink (260ms); nothing inside it moves. Decorative for assistive tech; the link's heading and description carry the meaning.
+
+### Guardrail Run and Colophon
+The guardrails table sits in a hairline frame under a ground strip printing `$ dotnet test src/Api.Tests` over a 2px ink rule; each row carries a connected-tint tick, always printed (the tick has its own 18px grid track, so long test names wrap beside it). The footer is a colophon under a 2px ink rule: brand, one line on what the guide is, an edition row of real counts (guides, modules, decisions; mono numerals between hairlines), three ruled link columns (Build, Operate, Resources) and a footnote on where the pages come from and that the counts are taken at build time.
+
 ### Legend
 Family buttons with a 10px family swatch. Pressing one dims every other tile and shrinks it slightly (scale 0.97), propagating in startup order with a 14ms stagger per tile; a live caption states the family's description. Hovering a dimmed tile restores it immediately.
 
@@ -318,7 +327,9 @@ Header rule 2px ink, rows separated by 1px hairlines, no cell borders or fills, 
 ### Motion
 One easing, `cubic-bezier(.16, 1, .3, 1)`, at 160-260ms for colour and transform changes; arrows nudge 4px on hover. Sidebar disclosure uses its own collapsible curves (200ms in, 160ms out). Loading states (search index, Ask AI) share one 2px ink scanning rule.
 
-**The one authored moment: tile to title.** Each home chart tile and the page-head tile of the same element share a React `<ViewTransition>` name (`element-<symbol>`, class `element-morph`). Opening a tile morphs it, in 380ms with a brief 2px blur, into the tile beside the new page's title; going back reverses it. The page itself swaps at once (the root crossfade is disabled), so nothing waits on the motion. Browsers without view transitions navigate normally. Do not add page-wide entrances, scroll reveals or parallax.
+**The home's lower half: one request, station by station.** The request journey is the authored moment below the hero (see Request Journey). Its supporting motion is tied to meaning, never a shared entrance: route plates invert on hover; the guardrail run passes each test once (tick pulse and a green row wash, 120ms apart), the first time the block comes on screen (`components/in-view.tsx`); ADR numerals invert on hover. The server render is always the finished state, so nothing is hidden without JavaScript, and text never dims while it waits.
+
+**The one authored moment: tile to title.** Each home chart tile and the page-head tile of the same element share a React `<ViewTransition>` name (`element-<symbol>`, class `element-morph`). Opening a tile morphs it, in 380ms with a brief 2px blur, into the tile beside the new page's title; going back reverses it. The page itself swaps at once (the root crossfade is disabled), so nothing waits on the motion. Browsers without view transitions navigate normally. Do not add page-wide entrances, generic fade-up reveals or parallax.
 
 `prefers-reduced-motion` removes every transition, animation and view-transition animation.
 
