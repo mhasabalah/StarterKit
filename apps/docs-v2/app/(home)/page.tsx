@@ -8,6 +8,7 @@ import { CopyStartPrompt } from '@/components/agent-copy';
 import { RequestJourney } from '@/components/request-journey';
 import { InView } from '@/components/in-view';
 import { RoutePlate } from '@/components/route-plate';
+import { WhyShowcase } from '@/components/why-showcase';
 import { families, modules, practices } from '@/lib/chart';
 import { source } from '@/lib/source';
 import { absoluteUrl, repository } from '@/lib/site';
@@ -80,23 +81,6 @@ const dayOne = capabilities.flatMap((capability) => {
   return element ? [{ ...capability, family: element.family, url: element.url }] : [];
 });
 
-/** The stack by job, from Directory.Packages.props (versions on the technology stack page). */
-const stack: { job: string; parts: string[] }[] = [
-  { job: 'Runtime', parts: ['ASP.NET Core 10', 'Carter', 'FluentValidation', 'Scalar'] },
-  { job: 'Data', parts: ['PostgreSQL 16', 'pgvector', 'EF Core 10'] },
-  { job: 'Messaging and jobs', parts: ['MassTransit 8', 'Transactional outbox', 'Hangfire'] },
-  { job: 'Cache and real time', parts: ['Redis', 'SignalR'] },
-  { job: 'Operations', parts: ['OpenTelemetry', '.NET Aspire', 'Docker', 'Nginx'] },
-  { job: 'Testing', parts: ['xUnit v3', 'Testcontainers', 'Architecture tests'] },
-];
-
-/** The architecture in three claims, each one a rule the code keeps. */
-const shape = [
-  { title: 'One host', detail: 'A modular monolith: one deployable API, modules discovered from their manifests. No network between modules.' },
-  { title: 'Modules own their data', detail: 'Each module has its own schema and talks to the others only through contracts and outbox events.' },
-  { title: 'The build keeps it that way', detail: 'Architecture tests fail the build when a boundary, a tenant rule or an authorization declaration breaks.' },
-];
-
 /** Long test names may wrap only between words of their PascalCase name. */
 const breakable = (name: string) => name.split(/(?=[A-Z])/).flatMap((part, index) => index === 0 ? [part] : [<wbr key={index} />, part]);
 
@@ -126,37 +110,7 @@ export default function Home() {
       <ModuleChart modules={modules} practices={practices} families={families} />
     </section>
 
-    <section className="home-why" aria-labelledby="why-title">
-      <div className="home-stratum-head">
-        <h2 id="why-title">Start from what every SaaS needs on day one</h2>
-        <p>StarterKit is a .NET template for multi-tenant products. Generate it and identity, tenancy, billing, messaging and observability are already wired, tested and documented, so the first sprint goes on your product, not on plumbing.</p>
-      </div>
-      <div className="why-grid">
-        <div className="why-day-one">
-          <h3>Ready on day one</h3>
-          <ul>{dayOne.map(({ symbol, title, detail, family, url }) => <li key={symbol}>
-            <Link href={url} className="why-capability" data-family={family}>
-              <span className="element-chip" aria-hidden="true">{symbol}</span>
-              <span className="why-capability-text"><b>{title}</b><span>{detail}</span></span>
-              <ArrowRight size={15} aria-hidden="true" />
-            </Link>
-          </li>)}</ul>
-        </div>
-        <div className="why-stack">
-          <h3>Built on</h3>
-          <dl>{stack.map(({ job, parts }) => <div key={job}>
-            <dt>{job}</dt>
-            <dd>{parts.map((part) => <span key={part}>{part}</span>)}</dd>
-          </div>)}</dl>
-          <Link href="/architecture/technologystack/" className="home-more">Every package, with its version<ArrowRight size={15} aria-hidden="true" /></Link>
-        </div>
-      </div>
-      <ol className="why-shape" aria-label="The architecture in three rules">{shape.map(({ title, detail }) => <li key={title}>
-        <h3>{title}</h3>
-        <p>{detail}</p>
-      </li>)}</ol>
-      <Link href="/architecture/overview/" className="home-more">How the architecture fits together<ArrowRight size={15} aria-hidden="true" /></Link>
-    </section>
+    <WhyShowcase capabilities={dayOne} />
 
     <section className="home-routes" aria-labelledby="routes-title">
       <div className="home-stratum-head">

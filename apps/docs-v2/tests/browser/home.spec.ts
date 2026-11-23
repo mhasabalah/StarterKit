@@ -93,10 +93,12 @@ test('the request journey steps through real stations and can be paused', async 
 
 test('the home says what ships on day one, what it is built on and how it is shaped', async ({ page }) => {
   await page.goto(base + '/');
-  const why = page.getByRole('region', { name: 'Start from what every SaaS needs on day one' });
-  await expect(why.locator('.why-capability')).toHaveCount(10);
-  await expect(why.getByRole('link', { name: /^Identity JWT with rotating refresh tokens/ })).toHaveAttribute('href', /\/identity\/$/);
-  await expect(why.locator('.why-stack dt')).toHaveText(['Runtime', 'Data', 'Messaging and jobs', 'Cache and real time', 'Operations', 'Testing']);
+  const why = page.getByRole('region', { name: 'Ship the product, not the plumbing.' });
+  const tiles = why.getByRole('list', { name: 'Ready on day one' });
+  await expect(tiles.getByRole('link')).toHaveCount(10);
+  await expect(tiles.getByRole('link', { name: /^Identity JWT with rotating refresh tokens/ })).toHaveAttribute('href', /\/identity\/$/);
+  await expect(why.getByRole('list', { name: 'Built on' }).getByRole('listitem').first()).toHaveText('ASP.NET Core 10');
   await expect(why.getByRole('link', { name: 'Every package, with its version' })).toHaveAttribute('href', /\/architecture\/technologystack\/$/);
   await expect(why.getByRole('list', { name: 'The architecture in three rules' }).getByRole('listitem')).toHaveCount(3);
+  await expect(why.getByRole('link', { name: 'Generate your product' })).toHaveAttribute('href', /\/getting-started\/new-project\/$/);
 });
