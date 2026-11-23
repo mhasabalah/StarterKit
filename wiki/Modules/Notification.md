@@ -16,6 +16,34 @@ Modules never reference the implementation project (enforced by `Api.Tests/Archi
 Notification itself reads recipient contact data only through `UserDirectory.Contracts` (`GetUserContactInfoQuery`),
 so it works with any identity provider.
 
+## System design
+
+Notification is called by every module and never blocks the caller: `SendAsync` enqueues work on its own Hangfire server.
+
+```likec4-view
+notification
+```
+
+*Figure: Modules call INotificationSender; Hangfire jobs on the notification queue deliver email with a WhatsApp fallback, in-app events over the SignalR hub, and push through FCM or APNs.*
+
+```likec4-view
+notificationDelivery
+```
+
+*Figure: One send becomes independent Hangfire jobs per channel group sharing a correlation id: the email chain with its WhatsApp fallback, the in-app inbox with a real-time event, and push.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `notification`: delivery log, in-app inbox, preferences, push devices |
+| Redis | SignalR backplane (events reach sockets on every replica), session revocation fan-out |
+| Hangfire (`notification`) | `NotificationDispatchJob`, `InAppDeliveryJob`, `PushDeliveryJob`, `NotificationDailyPurgeJob`, `NotificationDailyFailureSummaryJob` |
+| Hub | `/hubs/notifications`, push-only; also carries data-transfer progress and other user events |
+| Events in | `UserDeletedIntegrationEvent`, `UserSessionsRevokedIntegrationEvent` |
+| Providers | SMTP (`MailKitEmailService`), WhatsApp (`WhatsAppApiClient`), FCM and APNs |
+
+The views come from [notification.c4](../Architecture/model/notification.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ### Delivery pipeline

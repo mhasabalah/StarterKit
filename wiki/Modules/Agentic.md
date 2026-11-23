@@ -50,6 +50,34 @@ flowchart TB
 ```
 *Figure: The model only proposes; the gateway decides; the business module's own command does the work, as the person the run acts for.*
 
+## System design
+
+Agentic never runs in a request: an endpoint, a consumer or MCP starts a run, and the agentic queue executes it.
+
+```likec4-view
+agentic
+```
+
+*Figure: Agentic starts every run through AgentRunStarter, executes it on the agentic Hangfire queue against model providers, decides every tool call with ToolPolicy, searches pgvector knowledge, and streams answers over the hub.*
+
+```likec4-view
+agentRun
+```
+
+*Figure: A run is durable: it is started through the starter, executed on the agentic queue, every tool call is decided by the policy, and a risky call waits for a person to approve that exact payload.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `agentic`: runs, steps, approvals, conversations, knowledge with pgvector (HNSW) and full text (tenant data, row-level security) |
+| Hangfire (`agentic`) | `ExecuteAgentRunJob`, `IndexKnowledgeDocumentJob`, `SummarizeAgentConversationJob`, `ResolveAgentDelegationJob`, `ExpireAgentApprovalsJob`, requeue and purge jobs |
+| Hub | Answer previews as `agentic.run-text`, to the initiator only |
+| Events out | `AgentRunCompletedIntegrationEvent`, `AgentRunFailedIntegrationEvent` |
+| Events in | `UserDeletedIntegrationEvent`, `AttachmentDeletedIntegrationEvent` |
+| Providers | Anthropic, OpenAI or OpenAI-compatible models behind `IChatClient` and `IEmbeddingGenerator`; MCP clients at `/api/v1/mcp/{agentKey}` |
+
+The views come from [agentic.c4](../Architecture/model/agentic.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## Core concepts
 
 | Concept | In one line | Type / page |

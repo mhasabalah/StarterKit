@@ -1,0 +1,91 @@
+// Attachment: uploads, malware scanning, storage providers, thumbnails and file lifecycle.
+model {
+  extend starterkit.app {
+    attachment = module 'Attachment' {
+      technology 'schema attachment'
+      description 'Every file: validated, scanned fail-closed, stored on Local, Azure Blob or S3 under a tenant root, with thumbnails and reconciliation.'
+      link ../../Attachment/README.md 'Attachment guide'
+
+      endpoints = endpoint 'Attachment endpoints' {
+        technology 'Carter'
+        description 'Upload, list, download and read URLs, delete, avatars.'
+      }
+      uploads = component 'Upload pipeline' {
+        description 'Validates type and size, scans, stores the file and saves the attachment row.'
+      }
+      scanner = adapter 'Malware scanner' {
+        technology 'ClamAvMalwareScanner'
+        description 'IMalwareScanner adapter: no verdict means 503 malware_scanner_unavailable, infected means 400 malware_detected.'
+      }
+      storage = adapter 'Storage adapters' {
+        technology 'LocalFileStorageService, AzureBlobStorageService, S3'
+        description 'IFileStorageService behind StorageServiceFactory; paths from StoragePaths.TenantRoot.'
+      }
+      images = adapter 'Image processing' {
+        technology 'SkiaImageProcessingService'
+        description 'Resizes images and renders thumbnails (SkiaSharp stays inside Attachment).'
+      }
+      jobs = job 'Attachment jobs' {
+        technology 'queue default'
+        description 'GenerateThumbnailJob, DeleteAttachmentFilesJob, CleanupExpiredPendingAttachmentsJob, AttachmentReconciliationJob.'
+      }
+      userDeletedConsumer = consumer 'UserDeletedAttachmentConsumer' {
+        description 'Erases the files of a deleted user.'
+      }
+    }
+  }
+
+  user -> starterkit.app.attachment.endpoints 'uploads and downloads files' {
+    technology 'HTTPS multipart'
+  }
+  starterkit.app.pipeline -> starterkit.app.attachment.endpoints 'routes /attachments'
+  starterkit.app.attachment.endpoints -> starterkit.app.attachment.uploads 'sends upload command'
+  starterkit.app.attachment.uploads -> starterkit.app.attachment.scanner 'scans the stream'
+  starterkit.app.attachment.scanner -> starterkit.clamav 'INSTREAM scan' {
+    technology 'TCP 3310'
+  }
+  starterkit.app.attachment.uploads -> starterkit.app.attachment.storage 'stores the file'
+  starterkit.app.attachment.storage -> starterkit.blob 'writes and reads objects'
+  starterkit.app.attachment.uploads -> starterkit.postgres 'attachment rows' {
+    technology 'schema attachment'
+  }
+  starterkit.app.attachment.uploads -[async]-> starterkit.app.attachment.jobs 'enqueues thumbnail'
+  starterkit.app.hangfire -> starterkit.app.attachment.jobs 'runs'
+  starterkit.app.attachment.jobs -> starterkit.app.attachment.images 'renders thumbnails'
+  starterkit.app.attachment.jobs -> starterkit.app.attachment.storage 'deletes and reconciles files'
+  starterkit.app.attachment.uploads -[async]-> starterkit.app.identity.avatarConsumer 'UserAvatarChangedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.identity.tokens -[async]-> starterkit.app.attachment.userDeletedConsumer 'UserDeletedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.attachment.userDeletedConsumer -> starterkit.app.attachment.storage 'erases the user files'
+}
+
+views {
+  view attachment of starterkit.app.attachment {
+    title 'Attachment: components and runtime dependencies'
+    description 'Attachment scans uploads with ClamAV, stores files in blob storage and rows in PostgreSQL, renders thumbnails on Hangfire, and publishes avatar and deletion events.'
+    autoLayout LeftRight 50 40
+    include *
+  }
+
+  dynamic view attachmentUpload {
+    title 'Uploading a file'
+    description 'An upload is scanned before anything is stored; a clean file goes to blob storage, the row is saved, and the thumbnail is rendered later by a job.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.nginx 'POST multipart upload'
+    starterkit.nginx -> starterkit.app.pipeline 'proxies (body size limit)'
+    starterkit.app.pipeline -> starterkit.app.attachment.endpoints 'authorized, tenant resolved'
+    starterkit.app.attachment.endpoints -> starterkit.app.attachment.uploads 'validates type and size'
+    starterkit.app.attachment.uploads -> starterkit.app.attachment.scanner 'scan'
+    starterkit.app.attachment.scanner -> starterkit.clamav 'clean, infected, or no verdict (fails closed)'
+    starterkit.app.attachment.uploads -> starterkit.app.attachment.storage 'store under the tenant root'
+    starterkit.app.attachment.storage -> starterkit.blob 'put object'
+    starterkit.app.attachment.uploads -> starterkit.postgres 'save attachment row'
+    starterkit.app.attachment.uploads -> starterkit.app.attachment.jobs 'enqueue GenerateThumbnailJob'
+    user <- starterkit.app.attachment.endpoints '201 with the attachment id'
+    starterkit.app.attachment.jobs -> starterkit.app.attachment.images 'render thumbnail'
+    starterkit.app.attachment.jobs -> starterkit.blob 'store thumbnail'
+  }
+}

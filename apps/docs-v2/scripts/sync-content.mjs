@@ -14,6 +14,7 @@ import { structure } from 'fumadocs-core/mdx-plugins/remark-structure';
 import { createOpenAPI } from 'fumadocs-openapi/server';
 import { sections, pages, pageSlug, outputPath, repository } from '../../../docs-site/sidebar.mjs';
 import { renderTemplate } from './template.mjs';
+import { buildArchitecture, modelRepoPath } from './architecture.mjs';
 
 export const app = fileURLToPath(new URL('../', import.meta.url));
 const root = path.resolve(app, '../..');
@@ -40,6 +41,10 @@ export async function walk(dir) {
 }
 
 export async function sync() {
+  // The architecture model compiles first: pages may only name views it defines (ADR-0035).
+  const architectureViews = await buildArchitecture();
+  const viewIds = new Set(architectureViews.map((view) => view.id));
+  const architectureUses = [];
   const files = await walk(wiki);
   const sources = files.filter((file) => /\.mdx?$/i.test(file)).map((file) => slash(path.relative(wiki, file)));
   const known = new Set(pages.map((page) => page.source));
@@ -74,6 +79,11 @@ export async function sync() {
       if (node.type === 'code') {
         codes.push({ language: node.lang, hash: hash(node.value) });
         if (node.lang === 'mermaid') allDiagrams.push({ source, line: node.position.start.line, code: node.value });
+        if (node.lang === 'likec4-view') {
+          const id = node.value.trim();
+          if (!viewIds.has(id)) throw new Error(`${source}: unknown architecture view "${id}" (define it in ${modelRepoPath})`);
+          architectureUses.push({ source, line: node.position.start.line, view: id });
+        }
       }
       if (node.type === 'html') {
         dependencies.push('html');
@@ -89,7 +99,8 @@ export async function sync() {
       const [, pathname, suffix = ''] = target.match(/^([^?#]*)(.*)$/);
       const absolute = path.resolve(path.dirname(path.join(wiki, source)), decodeURIComponent(pathname));
       const relative = slash(path.relative(wiki, absolute));
-      if (!relative.startsWith('../') && relative !== '..' && !path.isAbsolute(relative)) {
+      const modelSource = slash(path.relative(root, absolute)).startsWith(modelRepoPath);
+      if (!modelSource && !relative.startsWith('../') && relative !== '..' && !path.isAbsolute(relative)) {
         if (/\.mdx?$/i.test(relative)) {
           if (relative !== 'INDEX.md' && !known.has(relative)) throw new Error(`${source}: unknown page ${target}`);
           node.url = prefix + (relative === 'INDEX.md' ? '/' : `/${pageSlug(relative)}/`) + suffix;
@@ -126,7 +137,9 @@ export async function sync() {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, text);
   }
-  for (const file of files.filter((file) => !/\.mdx?$/i.test(file))) {
+  // Model sources are compiled into the views bundle, not published as assets.
+  const isModelSource = (file) => slash(path.relative(root, file)).startsWith(`${modelRepoPath}/`);
+  for (const file of files.filter((file) => !/\.mdx?$/i.test(file) && !isModelSource(file))) {
     const relative = slash(path.relative(wiki, file)).toLowerCase();
     const target = path.join(app, 'public', relative);
     await mkdir(path.dirname(target), { recursive: true });
@@ -159,8 +172,9 @@ export async function sync() {
   await writeFile(path.join(generated, 'inventory.json'), JSON.stringify(report, null, 2) + '\n');
   await writeFile(path.join(generated, 'navigation.json'), JSON.stringify(nav, null, 2) + '\n');
   await writeFile(path.join(generated, 'diagrams.json'), JSON.stringify(allDiagrams, null, 2) + '\n');
+  await writeFile(path.join(generated, 'architecture-uses.json'), JSON.stringify(architectureUses, null, 2) + '\n');
   await writeFile(path.join(generated, 'external-links.txt'), [...external].sort().join('\n') + '\n');
-  console.log(`V2: ${inventory.length} pages, ${allDiagrams.length} Mermaid diagrams, ${publicAssets.length} assets; no missing wiki pages.`);
+  console.log(`V2: ${inventory.length} pages, ${allDiagrams.length} Mermaid diagrams, ${architectureUses.length} architecture views, ${publicAssets.length} assets; no missing wiki pages.`);
   return report;
 }
 

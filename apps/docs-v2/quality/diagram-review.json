@@ -4192,5 +4192,183 @@
       "hash": "7321f08f6d65023b8635e872d51c61b79a2ab39ebd714974e5e02887342cd57b"
     }
   ],
-  "hashNormalization": "LF line endings"
+  "hashNormalization": "LF line endings",
+  "architecture": [
+    {
+      "review": "Optional file. AgentRunStarter, ExecuteAgentRunJob on the agentic queue, ToolPolicy, model seam, pgvector knowledge, text stream over the hub, MCP gateway, erasure consumers; approval re-enqueues the run and never executes the tool.",
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalHandlers.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/agentic.c4",
+      "kind": "likec4",
+      "after": "cd124c28193be409243d0e6312ba3d144af3ff73e25f1dc4bcad855ce7cac0e2"
+    },
+    {
+      "review": "Upload pipeline, ClamAV fail-closed scanner, storage adapters, Skia image processing, four jobs, avatar and deletion events; upload flow scans before storing.",
+      "evidence": [
+        "src/Modules/Attachment/Attachment/Infrastructure/Validation/ClamAv/ClamAvMalwareScanner.cs",
+        "wiki/Attachment/Uploads.md"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/attachment.c4",
+      "kind": "likec4",
+      "after": "e0dd83d12b54a26b0124be9151f62721a8bf2ac598ef2e2cfbb48bc88473d29d"
+    },
+    {
+      "review": "Optional file. Product aggregate, CategoryTreeCache, ProductPublished to its own in-app consumer and to Webhooks, catalog.products definitions upserting by SKU, purge jobs.",
+      "evidence": [
+        "src/Modules/Catalog/Catalog/Domains/Products/Consumers/ProductPublishedConsumer.cs",
+        "src/Modules/Catalog/Catalog/Domains/Products/DataTransfer/ProductTransferDefinitions.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/catalog.c4",
+      "kind": "likec4",
+      "after": "81d22058defa8f7c0675e8f6fa59e35ffeb11572686bd5270d2a388c4d13ea3c"
+    },
+    {
+      "review": "Files stored through UploadAttachmentCommand, import/export jobs on the data-transfer queue via TransferJobRunner, Sylvan parsing, throttled progress over the hub, maintenance jobs.",
+      "evidence": [
+        "src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Jobs/TransferJobRunner.cs",
+        "src/Modules/DataTransfer/DataTransfer/Engine/TransferFileStore.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/datatransfer.c4",
+      "kind": "likec4",
+      "after": "ba8d1b2dd1580300b0a429ea65b938635414892d3a41d9487612d73c07b04b81"
+    },
+    {
+      "review": "Token service, blacklist and ceremony stores in Redis, SSO/SCIM, five Identity jobs, UserAvatarChangedConsumer; sign-in flow follows the JWT guide.",
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Token/TokenBlacklistService.cs",
+        "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/identity.c4",
+      "kind": "likec4",
+      "after": "71b949dfc077ebb80037a0ab1050c54551ce0d111351d8807d629978d007a579"
+    },
+    {
+      "review": "Workspace name, solid default line for synchronous relations, gray relationship palette on the slate role colour with white labels, and the custom stylesheet.",
+      "evidence": [
+        "apps/docs-v2/scripts/architecture.mjs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/likec4.config.json",
+      "kind": "likec4",
+      "after": "f7c4974b25a3c915616f53b6caa8cdccebc659d26b33e5624d42768ec9af03bd"
+    },
+    {
+      "review": "Opaque edge-label backgrounds so label text meets 4.5:1 on a light page; verified with axe on System Design and every module page in both themes.",
+      "evidence": [
+        "apps/docs-v2/tests/browser/architecture.spec.ts"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/likec4.css",
+      "kind": "likec4",
+      "after": "1b756235ffb345cb98fcfccea9df578250905e0377379e47de40c737d6b4de73"
+    },
+    {
+      "review": "INotificationSender, dispatch/in-app/push jobs on the notification queue, MailKit, WhatsApp, FCM/APNs, hub at /hubs/notifications with the Redis backplane, erasure and revocation consumers.",
+      "evidence": [
+        "src/Modules/Notification/Notification/Realtime/NotificationHub.cs",
+        "src/Modules/Notification/Notification/NotificationModule.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/notification.c4",
+      "kind": "likec4",
+      "after": "db00553d553c77e446cc8b9e0788e0e19c8560d5a6354aba8833ac63b9bd7c02"
+    },
+    {
+      "review": "Optional file. ShipmentReadyForClearance event and consumer sending RequestAgentRunCommand; agents and tools over ISender; shipping.assistant opts in to MCP.",
+      "evidence": [
+        "src/Modules/Shipping/Shipping/Domains/Shipments/Consumers/ShipmentReadyForClearanceConsumer.cs",
+        "src/Modules/Shipping/Shipping/Domains/Agents/ShippingAssistantAgent.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/shipping.c4",
+      "kind": "likec4",
+      "after": "9193c3731518d151a3fdbd7f0c72592b349c41ed8ee6a63fc6ec05446f805bcb"
+    },
+    {
+      "review": "Element kinds map to the documentation roles of lib/mermaid-theme.mjs (role stroke colours as fills, white text); async relationship kind for outbox events and enqueued jobs.",
+      "evidence": [
+        "apps/docs-v2/lib/mermaid-theme.mjs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/specification.c4",
+      "kind": "likec4",
+      "after": "a9768875cbd29fe39bb00b341a01f0f1f0e4a90acd03917ebb1fc6def87e9a1d"
+    },
+    {
+      "review": "Billing endpoints, payment webhook inbox route, settlement, Stripe/Paymob gateways, entitlement and usage caches, billing jobs; checkout flow matches Online-Payments.",
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions/Domains/Subscriptions/Services/PaymentSettlementService.cs",
+        "wiki/Subscriptions/Online-Payments.md"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/subscriptions.c4",
+      "kind": "likec4",
+      "after": "9a612826835a33d4bb67a6c3f8e88217a25211e1270113674e6f46deef6ba35e"
+    },
+    {
+      "review": "Actors, providers, Nginx, app container (pipeline, outbox relay, Hangfire servers and queues), migrator, stores and observability checked against the host, Hangfire configuration, outbox relay and compose files.",
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Api/Infrastructure/HangfireConfiguration.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs",
+        "docker-compose.yml",
+        "deployment/nginx/nginx.conf"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/system.c4",
+      "kind": "likec4",
+      "after": "b7dfd75fb3c8206d88f482dd6006fc699dbac72af1b0a902a14dbb369e76e82d"
+    },
+    {
+      "review": "Tenant and membership stores (L1 + Redis, pub/sub eviction), feature flags, members and invitations, provisioner and mover, purge job, billing and user-deleted consumers; tenant request flow uses X-Tenant and app.tenant_id RLS.",
+      "evidence": [
+        "src/Modules/Tenancy/Tenancy/Services/TenantProvisioner.cs",
+        "src/Shared/Shared.Core/MultiTenancy/Web/TenantResolutionMiddleware.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/tenancy.c4",
+      "kind": "likec4",
+      "after": "2e32d9c27027fb241608d20db5c74f5cfb34861187377ee3de15da010845e930"
+    },
+    {
+      "review": "Landscape, containers (providers excluded), module map, user erasure fan-out to the three core consumers, and the Docker Compose deployment with API and worker replicas.",
+      "evidence": [
+        "docker-compose.worker.yml",
+        "src/Api/Infrastructure/HangfireConfiguration.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/views.c4",
+      "kind": "likec4",
+      "after": "7619c07d383a6ef28227ced7add685b3f0cb19c29a76564a1a3b3488f7cbdbbb"
+    },
+    {
+      "review": "Closed WebhookForwardingConsumer subclasses for the public events, dispatch, signed delivery through GuardedConnector, purge.",
+      "evidence": [
+        "src/Modules/Webhooks/Webhooks/Domains/Deliveries/Consumers/WebhookForwardingConsumer.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/webhooks.c4",
+      "kind": "likec4",
+      "after": "596a3f96bf4d17da417f997252a135fb3b751cab10bff091d06995ad0b45326b"
+    },
+    {
+      "review": "Hand-drawn hero with the Excalidraw scene embedded; names only modules every product has; Hangfire queues listed without the optional agentic queue; white background, inverted by the site in dark mode.",
+      "evidence": [
+        "src/Api/Infrastructure/HangfireConfiguration.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/diagrams/system-big-picture.excalidraw.svg",
+      "kind": "excalidraw",
+      "after": "dc854eecd108a0f9ecc96f3a527321f77b8f2c94c61b61f9979cf6cdba50d127"
+    }
+  ]
 }

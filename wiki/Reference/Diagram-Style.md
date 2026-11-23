@@ -26,7 +26,7 @@ Use these forms:
 | Lifecycle | `stateDiagram-v2` |
 | Data relationships | `erDiagram` |
 | Types and implementation relationships | `classDiagram` |
-| System context or deployment | Focused flowchart subgraphs; `C4Context` only after a renderer check |
+| System context, containers, a module's runtime dependencies, deployment | A view of the LikeC4 architecture model (see [Which diagram tool](#which-diagram-tool)), not Mermaid |
 | Schedules and experience maps | `gantt` and `journey` when the subject calls for them |
 
 Directly below every closing diagram fence, add an italic caption in the form `*Figure: <one sentence>.*`.
@@ -50,6 +50,38 @@ without color. Sequence, ER and state diagrams inherit the shared base theme rat
 | `external` | Caller or third-party system | Rose-tinted surface |
 | `event` | Event, queue, outbox, asynchronous delivery | Teal-tinted surface |
 | `port` | Interface, combined with a responsibility class | Dashed node boundary |
+
+## Which diagram tool
+
+| Tool | Use it for | Where it lives |
+|---|---|---|
+| LikeC4 architecture model | Structure and topology: the landscape, containers, a module's components and the stores, queues, jobs and providers it touches, cross-component flows ("what happens when a user does X"), deployment | `wiki/Architecture/model/*.c4`, embedded with a `likec4-view` fence |
+| Mermaid | Detail next to the prose: a sequence inside one module, a state machine, an ER model, types, a decision | A `mermaid` fence in the page |
+| Excalidraw | Only the hand-drawn big picture at the top of [System Design](../Architecture/System-Design.md) | `wiki/Architecture/diagrams/system-big-picture.excalidraw.svg` |
+
+Rules for the architecture model ([ADR-0035](../Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md)):
+
+- **One file per module.** A module extends `starterkit.app` in its own `<module>.c4`, and every relationship that
+  mentions the module lives in that file, so a product without an optional module has no file and no dangling edge.
+- **Real names only.** Elements carry the real class, queue, schema and route names in `technology` and
+  `description`; verify them in `src/` as for any diagram.
+- **Kinds carry the color.** Use the element kinds of `specification.c4` (`endpoint`, `component`, `adapter`, `job`,
+  `consumer`, `database`, `cache`, `queue`, `blob`, `external`, ...). Never set colors in a view or on an element.
+- **Asynchronous edges are `-[async]->`**: integration events through the outbox and enqueued jobs. Name the event
+  in the label and `outbox, MassTransit` in the technology.
+- **Every view has a `title`, a one-sentence `description` and an `autoLayout`.** Prefer `TopBottom`; use
+  `LeftRight` when a view fans out to many neighbors.
+- **Embed a view** with a fence whose language is `likec4-view` and whose body is the view id, followed by the usual
+  italic `*Figure: …*` caption. Every module page also keeps a runtime-components table, because GitHub shows the
+  fence as text.
+- **Check it:** `npx likec4 validate wiki/Architecture/model`, and browse it with `npx likec4 start wiki/Architecture/model`.
+<!--#if (templateSource)-->
+  In V2, `npm run sync` compiles the model and rejects an unknown view id; record each changed `.c4` file (and the
+  hero) under `architecture` in `apps/docs-v2/quality/diagram-review.json` with its SHA-256.
+<!--#endif-->
+
+The hero SVG embeds its Excalidraw scene: open it in [Excalidraw](https://excalidraw.com) or the VS Code Excalidraw
+extension, edit, and save it back as `.excalidraw.svg` with a white background. Name only modules every product has.
 
 ## Relationship and accessibility rules
 

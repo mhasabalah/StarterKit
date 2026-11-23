@@ -1,0 +1,86 @@
+// Identity: authentication, sessions, users, roles, 2FA, passkeys, SSO and SCIM.
+model {
+  extend starterkit.app {
+    identity = module 'Identity' {
+      technology 'schema identity'
+      description 'Who the caller is: JWT access tokens with rotating refresh-token families, roles, 2FA, passkeys, API keys, SSO and SCIM.'
+      link ../../Identity/README.md 'Identity guide'
+
+      endpoints = endpoint 'Auth and account endpoints' {
+        technology 'Carter'
+        description 'Register, sign in, refresh, sign out, 2FA, passkeys, SSO exchange, sessions, API keys, admin user management.'
+      }
+      tokens = component 'Token service' {
+        description 'Issues JWT access tokens carrying roles and sid (the refresh-token family) and rotates refresh tokens; permissions are derived per request, never stored in the token.'
+      }
+      blacklist = adapter 'Token blacklist' {
+        technology 'TokenBlacklistService'
+        description 'Revoked token ids and session families, checked on every authenticated request and hub connection.'
+      }
+      passkeys = adapter 'Passkey ceremonies' {
+        technology 'PasskeyCeremonyStore, TotpReplayGuard'
+        description 'Server-side, single-use WebAuthn ceremony state and TOTP replay protection.'
+      }
+      sso = component 'SSO and SCIM' {
+        technology 'SAML, OIDC, SCIM 2.0'
+        description 'Per-tenant SSO connections on DNS-verified domains and SCIM directories; tokens never travel in a URL.'
+      }
+      jobs = job 'Identity jobs' {
+        technology 'queue default'
+        description 'OnboardingOtpRetryJob, OnboardingTimeoutJob, RefreshTokenCleanupJob, RefreshSamlMetadataJob, CheckSamlCertificateExpiryJob.'
+      }
+      avatarConsumer = consumer 'UserAvatarChangedConsumer' {
+        description 'Stores the new avatar reference on the user.'
+      }
+    }
+  }
+
+  user -> starterkit.app.identity.endpoints 'signs in, manages account' {
+    technology 'HTTPS'
+  }
+  starterkit.app.pipeline -> starterkit.app.identity.blacklist 'rejects revoked tokens'
+  starterkit.app.pipeline -> starterkit.app.identity.endpoints 'routes /auth and /users'
+  starterkit.app.identity.endpoints -> starterkit.app.identity.tokens 'issues and rotates tokens'
+  starterkit.app.identity.endpoints -> starterkit.app.identity.passkeys 'runs WebAuthn ceremonies'
+  starterkit.app.identity.endpoints -> starterkit.app.identity.sso 'starts and completes SSO'
+  starterkit.app.identity.tokens -> starterkit.postgres 'users, roles, refresh tokens' {
+    technology 'schema identity'
+  }
+  starterkit.app.identity.tokens -> starterkit.app.identity.blacklist 'revokes a session family'
+  starterkit.app.identity.blacklist -> starterkit.redis 'revoked tokens and sessions'
+  starterkit.app.identity.passkeys -> starterkit.redis 'ceremony state, used TOTP codes'
+  starterkit.app.identity.sso -> idp 'SAML and OIDC sign-in, SCIM provisioning' {
+    technology 'HTTPS via GuardedConnector'
+  }
+  idp -> starterkit.app.identity.sso 'pushes SCIM users and groups' {
+    technology 'SCIM 2.0'
+  }
+  starterkit.app.hangfire -> starterkit.app.identity.jobs 'runs'
+  starterkit.app.identity.jobs -> starterkit.postgres 'cleans expired refresh tokens'
+}
+
+views {
+  view identity of starterkit.app.identity {
+    title 'Identity: components and runtime dependencies'
+    description 'Identity issues tokens from PostgreSQL, keeps revocations and ceremony state in Redis, talks to identity providers, and announces deleted users and revoked sessions through the outbox.'
+    autoLayout LeftRight 50 40
+    include *
+  }
+
+  dynamic view identitySignIn {
+    title 'Sign-in, refresh and revocation'
+    description 'A user signs in, gets an access token bound to a session family, refreshes it by rotation, and a revocation closes every token and hub socket of that session.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.nginx 'POST sign-in'
+    starterkit.nginx -> starterkit.app.pipeline 'proxies'
+    starterkit.app.pipeline -> turnstile 'checks captcha (when enabled)'
+    starterkit.app.pipeline -> starterkit.app.identity.endpoints 'routes'
+    starterkit.app.identity.endpoints -> starterkit.app.identity.tokens 'validates password, 2FA'
+    starterkit.app.identity.tokens -> starterkit.postgres 'stores refresh-token family (sid)'
+    user <- starterkit.app.identity.endpoints 'access token + refresh token'
+    user -> starterkit.app.identity.endpoints 'POST refresh'
+    starterkit.app.identity.tokens -> starterkit.postgres 'rotates: old token used, new token issued'
+    starterkit.app.identity.tokens -> starterkit.app.identity.blacklist 'reuse detected or sign-out: revoke family'
+    starterkit.app.identity.blacklist -> starterkit.redis 'blacklists sid'
+  }
+}

@@ -36,6 +36,7 @@ wiki/
 ## Architecture
 
 - [Overview](Architecture/Overview.md): the big picture
+- [System Design](Architecture/System-Design.md): the running system as views of one architecture model: landscape, containers, module map, deployment, scaling and failure posture, and a drill-down per module
 - [Request lifecycle](Architecture/Request-Lifecycle.md): HTTP middleware, endpoint filters, mediator, commit and event dispatch
 - [Errors and responses](Architecture/Errors-and-Responses.md): response envelopes, exception/status mapping, machine codes and trace identifiers
 - [Concurrency and versions](Architecture/Concurrency-and-Versions.md): version tokens, stale updates, child collections and background conflicts
@@ -92,6 +93,7 @@ wiki/
 - [0033](Decisions/0033-agent-delegation.md): agents delegate to other agents as child runs, never with more authority
 - [0034](Decisions/0034-agent-mcp-server.md): agent tools served to external MCP clients through the tool gateway, as tainted calls
 <!--#endif-->
+- [0035](Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md): one LikeC4 architecture model for every system view, plus one hand-drawn big picture
 
 ## Modules
 

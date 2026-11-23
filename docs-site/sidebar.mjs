@@ -43,6 +43,11 @@ export const sections = [
             "order": 1
           },
           {
+            "source": "Architecture/System-Design.md",
+            "label": "System design",
+            "order": 1
+          },
+          {
             "source": "Architecture/Request-Lifecycle.md",
             "label": "Request lifecycle",
             "order": 2
@@ -738,6 +743,11 @@ export const sections = [
         "source": "Decisions/0034-agent-mcp-server.md",
         "label": "0034 agent MCP server",
         "order": 34
+      },
+      {
+        "source": "Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md",
+        "label": "0035 architecture model (LikeC4)",
+        "order": 35
       },
       {
         "source": "Decisions/0000-template.md",

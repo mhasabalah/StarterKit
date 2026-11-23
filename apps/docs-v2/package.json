@@ -21,6 +21,8 @@
     "check:links": "node scripts/check-links.mjs",
     "check:external": "lychee --config lychee.toml --no-progress .generated/external-links.txt",
     "check:mermaid": "node scripts/check-mermaid.mjs",
+    "check:architecture": "likec4 validate ../../wiki/Architecture/model",
+    "review:architecture": "node scripts/review-architecture.mjs",
     "export:openapi": "node scripts/export-openapi.mjs",
     "check": "npm run sync && npm run test && npm run typecheck && npm run lint && npm run check:markdown && npm run check:spelling"
   },
@@ -64,8 +66,14 @@
     "cspell": "10.5.0",
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.6",
+    "likec4": "1.61.0",
     "markdownlint-cli2": "0.24.1",
     "tailwindcss": "4.3.5",
     "typescript": "6.0.3"
+  },
+  "overrides": {
+    "@rolldown/binding-wasm32-wasi": {
+      "@emnapi/core": "2.0.0-beta.2"
+    }
   }
 }

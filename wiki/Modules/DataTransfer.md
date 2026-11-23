@@ -31,6 +31,34 @@ DataTransfer.Tests/            engine, file round trips, limits, aggregate state
 DataTransfer.IntegrationTests/ Testcontainers Postgres, real module + RLS app role, two tenants
 ```
 
+## System design
+
+DataTransfer never parses in a request: the endpoint stores the file and returns 202, and the work runs on its own queue.
+
+```likec4-view
+datatransfer
+```
+
+*Figure: DataTransfer stores files through Attachment, runs imports and exports as Hangfire jobs on the data-transfer queue, applies batches through the owning module definitions, and streams progress over the hub.*
+
+```likec4-view
+dataImport
+```
+
+*Figure: The request only stores the file and the job row; a data-transfer worker parses rows, applies idempotent batches as the requesting user and streams progress to their sockets.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `datatransfer`: transfer jobs, checkpoints, row errors |
+| Attachment | Source files, results and error reports through `UploadAttachmentCommand` (scanned like any upload) |
+| Hangfire (`data-transfer`) | `ProcessImportJob`, `ProcessExportJob` (via `TransferJobRunner`), `PurgeExpiredTransferJobsJob`, `RequeueStalledTransferJobsJob`; the queue can run on worker replicas |
+| Hub | Throttled progress events through `TransferProgressPublisher` |
+| Events out | `DataImportCompletedIntegrationEvent` |
+| Calls out | Import and export definitions registered by owning modules (members in Tenancy, for example) |
+
+The views come from [datatransfer.c4](../Architecture/model/datatransfer.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ### How a job runs

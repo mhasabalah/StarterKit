@@ -615,6 +615,16 @@ body:has(.docs-chat) .back-to-top { display: none; }
 .diagram-scroll { flex: 1; overflow: auto; padding: 25px; }
 .diagram-scroll svg { width: 100%; max-width: none !important; height: auto; }
 
+/* Architecture views (LikeC4, ADR-0035): the inline view fits the column; a click opens LikeC4's browser to drill down. */
+.architecture-view { width: 100%; --likec4-app-font: var(--font-sans); --likec4-element-font: var(--font-sans); --likec4-compound-font: var(--font-sans); --likec4-relation-font: var(--font-sans); }
+.architecture-canvas { width: 100%; min-height: 160px; padding: clamp(8px, 2vw, 16px); background: var(--sk-paper); }
+.architecture-canvas .likec4-view { width: 100%; }
+.architecture-view figcaption { padding: 10px 16px; border-top: 1px solid var(--sk-rule); font-size: .8125rem; color: var(--sk-muted); }
+.architecture-view figcaption strong { color: var(--sk-ink); font-weight: 600; }
+/* The Excalidraw hero is drawn on white; invert it for the dark theme, as Excalidraw's own dark mode does. */
+.dark #nd-page .prose img[src*=".excalidraw."] { filter: invert(93%) hue-rotate(180deg); }
+#nd-page .prose img[src*=".excalidraw."] { width: 100%; height: auto; border: 1px solid var(--sk-rule); border-radius: 6px; }
+
 /* 404: an empty cell on the chart */
 html:has(main.not-found), html:has(main.not-found) body { background: var(--sk-ground); }
 .not-found { max-width: 640px; margin-inline: auto; padding: clamp(32px, 8vh, 96px) 24px 64px; }

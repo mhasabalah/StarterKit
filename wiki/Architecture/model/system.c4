@@ -1,0 +1,127 @@
+// The big picture: who uses StarterKit, what it runs on, and which providers it calls.
+// Modules extend `starterkit.app` in their own files, so a product without a module simply has no file for it.
+model {
+  user = actor 'User' {
+    description 'A tenant member on the web or mobile client: signs in, works with tenant data, receives notifications.'
+  }
+  staff = actor 'Platform staff' {
+    description 'Admin, Support, Finance and SuperAdmin roles: manage tenants, users, plans and operations.'
+  }
+
+  customerSystem = external 'Customer system' {
+    description 'A tenant-registered HTTPS endpoint that receives signed webhooks.'
+  }
+  idp = external 'Identity providers' {
+    description 'Google sign-in, enterprise SAML and OIDC IdPs, SCIM directory clients.'
+  }
+  payments = external 'Payment gateways' {
+    technology 'Stripe, Paymob'
+    icon tech:stripe
+    description 'Checkout, card payments and signed payment webhooks.'
+  }
+  smtp = external 'SMTP server' {
+    technology 'SMTP (MailHog in dev)'
+    icon md:mail
+    description 'Delivers transactional email.'
+  }
+  whatsapp = external 'WhatsApp API' {
+    icon tech:whatsapp
+    description 'The fallback channel after email in the delivery chain.'
+  }
+  pushProviders = external 'Push providers' {
+    technology 'FCM, APNs'
+    icon tech:firebase
+    description 'Delivers mobile and web push to registered devices.'
+  }
+  turnstile = external 'Bot protection' {
+    technology 'Cloudflare Turnstile'
+    description 'Verifies the captcha token on anonymous sign-up, sign-in and OTP endpoints when enabled.'
+  }
+
+  starterkit = system 'StarterKit' {
+    description 'A modular monolith on ASP.NET Core 10: one image, many modules, one database with a schema per module.'
+
+    nginx = proxy 'Nginx' {
+      technology 'Host reverse proxy'
+      icon tech:nginx
+      description 'TLS termination and routing to the API replicas; upgrades WebSocket connections for the hub.'
+    }
+
+    app = container 'StarterKit app' {
+      technology 'ASP.NET Core 10'
+      icon tech:dotnet
+      description 'The one image. API replicas serve HTTP and the hub; worker replicas run Hangfire servers only.'
+
+      pipeline = endpoint 'HTTP pipeline' {
+        technology 'Carter, owned mediator'
+        description 'Forwarded headers, CORS, error handling, authentication, tenant resolution, authorization, rate limiting, then the module endpoint and the mediator pipeline.'
+      }
+      outbox = component 'Outbox relay' {
+        technology 'OutboxRelay, OutboxSweepJob'
+        description 'Publishes integration events saved in the same transaction as the change; at-least-once, dead-lettered after MaxAttempts.'
+      }
+      hangfire = component 'Hangfire servers' {
+        technology 'Hangfire'
+        description 'Queues default and critical, notification, data-transfer and agentic. Hangfire:Servers turns each server on or off per replica.'
+      }
+    }
+
+    migrator = container 'Migrator' {
+      technology '--migrate-only'
+      icon tech:dotnet
+      description 'Runs at deploy: applies every module migration and seed under a Postgres advisory lock, then exits.'
+    }
+
+    postgres = database 'PostgreSQL' {
+      technology 'PostgreSQL 16, pgvector'
+      icon tech:postgresql
+      description 'One database, one schema per module; row-level security on tenant data; Hangfire storage; optional dedicated tenant databases.'
+    }
+    redis = cache 'Redis' {
+      technology 'Redis 7'
+      icon tech:redis
+      description 'Distributed cache, token blacklist, idempotency keys, quota counters, the SignalR backplane and cache-eviction pub/sub.'
+    }
+    bus = queue 'Message transport' {
+      technology 'MassTransit on PostgreSQL or RabbitMQ'
+      icon tech:rabbitmq
+      description 'Carries integration events from the outbox to module consumers. InMemory is for dev and tests only.'
+    }
+    blob = blob 'Blob storage' {
+      technology 'Local, Azure Blob or S3'
+      icon aws:simple-storage-service
+      description 'Uploaded files and generated thumbnails, under a root per tenant.'
+    }
+    clamav = container 'ClamAV' {
+      technology 'clamd'
+      description 'Scans every upload; no verdict fails the upload closed.'
+    }
+    telemetry = container 'Observability' {
+      technology 'Seq, OpenTelemetry, Prometheus, Grafana'
+      icon tech:opentelemetry-icon
+      description 'Structured logs, traces and metrics; outbox and consumer-fault alerts.'
+    }
+  }
+
+  user -> starterkit.nginx 'uses the API and the hub' {
+    technology 'HTTPS, WebSocket'
+  }
+  staff -> starterkit.nginx 'administers' {
+    technology 'HTTPS'
+  }
+  starterkit.nginx -> starterkit.app.pipeline 'proxies requests' {
+    technology 'HTTP'
+  }
+  starterkit.app.pipeline -> turnstile 'verifies captcha tokens' {
+    technology 'HTTPS'
+  }
+  starterkit.app.pipeline -> starterkit.redis 'idempotency keys, quota counters'
+  starterkit.app.outbox -> starterkit.postgres 'claims pending outbox rows'
+  starterkit.app.outbox -> starterkit.bus 'publishes integration events'
+  starterkit.bus -[async]-> starterkit.app 'delivers events to module consumers'
+  starterkit.app.hangfire -> starterkit.postgres 'stores and leases jobs'
+  starterkit.migrator -> starterkit.postgres 'applies migrations and seeds'
+  starterkit.app -> starterkit.telemetry 'logs, traces, metrics' {
+    technology 'OTLP'
+  }
+}

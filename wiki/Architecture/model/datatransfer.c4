@@ -1,0 +1,83 @@
+// DataTransfer: bulk CSV/Excel import and export jobs on their own Hangfire queue.
+model {
+  extend starterkit.app {
+    datatransfer = module 'DataTransfer' {
+      technology 'schema datatransfer'
+      description 'Bulk CSV and Excel imports and exports: dry run, error report, resumable batches, on the data-transfer queue that worker replicas can take over.'
+      link ../../Modules/DataTransfer.md 'DataTransfer guide'
+
+      endpoints = endpoint 'Transfer endpoints' {
+        technology 'Carter'
+        description 'Start an import or export, read status, download the result and the error report, cancel.'
+      }
+      runner = job 'Import and export jobs' {
+        technology 'ProcessImportJob, ProcessExportJob, TransferJobRunner'
+        description 'Runs as the requesting user (ActingUser), in their branch scope, batch by batch; never in the request.'
+      }
+      definitions = component 'Import and export definitions' {
+        technology 'IImportDefinition, IExportDefinition'
+        description 'Registered by the owning modules; ApplyBatchAsync upserts by a natural key so a replayed batch is harmless.'
+      }
+      parsing = adapter 'CSV and Excel parsing' {
+        technology 'Sylvan'
+        description 'Streams rows; Sylvan stays inside DataTransfer.'
+      }
+      progress = adapter 'Progress publisher' {
+        technology 'TransferProgressPublisher'
+        description 'Throttled progress events to the requesting user; the job row stays the source of truth.'
+      }
+      maintenance = job 'Transfer maintenance' {
+        technology 'PurgeExpiredTransferJobsJob, RequeueStalledTransferJobsJob'
+        description 'Expires old jobs and requeues stalled ones.'
+      }
+    }
+  }
+
+  user -> starterkit.app.datatransfer.endpoints 'starts imports and exports' {
+    technology 'HTTPS'
+  }
+  starterkit.app.datatransfer.endpoints -> starterkit.app.attachment.uploads 'stores source and result files' {
+    technology 'ISender, Attachment.Contracts'
+  }
+  starterkit.app.datatransfer.endpoints -> starterkit.postgres 'transfer job rows' {
+    technology 'schema datatransfer'
+  }
+  starterkit.app.datatransfer.endpoints -[async]-> starterkit.app.datatransfer.runner 'enqueues on data-transfer'
+  starterkit.app.hangfire -> starterkit.app.datatransfer.runner 'runs (data-transfer server, API or worker replicas)'
+  starterkit.app.datatransfer.runner -> starterkit.app.datatransfer.parsing 'reads rows'
+  starterkit.app.datatransfer.runner -> starterkit.app.datatransfer.definitions 'applies batches'
+  starterkit.app.datatransfer.runner -> starterkit.app.datatransfer.progress 'reports progress'
+  starterkit.app.datatransfer.progress -> starterkit.app.notification.hub 'data-transfer progress events' {
+    technology 'IUserEventPublisher'
+  }
+  starterkit.app.datatransfer.definitions -> starterkit.app.tenancy.members 'imports members' {
+    technology 'ISender'
+  }
+  starterkit.app.hangfire -> starterkit.app.datatransfer.maintenance 'runs'
+}
+
+views {
+  view datatransfer of starterkit.app.datatransfer {
+    title 'DataTransfer: components and runtime dependencies'
+    description 'DataTransfer stores files through Attachment, runs imports and exports as Hangfire jobs on the data-transfer queue, applies batches through the owning module definitions, and streams progress over the hub.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view dataImport {
+    title 'Running a bulk import'
+    description 'The request only stores the file and the job row; a data-transfer worker parses rows, applies idempotent batches as the requesting user and streams progress to their sockets.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.app.datatransfer.endpoints 'POST import (file, dry run?)'
+    starterkit.app.datatransfer.endpoints -> starterkit.app.attachment.uploads 'store the source file (scanned)'
+    starterkit.app.datatransfer.endpoints -> starterkit.postgres 'insert transfer job row'
+    starterkit.app.datatransfer.endpoints -> starterkit.app.datatransfer.runner 'enqueue ProcessImportJob (data-transfer)'
+    user <- starterkit.app.datatransfer.endpoints '202 with the job id'
+    starterkit.app.datatransfer.runner -> starterkit.app.datatransfer.parsing 'stream rows'
+    starterkit.app.datatransfer.runner -> starterkit.app.datatransfer.definitions 'ApplyBatchAsync: upsert by natural key, row errors'
+    starterkit.app.datatransfer.runner -> starterkit.postgres 'checkpoint batch (resumable)'
+    starterkit.app.datatransfer.runner -> starterkit.app.datatransfer.progress 'progress'
+    starterkit.app.datatransfer.progress -> starterkit.app.notification.hub 'throttled progress event'
+    starterkit.app.notification.hub -> user 'live progress'
+  }
+}

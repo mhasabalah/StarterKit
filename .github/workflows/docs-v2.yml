@@ -89,6 +89,7 @@ jobs:
           sha256sum -c lychee-x86_64-unknown-linux-gnu.tar.gz.sha256
           tar -xzf lychee-x86_64-unknown-linux-gnu.tar.gz
           find "$RUNNER_TEMP/docs-tools" -type f \( -name vale -o -name lychee \) -exec dirname {} \; >> "$GITHUB_PATH"
+      - run: npm run check:architecture
       - run: npm run check
       - run: npm run check:vale
       - run: npm run check:external
