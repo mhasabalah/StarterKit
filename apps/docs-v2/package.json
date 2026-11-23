@@ -70,10 +70,5 @@
     "markdownlint-cli2": "0.24.1",
     "tailwindcss": "4.3.5",
     "typescript": "6.0.3"
-  },
-  "overrides": {
-    "@rolldown/binding-wasm32-wasi": {
-      "@emnapi/core": "2.0.0-beta.2"
-    }
   }
 }
