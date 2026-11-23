@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.IndexKey.Unknown" xml:space="preserve">
+    <value>لا يوجد فهرس بحث باسم '{0}'.</value>
+  </data>
+  <data name="Validation.Text.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز نص البحث {0} حرفاً.</value>
+  </data>
+  <data name="Validation.Mode.Invalid" xml:space="preserve">
+    <value>وضع البحث غير صالح.</value>
+  </data>
+  <data name="Validation.Page.Min" xml:space="preserve">
+    <value>يجب أن يكون رقم الصفحة 1 على الأقل.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>يجب أن يكون حجم الصفحة بين 1 و{0}.</value>
+  </data>
+  <data name="Validation.Window.Max" xml:space="preserve">
+    <value>يمكن التنقل بين الصفحات ضمن أول {0} نتيجة فقط.</value>
+  </data>
+  <data name="Validation.Filters.Max" xml:space="preserve">
+    <value>يمكن استخدام {0} من عوامل التصفية كحد أقصى.</value>
+  </data>
+  <data name="Validation.Filter.UnknownField" xml:space="preserve">
+    <value>'{0}' ليس حقل تصفية في هذا الفهرس.</value>
+  </data>
+  <data name="Validation.Filter.WrongType" xml:space="preserve">
+    <value>عامل التصفية على '{0}' لا يناسب نوع الحقل.</value>
+  </data>
+  <data name="Validation.Filter.Values" xml:space="preserve">
+    <value>يحتاج عامل التصفية على '{0}' إلى قيمة واحدة حتى {1} قيمة.</value>
+  </data>
+  <data name="Validation.Filter.Bounds" xml:space="preserve">
+    <value>يجب ألا يتجاوز الحد الأدنى لعامل التصفية على '{0}' حده الأعلى.</value>
+  </data>
+  <data name="Validation.Filter.Utc" xml:space="preserve">
+    <value>يجب أن يستخدم عامل تصفية التاريخ على '{0}' التوقيت العالمي (UTC).</value>
+  </data>
+  <data name="Validation.Facets.Max" xml:space="preserve">
+    <value>يمكن طلب {0} من التصنيفات كحد أقصى.</value>
+  </data>
+  <data name="Validation.Facet.NotFacetable" xml:space="preserve">
+    <value>لا يمكن عدّ قيم الحقل '{0}'.</value>
+  </data>
+  <data name="Validation.Sort.NotSortable" xml:space="preserve">
+    <value>لا يمكن ترتيب النتائج حسب '{0}'.</value>
+  </data>
+</root>

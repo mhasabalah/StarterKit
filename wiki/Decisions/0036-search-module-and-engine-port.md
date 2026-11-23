@@ -38,7 +38,7 @@ The forces:
   fallback from one engine to another.
 - Engine client packages stay in the Search module (architecture test). The Meilisearch adapter uses a typed
   `HttpClient`, not an SDK.
-- The module is optional in generated products (`--search`, on by default).
+- The module is optional in generated products (`--full-text-search`, on by default).
 
 **A module plugs in an index; it does not call an engine.**
 

@@ -113,6 +113,16 @@ public sealed class ThirdPartyIsolationTests
     private static readonly string[] ModelProviderPrefixes =
         ["Microsoft.Extensions.AI", "OpenAI", "Anthropic", "System.ClientModel", "Microsoft.SemanticKernel", "Microsoft.Agents"];
 
+    private static readonly string[] SearchEngineClientPrefixes =
+        ["Meilisearch", "Elastic.", "Elasticsearch", "OpenSearch", "Typesense", "Algolia"];
+
+    [Fact]
+    public void Search_engine_clients_stay_in_the_Search_module() =>
+        Production.Where(a => References(a).Any(r => SearchEngineClientPrefixes.Any(p => r.StartsWith(p, StringComparison.Ordinal))))
+            .Should().BeSubsetOf(["Search"],
+                "a search engine is an adapter inside the Search module, so swapping engines never touches a business " +
+                "module; without the Search module no assembly may reference one");
+
     [Fact]
     public void SignalR_server_types_stay_in_the_Notification_module() =>
         Production.Where(a => References(a).Contains("Microsoft.AspNetCore.SignalR.StackExchangeRedis"))

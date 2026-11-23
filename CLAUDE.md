@@ -106,6 +106,10 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
+<!--#if (search)-->
+- **Search**: full-text search behind an engine port (PostgreSQL or Meilisearch); owning modules plug in an index
+  definition and a document source (`Search.Contracts`, ADR-0036).
+<!--#endif-->
 <!--#if (agentic)-->
 - **Agentic**: AI agents as durable runs; owning modules plug in agents and typed tools (`Agentic.Contracts`).
 <!--#endif-->

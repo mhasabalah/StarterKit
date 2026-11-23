@@ -62,6 +62,9 @@ public sealed class MessagingArchitectureTests
 #if (AGENTIC)
             "AgentRunCompletedIntegrationEvent", "AgentRunFailedIntegrationEvent",
 #endif
+#if (SEARCH)
+            "SearchDocumentsChangedIntegrationEvent",
+#endif
             "UserAvatarChangedIntegrationEvent", "AttachmentDeletedIntegrationEvent", "UserDeletedIntegrationEvent",
             "UserSessionsRevokedIntegrationEvent",
             "SubscriptionActivatedIntegrationEvent", "SubscriptionExpiredIntegrationEvent",

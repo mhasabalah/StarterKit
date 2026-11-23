@@ -300,6 +300,11 @@ export const sections = [
         "order": 7
       },
       {
+        "source": "Modules/Search.md",
+        "label": "Search",
+        "order": 7.5
+      },
+      {
         "source": "Modules/Shipping.md",
         "label": "Shipping (agent sample)",
         "order": 8

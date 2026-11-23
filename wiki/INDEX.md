@@ -94,7 +94,9 @@ wiki/
 - [0034](Decisions/0034-agent-mcp-server.md): agent tools served to external MCP clients through the tool gateway, as tainted calls
 <!--#endif-->
 - [0035](Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md): one LikeC4 architecture model for every system view, plus one hand-drawn big picture
+<!--#if (search)-->
 - [0036](Decisions/0036-search-module-and-engine-port.md): full-text search in one Search module behind an engine port (PostgreSQL or Meilisearch), fed by the outbox
+<!--#endif-->
 
 ## Modules
 
@@ -108,6 +110,9 @@ wiki/
   - [Notification-Email-Design-System](Modules/Notification-Email-Design-System.md): tokens, components, dark mode, branding, plain text
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
+<!--#if (search)-->
+- [Search](Modules/Search.md): full-text search behind an engine port (index definitions plugged in by the owning module, PostgreSQL or Meilisearch)
+<!--#endif-->
 <!--#if (agentic)-->
 - [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (overview, the five rules, architecture, guide map)
   - [Runs and durable execution](Agentic/Runs.md): lifecycle, how a worker executes a run, leases, retries, budgets, acting as the person
