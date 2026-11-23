@@ -107,7 +107,9 @@ export async function sync() {
         } else {
           await stat(absolute);
           assets.push(relative);
-          node.url = `${prefix}/${encode(relative.toLowerCase())}${suffix}`;
+          // Images are imported from public/ by the MDX compiler, and Next adds the base path to their URLs itself;
+          // only plain links to assets need the prefix.
+          node.url = `${node.type === 'image' ? '' : prefix}/${encode(relative.toLowerCase())}${suffix}`;
         }
       } else {
         const repoPath = slash(path.relative(root, absolute));
