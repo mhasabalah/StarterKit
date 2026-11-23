@@ -27,8 +27,29 @@ public static class SearchModule
 
         // The modules' definitions (AddSearchIndex), validated once: the first resolve throws on a bad definition.
         services.TryAddSingleton<SearchIndexRegistry>();
+        services.TryAddSingleton(TimeProvider.System);
 
+        AddEngine(services, configuration);
         return services;
+    }
+
+    /// <summary>One engine per deployment (<c>Search:Engine</c>); there is no silent fallback to another one.</summary>
+    private static void AddEngine(IServiceCollection services, IConfiguration configuration)
+    {
+        var engine = configuration.GetSection(SearchOptions.SectionName)
+            .GetValue<SearchEngineKind?>(nameof(SearchOptions.Engine)) ?? SearchEngineKind.Postgres;
+
+        switch (engine)
+        {
+            case SearchEngineKind.Postgres:
+                services.AddScoped<ISearchEngine, Engine.Postgres.PostgresSearchEngine>();
+                break;
+            case SearchEngineKind.Meilisearch:
+                throw new InvalidOperationException(
+                    "Search:Engine=Meilisearch is not available in this version yet; use Postgres.");
+            default:
+                throw new InvalidOperationException($"Search:Engine '{engine}' is not an engine.");
+        }
     }
 
     public static IApplicationBuilder UseSearchModule(this IApplicationBuilder app)

@@ -1,7 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using Search.Contracts.Indexing;
 using Search.Data;
+using Search.Domains.Indexes.Models;
+using Search.Engine;
+using Search.IntegrationTests.Conformance;
+using Search.IntegrationTests.TestIndex;
 using Npgsql;
 using Shared.Contracts.Mediation;
 using Shared.Core.Data;
@@ -14,21 +19,26 @@ namespace Search.IntegrationTests;
 /// <summary>
 /// The module as it runs in production: the REAL migration applied as the database owner, then the REAL module
 /// (<c>AddMultiTenancy</c> + <c>AddSearchModule</c>) connecting as a NON-superuser role, so row-level security
-/// applies under the handlers exactly like in a deployment.
+/// applies under the engine exactly like in a deployment. The test index <see cref="TestArticles"/> is registered.
 /// </summary>
-public sealed class SearchPostgresFixture : IAsyncLifetime
+public sealed class SearchPostgresFixture : IAsyncLifetime, ISearchEngineTestHost
 {
     private const string AppRole = "search_app";
     private const string AppPassword = "search_app_password";
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private ServiceProvider? _provider;
+    private string _appConnection = "";
 
     public static readonly TenantInfo TenantA = new(Guid.Parse("aaaaaaaa-1111-0000-0000-000000000001"), "acme", "Acme");
     public static readonly TenantInfo TenantB = new(Guid.Parse("bbbbbbbb-2222-0000-0000-000000000002"), "globex", "Globex");
 
     public IServiceProvider Services => _provider ?? throw new InvalidOperationException("Not initialized");
     public string AdminConnectionString => _container.GetConnectionString();
+
+    public ArticleStore Articles { get; } = new();
+
+    public RegisteredIndex Index => Services.GetRequiredService<SearchIndexRegistry>().Find(TestArticles.Key)!;
 
     public async ValueTask InitializeAsync()
     {
@@ -44,24 +54,32 @@ public sealed class SearchPostgresFixture : IAsyncLifetime
             await admin.Database.MigrateAsync();
         }
 
-        // 2. The application role: DML only, not a superuser and not the table owner, so RLS applies. (The schema exists
-        //    once the module has a migration; the CREATE keeps a module without a model yet working.)
+        // The engine relies on these text search configurations (stock PostgreSQL 16 ships them).
+        (await AdminScalarAsync<long>("SELECT count(*) FROM pg_ts_config WHERE cfgname IN ('simple', 'english', 'arabic')"))
+            .Should().Be(3, "the PostgreSQL engine analyzes with the simple, english and arabic configurations");
+
+        // 2. The application role: DML only, not a superuser and not the table owner, so RLS applies.
         await AdminExecAsync(
-            "CREATE SCHEMA IF NOT EXISTS search; " +
             $"CREATE ROLE {AppRole} LOGIN PASSWORD '{AppPassword}' NOSUPERUSER NOBYPASSRLS; " +
             $"GRANT USAGE ON SCHEMA search TO {AppRole}; " +
             $"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA search TO {AppRole};");
-        var appConnection = new NpgsqlConnectionStringBuilder(AdminConnectionString)
+        _appConnection = new NpgsqlConnectionStringBuilder(AdminConnectionString)
         {
             Username = AppRole,
             Password = AppPassword
         }.ConnectionString;
 
         // 3. The real module, as the app role.
+        _provider = BuildProvider();
+    }
+
+    /// <summary>A provider of the real module; <paramref name="overrides"/> replaces services (e.g. a failing engine).</summary>
+    public ServiceProvider BuildProvider(Action<IServiceCollection>? overrides = null)
+    {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                [$"ConnectionStrings:{DatabaseDefaults.ConnectionStringName}"] = appConnection,
+                [$"ConnectionStrings:{DatabaseDefaults.ConnectionStringName}"] = _appConnection,
                 ["MultiTenancy:Enabled"] = "true"
             })
             .Build();
@@ -74,10 +92,13 @@ public sealed class SearchPostgresFixture : IAsyncLifetime
         services.AddMultiTenancy(configuration);
         services.AddSingleton<ITenantStore>(new FixedTenantStore(TenantA, TenantB));
         services.AddSingleton(new Mock<IHttpContextService> { DefaultValue = DefaultValue.Empty }.Object);
+        services.AddSingleton(Articles);
 
         services.AddSearchModule(configuration);
+        services.AddSearchIndex<InMemoryArticleSource>(TestArticles.Definition);
 
-        _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        overrides?.Invoke(services);
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     public async ValueTask DisposeAsync()
@@ -87,15 +108,48 @@ public sealed class SearchPostgresFixture : IAsyncLifetime
         await _container.DisposeAsync();
     }
 
-    /// <summary>One request of a member of <paramref name="tenant"/>: tenant scope + fresh DI scope, like the middleware.</summary>
-    public async Task<T> SendAsync<T>(TenantInfo tenant, IRequest<T> request)
+    public static TenantInfo Tenant(Guid id) => new(id, "t" + id.ToString("N")[..8], "Tenant");
+
+    /// <summary>Work in the scope of <paramref name="tenantId"/> (and optionally a restricted branch scope).</summary>
+    public async Task<T> RunAsync<T>(
+        Guid tenantId, Func<IServiceProvider, Task<T>> action, IReadOnlyList<Guid>? branches = null, IServiceProvider? services = null)
     {
-        using (TenantScope.Begin(tenant))
+        using (TenantScope.Begin(Tenant(tenantId), branches is null ? null : new BranchScope(branches)))
         {
-            await using var scope = Services.CreateAsyncScope();
-            return await scope.ServiceProvider.GetRequiredService<ISender>().Send(request);
+            await using var scope = (services ?? Services).CreateAsyncScope();
+            return await action(scope.ServiceProvider);
         }
     }
+
+    public Task<T> RunAsync<T>(Guid tenantId, Func<ISearchEngine, Task<T>> action, IReadOnlyList<Guid>? branches = null) =>
+        RunAsync(tenantId, sp => action(sp.GetRequiredService<ISearchEngine>()), branches);
+
+    /// <summary>One request of a member of <paramref name="tenantId"/>: tenant scope + fresh DI scope, like the middleware.</summary>
+    public Task<T> SendAsync<T>(Guid tenantId, IRequest<T> request, IReadOnlyList<Guid>? branches = null, IServiceProvider? services = null) =>
+        RunAsync(tenantId, sp => sp.GetRequiredService<ISender>().Send(request), branches, services);
+
+    /// <summary>Marks the test index of <paramref name="tenantId"/> as built (the indexing pipeline does this in production).</summary>
+    public Task MarkBuiltAsync(Guid tenantId) =>
+        RunAsync(tenantId, async sp =>
+        {
+            var db = sp.GetRequiredService<SearchDbContext>();
+            var now = DateTime.UtcNow;
+            var state = await db.IndexStates.FirstOrDefaultAsync(s => s.IndexKey == TestArticles.Key);
+            if (state is null)
+            {
+                state = SearchIndexState.Create(TestArticles.Key, now);
+                db.IndexStates.Add(state);
+            }
+
+            if (!state.CanAnswer)
+            {
+                state.TryStartBuild(1, now, TimeSpan.FromMinutes(5)).Should().BeTrue();
+                state.CompleteBuild(1, 0, Index.Fingerprint, now);
+            }
+
+            await db.SaveChangesAsync();
+            return true;
+        });
 
     /// <summary>SQL as the database owner (bypasses RLS): verification across tenants.</summary>
     public async Task<T?> AdminScalarAsync<T>(string sql)

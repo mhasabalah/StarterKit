@@ -32,6 +32,9 @@ public class PendingModelChangesTests(E2ETestFixture fixture)
 #if (AGENTIC)
         "AgenticDbContext",
 #endif
+#if (SEARCH)
+        "SearchDbContext",
+#endif
         "SubscriptionsDbContext",
         "NotificationDbContext"
     ];

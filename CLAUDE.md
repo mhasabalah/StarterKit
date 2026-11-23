@@ -409,6 +409,10 @@ Notification is the exception: its context is in `Persistence/`.
 <!--#else-->
   - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer).
 <!--#endif-->
+<!--#if (search)-->
+    - Search (`SearchDbContext`) is tenant data too. Its documents table is written only by the PostgreSQL engine, in
+      raw SQL that names the tenant; never write it through EF or from another module.
+<!--#endif-->
     - Every entity there, children included, is `IMustHaveTenant`.
     - Unique indexes start with `TenantId`.
     - `ApplyTenantFilters(builder)` is the LAST line of `OnModelCreating`.

@@ -11,9 +11,10 @@ Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id
 
 ## Status
 
-The contract, the index registry, the query validation, the configuration and the text pipeline are in place. The
-engines are not registered yet, so every search reports `IndexNotReady` and owning modules keep their SQL search. The
-PostgreSQL engine, the indexing pipeline, the admin API, the analytics and the Meilisearch adapter follow.
+The contract, the index registry, the query validation, the configuration, the text pipeline and the PostgreSQL
+engine are in place. Nothing builds an index yet, so every index of every tenant answers `IndexNotReady` and owning
+modules keep their SQL search. The indexing pipeline (outbox consumer, rebuild, reconcile, drift), the admin API, the
+analytics and the Meilisearch adapter follow.
 
 ## Layout
 
@@ -26,11 +27,15 @@ Search.Contracts/
 Search/
   SearchModule.cs   Add/UseSearchModule, options, registry, startup checks
   Options/          SearchOptions (section "Search") + SearchOptionsValidator
-  Engine/           SearchIndexRegistry, RegisteredIndex (field lookups, fingerprint, document checks)
+  Data/             SearchDbContext (search_index_states, search_documents), configurations, migration AddSearch (RLS)
+  Engine/           ISearchEngine (the port), SearchIndexRegistry, RegisteredIndex (field lookups, fingerprint,
+                    document checks), SearchDocumentPreparer, SearchEngineUnavailableException
   Engine/Text/      SearchTextNormalizer, SearchQueryParser, SearchHighlighter (the same for every engine)
+  Engine/Postgres/  PostgresSearchEngine, PostgresIndexSql (upsert per index), tsquery and filter compilers
+  Domains/Indexes/  SearchIndexState (build state per tenant and index: stamps, lease, drift)
   Domains/Querying/ SearchDocumentsQueryValidator + handler
-Search.Tests/            contracts, registry, fingerprint, options, query validation, text pipeline
-Search.IntegrationTests/ Testcontainers Postgres, real module, RLS app role
+Search.Tests/            contracts, registry, fingerprint, options, query validation, text pipeline, SQL builders, index state
+Search.IntegrationTests/ Testcontainers Postgres, real module and migration, RLS app role; the engine conformance suite
 ```
 
 ## Making an entity searchable
@@ -86,6 +91,32 @@ Search prepares text the same way for every engine, so results do not change whe
   cut on word boundaries, HTML-encoded) with matches in `<mark>`. A word matches when its normalized form equals a
   query word, starts with it, is a stem of it, or does so after an Arabic article or prefix (ال، وال، بال، كال، فال،
   لل). Excluded words are never highlighted.
+
+## PostgreSQL engine
+
+The default engine keeps documents in the application database, in `search.search_documents` (tenant data, forced
+RLS), one row per tenant, index and document:
+
+| Column | Content |
+|---|---|
+| `search_vector` (`tsvector`, GIN) | built by PostgreSQL from the normalized text: per field and analyzer `setweight(to_tsvector(config, text), weight)` (configurations `simple`, `english`, `arabic`; weights A to D); analyses and fields are separated by a position gap, so a phrase never matches across them |
+| `suggest_text` (GIN `gin_trgm_ops`) | the normalized suggest fields, for the typo-tolerant fallback |
+| `filters` (`jsonb`, GIN `jsonb_path_ops`) | the filter values (dates as epoch milliseconds) |
+| `content` (`jsonb`) | the original text of the highlight fields |
+| `source_version`, `rebuild_stamp`, `indexed_at` | the version guard (an older write never replaces a newer one) and the rebuild sweep |
+
+- **Matching.** Every clause of the query must match; each word is matched through every configuration the index
+  uses, and a word one configuration drops as a stop word ("the") is dropped entirely. Phrases use
+  `phraseto_tsquery`, autocomplete a `:*` prefix, exclusions `!!`. When nothing matches and a word has at least
+  `Query:Fuzzy:MinTermLength` letters, a trigram similarity search on the suggest text runs instead and the result
+  says `Fuzzy`.
+- **Ranking and order.** `ts_rank_cd` with the field weights, or a sortable filter field; ties by document id.
+  Without text, the index's default sort.
+- **Facets** are counted over the filtered matches, up to `Facets:ScanLimit` of them (`FacetsExhaustive` tells).
+- **Safety.** Every statement names the tenant and the index as well as relying on RLS; words, values and field names
+  are always parameters (only configuration names, weight letters and casts, from closed enums, are SQL text); every
+  search runs with `Postgres:StatementTimeoutMs`. A timeout or a lost connection answers `EngineUnavailable`; any
+  other error is a bug and is not hidden.
 
 ## Configuration
 

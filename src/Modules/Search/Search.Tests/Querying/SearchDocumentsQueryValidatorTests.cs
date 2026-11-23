@@ -125,18 +125,3 @@ public sealed class SearchDocumentsQueryValidatorTests
         }
     }
 }
-
-public sealed class SearchDocumentsHandlerTests
-{
-    [Fact]
-    public async Task Without_an_engine_every_index_reports_not_ready()
-    {
-        var result = await new SearchDocumentsHandler().Handle(
-            new SearchDocumentsQuery { IndexKey = "test.articles", Text = "laptop", Page = 2, PageSize = 10 }, CancellationToken.None);
-
-        result.Status.Should().Be(SearchStatus.IndexNotReady);
-        result.Hits.Should().BeEmpty();
-        result.Page.Should().Be(2);
-        result.PageSize.Should().Be(10);
-    }
-}

@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Search.Engine.Text;
 
 namespace Search.Domains.Querying.Features.SearchDocuments;
 
@@ -101,11 +103,90 @@ public sealed class SearchDocumentsQueryValidator : AbstractValidator<SearchDocu
 }
 
 /// <summary>
-/// Answers a search from the configured engine. Until an engine adapter is registered (G17 step 4) every index reports
-/// <see cref="SearchStatus.IndexNotReady"/>, so owners keep using their SQL search.
+/// Answers a search from the configured engine, in the caller's tenant and branch scope. An index that was never built
+/// answers <see cref="SearchStatus.IndexNotReady"/>, an engine that does not answer
+/// <see cref="SearchStatus.EngineUnavailable"/>: in both cases the owner falls back to its SQL search. Highlights are
+/// built here, on the original text, the same for every engine.
 /// </summary>
-public sealed class SearchDocumentsHandler : IQueryHandler<SearchDocumentsQuery, SearchDocumentsResult>
+public sealed class SearchDocumentsHandler(
+    SearchIndexRegistry registry,
+    SearchDbContext db,
+    ISearchEngine engine,
+    ITenantContext tenantContext,
+    IOptions<SearchOptions> options,
+    ILogger<SearchDocumentsHandler> logger)
+    : IQueryHandler<SearchDocumentsQuery, SearchDocumentsResult>
 {
-    public Task<SearchDocumentsResult> Handle(SearchDocumentsQuery query, CancellationToken cancellationToken) =>
-        Task.FromResult(SearchDocumentsResult.Unavailable(SearchStatus.IndexNotReady, query.Page, query.PageSize));
+    public async Task<SearchDocumentsResult> Handle(SearchDocumentsQuery query, CancellationToken cancellationToken)
+    {
+        var index = registry.Find(query.IndexKey) ?? throw new InvalidOperationException($"Unknown search index '{query.IndexKey}'.");
+        if (tenantContext.TenantId is not { } tenantId)
+            return SearchDocumentsResult.Unavailable(SearchStatus.IndexNotReady, query.Page, query.PageSize);
+
+        var built = await db.IndexStates.AsNoTracking()
+            .Where(s => s.IndexKey == index.Key)
+            .Select(s => s.LastBuiltAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (built is null)
+            return SearchDocumentsResult.Unavailable(SearchStatus.IndexNotReady, query.Page, query.PageSize);
+
+        var settings = options.Value;
+        var text = SearchQueryParser.Parse(query.Text, query.Mode, settings.Query.MaxTerms);
+        var engineQuery = new EngineQuery
+        {
+            Text = text,
+            Filters = query.Filters,
+            Facets = query.Facets,
+            Sort = query.Sort,
+            Offset = (query.Page - 1) * query.PageSize,
+            Limit = query.PageSize,
+            IncludeHighlightText = query.Highlight && !text.IsEmpty,
+            FuzzyMinTermLength = query.Fuzzy && settings.Query.Fuzzy.Enabled ? settings.Query.Fuzzy.MinTermLength : null,
+            FuzzyThreshold = settings.Query.Fuzzy.Threshold,
+            MaxFacetValues = settings.Facets.MaxValues,
+            FacetScanLimit = settings.Facets.ScanLimit
+        };
+
+        EngineSearchResult result;
+        try
+        {
+            result = await engine.SearchAsync(
+                new IndexScope(index, tenantId, tenantContext.Branches.AllowedBranchIds), engineQuery, cancellationToken);
+        }
+        catch (SearchEngineUnavailableException ex)
+        {
+            logger.LogWarning(ex, "Search engine {Engine} unavailable for index {IndexKey}; the owner falls back to SQL",
+                ex.Engine, index.Key);
+            return SearchDocumentsResult.Unavailable(SearchStatus.EngineUnavailable, query.Page, query.PageSize);
+        }
+
+        return new SearchDocumentsResult
+        {
+            Status = SearchStatus.Ok,
+            Hits = result.Hits.Select(hit => new SearchHit(hit.Id, hit.Score, Highlights(hit, text, engineQuery))).ToList(),
+            Total = result.Total,
+            Facets = result.Facets,
+            FacetsExhaustive = result.FacetsExhaustive,
+            MatchMode = text.IsEmpty ? SearchMatchMode.Browse : result.MatchMode,
+            Page = query.Page,
+            PageSize = query.PageSize
+        };
+    }
+
+    private static IReadOnlyDictionary<string, string> Highlights(EngineHit hit, ParsedSearchQuery text, EngineQuery query)
+    {
+        if (!query.IncludeHighlightText || hit.HighlightText.Count == 0)
+            return EmptyHighlights;
+
+        var highlights = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (field, original) in hit.HighlightText)
+        {
+            if (SearchHighlighter.Highlight(original, text) is { } snippet)
+                highlights[field] = snippet;
+        }
+
+        return highlights;
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyHighlights = new Dictionary<string, string>();
 }
