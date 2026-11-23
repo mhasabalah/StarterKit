@@ -1,0 +1,10 @@
+/* Edge labels are drawn on a 65% translucent background by default, which washes out against a light page.
+   Keep them opaque so label text meets 4.5:1 in both themes (checked by the documentation site's axe tests). */
+.likec4-edge-label-container {
+  --xy-edge-label-background-color: var(--likec4-palette-relation-label-bg) !important;
+}
+/* The technology line is drawn at 75% opacity; on the darker role colors that drops below 4.5:1. */
+.likec4-edge-label__technology {
+  color: var(--xy-edge-label-color) !important;
+  opacity: 1 !important;
+}

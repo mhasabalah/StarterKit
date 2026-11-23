@@ -70,5 +70,5 @@ presented as history, and it costs a call.
 
 ## Related
 
-[Agentic module](../Modules/Agentic.md#conversations), [ADR-0029](0029-agent-conversations.md),
+[Agentic module](../Agentic/Conversations.md), [ADR-0029](0029-agent-conversations.md),
 [Agent security model](../Architecture/Agent-Security.md), [ADR index](README.md).

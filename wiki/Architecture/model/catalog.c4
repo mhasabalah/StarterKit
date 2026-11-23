@@ -1,0 +1,80 @@
+// Catalog: the sample vertical slice (products, categories, tags, wishlist). Optional: --sample false removes this file.
+// Every edge that mentions Catalog lives here, so removing the file removes Catalog from every view.
+model {
+  extend starterkit.app {
+    catalog = module 'Catalog' {
+      technology 'schema catalog'
+      description 'The reference slice: products with versions and soft delete, a cached category tree, tags, wishlist, bulk import and export.'
+      link ../../Modules/Catalog.md 'Catalog guide'
+
+      endpoints = endpoint 'Catalog endpoints' {
+        technology 'Carter'
+        description 'Products, categories, tags, wishlist; optimistic concurrency on updates.'
+      }
+      products = component 'Product aggregate' {
+        technology 'IProductRepository'
+        description 'Commands go through the repository and aggregate methods; publishing raises ProductPublishedIntegrationEvent.'
+      }
+      categoryCache = adapter 'CategoryTreeCache' {
+        description 'The category tree in Redis under tenant keys, invalidated by domain event handlers.'
+      }
+      publishedConsumer = consumer 'ProductPublishedConsumer' {
+        description 'Sends the in-app notification about a published product.'
+      }
+      transfer = component 'catalog.products definitions' {
+        technology 'ProductTransferDefinitions'
+        description 'Import and export definitions for products, run by DataTransfer.'
+      }
+      jobs = job 'Catalog jobs' {
+        technology 'queue default'
+        description 'PurgeAuditEntriesJob, PurgeSoftDeletedProductsJob.'
+      }
+    }
+  }
+
+  user -> starterkit.app.catalog.endpoints 'browses and edits products' {
+    technology 'HTTPS'
+  }
+  starterkit.app.catalog.endpoints -> starterkit.app.catalog.products 'commands and queries'
+  starterkit.app.catalog.endpoints -> starterkit.app.catalog.categoryCache 'reads the category tree'
+  starterkit.app.catalog.products -> starterkit.postgres 'products, categories, tags, audit trail' {
+    technology 'schema catalog, RLS'
+  }
+  starterkit.app.catalog.categoryCache -> starterkit.redis 'tenant-keyed category tree'
+  starterkit.app.catalog.products -[async]-> starterkit.app.catalog.publishedConsumer 'ProductPublishedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.catalog.products -[async]-> starterkit.app.webhooks.forwarders 'ProductPublishedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.catalog.publishedConsumer -> starterkit.app.notification.sender 'in-app notification' {
+    technology 'INotificationSender'
+  }
+  starterkit.app.datatransfer.runner -> starterkit.app.catalog.transfer 'applies product batches'
+  starterkit.app.catalog.transfer -> starterkit.app.catalog.products 'upserts by SKU'
+  starterkit.app.hangfire -> starterkit.app.catalog.jobs 'runs'
+}
+
+views {
+  view catalog of starterkit.app.catalog {
+    title 'Catalog: components and runtime dependencies'
+    description 'Catalog keeps products in its tenant schema, caches the category tree in Redis, and publishes ProductPublished through the outbox to its own consumer and to customer webhooks.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view catalogPublish {
+    title 'Publishing a product'
+    description 'Publishing saves the product and its outbox row in one transaction; the relay then delivers the event to an in-app notification and to customer webhooks, each retried on its own.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.app.catalog.endpoints 'POST publish (Version)'
+    starterkit.app.catalog.endpoints -> starterkit.app.catalog.products 'Publish() on the aggregate'
+    starterkit.app.catalog.products -> starterkit.postgres 'save product + outbox row, one transaction'
+    user <- starterkit.app.catalog.endpoints '200'
+    starterkit.app.outbox -> starterkit.bus 'publish ProductPublishedIntegrationEvent'
+    starterkit.bus -> starterkit.app.catalog.publishedConsumer 'deliver'
+    starterkit.app.catalog.publishedConsumer -> starterkit.app.notification.sender 'in-app notification'
+    starterkit.bus -> starterkit.app.webhooks.forwarders 'deliver'
+    starterkit.app.webhooks.forwarders -> starterkit.app.webhooks.deliver 'signed POST to subscribed endpoints'
+  }
+}

@@ -14,6 +14,34 @@ Attachment owns tenant-scoped file metadata, private blob storage and controlled
 
 The manifest delegates registration to `AddAttachmentModule` and initialization to `UseAttachmentModule`, and exposes the Contracts enum assembly. The host discovers it; do not add module calls to `Program.cs`. Initialization runs migrations through the shared migration mechanism and does not expose an upload directory as static files.
 
+## System design
+
+Attachment is the only module that touches file bytes; other modules (DataTransfer, for example) store files through `UploadAttachmentCommand`.
+
+```likec4-view
+attachment
+```
+
+*Figure: Attachment scans uploads with ClamAV, stores files in blob storage and rows in PostgreSQL, renders thumbnails on Hangfire, and publishes avatar and deletion events.*
+
+```likec4-view
+attachmentUpload
+```
+
+*Figure: An upload is scanned before anything is stored; a clean file goes to blob storage, the row is saved, and the thumbnail is rendered later by a job.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `attachment`: attachment rows (tenant data, row-level security) |
+| Blob storage | `LocalFileStorageService`, `AzureBlobStorageService` or S3, under `StoragePaths.TenantRoot` |
+| ClamAV | `ClamAvMalwareScanner`; fails closed (503 `malware_scanner_unavailable`) |
+| Hangfire (`default`) | `GenerateThumbnailJob`, `DeleteAttachmentFilesJob`, `CleanupExpiredPendingAttachmentsJob`, `AttachmentReconciliationJob` |
+| Events out | `UserAvatarChangedIntegrationEvent`, `AttachmentDeletedIntegrationEvent` |
+| Events in | `UserDeletedIntegrationEvent` → `UserDeletedAttachmentConsumer` |
+
+The views come from [attachment.c4](../Architecture/model/attachment.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ```mermaid

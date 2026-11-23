@@ -1,0 +1,113 @@
+// Notification: every email and WhatsApp delivery, the in-app inbox with the real-time hub, and push.
+model {
+  extend starterkit.app {
+    notification = module 'Notification' {
+      technology 'schema notification'
+      description 'The only way to reach a person: email with a WhatsApp fallback, an in-app inbox with real-time events, and push, each channel group its own job.'
+      link ../../Modules/Notification.md 'Notification guide'
+
+      sender = component 'INotificationSender' {
+        technology 'Notification.Contracts'
+        description 'The fluent API every module uses: For(user) or ToEmail(address), WithEmail, WithInApp, WithPush, SendAsync. Applies mute rules and quiet hours.'
+      }
+      dispatch = job 'NotificationDispatchJob' {
+        technology 'queue notification'
+        description 'Runs the channel chain (email, then WhatsApp) with one correlation id and logs every attempt.'
+      }
+      email = adapter 'Email channel' {
+        technology 'MailKitEmailService, FluidTemplateRenderer'
+        description 'Renders Liquid templates built from the email design system and sends them over SMTP.'
+      }
+      whatsappChannel = adapter 'WhatsApp channel' {
+        technology 'WhatsAppApiClient'
+        description 'The fallback when email fails or the user prefers WhatsApp.'
+      }
+      inApp = job 'InAppDeliveryJob' {
+        technology 'queue notification'
+        description 'Writes the inbox row and pushes the event to the user sockets.'
+      }
+      push = job 'PushDeliveryJob' {
+        technology 'queue notification, FcmPushProvider, ApnsPushProvider'
+        description 'Sends push to the devices registered by the user sessions.'
+      }
+      hub = endpoint 'Notification hub' {
+        technology 'SignalR /hubs/notifications'
+        description 'Push-only WebSocket hub for the inbox, data-transfer progress and agent streams; scaled across replicas by the Redis backplane.'
+      }
+      consumers = consumer 'Erasure and revocation consumers' {
+        technology 'UserDeletedNotificationConsumer, UserSessionsRevokedConsumer'
+        description 'Erase the notification data of a deleted user; close the hub sockets of revoked sessions on every replica.'
+      }
+      maintenance = job 'Notification maintenance' {
+        technology 'queue notification'
+        description 'NotificationDailyPurgeJob, NotificationDailyFailureSummaryJob.'
+      }
+    }
+  }
+
+  user -> starterkit.app.notification.hub 'receives real-time events' {
+    technology 'WebSocket'
+  }
+  starterkit.app.identity.tokens -> starterkit.app.notification.sender 'security email, OTP' {
+    technology 'INotificationSender'
+  }
+  starterkit.app.subscriptions.jobs -> starterkit.app.notification.sender 'invoices, reminders, dunning' {
+    technology 'INotificationSender'
+  }
+  starterkit.app.tenancy.members -> starterkit.app.notification.sender 'invitations' {
+    technology 'INotificationSender'
+  }
+  starterkit.app.notification.sender -[async]-> starterkit.app.notification.dispatch 'enqueues the email chain'
+  starterkit.app.notification.sender -[async]-> starterkit.app.notification.inApp 'enqueues in-app'
+  starterkit.app.notification.sender -[async]-> starterkit.app.notification.push 'enqueues push'
+  starterkit.app.hangfire -> starterkit.app.notification.dispatch 'runs (notification server)'
+  starterkit.app.notification.dispatch -> starterkit.app.notification.email 'tries first'
+  starterkit.app.notification.dispatch -> starterkit.app.notification.whatsappChannel 'falls back'
+  starterkit.app.notification.email -> smtp 'sends mail' {
+    technology 'SMTP'
+  }
+  starterkit.app.notification.whatsappChannel -> whatsapp 'sends message' {
+    technology 'HTTPS'
+  }
+  starterkit.app.notification.dispatch -> starterkit.postgres 'delivery log' {
+    technology 'schema notification'
+  }
+  starterkit.app.notification.inApp -> starterkit.postgres 'inbox rows'
+  starterkit.app.notification.inApp -> starterkit.app.notification.hub 'notifies the user sockets'
+  starterkit.app.notification.push -> pushProviders 'sends push' {
+    technology 'HTTPS'
+  }
+  starterkit.app.notification.hub -> starterkit.redis 'SignalR backplane, session revocation'
+  starterkit.app.identity.tokens -[async]-> starterkit.app.notification.consumers 'UserDeleted / UserSessionsRevokedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.notification.consumers -> starterkit.app.notification.hub 'closes revoked sockets'
+  starterkit.app.hangfire -> starterkit.app.notification.maintenance 'runs'
+}
+
+views {
+  view notification of starterkit.app.notification {
+    title 'Notification: components and runtime dependencies'
+    description 'Modules call INotificationSender; Hangfire jobs on the notification queue deliver email with a WhatsApp fallback, in-app events over the SignalR hub, and push through FCM or APNs.'
+    autoLayout LeftRight 50 40
+    include *
+  }
+
+  dynamic view notificationDelivery {
+    title 'Delivering one notification on every channel'
+    description 'One send becomes independent Hangfire jobs per channel group sharing a correlation id: the email chain with its WhatsApp fallback, the in-app inbox with a real-time event, and push.'
+    autoLayout TopBottom 60 50
+    starterkit.app.subscriptions.jobs -> starterkit.app.notification.sender 'invoice ready: email + in-app + push'
+    starterkit.app.notification.sender -> starterkit.app.notification.dispatch 'enqueue email chain'
+    starterkit.app.notification.sender -> starterkit.app.notification.inApp 'enqueue in-app'
+    starterkit.app.notification.sender -> starterkit.app.notification.push 'enqueue push'
+    starterkit.app.notification.dispatch -> starterkit.app.notification.email 'render template, send'
+    starterkit.app.notification.email -> smtp 'SMTP'
+    starterkit.app.notification.dispatch -> starterkit.app.notification.whatsappChannel 'only if email failed'
+    starterkit.app.notification.inApp -> starterkit.postgres 'insert inbox row'
+    starterkit.app.notification.inApp -> starterkit.app.notification.hub 'notification event'
+    starterkit.app.notification.hub -> starterkit.redis 'fan out to every replica'
+    starterkit.app.notification.hub -> user 'WebSocket push'
+    starterkit.app.notification.push -> pushProviders 'FCM / APNs'
+  }
+}

@@ -3,6 +3,21 @@ import { absoluteUrl, publicPath, repository } from './site';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
+import { outline } from './architecture-outline.mjs';
+
+type View = Parameters<typeof outline>[0] & { id: string };
+let views: Promise<Map<string, View>> | undefined;
+// Architecture views (ADR-0035) become text outlines: agents and plain-text readers get the elements and steps, not an id.
+async function withArchitectureOutlines(content: string) {
+  if (!content.includes('```likec4-view')) return content;
+  views ??= readFile(path.join(process.cwd(), '.generated/architecture-views.json'), 'utf8')
+    .then((text) => new Map((JSON.parse(text).views as View[]).map((view) => [view.id, view])));
+  const known = await views;
+  return content.replace(/```likec4-view\n([^\n`]+)\n```/g, (fence, id: string) => {
+    const view = known.get(id.trim());
+    return view ? outline(view) : fence;
+  });
+}
 
 // Generated Markdown is already portable, with original Mermaid fences and no executable JSX.
 export async function markdownPage(slugs: string[]) {
@@ -15,7 +30,7 @@ export async function markdownPage(slugs: string[]) {
   }
   const file = path.join(process.cwd(), 'content/docs', page.path);
   const { content } = matter(await readFile(file, 'utf8'));
-  return `# ${page.data.title}\n\n${absoluteUrl(page.url)}\n\nSource: https://github.com/${repository}/blob/master/${page.data.source}\n\n${content}`;
+  return `# ${page.data.title}\n\n${absoluteUrl(page.url)}\n\nSource: https://github.com/${repository}/blob/master/${page.data.source}\n\n${await withArchitectureOutlines(content)}`;
 }
 export async function homeMarkdown() {
   const content = await readFile(path.join(process.cwd(), 'content/home.mdx'), 'utf8');

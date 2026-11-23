@@ -1,0 +1,83 @@
+// Subscriptions: plans, subscriptions, entitlements and quotas, payments, invoices and dunning.
+model {
+  extend starterkit.app {
+    subscriptions = module 'Subscriptions' {
+      technology 'schema subscriptions'
+      description 'What a tenant pays for and may use: plans, subscriptions, ledger, invoices, online payments, entitlements and metered quotas.'
+      link ../../Modules/Subscriptions.md 'Subscriptions guide'
+
+      endpoints = endpoint 'Billing endpoints' {
+        technology 'Carter'
+        description 'Plans, subscribe, upgrade, cancel, payment methods, invoices, billing admin.'
+      }
+      paymentWebhook = endpoint 'Payment webhook endpoint' {
+        technology 'POST /api/v1/webhooks/payments/{provider}'
+        description 'Verifies the provider signature and records the event once in the inbound_webhook_events inbox.'
+      }
+      settlement = component 'Payment settlement' {
+        technology 'PaymentSettlementService, RenewalOrchestrator'
+        description 'Settles payments idempotently and drives activation, renewal and expiry of subscriptions.'
+      }
+      gateways = adapter 'Payment gateways' {
+        technology 'StripePaymentGateway, PaymobPaymentGateway, FakePaymentGateway'
+        description 'IPaymentGateway adapters over IHttpClientFactory.'
+      }
+      entitlements = adapter 'Entitlements and quotas' {
+        technology 'EntitlementCache, UsageCounterStore'
+        description 'Answers RequireFeature and RequireQuota for the paying subscriber; counters fail open when Redis is down.'
+      }
+      jobs = job 'Billing jobs' {
+        technology 'queue default'
+        description 'Renewals, dunning, trial and renewal reminders, invoice delivery, FlushUsageCountersJob, RetryFailedPaymentWebhooksJob and more.'
+      }
+    }
+  }
+
+  user -> starterkit.app.subscriptions.endpoints 'subscribes and pays' {
+    technology 'HTTPS'
+  }
+  staff -> starterkit.app.subscriptions.endpoints 'manages plans and billing'
+  starterkit.app.pipeline -> starterkit.app.subscriptions.entitlements 'checks RequireFeature and RequireQuota'
+  starterkit.app.subscriptions.endpoints -> starterkit.app.subscriptions.gateways 'creates checkout and charges'
+  starterkit.app.subscriptions.gateways -> payments 'creates payments' {
+    technology 'HTTPS'
+  }
+  payments -> starterkit.app.subscriptions.paymentWebhook 'payment succeeded or failed' {
+    technology 'HTTPS, signed'
+  }
+  starterkit.app.subscriptions.paymentWebhook -> starterkit.app.subscriptions.settlement 'settles the payment once'
+  starterkit.app.subscriptions.settlement -> starterkit.postgres 'subscriptions, ledger, invoices, webhook inbox' {
+    technology 'schema subscriptions'
+  }
+  starterkit.app.subscriptions.entitlements -> starterkit.redis 'entitlement cache, usage counters'
+  starterkit.app.hangfire -> starterkit.app.subscriptions.jobs 'runs'
+  starterkit.app.subscriptions.jobs -> starterkit.app.subscriptions.settlement 'renews, retries, expires'
+  starterkit.app.subscriptions.settlement -[async]-> starterkit.app.tenancy.billingConsumer 'SubscriptionActivated / ExpiredIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+}
+
+views {
+  view subscriptions of starterkit.app.subscriptions {
+    title 'Subscriptions: components and runtime dependencies'
+    description 'Subscriptions charges through payment gateways, settles signed payment webhooks through an inbox, serves entitlements and quotas from Redis, and announces subscription changes through the outbox.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view subscriptionCheckout {
+    title 'Paying for a plan online'
+    description 'Checkout creates a gateway session; only the signed provider callback settles money, once, through the inbox, and the activation event reaches Tenancy.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.app.subscriptions.endpoints 'POST online-payment for the owed payment'
+    starterkit.app.subscriptions.endpoints -> starterkit.app.subscriptions.gateways 'create checkout session'
+    starterkit.app.subscriptions.gateways -> payments 'session and redirect URL'
+    user <- starterkit.app.subscriptions.endpoints 'redirectUrl'
+    user -> payments 'pays on the provider page'
+    payments -> starterkit.app.subscriptions.paymentWebhook 'signed callback'
+    starterkit.app.subscriptions.paymentWebhook -> starterkit.postgres 'verify signature, insert inbox row (unique per provider event)'
+    starterkit.app.subscriptions.paymentWebhook -> starterkit.app.subscriptions.settlement 'settle and book money'
+    starterkit.app.subscriptions.settlement -> starterkit.postgres 'activate subscription + outbox row, one transaction'
+    starterkit.app.subscriptions.settlement -> starterkit.app.tenancy.billingConsumer 'SubscriptionActivatedIntegrationEvent'
+  }
+}

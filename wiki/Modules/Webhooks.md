@@ -27,6 +27,32 @@ Webhooks.Tests/            unit tests (SSRF policy, signer, domain, validators, 
 Webhooks.IntegrationTests/ Testcontainers Postgres, real module + RLS app role, real sockets
 ```
 
+## System design
+
+Webhooks is a pure consumer: it never changes another module, it only forwards what they published.
+
+```likec4-view
+webhooks
+```
+
+*Figure: Webhooks turns public integration events into stored deliveries, then Hangfire jobs sign and post them to customer endpoints with retries and a delivery log.*
+
+```likec4-view
+webhookDelivery
+```
+
+*Figure: A public integration event becomes one stored delivery per subscribed endpoint; a job signs and posts it, and a failure is retried later by the dispatcher.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `webhooks`: endpoints, secrets, deliveries and attempts (tenant data, row-level security) |
+| Hangfire (`default`) | `DeliverWebhookJob`, `DispatchDueWebhooksJob`, `PurgeWebhookDeliveriesJob` |
+| Events in | Every `[PublicWebhookEvent]` through a closed `WebhookForwardingConsumer<T>`, such as `SubscriptionActivated/ExpiredIntegrationEvent` |
+| Outbound | HTTPS to customer endpoints, signed by `WebhookSigner`, through the SSRF-guarded `GuardedConnector` |
+
+The views come from [webhooks.c4](../Architecture/model/webhooks.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ```mermaid

@@ -31,6 +31,34 @@ Catalog.IntegrationTests/   Testcontainers Postgres tests through the real DI + 
 src/Api.E2ETests/Catalog/   HTTP end-to-end flows against the booted Api
 ```
 
+## System design
+
+Catalog is the reference slice: copy its shape (repository commands, projected queries, outbox events, a cache with explicit invalidation).
+
+```likec4-view
+catalog
+```
+
+*Figure: Catalog keeps products in its tenant schema, caches the category tree in Redis, and publishes ProductPublished through the outbox to its own consumer and to customer webhooks.*
+
+```likec4-view
+catalogPublish
+```
+
+*Figure: Publishing saves the product and its outbox row in one transaction; the relay then delivers the event to an in-app notification and to customer webhooks, each retried on its own.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `catalog`: products, categories, tags, wishlist, audit trail (tenant data, row-level security) |
+| Redis | `CategoryTreeCache` under tenant keys, invalidated by domain event handlers |
+| Hangfire (`default`) | `PurgeAuditEntriesJob`, `PurgeSoftDeletedProductsJob` |
+| Events out | `ProductPublishedIntegrationEvent` (public webhook event) |
+| Events in | `ProductPublishedIntegrationEvent` → `ProductPublishedConsumer` (in-app notification) |
+| DataTransfer | `catalog.products` import and export definitions, upsert by SKU |
+
+The views come from [catalog.c4](../Architecture/model/catalog.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ```mermaid

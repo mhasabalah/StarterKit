@@ -1,0 +1,30 @@
+{
+  "$schema": "https://likec4.dev/schemas/config.json",
+  "name": "starterkit",
+  "title": "StarterKit system design",
+  "styles": {
+    "defaults": {
+      "relationship": {
+        "line": "solid"
+      }
+    },
+    "theme": {
+      "colors": {
+        "gray": {
+          "elements": {
+            "fill": "#3d4658",
+            "stroke": "#2b313d",
+            "hiContrast": "#ffffff",
+            "loContrast": "#e6e8ed"
+          },
+          "relationships": {
+            "line": "#7a8396",
+            "label": "#ffffff",
+            "labelBg": "#3d4658"
+          }
+        }
+      }
+    },
+    "customCss": "./likec4.css"
+  }
+}

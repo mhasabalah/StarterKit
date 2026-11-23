@@ -110,6 +110,11 @@ authorization and rate limiting. Module calls use `ISender` plus contracts; inte
 
 The reasons behind them are in [`wiki/Decisions`](wiki/Decisions/README.md). Everything the template ships, by
 area: [feature catalog](wiki/Reference/Features.md).
+The running system (landscape, containers, module map, deployment, and a drill-down per module showing its stores,
+queues, jobs and providers) is one LikeC4 architecture model in [`wiki/Architecture/model`](wiki/Architecture/model/),
+explained on [System Design](wiki/Architecture/System-Design.md) under a hand-drawn big picture
+([ADR-0035](wiki/Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md)). Browse it locally with
+`npx likec4 start wiki/Architecture/model`.
 Architecture visuals follow the [diagram conventions](wiki/Reference/Diagram-Style.md), with portable Mermaid sources
 and shared light/dark presentation in Documentation V2.
 
@@ -300,6 +305,7 @@ non-durable `InMemory` message transport.
 
 - [wiki/README.md](wiki/README.md): where to start
 - [wiki/INDEX.md](wiki/INDEX.md): every page
+- [System Design](wiki/Architecture/System-Design.md): the running system, then a drill-down per module
 - [wiki/Decisions](wiki/Decisions/README.md): architecture decision records
 - `bash scripts/check-docs.sh` (or `make docs-check`) validates links and placeholders
 

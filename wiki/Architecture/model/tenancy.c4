@@ -1,0 +1,88 @@
+// Tenancy: the control plane for tenants, branches, memberships, tenant roles, invitations and feature flags.
+model {
+  extend starterkit.app {
+    tenancy = module 'Tenancy' {
+      technology 'schema tenancy'
+      description 'Which tenant and branch a request acts in, and what the member may do there. Shared or dedicated databases per tenant.'
+      link ../../Modules/Tenancy.md 'Tenancy guide'
+
+      endpoints = endpoint 'Tenant endpoints' {
+        technology 'Carter'
+        description 'Tenants, branches, members, invitations, tenant roles, feature flags, tenant audit.'
+      }
+      resolution = adapter 'Tenant and membership stores' {
+        technology 'TenantStore, TenantMembershipResolver'
+        description 'Resolve the tenant and the caller membership for TenantResolutionMiddleware; an L1 cache per replica backed by Redis, with evictions broadcast over pub/sub.'
+      }
+      flags = adapter 'Feature flag store' {
+        technology 'FeatureFlagStore'
+        description 'Runtime flags behind RequireFlag; plan features are entitlements, not flags.'
+      }
+      members = component 'Members and invitations' {
+        technology 'AcceptInvitationCommand, ProvisionMemberCommand'
+        description 'Invites, accepts, suspends and provisions members, including members driven by SCIM directories.'
+      }
+      provisioning = component 'Provisioner and mover' {
+        technology 'TenantProvisioner, TenantMover'
+        description 'Creates dedicated tenant databases and moves a tenant between shared and dedicated storage; a migrating tenant is read-only.'
+      }
+      purgeJob = job 'PurgeDeletedTenantsJob' {
+        technology 'queue default'
+        description 'Purges the data of tenants past their deletion grace period.'
+      }
+      billingConsumer = consumer 'TenantBillingStatusConsumer' {
+        description 'Mirrors the subscription status on the tenant.'
+      }
+      userDeletedConsumer = consumer 'UserDeletedTenancyConsumer' {
+        description 'Removes the memberships of an erased user.'
+      }
+    }
+  }
+
+  user -> starterkit.app.tenancy.endpoints 'manages the tenant, accepts invitations' {
+    technology 'HTTPS'
+  }
+  staff -> starterkit.app.tenancy.endpoints 'creates and suspends tenants' {
+    technology 'HTTPS, host only'
+  }
+  starterkit.app.pipeline -> starterkit.app.tenancy.resolution 'resolves tenant and membership'
+  starterkit.app.pipeline -> starterkit.app.tenancy.flags 'checks RequireFlag'
+  starterkit.app.tenancy.endpoints -> starterkit.app.tenancy.members 'sends commands'
+  starterkit.app.tenancy.endpoints -> starterkit.app.tenancy.provisioning 'provisions and moves tenants'
+  starterkit.app.tenancy.resolution -> starterkit.redis 'tenant and membership cache, eviction pub/sub'
+  starterkit.app.tenancy.flags -> starterkit.redis 'flag cache'
+  starterkit.app.tenancy.members -> starterkit.postgres 'tenants, branches, memberships, roles' {
+    technology 'schema tenancy'
+  }
+  starterkit.app.tenancy.provisioning -> starterkit.postgres 'creates and migrates dedicated tenant databases'
+  starterkit.app.identity.sso -> starterkit.app.tenancy.members 'ProvisionMemberCommand' {
+    technology 'ISender'
+  }
+  starterkit.app.identity.tokens -[async]-> starterkit.app.tenancy.userDeletedConsumer 'UserDeletedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.hangfire -> starterkit.app.tenancy.purgeJob 'runs'
+  starterkit.app.tenancy.purgeJob -> starterkit.postgres 'purges tenant data'
+}
+
+views {
+  view tenancy of starterkit.app.tenancy {
+    title 'Tenancy: components and runtime dependencies'
+    description 'Tenancy resolves the tenant and membership of every request from a Redis-backed cache, stores the control plane in PostgreSQL, and reacts to billing and user-deletion events.'
+    autoLayout LeftRight 50 40
+    include *
+  }
+
+  dynamic view tenantRequest {
+    title 'A tenant request, end to end'
+    description 'A member request passes Nginx, authentication, tenant resolution and authorization before the handler reads tenant data under row-level security.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.nginx 'GET tenant data (Bearer token, tenant header)'
+    starterkit.nginx -> starterkit.app.pipeline 'proxies'
+    starterkit.app.pipeline -> starterkit.app.identity.blacklist 'authenticates: token not revoked'
+    starterkit.app.pipeline -> starterkit.app.tenancy.resolution 'resolves tenant, branch and membership'
+    starterkit.app.tenancy.resolution -> starterkit.redis 'cache hit, or load and cache'
+    starterkit.app.pipeline -> starterkit.postgres 'handler query with tenant filter and RLS (app.tenant_id)'
+    user <- starterkit.app.pipeline 'ApiResponse envelope'
+  }
+}

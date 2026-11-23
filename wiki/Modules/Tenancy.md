@@ -14,6 +14,34 @@ Tenancy owns the multi-tenancy control plane, keeping tenant identity, membershi
 
 The Default tenant exists in both modes. Tenant creation requires enabled multi-tenancy; branch and membership primitives remain available with it disabled. Tenant-owned control-plane rows have named tenant filters. Audit is append-only except during host-scoped purge.
 
+## System design
+
+Tenancy is the control plane: it runs on every tenant request (resolution) and owns the data that says who may act where.
+
+```likec4-view
+tenancy
+```
+
+*Figure: Tenancy resolves the tenant and membership of every request from a Redis-backed cache, stores the control plane in PostgreSQL, and reacts to billing and user-deletion events.*
+
+```likec4-view
+tenantRequest
+```
+
+*Figure: A member request passes Nginx, authentication, tenant resolution and authorization before the handler reads tenant data under row-level security.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `tenancy`: tenants, branches, memberships, tenant roles, invitations, feature flags, tenant audit; optional dedicated tenant databases |
+| Redis | Tenant and membership cache behind a per-replica L1 (`TenantStore`, `TenantMembershipResolver`), evictions over pub/sub; feature flag cache |
+| Hangfire (`default`) | `PurgeDeletedTenantsJob` |
+| Events in | `SubscriptionActivated/ExpiredIntegrationEvent` → `TenantBillingStatusConsumer`; `UserDeletedIntegrationEvent` → `UserDeletedTenancyConsumer` |
+| Calls in | `ProvisionMemberCommand` from Identity SCIM; member imports from DataTransfer |
+| Providers | Email invitations through Notification |
+
+The views come from [tenancy.c4](../Architecture/model/tenancy.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 Tenant creation commits the tenant, system roles, head office, owner membership and audit together. Shared tenants become active immediately; dedicated tenants wait for provisioning. `ProvisionTenantJob` and `MoveTenantJob` perform database work; `PurgeDeletedTenantsJob` runs daily at 03:00 after the deletion grace period. Startup migration/seeding creates the Default tenant before data modules initialize, but Tenancy is not the first manifest overall.

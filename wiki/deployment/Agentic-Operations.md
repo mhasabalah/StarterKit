@@ -55,7 +55,7 @@ Add `AGENTIC_EVAL_EMBEDDING_MODEL` (and `AGENTIC_EVAL_EMBEDDING_DIMENSIONS`) to 
 streaming evaluation checks that the provider reports token usage while streaming.
 
 They are skipped when the variables are missing, so a green normal run says nothing about a model. Then drive the
-real agents end to end as described in [Testing with a real model](../Modules/Agentic.md#testing-with-a-real-model).
+real agents end to end as described in [Testing with a real model](../Agentic/Models-And-Evaluation.md#proving-a-real-model).
 
 ### 2. Size the workers
 

@@ -19,6 +19,34 @@ Identity owns global user accounts and authentication, exposing a provider-neutr
 Identity stays global. Tenancy owns memberships, tenant roles and branches; see [Multi-tenancy](../MultiTenancy/Overview.md).
 The [request lifecycle](../Architecture/Request-Lifecycle.md) owns middleware and mediator ordering.
 
+## System design
+
+Identity sits on the request path of every authenticated call: the pipeline checks the token against the blacklist before any module runs.
+
+```likec4-view
+identity
+```
+
+*Figure: Identity issues tokens from PostgreSQL, keeps revocations and ceremony state in Redis, talks to identity providers, and announces deleted users and revoked sessions through the outbox.*
+
+```likec4-view
+identitySignIn
+```
+
+*Figure: A user signs in, gets an access token bound to a session family, refreshes it by rotation, and a revocation closes every token and hub socket of that session.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `identity`: users, roles, refresh-token families, passkeys, API keys, SSO connections, SCIM directories |
+| Redis | Token blacklist (`TokenBlacklistService`), passkey ceremony state (`PasskeyCeremonyStore`), TOTP replay guard, SSO state |
+| Hangfire (`default`) | `OnboardingOtpRetryJob`, `OnboardingTimeoutJob`, `RefreshTokenCleanupJob`, `RefreshSamlMetadataJob`, `CheckSamlCertificateExpiryJob` |
+| Events out | `UserDeletedIntegrationEvent`, `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`, through the outbox) |
+| Events in | `UserAvatarChangedIntegrationEvent` → `UserAvatarChangedConsumer` |
+| Providers | Google sign-in, SAML and OIDC identity providers, SCIM clients, Turnstile (bot protection), email through Notification |
+
+The views come from [identity.c4](../Architecture/model/identity.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ```mermaid

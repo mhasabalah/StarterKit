@@ -1,0 +1,123 @@
+// Agentic: AI agents as durable runs with typed tools, approvals, knowledge, conversations, delegation and MCP.
+// Optional: --agentic false removes this file. Every edge that mentions Agentic lives here.
+model {
+  aiClient = external 'AI client' {
+    description 'An MCP client (an IDE or desktop assistant) calling agents that opt in to the MCP server.'
+  }
+  llm = external 'Model providers' {
+    technology 'Anthropic, OpenAI, OpenAI-compatible'
+    icon tech:anthropic
+    description 'Chat and embedding models behind the model seam; keys from configuration or Docker secrets.'
+  }
+
+  extend starterkit.app {
+    agentic = module 'Agentic' {
+      technology 'schema agentic, pgvector'
+      description 'AI agents as durable runs: the model only requests, every tool call passes the tool policy and is saved as a step before and after it runs.'
+      link ../../Modules/Agentic.md 'Agentic guide'
+
+      endpoints = endpoint 'Agent endpoints' {
+        technology 'Carter'
+        description 'Start runs, decide approvals, conversations, knowledge, memory, usage.'
+      }
+      mcp = endpoint 'MCP gateway' {
+        technology 'AgentMcpGateway, /api/v1/mcp/{agentKey}'
+        description 'Streamable HTTP MCP server; every call passes the tool policy with taint and is recorded as an Mcp run.'
+      }
+      starter = component 'AgentRunStarter' {
+        description 'The only way to start a run: applies the agent policy, capacity and the agent_runs quota.'
+      }
+      executor = job 'ExecuteAgentRunJob' {
+        technology 'queue agentic'
+        description 'Runs the model loop for one run; at-least-once, resumable from saved steps.'
+      }
+      toolPolicy = component 'ToolPolicy' {
+        description 'Allowlist, the initiator current permission, autonomy versus risk, then approval; approvals bind one payload and are used once.'
+      }
+      models = adapter 'Model seam' {
+        technology 'IChatClient, IEmbeddingGenerator'
+        description 'Provider adapters; Microsoft.Extensions.AI and provider SDKs stay inside Agentic.'
+      }
+      knowledge = adapter 'Knowledge store' {
+        technology 'KnowledgeStore, pgvector HNSW'
+        description 'Hybrid vector and full-text search over what modules chose to index, filtered by tenant.'
+      }
+      stream = adapter 'AgentRunTextStream' {
+        description 'Streams the answer preview to the initiator only, as agentic.run-text.'
+      }
+      jobs = job 'Agentic jobs' {
+        technology 'queue agentic'
+        description 'IndexKnowledgeDocumentJob, SummarizeAgentConversationJob, ResolveAgentDelegationJob, ExpireAgentApprovalsJob, requeue and purge jobs.'
+      }
+      consumers = consumer 'Erasure consumers' {
+        technology 'UserDeletedAgenticConsumer, AttachmentDeletedKnowledgeConsumer'
+        description 'Erase the agent content of a deleted user; remove knowledge indexed from a deleted file.'
+      }
+    }
+  }
+
+  user -> starterkit.app.agentic.endpoints 'asks agents, approves actions' {
+    technology 'HTTPS'
+  }
+  aiClient -> starterkit.nginx 'calls MCP tools' {
+    technology 'MCP over HTTPS'
+  }
+  starterkit.nginx -> starterkit.app.agentic.mcp 'proxies MCP'
+  starterkit.app.agentic.mcp -> starterkit.app.agentic.toolPolicy 'decides each call'
+  starterkit.app.agentic.endpoints -> starterkit.app.agentic.starter 'starts runs'
+  starterkit.app.agentic.starter -> starterkit.postgres 'runs, steps, approvals, conversations' {
+    technology 'schema agentic, RLS'
+  }
+  starterkit.app.agentic.starter -[async]-> starterkit.app.agentic.executor 'enqueues on agentic'
+  starterkit.app.hangfire -> starterkit.app.agentic.executor 'runs (agentic server)'
+  starterkit.app.agentic.executor -> starterkit.app.agentic.models 'model turns'
+  starterkit.app.agentic.models -> llm 'chat and embeddings' {
+    technology 'HTTPS'
+  }
+  starterkit.app.agentic.executor -> starterkit.app.agentic.toolPolicy 'every requested tool call'
+  starterkit.app.agentic.executor -> starterkit.app.agentic.knowledge 'knowledge.search, memory.recall'
+  starterkit.app.agentic.knowledge -> starterkit.postgres 'vectors and full text' {
+    technology 'pgvector'
+  }
+  starterkit.app.agentic.executor -> starterkit.app.agentic.stream 'answer preview'
+  starterkit.app.agentic.stream -> starterkit.app.notification.hub 'agentic.run-text to the initiator' {
+    technology 'IUserEventPublisher'
+  }
+  starterkit.app.hangfire -> starterkit.app.agentic.jobs 'runs'
+  starterkit.app.agentic.jobs -> starterkit.app.agentic.models 'embeddings, summaries'
+  starterkit.app.identity.tokens -[async]-> starterkit.app.agentic.consumers 'UserDeletedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.attachment.uploads -[async]-> starterkit.app.agentic.consumers 'AttachmentDeletedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+}
+
+views {
+  view agentic of starterkit.app.agentic {
+    title 'Agentic: components and runtime dependencies'
+    description 'Agentic starts every run through AgentRunStarter, executes it on the agentic Hangfire queue against model providers, decides every tool call with ToolPolicy, searches pgvector knowledge, and streams answers over the hub.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view agentRun {
+    title 'An agent run with an approval'
+    description 'A run is durable: it is started through the starter, executed on the agentic queue, every tool call is decided by the policy, and a risky call waits for a person to approve that exact payload.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.app.agentic.endpoints 'POST run (Idempotency-Key)'
+    starterkit.app.agentic.endpoints -> starterkit.app.agentic.starter 'policy, capacity, quota'
+    starterkit.app.agentic.starter -> starterkit.postgres 'save run'
+    starterkit.app.agentic.starter -> starterkit.app.agentic.executor 'enqueue (agentic)'
+    user <- starterkit.app.agentic.endpoints '202 with the run id'
+    starterkit.app.agentic.executor -> starterkit.app.agentic.models 'model turn'
+    starterkit.app.agentic.models -> llm 'chat completion'
+    starterkit.app.agentic.executor -> starterkit.app.agentic.toolPolicy 'tool requested: allowlist, permission, autonomy vs risk'
+    starterkit.app.agentic.toolPolicy -> starterkit.postgres 'risky: save step awaiting approval'
+    user -> starterkit.app.agentic.endpoints 'approve this payload'
+    starterkit.app.agentic.endpoints -> starterkit.app.agentic.executor 're-enqueue the run (the decision never executes the tool)'
+    starterkit.app.agentic.executor -> starterkit.app.agentic.toolPolicy 'decide again, consume approval, mark executing'
+    starterkit.app.agentic.executor -> starterkit.app.agentic.stream 'final answer preview'
+    starterkit.app.agentic.stream -> starterkit.app.notification.hub 'agentic.run-text'
+  }
+}

@@ -1,0 +1,74 @@
+// Views across the whole system. Wildcards keep them correct when a product leaves out an optional module.
+views {
+  view index {
+    title 'StarterKit in its landscape'
+    description 'Users and platform staff reach StarterKit through Nginx; StarterKit calls identity, payment, messaging, push and bot-protection providers, and posts webhooks to customer systems.'
+    autoLayout LeftRight 50 40
+    include *
+    exclude starterkit.* -> starterkit.*
+  }
+
+  view containers of starterkit {
+    title 'Containers: what runs and what it stores'
+    description 'One application image behind Nginx uses PostgreSQL, Redis, the message transport, blob storage and ClamAV, sends telemetry to the observability stack, and is migrated by a deploy-time migrator; providers are on the landscape view.'
+    autoLayout LeftRight 50 40
+    include *
+    exclude element.kind = external
+  }
+
+  view modules of starterkit.app {
+    title 'Modules and how they talk'
+    description 'Modules share the HTTP pipeline, the outbox relay and the Hangfire servers; they call each other synchronously through ISender and contracts, or asynchronously through integration events.'
+    autoLayout TopBottom 60 50
+    include
+      starterkit.app.*,
+      starterkit.app.* -> starterkit.app.*
+    exclude
+      starterkit.app.hangfire -> *,
+      starterkit.app.pipeline -> *,
+      starterkit.app.outbox
+  }
+
+  dynamic view userErasure {
+    title 'Erasing a user across modules'
+    description 'Deleting a user commits the deletion and one outbox row; the integration event then reaches every module that holds data about that user, and each consumer erases its own data independently and idempotently.'
+    autoLayout TopBottom 60 50
+    staff -> starterkit.app.identity.endpoints 'DELETE user'
+    starterkit.app.identity.endpoints -> starterkit.app.identity.tokens 'delete user, revoke sessions'
+    starterkit.app.identity.tokens -> starterkit.postgres 'commit deletion + outbox row (UserDeletedIntegrationEvent)'
+    starterkit.app.outbox -> starterkit.bus 'publish'
+    parallel {
+      starterkit.bus -> starterkit.app.attachment.userDeletedConsumer 'erase files'
+      starterkit.bus -> starterkit.app.tenancy.userDeletedConsumer 'remove memberships'
+      starterkit.bus -> starterkit.app.notification.consumers 'erase inbox, devices, logs'
+    }
+  }
+
+  deployment view production {
+    title 'Production deployment: API and worker replicas'
+    description 'Nginx on the host routes to stateless API replicas; worker replicas of the same image run only the Hangfire servers moved off the API; PostgreSQL and Redis sit on the private network, published only on BIND_ADDRESS.'
+    autoLayout TopBottom 60 50
+    include production.**
+  }
+}
+
+deployment {
+  environment production 'Production (Docker Compose)' {
+    host server 'Docker host' {
+      nginx = instanceOf starterkit.nginx
+      api = instanceOf starterkit.app {
+        title 'API replicas'
+        description 'Serve HTTP and the hub, run the default, critical and notification Hangfire servers.'
+      }
+      worker = instanceOf starterkit.app {
+        title 'Worker replicas'
+        description 'Same image, not exposed: run the Hangfire servers moved off the API (data-transfer by default); scale with --scale worker=N.'
+      }
+      migrator = instanceOf starterkit.migrator
+      postgres = instanceOf starterkit.postgres
+      redis = instanceOf starterkit.redis
+      clamav = instanceOf starterkit.clamav
+      telemetry = instanceOf starterkit.telemetry
+    }
+  }
+}

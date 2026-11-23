@@ -1,0 +1,81 @@
+// StarterKit architecture model: element kinds, relationship kinds and colors.
+// Colors are the documentation roles (wiki/Reference/Diagram-Style.md): one hue per responsibility, white text.
+specification {
+  color role-api #2342b5
+  color role-application #5534b3
+  color role-domain #0a6a49
+  color role-infrastructure #8a4a06
+  color role-data #3d4658
+  color role-external #9c2c58
+  color role-event #0b6870
+
+  element actor {
+    notation 'Person or role that uses the product'
+    style { shape person; color role-external; size sm }
+  }
+  element external {
+    notation 'Third-party service outside the deployment'
+    style { color role-external; size sm }
+  }
+  element system {
+    notation 'The StarterKit product'
+    style { color role-application; size sm }
+  }
+  element proxy {
+    notation 'Edge proxy'
+    style { color role-infrastructure; size sm }
+  }
+  element container {
+    notation 'Deployable process'
+    style { color role-api; size sm }
+  }
+  element module {
+    notation 'Module: own schema, endpoints and jobs'
+    style { color role-application; size sm }
+  }
+  element endpoint {
+    notation 'HTTP or WebSocket boundary'
+    style { color role-api; size sm }
+  }
+  element component {
+    notation 'Handler, service or aggregate'
+    style { color role-application; size sm }
+  }
+  element adapter {
+    notation 'Adapter to infrastructure or a provider'
+    style { color role-infrastructure; size sm }
+  }
+  element job {
+    notation 'Hangfire background job'
+    style { color role-infrastructure; size sm }
+  }
+  element consumer {
+    notation 'Integration event consumer'
+    style { color role-event; size sm }
+  }
+  element database {
+    notation 'Relational store'
+    style { shape storage; color role-data; size sm }
+  }
+  element cache {
+    notation 'In-memory store'
+    style { shape cylinder; color role-data; size sm }
+  }
+  element queue {
+    notation 'Message transport or job queue'
+    style { shape queue; color role-event; size sm }
+  }
+  element blob {
+    notation 'File storage'
+    style { shape bucket; color role-data; size sm }
+  }
+
+  relationship async {
+    notation 'Asynchronous: integration event through the outbox, or a queued job'
+    line dashed
+    color role-event
+  }
+
+  deploymentNode environment
+  deploymentNode host
+}

@@ -24,6 +24,32 @@ certificate of origin), the allowed transitions (`Draft → ReadyForClearance �
 declaration cannot be submitted while a document is missing. The agent's instructions repeat none of them as rules; it
 learns them from tool results.
 
+## System design
+
+Shipping shows the whole agent seam: an event trigger, a run started on behalf of a real user, and tools that only call the module commands.
+
+```likec4-view
+shipping
+```
+
+*Figure: Shipping stores shipments in its schema, turns a ready shipment into an agent run request, and supplies agents whose tools call back into its own commands.*
+
+```likec4-view
+shippingAgentRun
+```
+
+*Figure: Marking a shipment ready publishes an event; the consumer requests an agent run, which executes on the agentic queue and calls Shipping tools through the tool policy.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `shipping`: shipments, customs declarations |
+| Events out and in | `ShipmentReadyForClearanceIntegrationEvent` → `ShipmentReadyForClearanceConsumer` |
+| Agentic | `RequestAgentRunCommand` through `ISender`; agents `ShipmentPreparationAgent` and `ShippingAssistantAgent` with typed tools |
+| MCP | `shipping.assistant` opts in to the MCP server |
+
+The views come from [shipping.c4](../Architecture/model/shipping.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How the agent works
 
 ```mermaid
@@ -77,8 +103,8 @@ model key at a real provider (`Agentic:Models`) and the same tools serve a real 
 `ShippingAssistantAgent` (`shipping.assistant`) is the conversational sample: a free-text agent with
 `Conversational = true` and read tools only. A person asks about a shipment by its reference and then asks follow-ups
 that name none ("and how much VAT is due?"); every message is a turn of an
-[agent conversation](Agentic.md#conversations) and is given the earlier turns. It changes nothing itself: "prepare it
-for clearance" is [delegated](Agentic.md#delegation) to `shipping.shipment-preparation` (its only `Delegates` entry),
+[agent conversation](../Agentic/Conversations.md) and is given the earlier turns. It changes nothing itself: "prepare it
+for clearance" is [delegated](../Agentic/Delegation.md) to `shipping.shipment-preparation` (its only `Delegates` entry),
 which runs for the same person, needs `shipments.manage`, and proposes the submission to a person. Its autonomy is
 `Execute` only so that delegate can propose that submission; its own tools stay read-only. With `McpServer = true`, its
 read tools are also offered to MCP clients at `/api/v1/mcp/shipping.assistant` when `Agentic:Mcp:Enabled` is on.

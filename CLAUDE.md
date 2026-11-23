@@ -84,6 +84,7 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 | `tests/e2e` | Playwright browser smoke tests (TypeScript) |
 | `deployment/`, `infra/`, `.github/workflows/` | Deploy scripts, Nginx, observability configs, CI/CD |
 | `tools/claude/starterkit-plugin` | This repo's Claude Code plugin (skills, reviewer agent, hooks) |
+| `wiki/Architecture/model` | LikeC4 architecture model: landscape, containers, module and flow views ([System Design](wiki/Architecture/System-Design.md)) |
 <!--#if (templateSource)-->
 | `docs-site/` | Astro Starlight documentation site rendered from `wiki/`; navigation in `sidebar.mjs` |
 | `apps/docs-v2/` | Independent Next.js/Fumadocs renderer of the same wiki; preserve V1, run V2 checks separately; operations in ADR-0024 |
@@ -336,7 +337,7 @@ Notification is the exception: its context is in `Persistence/`.
 <!--#if (agentic)-->
 - **AI agents** (Agentic, [ADR-0025](wiki/Decisions/0025-agentic-module-and-model-seam.md),
   [ADR-0026](wiki/Decisions/0026-durable-agent-runs-on-hangfire.md),
-  [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`):
+  [ADR-0027](wiki/Decisions/0027-agent-approvals-triggers-and-policies.md); guide: `wiki/Modules/Agentic.md`, one page per part in `wiki/Agentic/`):
   - A module adds an agent with `AddAgent(new AgentDefinition { ... })` and tools with `AddAgentTool<T>()`
     (`Agentic.Contracts`). Never reference the Agentic implementation, `Microsoft.Extensions.AI` or a provider SDK
     outside the Agentic module.
@@ -556,6 +557,11 @@ forbidden C# patterns after edits. Spec Kit
 
 - Diagram sources follow `wiki/Reference/Diagram-Style.md`: verify relationships against code, declare the view,
   use accessible titles/descriptions and semantic roles, and validate both themes before review.
+- System and module topology lives in the LikeC4 model `wiki/Architecture/model/*.c4`
+  ([ADR-0035](wiki/Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md)): when a module's stores, jobs,
+  queues, events or providers change, update its `.c4` file in the same change. Every edge that mentions a module lives
+  in that module's file; pages embed views with a `likec4-view` fence. Validate with
+  `npx likec4 validate wiki/Architecture/model`.
 - The index of all docs is `wiki/INDEX.md`. Read the relevant page before changing an area: Architecture,
   MultiTenancy, Messaging, Modules, Identity, Attachment, Testing, Deployment, Decisions (ADRs).
 <!--#if (templateSource)-->

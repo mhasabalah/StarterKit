@@ -2,6 +2,8 @@
 
 StarterKit composes independently owned business modules into one ASP.NET Core host, using contracts to control coupling and per-module schemas to control persistence.
 
+For the running system (processes, stores, queues, providers, and what each module touches when a user acts), see [System Design](System-Design.md).
+
 ## At a glance
 
 | Boundary | Responsibility | Source |

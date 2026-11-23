@@ -1,0 +1,68 @@
+// Shipping: the agent sample (shipments, customs declarations, two agents). Optional: removed with --sample false
+// or --agentic false. Every edge that mentions Shipping lives here.
+model {
+  extend starterkit.app {
+    shipping = module 'Shipping' {
+      technology 'schema shipping'
+      description 'The reference for adding agents to a module: shipments, customs declarations, the shipment preparation agent and the conversational shipping.assistant.'
+      link ../../Modules/Shipping.md 'Shipping guide'
+
+      endpoints = endpoint 'Shipping endpoints' {
+        technology 'Carter'
+        description 'Shipments and customs declarations.'
+      }
+      shipments = component 'Shipment aggregate' {
+        description 'Marking a shipment ready for clearance raises ShipmentReadyForClearanceIntegrationEvent.'
+      }
+      readyConsumer = consumer 'ShipmentReadyForClearanceConsumer' {
+        description 'Requests a shipment preparation run with a stable trigger key, on behalf of the user who marked the shipment ready.'
+      }
+      agents = component 'Shipping agents and tools' {
+        technology 'ShipmentPreparationAgent, ShippingAssistantAgent'
+        description 'Agent definitions and typed tools over ISender; shipping.assistant is conversational and exposed over MCP.'
+      }
+    }
+  }
+
+  user -> starterkit.app.shipping.endpoints 'manages shipments' {
+    technology 'HTTPS'
+  }
+  starterkit.app.shipping.endpoints -> starterkit.app.shipping.shipments 'commands'
+  starterkit.app.shipping.shipments -> starterkit.postgres 'shipments, declarations' {
+    technology 'schema shipping'
+  }
+  starterkit.app.shipping.shipments -[async]-> starterkit.app.shipping.readyConsumer 'ShipmentReadyForClearanceIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.shipping.readyConsumer -> starterkit.app.agentic.starter 'RequestAgentRunCommand' {
+    technology 'ISender'
+  }
+  starterkit.app.agentic.toolPolicy -> starterkit.app.shipping.agents 'invokes allowed tools'
+  starterkit.app.shipping.agents -> starterkit.app.shipping.shipments 'tool commands' {
+    technology 'ISender'
+  }
+}
+
+views {
+  view shipping of starterkit.app.shipping {
+    title 'Shipping: components and runtime dependencies'
+    description 'Shipping stores shipments in its schema, turns a ready shipment into an agent run request, and supplies agents whose tools call back into its own commands.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view shippingAgentRun {
+    title 'A shipment triggers the preparation agent'
+    description 'Marking a shipment ready publishes an event; the consumer requests an agent run, which executes on the agentic queue and calls Shipping tools through the tool policy.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.app.shipping.endpoints 'mark shipment ready'
+    starterkit.app.shipping.endpoints -> starterkit.app.shipping.shipments 'save + outbox row'
+    starterkit.app.shipping.shipments -> starterkit.app.shipping.readyConsumer 'ShipmentReadyForClearanceIntegrationEvent'
+    starterkit.app.shipping.readyConsumer -> starterkit.app.agentic.starter 'RequestAgentRunCommand (TriggerKey, OnBehalfOfUserId)'
+    starterkit.app.agentic.starter -> starterkit.app.agentic.executor 'enqueue ExecuteAgentRunJob (agentic)'
+    starterkit.app.agentic.executor -> starterkit.app.agentic.models 'next model turn'
+    starterkit.app.agentic.executor -> starterkit.app.agentic.toolPolicy 'requested tool call'
+    starterkit.app.agentic.toolPolicy -> starterkit.app.shipping.agents 'allowed: run the tool'
+    starterkit.app.shipping.agents -> starterkit.app.shipping.shipments 'tool command through ISender'
+  }
+}

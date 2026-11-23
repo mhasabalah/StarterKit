@@ -65,5 +65,5 @@ Constraints:
 
 ## Related
 
-[Agentic module](../Modules/Agentic.md#events-notifications-and-progress), [Agent security model](../Architecture/Agent-Security.md),
+[Agentic module](../Agentic/Events-And-Data-Lifecycle.md), [Agent security model](../Architecture/Agent-Security.md),
 [ADR-0029](0029-agent-conversations.md), [ADR index](README.md).

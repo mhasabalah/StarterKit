@@ -15,6 +15,34 @@ Subscriptions owns plans, subscriber lifecycles and billing records, connecting 
 
 A subscriber is a user in single-tenant mode and a tenant in multi-tenant mode. The module covers manual and proof-based payments, online gateways, renewals, refunds, price changes and invoices. [Billing](../Subscriptions/Billing.md) owns financial rules; [Payment methods](../Subscriptions/PaymentMethods-Frontend-Integration.md) and [Online payments](../Subscriptions/Online-Payments.md) own frontend flows and gateway operation.
 
+## System design
+
+Subscriptions is on the request path through entitlements and quotas, and off it for money: only the verified provider callback settles a payment.
+
+```likec4-view
+subscriptions
+```
+
+*Figure: Subscriptions charges through payment gateways, settles signed payment webhooks through an inbox, serves entitlements and quotas from Redis, and announces subscription changes through the outbox.*
+
+```likec4-view
+subscriptionCheckout
+```
+
+*Figure: Checkout creates a gateway session; only the signed provider callback settles money, once, through the inbox, and the activation event reaches Tenancy.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `subscriptions`: plans, subscriptions, ledger, invoices, payments, `inbound_webhook_events` inbox |
+| Redis | `EntitlementCache`, `UsageCounterStore` (quota counters, fail open), billing dashboard cache |
+| Hangfire (`default`) | Renewals, dunning, reminders, `InvoiceDeliveryJob`, `FlushUsageCountersJob`, `RetryFailedPaymentWebhooksJob` and more |
+| Events out | `SubscriptionActivatedIntegrationEvent`, `SubscriptionExpiredIntegrationEvent` (public webhook events) |
+| Providers | Stripe and Paymob (`IPaymentGateway`); invoices and reminders through Notification |
+| Request path | `RequireFeature` and `RequireQuota` endpoint filters ask this module on every gated call |
+
+The views come from [subscriptions.c4](../Architecture/model/subscriptions.c4); the whole system is on [System Design](../Architecture/System-Design.md).
+
+
 ## How it works
 
 ```mermaid

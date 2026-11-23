@@ -1,0 +1,69 @@
+// Webhooks: outbound customer webhooks with signed deliveries, retries and a delivery log.
+model {
+  extend starterkit.app {
+    webhooks = module 'Webhooks' {
+      technology 'schema webhooks'
+      description 'Forwards public integration events to the HTTPS endpoints a tenant registers: signed, retried with back-off, logged.'
+      link ../../Modules/Webhooks.md 'Webhooks guide'
+
+      endpoints = endpoint 'Webhook endpoints' {
+        technology 'Carter'
+        description 'Register and rotate endpoints and secrets, list event types, read the delivery log, redeliver.'
+      }
+      forwarders = consumer 'WebhookForwardingConsumer<T>' {
+        description 'One closed subclass per [PublicWebhookEvent]: stores a delivery for each subscribed endpoint of the tenant.'
+      }
+      dispatcher = job 'DispatchDueWebhooksJob' {
+        technology 'queue default'
+        description 'Picks deliveries that are due, including retries.'
+      }
+      deliver = job 'DeliverWebhookJob' {
+        technology 'WebhookSigner, GuardedConnector'
+        description 'Signs the payload, posts it through the SSRF-guarded connector, records the outcome and schedules a retry.'
+      }
+      purge = job 'PurgeWebhookDeliveriesJob' {
+        description 'Removes old delivery rows.'
+      }
+    }
+  }
+
+  user -> starterkit.app.webhooks.endpoints 'registers endpoints' {
+    technology 'HTTPS'
+  }
+  starterkit.app.webhooks.endpoints -> starterkit.postgres 'endpoints, deliveries' {
+    technology 'schema webhooks'
+  }
+  starterkit.app.subscriptions.settlement -[async]-> starterkit.app.webhooks.forwarders 'SubscriptionActivated / ExpiredIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.webhooks.forwarders -> starterkit.postgres 'stores pending deliveries'
+  starterkit.app.webhooks.forwarders -[async]-> starterkit.app.webhooks.deliver 'enqueues delivery'
+  starterkit.app.hangfire -> starterkit.app.webhooks.dispatcher 'runs on schedule'
+  starterkit.app.webhooks.dispatcher -[async]-> starterkit.app.webhooks.deliver 'enqueues due deliveries'
+  starterkit.app.webhooks.deliver -> customerSystem 'POST signed event' {
+    technology 'HTTPS'
+  }
+  starterkit.app.webhooks.deliver -> starterkit.postgres 'records attempt and next retry'
+  starterkit.app.hangfire -> starterkit.app.webhooks.purge 'runs'
+}
+
+views {
+  view webhooks of starterkit.app.webhooks {
+    title 'Webhooks: components and runtime dependencies'
+    description 'Webhooks turns public integration events into stored deliveries, then Hangfire jobs sign and post them to customer endpoints with retries and a delivery log.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view webhookDelivery {
+    title 'Forwarding an event to a customer endpoint'
+    description 'A public integration event becomes one stored delivery per subscribed endpoint; a job signs and posts it, and a failure is retried later by the dispatcher.'
+    autoLayout TopBottom 60 50
+    starterkit.app.subscriptions.settlement -> starterkit.app.webhooks.forwarders 'SubscriptionActivatedIntegrationEvent'
+    starterkit.app.webhooks.forwarders -> starterkit.postgres 'one delivery per subscribed endpoint'
+    starterkit.app.webhooks.forwarders -> starterkit.app.webhooks.deliver 'enqueue'
+    starterkit.app.webhooks.deliver -> customerSystem 'POST with signature header'
+    starterkit.app.webhooks.deliver -> starterkit.postgres 'record status code; on failure schedule retry'
+    starterkit.app.webhooks.dispatcher -> starterkit.app.webhooks.deliver 'retry when due'
+  }
+}

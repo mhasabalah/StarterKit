@@ -1,5 +1,5 @@
 {
-  "reviewed": 113,
+  "reviewed": 150,
   "renderers": {
     "v2": "Mermaid 12.3.0",
     "v1": "Mermaid 12.2.0; unchanged renderer"
@@ -1349,95 +1349,6 @@
       "status": "reviewed"
     },
     {
-      "file": "wiki/Modules/Agentic.md",
-      "diagram": 1,
-      "type": "flowchart",
-      "title": "How a run executes",
-      "after": "c22bf5868e149b7d153fa8a368db6b837930b9242307358a855a33c8fb219723",
-      "review": "Split model/executor control flow from tool authorization and checkpointing; preserve refusal, approval suspension, executing-before-call and saved-result semantics.",
-      "roles": {
-        "api": [
-          "U"
-        ],
-        "data": [
-          "Q",
-          "S1"
-        ],
-        "application": [
-          "J",
-          "P",
-          "F1",
-          "L",
-          "M",
-          "D",
-          "C"
-        ]
-      },
-      "evidence": [
-        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
-        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
-      ],
-      "status": "reviewed"
-    },
-    {
-      "file": "wiki/Modules/Agentic.md",
-      "diagram": 2,
-      "type": "flowchart",
-      "title": "Agent tool gateway",
-      "after": "ce858f900ca37aa969875b6d3310001346001f97c01c3fd4e177d73889987bae",
-      "review": "Split model/executor control flow from tool authorization and checkpointing; preserve refusal, approval suspension, executing-before-call and saved-result semantics.",
-      "roles": {
-        "application": [
-          "D",
-          "T",
-          "L"
-        ],
-        "data": [
-          "F",
-          "P",
-          "X",
-          "R"
-        ],
-        "infrastructure": [
-          "E"
-        ]
-      },
-      "evidence": [
-        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
-        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
-      ],
-      "status": "reviewed"
-    },
-    {
-      "file": "wiki/Modules/Agentic.md",
-      "diagram": 3,
-      "type": "sequenceDiagram",
-      "title": "Human approval",
-      "after": "d2ba85215c1ce34f091bbe54c8eb499f94e1243918ba8226c983f65aa39eaf4b",
-      "review": "Reviewed scope and relationship notation; retained the focused topology, added accessible summary and shared semantic presentation.",
-      "roles": {},
-      "evidence": [
-        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
-        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs"
-      ],
-      "status": "reviewed"
-    },
-    {
-      "file": "wiki/Modules/Agentic.md",
-      "diagram": 4,
-      "type": "sequenceDiagram",
-      "title": "A conversation turn",
-      "after": "befee2e44fc117798e256fb413caf6ce95273510747f13b513c974a16957614d",
-      "review": "Verified against the conversation handlers and the executor: one save counts the message and inserts the run; the busy and taint checks precede it; history is earlier finished turns (message and final answer) loaded per model turn.",
-      "roles": {},
-      "evidence": [
-        "src/Modules/Agentic/Agentic/Domains/Conversations/Features/AgentConversationHandlers.cs",
-        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
-        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs"
-      ],
-      "status": "reviewed"
-    },
-    {
       "file": "wiki/Modules/Catalog.md",
       "diagram": 1,
       "type": "stateDiagram-v2",
@@ -2575,6 +2486,1058 @@
           "D"
         ]
       }
+    },
+    {
+      "file": "wiki/Agentic/API-And-Observability.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Agentic route groups",
+      "after": "11228d86d72f81c51caa0493058d05c66cdece78abed8414b9eda830c00c2f71",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "C",
+          "X"
+        ],
+        "api": [
+          "A",
+          "R",
+          "P",
+          "V",
+          "G",
+          "K",
+          "M",
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Telemetry/AgenticTelemetry.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs",
+        "src/Modules/Agentic/Agentic/Domains/Mcp/Features/AgentMcpModule.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/API-And-Observability.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Spans of an agent run",
+      "after": "5fe87fe5aae42293d0c42d26b870fabb897bd3837c56b83b5294eb513a36692f",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "api": [
+          "Q"
+        ],
+        "application": [
+          "R",
+          "M",
+          "T"
+        ],
+        "external": [
+          "G"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Telemetry/AgenticTelemetry.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/AgentRunsModule.cs",
+        "src/Modules/Agentic/Agentic/Domains/Mcp/Features/AgentMcpModule.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Adding-An-Agent.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Adding an agent",
+      "after": "f8a12a3220bf3cf5198feb63b7fe9956194dea3f938003197fbdb09b457564f9",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "C",
+          "T",
+          "D",
+          "R",
+          "S",
+          "X",
+          "M"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic.Contracts/Agents/AgentDefinition.cs",
+        "src/Modules/Agentic/Agentic.Contracts/Tools/AgentToolContracts.cs",
+        "tools/claude/starterkit-plugin/skills/add-agent-tool/SKILL.md"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Approvals.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "Approving an agent action",
+      "after": "ea5ba9d3f38b9a7d0e2849c50815ab1a3cdd6ef7b058afc0474cea6f8fa8b97c",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Models/AgentApproval.cs",
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalHandlers.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Jobs/ExpireAgentApprovalsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Approvals.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "Agent approval lifecycle",
+      "after": "fe317ff60bdbc3b1b7fe473ea1157ba094f5b387f2481638d098900454511769",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Models/AgentApproval.cs",
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalHandlers.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Jobs/ExpireAgentApprovalsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Configuration.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Where the Agentic settings act",
+      "after": "78ad1e95f18f84bb68856498681e549e2732b8cde5c9ba0a62c3273515ef8ef0",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "api": [
+          "E"
+        ],
+        "application": [
+          "M",
+          "L",
+          "X",
+          "P",
+          "C",
+          "F"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Options/AgenticOptions.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Conversations.md",
+      "diagram": 1,
+      "type": "erDiagram",
+      "title": "Conversation data model",
+      "after": "3faadc98ff68250dea04e8074b92589fdf0e2016204e536d7aad97563a46b1d8",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Models/AgentConversation.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunTextStream.cs",
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Jobs/SummarizeAgentConversationJob.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Conversations.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "A conversation turn",
+      "after": "48172cc78a1dbb32fdcbf90cdfdfdcb8aa39b9c588fab6aaa2cb4d4b8cb5775b",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Models/AgentConversation.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunTextStream.cs",
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Jobs/SummarizeAgentConversationJob.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Conversations.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "How the history of a turn is built",
+      "after": "a896763ed751208ca4fa9ef1341c644be9095f469b8758c50ca67013df3c2e6d",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "data": [
+          "S",
+          "T",
+          "N"
+        ],
+        "application": [
+          "F",
+          "H",
+          "R"
+        ],
+        "domain": [
+          "X"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Models/AgentConversation.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunTextStream.cs",
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Jobs/SummarizeAgentConversationJob.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Conversations.md",
+      "diagram": 4,
+      "type": "flowchart",
+      "title": "Streaming an answer",
+      "after": "f2dd8d7e1927398a89ceae9f8f6d9913d1c605b505608b11e947ed4e6cdbb17d",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "M"
+        ],
+        "application": [
+          "G",
+          "S",
+          "E"
+        ],
+        "event": [
+          "P"
+        ],
+        "api": [
+          "C"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Models/AgentConversation.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunTextStream.cs",
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Jobs/SummarizeAgentConversationJob.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Conversations.md",
+      "diagram": 5,
+      "type": "sequenceDiagram",
+      "title": "Writing a conversation summary",
+      "after": "12bff6f0d3409e9ccfb6b94d4571aedbc80a26544529cf5715b8608264772101",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Models/AgentConversation.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/TranscriptBuilder.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunTextStream.cs",
+        "src/Modules/Agentic/Agentic/Domains/Conversations/Jobs/SummarizeAgentConversationJob.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Delegation.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "A delegation",
+      "after": "9be09578afeda30b7b6174d4cec1bdb7c4833287d8ea9912a57a6d36d56fbdb1",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentDelegation.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/EventHandlers/AgentDelegationEventHandlers.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Delegation.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "How a waiting parent is resumed",
+      "after": "be7a5ee316866b552bb0f6f84e7819e8d554344d11fc79c37164b2a72f5f3c69",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "domain": [
+          "F"
+        ],
+        "infrastructure": [
+          "E",
+          "R",
+          "W"
+        ],
+        "application": [
+          "A"
+        ],
+        "data": [
+          "Q"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentDelegation.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/EventHandlers/AgentDelegationEventHandlers.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Events-And-Data-Lifecycle.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Signals of an agent run",
+      "after": "5049932d681652f7ab3f8a2bb649323b39f3cda9cc62c393a31d486c885954e7",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "domain": [
+          "R"
+        ],
+        "event": [
+          "O",
+          "U",
+          "D"
+        ],
+        "application": [
+          "N",
+          "X"
+        ],
+        "external": [
+          "M",
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/EventHandlers/AgentNotificationHandlers.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunProgressPublisher.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/PurgeAgentContentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Consumers/UserDeletedAgenticConsumer.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Events-And-Data-Lifecycle.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Content retention and erasure",
+      "after": "ae10885b28e923ec51eaaf55302db0f81bdcc8d31394ea1a3d9f6c5ccd68e9f0",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "infrastructure": [
+          "T",
+          "U",
+          "V"
+        ],
+        "application": [
+          "E"
+        ],
+        "data": [
+          "C",
+          "K"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/EventHandlers/AgentNotificationHandlers.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunProgressPublisher.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/PurgeAgentContentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Consumers/UserDeletedAgenticConsumer.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Failure-Modes.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Where agent failures are absorbed",
+      "after": "db919b51a9b4e15dd4e29a5196a039038f394bfc9245955da69558be3946e4c5",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "A",
+          "B",
+          "C"
+        ],
+        "infrastructure": [
+          "D",
+          "E",
+          "F",
+          "G"
+        ],
+        "domain": [
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentDelegation.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Knowledge-And-Memory.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Knowledge from indexing to search",
+      "after": "055542a6c4608fc0da47e8cfba202d56b095a1fdde7b086b044c4ecbd1f9b6ae",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "M",
+          "I",
+          "J",
+          "Q",
+          "S"
+        ],
+        "data": [
+          "D",
+          "C"
+        ],
+        "external": [
+          "A"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Models/KnowledgeDocument.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Jobs/IndexKnowledgeDocumentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Features/SearchKnowledge.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Knowledge/KnowledgeVectorIndexStep.cs",
+        "src/Modules/Agentic/Agentic/Domains/Memory/Models/AgentMemory.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Knowledge-And-Memory.md",
+      "diagram": 2,
+      "type": "stateDiagram-v2",
+      "title": "Knowledge document lifecycle",
+      "after": "c03d557c29d096ed2b06e0dd04d10088bb404488cbba02a0b82e962af46f3d19",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Models/KnowledgeDocument.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Jobs/IndexKnowledgeDocumentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Features/SearchKnowledge.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Knowledge/KnowledgeVectorIndexStep.cs",
+        "src/Modules/Agentic/Agentic/Domains/Memory/Models/AgentMemory.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Knowledge-And-Memory.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "The indexing pipeline",
+      "after": "643f888c32d79751f755e5e7ce6d7aa2d4f8e1c5d3c8e5c9ff2795ee414149b7",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "X",
+          "K",
+          "E",
+          "W",
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Models/KnowledgeDocument.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Jobs/IndexKnowledgeDocumentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Features/SearchKnowledge.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Knowledge/KnowledgeVectorIndexStep.cs",
+        "src/Modules/Agentic/Agentic/Domains/Memory/Models/AgentMemory.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Knowledge-And-Memory.md",
+      "diagram": 4,
+      "type": "flowchart",
+      "title": "How a knowledge search is answered",
+      "after": "7707c96b949f1f9bd0193aaa84e636f40bdededc00d7dfe956024ebc3e823330",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "Q"
+        ],
+        "application": [
+          "P",
+          "N",
+          "F",
+          "D"
+        ],
+        "data": [
+          "K",
+          "V"
+        ],
+        "domain": [
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Models/KnowledgeDocument.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Jobs/IndexKnowledgeDocumentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Features/SearchKnowledge.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Knowledge/KnowledgeVectorIndexStep.cs",
+        "src/Modules/Agentic/Agentic/Domains/Memory/Models/AgentMemory.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Knowledge-And-Memory.md",
+      "diagram": 5,
+      "type": "flowchart",
+      "title": "Building the HNSW index",
+      "after": "1c4157088b37c6d90ec451a087d422f8c63dc67a31e4199e0ecd804786be528a",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "infrastructure": [
+          "M"
+        ],
+        "application": [
+          "G",
+          "S"
+        ],
+        "data": [
+          "X"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Models/KnowledgeDocument.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Jobs/IndexKnowledgeDocumentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Features/SearchKnowledge.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Knowledge/KnowledgeVectorIndexStep.cs",
+        "src/Modules/Agentic/Agentic/Domains/Memory/Models/AgentMemory.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Knowledge-And-Memory.md",
+      "diagram": 6,
+      "type": "flowchart",
+      "title": "How memories are written and recalled",
+      "after": "999447c94c8bc3ee44a72eb78d04cde9f5975d66c66102d949c4187b9daa7591",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "api": [
+          "P"
+        ],
+        "application": [
+          "R",
+          "C"
+        ],
+        "data": [
+          "W"
+        ],
+        "external": [
+          "A"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Models/KnowledgeDocument.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Jobs/IndexKnowledgeDocumentJob.cs",
+        "src/Modules/Agentic/Agentic/Domains/Knowledge/Features/SearchKnowledge.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Knowledge/KnowledgeVectorIndexStep.cs",
+        "src/Modules/Agentic/Agentic/Domains/Memory/Models/AgentMemory.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/MCP-Server.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "An MCP tool call",
+      "after": "5436200978aeabc54f006d3a047138a5adbf41f642bd5d9754c2b00f179979fb",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Mcp/AgentMcpGateway.cs",
+        "src/Modules/Agentic/Agentic/Domains/Mcp/Features/AgentMcpModule.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Models-And-Evaluation.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "The model seam",
+      "after": "4d25ef9ba624498f809d8e1ab59a6e48e93514cf8c9147a1c33e06b98cd30235",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "E",
+          "G",
+          "C",
+          "F"
+        ],
+        "port": [
+          "G"
+        ],
+        "external": [
+          "O",
+          "A"
+        ],
+        "infrastructure": [
+          "S"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Models/ModelGateway.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Models/ChatClientModelGateway.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Models/AgentChatClientFactory.cs",
+        "src/Modules/Agentic/Agentic.Tests/ModelEvaluationTests.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Models-And-Evaluation.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "From the model alone to the agent end to end",
+      "after": "67beaca87d01090b9e4f7e7a6460d3448658c365fc4efebf6f3e67fd118e0f0b",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "K",
+          "M",
+          "A",
+          "C"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Models/ModelGateway.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Models/ChatClientModelGateway.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Models/AgentChatClientFactory.cs",
+        "src/Modules/Agentic/Agentic.Tests/ModelEvaluationTests.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Runs.md",
+      "diagram": 1,
+      "type": "stateDiagram-v2",
+      "title": "Agent run lifecycle",
+      "after": "763f02ea12d4a00fe7a52f732b720207bd2e3fa128ca433e5202f376a951c3ca",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRunStep.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Runs.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "Starting a run",
+      "after": "3aee34090436bce6d008e0cb179bbbcffe15265b7c6ff07ff061286b7e4c9467",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRunStep.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Runs.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "One attempt of a run",
+      "after": "e3dec5f90c4d39f46d05b28faa43779a7551329da960b42f20c7666e63403de7",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "infrastructure": [
+          "J"
+        ],
+        "application": [
+          "C",
+          "A",
+          "O",
+          "D",
+          "G",
+          "M"
+        ],
+        "data": [
+          "S"
+        ],
+        "domain": [
+          "K",
+          "F",
+          "X"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRunStep.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Runs.md",
+      "diagram": 4,
+      "type": "stateDiagram-v2",
+      "title": "Tool-call step lifecycle",
+      "after": "5776dff495f30114a10d6ece50cea51747520a1c43f2efee513590dbf367dc9e",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRunStep.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Runs.md",
+      "diagram": 5,
+      "type": "flowchart",
+      "title": "Recovering a run",
+      "after": "9392f0b95c7ac7b9226ddc9ff598758276906a780f780d53ddd6e1f435ef3b9a",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "E",
+          "L"
+        ],
+        "application": [
+          "T",
+          "N"
+        ],
+        "infrastructure": [
+          "R",
+          "SH",
+          "Q",
+          "SW"
+        ],
+        "domain": [
+          "F"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRunStep.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Runs.md",
+      "diagram": 6,
+      "type": "flowchart",
+      "title": "The acting user of a tool call",
+      "after": "d13d957646444161f13838e956e25bcb46d31255ea21db808abd059b56bebb93",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "data": [
+          "R"
+        ],
+        "application": [
+          "P",
+          "S",
+          "T",
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRunStep.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Jobs/RequeueStalledAgentRunsJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Tools-And-The-Gateway.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Anatomy of an agent tool",
+      "after": "92aac7462b7b4902524b11ae4c8283e16c4367b43b8034b87d10c728cc09f48e",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "M"
+        ],
+        "application": [
+          "G",
+          "I",
+          "T",
+          "H"
+        ],
+        "data": [
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/AgentToolDescriptor.cs",
+        "src/Modules/Agentic/Agentic.Contracts/Tools/AgentToolContracts.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Tools-And-The-Gateway.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "ToolPolicy decision order",
+      "after": "4e99b44aff29316236d054f0f3a4ba32cac96fe4539c97f62338f159fe48cc5a",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "C"
+        ],
+        "application": [
+          "A",
+          "P",
+          "U",
+          "H"
+        ],
+        "domain": [
+          "RA",
+          "RP",
+          "RU",
+          "W",
+          "X"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/AgentToolDescriptor.cs",
+        "src/Modules/Agentic/Agentic.Contracts/Tools/AgentToolContracts.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Tools-And-The-Gateway.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "How a run becomes tainted",
+      "after": "40a7a2a62f8c9a0b25dc0ca5bc77e61bd0f78f6fd2e51410a403d73f410c84c4",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "R"
+        ],
+        "data": [
+          "T"
+        ],
+        "domain": [
+          "C",
+          "A",
+          "P"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/AgentToolDescriptor.cs",
+        "src/Modules/Agentic/Agentic.Contracts/Tools/AgentToolContracts.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Models/AgentRun.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Triggers-Policies-And-Quotas.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Checks before a run is created",
+      "after": "5c1595ce69a8abfd3ae18a7f6585bcc4a6ad8bd705636cfa577f28ccd781f82e",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "T"
+        ],
+        "application": [
+          "W",
+          "P",
+          "C",
+          "Q",
+          "S"
+        ],
+        "domain": [
+          "F1",
+          "F2",
+          "F3",
+          "F4"
+        ],
+        "data": [
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/RequestAgentRunHandler.cs",
+        "src/Modules/Agentic/Agentic/Domains/Policies/Features/AgentUsageHandlers.cs",
+        "src/Modules/Agentic/Agentic/Domains/Policies/Models/AgentPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Triggers-Policies-And-Quotas.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "An event-triggered run",
+      "after": "5d502541f81d921ab6417307a17fa15507eeca9b0eaed7c35d1bafa99a24d6c7",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/RequestAgentRunHandler.cs",
+        "src/Modules/Agentic/Agentic/Domains/Policies/Features/AgentUsageHandlers.cs",
+        "src/Modules/Agentic/Agentic/Domains/Policies/Models/AgentPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Agentic/Triggers-Policies-And-Quotas.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "Where usage comes from",
+      "after": "382794a2581af93870aabe004ebffacaed26720ba85af047ae821090c5bc6518",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "data": [
+          "R",
+          "M"
+        ],
+        "application": [
+          "U"
+        ],
+        "api": [
+          "D"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Features/RequestAgentRunHandler.cs",
+        "src/Modules/Agentic/Agentic/Domains/Policies/Features/AgentUsageHandlers.cs",
+        "src/Modules/Agentic/Agentic/Domains/Policies/Models/AgentPolicy.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Agentic in the system",
+      "after": "58133cfd6326abd384bc3dd252a543c30b2efee5d8852b81c8ca107d2c19ff72",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "external": [
+          "P",
+          "E",
+          "X",
+          "A",
+          "M"
+        ],
+        "application": [
+          "S",
+          "W",
+          "G",
+          "B"
+        ],
+        "data": [
+          "R"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs",
+        "src/Modules/Agentic/Agentic/Agentic.csproj"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 2,
+      "type": "sequenceDiagram",
+      "title": "A run end to end",
+      "after": "3287dc9e465526dff6392470ea4c8f54f643839fed771a5c725125abcc505047",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs",
+        "src/Modules/Agentic/Agentic/Agentic.csproj"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 3,
+      "type": "flowchart",
+      "title": "Agentic compile-time dependencies",
+      "after": "c326af14577c2495146d95b28b676a82a658035a2da4b4873411cbd9e761eb81",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {
+        "application": [
+          "B",
+          "I",
+          "C",
+          "S"
+        ],
+        "port": [
+          "C"
+        ],
+        "external": [
+          "AI",
+          "MCP"
+        ],
+        "api": [
+          "H"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs",
+        "src/Modules/Agentic/Agentic/Agentic.csproj"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Agentic.md",
+      "diagram": 4,
+      "type": "erDiagram",
+      "title": "Agentic tables",
+      "after": "707a31db17984106bbe4dc6b15f6e6fd1d9b5e3ad30fc0f9cf2c3c9b803dbfde",
+      "review": "Written for the Agentic guide restructure. Type, method, table and status names checked against the evidence files; labels shortened and long flows laid out top to bottom to fit the 860px budget; detail moved into the caption and the adjacent tables.",
+      "roles": {},
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Execution/AgentRunExecutor.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Data/Configurations/AgentRunConfigurations.cs",
+        "src/Modules/Agentic/Agentic/Agentic.csproj"
+      ],
+      "status": "reviewed"
     }
   ],
   "originalCount": 106,
@@ -2590,7 +3553,7 @@
     "widthBudget": 860,
     "layout": "Dagre default; ELK for contract map and SCIM"
   },
-  "fileCount": 69,
+  "fileCount": 83,
   "originalInventory": [
     {
       "file": "README.md",
@@ -3229,5 +4192,183 @@
       "hash": "7321f08f6d65023b8635e872d51c61b79a2ab39ebd714974e5e02887342cd57b"
     }
   ],
-  "hashNormalization": "LF line endings"
+  "hashNormalization": "LF line endings",
+  "architecture": [
+    {
+      "review": "Optional file. AgentRunStarter, ExecuteAgentRunJob on the agentic queue, ToolPolicy, model seam, pgvector knowledge, text stream over the hub, MCP gateway, erasure consumers; approval re-enqueues the run and never executes the tool.",
+      "evidence": [
+        "src/Modules/Agentic/Agentic/Domains/AgentRuns/Services/AgentRunStarter.cs",
+        "src/Modules/Agentic/Agentic/Runtime/Tools/ToolPolicy.cs",
+        "src/Modules/Agentic/Agentic/Domains/Approvals/Features/AgentApprovalHandlers.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/agentic.c4",
+      "kind": "likec4",
+      "after": "cd124c28193be409243d0e6312ba3d144af3ff73e25f1dc4bcad855ce7cac0e2"
+    },
+    {
+      "review": "Upload pipeline, ClamAV fail-closed scanner, storage adapters, Skia image processing, four jobs, avatar and deletion events; upload flow scans before storing.",
+      "evidence": [
+        "src/Modules/Attachment/Attachment/Infrastructure/Validation/ClamAv/ClamAvMalwareScanner.cs",
+        "wiki/Attachment/Uploads.md"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/attachment.c4",
+      "kind": "likec4",
+      "after": "e0dd83d12b54a26b0124be9151f62721a8bf2ac598ef2e2cfbb48bc88473d29d"
+    },
+    {
+      "review": "Optional file. Product aggregate, CategoryTreeCache, ProductPublished to its own in-app consumer and to Webhooks, catalog.products definitions upserting by SKU, purge jobs.",
+      "evidence": [
+        "src/Modules/Catalog/Catalog/Domains/Products/Consumers/ProductPublishedConsumer.cs",
+        "src/Modules/Catalog/Catalog/Domains/Products/DataTransfer/ProductTransferDefinitions.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/catalog.c4",
+      "kind": "likec4",
+      "after": "81d22058defa8f7c0675e8f6fa59e35ffeb11572686bd5270d2a388c4d13ea3c"
+    },
+    {
+      "review": "Files stored through UploadAttachmentCommand, import/export jobs on the data-transfer queue via TransferJobRunner, Sylvan parsing, throttled progress over the hub, maintenance jobs.",
+      "evidence": [
+        "src/Modules/DataTransfer/DataTransfer/Domains/TransferJobs/Jobs/TransferJobRunner.cs",
+        "src/Modules/DataTransfer/DataTransfer/Engine/TransferFileStore.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/datatransfer.c4",
+      "kind": "likec4",
+      "after": "ba8d1b2dd1580300b0a429ea65b938635414892d3a41d9487612d73c07b04b81"
+    },
+    {
+      "review": "Token service, blacklist and ceremony stores in Redis, SSO/SCIM, five Identity jobs, UserAvatarChangedConsumer; sign-in flow follows the JWT guide.",
+      "evidence": [
+        "src/Modules/Identity/Identity/Services/Token/TokenBlacklistService.cs",
+        "wiki/Identity/jwt/JWT-AUTH-TECHNICAL-GUIDE.md"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/identity.c4",
+      "kind": "likec4",
+      "after": "71b949dfc077ebb80037a0ab1050c54551ce0d111351d8807d629978d007a579"
+    },
+    {
+      "review": "Workspace name, solid default line for synchronous relations, gray relationship palette on the slate role colour with white labels, and the custom stylesheet.",
+      "evidence": [
+        "apps/docs-v2/scripts/architecture.mjs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/likec4.config.json",
+      "kind": "likec4",
+      "after": "f7c4974b25a3c915616f53b6caa8cdccebc659d26b33e5624d42768ec9af03bd"
+    },
+    {
+      "review": "Opaque edge-label backgrounds so label text meets 4.5:1 on a light page; verified with axe on System Design and every module page in both themes.",
+      "evidence": [
+        "apps/docs-v2/tests/browser/architecture.spec.ts"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/likec4.css",
+      "kind": "likec4",
+      "after": "1b756235ffb345cb98fcfccea9df578250905e0377379e47de40c737d6b4de73"
+    },
+    {
+      "review": "INotificationSender, dispatch/in-app/push jobs on the notification queue, MailKit, WhatsApp, FCM/APNs, hub at /hubs/notifications with the Redis backplane, erasure and revocation consumers.",
+      "evidence": [
+        "src/Modules/Notification/Notification/Realtime/NotificationHub.cs",
+        "src/Modules/Notification/Notification/NotificationModule.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/notification.c4",
+      "kind": "likec4",
+      "after": "db00553d553c77e446cc8b9e0788e0e19c8560d5a6354aba8833ac63b9bd7c02"
+    },
+    {
+      "review": "Optional file. ShipmentReadyForClearance event and consumer sending RequestAgentRunCommand; agents and tools over ISender; shipping.assistant opts in to MCP.",
+      "evidence": [
+        "src/Modules/Shipping/Shipping/Domains/Shipments/Consumers/ShipmentReadyForClearanceConsumer.cs",
+        "src/Modules/Shipping/Shipping/Domains/Agents/ShippingAssistantAgent.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/shipping.c4",
+      "kind": "likec4",
+      "after": "9193c3731518d151a3fdbd7f0c72592b349c41ed8ee6a63fc6ec05446f805bcb"
+    },
+    {
+      "review": "Element kinds map to the documentation roles of lib/mermaid-theme.mjs (role stroke colours as fills, white text); async relationship kind for outbox events and enqueued jobs.",
+      "evidence": [
+        "apps/docs-v2/lib/mermaid-theme.mjs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/specification.c4",
+      "kind": "likec4",
+      "after": "a9768875cbd29fe39bb00b341a01f0f1f0e4a90acd03917ebb1fc6def87e9a1d"
+    },
+    {
+      "review": "Billing endpoints, payment webhook inbox route, settlement, Stripe/Paymob gateways, entitlement and usage caches, billing jobs; checkout flow matches Online-Payments.",
+      "evidence": [
+        "src/Modules/Subscriptions/Subscriptions/Domains/Subscriptions/Services/PaymentSettlementService.cs",
+        "wiki/Subscriptions/Online-Payments.md"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/subscriptions.c4",
+      "kind": "likec4",
+      "after": "9a612826835a33d4bb67a6c3f8e88217a25211e1270113674e6f46deef6ba35e"
+    },
+    {
+      "review": "Actors, providers, Nginx, app container (pipeline, outbox relay, Hangfire servers and queues), migrator, stores and observability checked against the host, Hangfire configuration, outbox relay and compose files.",
+      "evidence": [
+        "src/Api/Program.cs",
+        "src/Api/Infrastructure/HangfireConfiguration.cs",
+        "src/Shared/Shared.Core/Messaging/Outbox/OutboxRelay.cs",
+        "docker-compose.yml",
+        "deployment/nginx/nginx.conf"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/system.c4",
+      "kind": "likec4",
+      "after": "b7dfd75fb3c8206d88f482dd6006fc699dbac72af1b0a902a14dbb369e76e82d"
+    },
+    {
+      "review": "Tenant and membership stores (L1 + Redis, pub/sub eviction), feature flags, members and invitations, provisioner and mover, purge job, billing and user-deleted consumers; tenant request flow uses X-Tenant and app.tenant_id RLS.",
+      "evidence": [
+        "src/Modules/Tenancy/Tenancy/Services/TenantProvisioner.cs",
+        "src/Shared/Shared.Core/MultiTenancy/Web/TenantResolutionMiddleware.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/tenancy.c4",
+      "kind": "likec4",
+      "after": "2e32d9c27027fb241608d20db5c74f5cfb34861187377ee3de15da010845e930"
+    },
+    {
+      "review": "Landscape, containers (providers excluded), module map, user erasure fan-out to the three core consumers, and the Docker Compose deployment with API and worker replicas.",
+      "evidence": [
+        "docker-compose.worker.yml",
+        "src/Api/Infrastructure/HangfireConfiguration.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/views.c4",
+      "kind": "likec4",
+      "after": "7619c07d383a6ef28227ced7add685b3f0cb19c29a76564a1a3b3488f7cbdbbb"
+    },
+    {
+      "review": "Closed WebhookForwardingConsumer subclasses for the public events, dispatch, signed delivery through GuardedConnector, purge.",
+      "evidence": [
+        "src/Modules/Webhooks/Webhooks/Domains/Deliveries/Consumers/WebhookForwardingConsumer.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/webhooks.c4",
+      "kind": "likec4",
+      "after": "596a3f96bf4d17da417f997252a135fb3b751cab10bff091d06995ad0b45326b"
+    },
+    {
+      "review": "Hand-drawn hero with the Excalidraw scene embedded; names only modules every product has; Hangfire queues listed without the optional agentic queue; white background, inverted by the site in dark mode.",
+      "evidence": [
+        "src/Api/Infrastructure/HangfireConfiguration.cs",
+        "src/Api/Program.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/diagrams/system-big-picture.excalidraw.svg",
+      "kind": "excalidraw",
+      "after": "dc854eecd108a0f9ecc96f3a527321f77b8f2c94c61b61f9979cf6cdba50d127"
+    }
+  ]
 }
