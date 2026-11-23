@@ -258,6 +258,7 @@ event trigger and an approval, and a conversational assistant that delegates to 
 | [0032](../Decisions/0032-knowledge-hnsw-index.md) | An HNSW index per configured dimension, built after migrations |
 | [0033](../Decisions/0033-agent-delegation.md) | Delegation as child runs, never with more authority |
 | [0034](../Decisions/0034-agent-mcp-server.md) | Agent tools served to MCP clients through the gateway, as tainted calls |
+| [0036](../Decisions/0036-agentic-stays-in-process.md) | Agentic stays in the monolith, scales with worker replicas, extracted only on named triggers |
 
 ## Related
 

@@ -389,6 +389,10 @@ Notification is the exception: its context is in `Persistence/`.
   - Summaries ([ADR-0031](wiki/Decisions/0031-conversation-summaries.md)) are written only by
     `SummarizeAgentConversationJob`, from messages and final answers (never tool results), are untrusted history, and
     are erased with the content of any turn they cover.
+  - Deployment ([ADR-0036](wiki/Decisions/0036-agentic-stays-in-process.md)): Agentic stays in-process and scales
+    with agent worker replicas (`Hangfire:Servers:Agentic`). Every model call is a run; never add a direct "complete
+    this prompt" path for other modules or a network hop between a run and its tools. Extracting it needs a new ADR
+    naming one of 0036's triggers.
 <!--#endif-->
 
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;

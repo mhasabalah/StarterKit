@@ -334,7 +334,8 @@
             "wiki/Decisions/0031-conversation-summaries.md",
             "wiki/Decisions/0032-knowledge-hnsw-index.md",
             "wiki/Decisions/0033-agent-delegation.md",
-            "wiki/Decisions/0034-agent-mcp-server.md"
+            "wiki/Decisions/0034-agent-mcp-server.md",
+            "wiki/Decisions/0036-agentic-stays-in-process.md"
           ]
         },
         {
