@@ -63,12 +63,12 @@ public class GetAdminsHandler(ApplicationIdentityDbContext dbContext)
     {
         if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
-            var pattern = $"%{query.SearchTerm}%";
+            var pattern = LikePattern.Contains(query.SearchTerm);
             queryable = queryable.Where(u =>
-                EF.Functions.ILike(u.UserName!, pattern) ||
-                EF.Functions.ILike(u.Email!, pattern) ||
-                (u.FirstName != null && EF.Functions.ILike(u.FirstName, pattern)) ||
-                (u.LastName != null && EF.Functions.ILike(u.LastName, pattern)));
+                EF.Functions.ILike(u.UserName!, pattern, LikePattern.EscapeCharacter) ||
+                EF.Functions.ILike(u.Email!, pattern, LikePattern.EscapeCharacter) ||
+                (u.FirstName != null && EF.Functions.ILike(u.FirstName, pattern, LikePattern.EscapeCharacter)) ||
+                (u.LastName != null && EF.Functions.ILike(u.LastName, pattern, LikePattern.EscapeCharacter)));
         }
 
         if (query.IsActive.HasValue)

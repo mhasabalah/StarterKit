@@ -90,10 +90,11 @@ public class GetPendingPaymentsHandler(SubscriptionsDbContext dbContext, TimePro
     {
         if (!string.IsNullOrWhiteSpace(query.Method))
         {
-            var method = query.Method.Trim();
+            // Case-insensitive equality: the text is escaped so '%' and '_' in it are not wildcards.
+            var method = LikePattern.Escape(query.Method.Trim());
             queryable = queryable.Where(p =>
-                EF.Functions.ILike(p.PaymentMethodType ?? string.Empty, method) ||
-                EF.Functions.ILike(p.PaymentMethodDisplayName ?? string.Empty, method));
+                EF.Functions.ILike(p.PaymentMethodType ?? string.Empty, method, LikePattern.EscapeCharacter) ||
+                EF.Functions.ILike(p.PaymentMethodDisplayName ?? string.Empty, method, LikePattern.EscapeCharacter));
         }
 
         if (query.PaymentMethodId.HasValue)
@@ -130,11 +131,11 @@ public class GetPendingPaymentsHandler(SubscriptionsDbContext dbContext, TimePro
             }
             else
             {
-                var pattern = AdminBillingProjections.ContainsPattern(query.Search);
+                var pattern = LikePattern.Contains(query.Search);
                 queryable = queryable.Where(p =>
-                    EF.Functions.ILike(p.Subscription.SubscriberDisplayName ?? string.Empty, pattern, AdminBillingProjections.LikeEscape) ||
-                    EF.Functions.ILike(p.Subscription.SubscriberEmail ?? string.Empty, pattern, AdminBillingProjections.LikeEscape) ||
-                    EF.Functions.ILike(p.Subscription.PlanName, pattern, AdminBillingProjections.LikeEscape));
+                    EF.Functions.ILike(p.Subscription.SubscriberDisplayName ?? string.Empty, pattern, LikePattern.EscapeCharacter) ||
+                    EF.Functions.ILike(p.Subscription.SubscriberEmail ?? string.Empty, pattern, LikePattern.EscapeCharacter) ||
+                    EF.Functions.ILike(p.Subscription.PlanName, pattern, LikePattern.EscapeCharacter));
             }
         }
 

@@ -79,11 +79,11 @@ public class GetAdminSubscriptionsHandler(SubscriptionsDbContext dbContext)
             }
             else
             {
-                var pattern = AdminBillingProjections.ContainsPattern(query.Search);
+                var pattern = LikePattern.Contains(query.Search);
                 queryable = queryable.Where(x =>
-                    EF.Functions.ILike(x.SubscriberDisplayName ?? string.Empty, pattern, AdminBillingProjections.LikeEscape) ||
-                    EF.Functions.ILike(x.SubscriberEmail ?? string.Empty, pattern, AdminBillingProjections.LikeEscape) ||
-                    EF.Functions.ILike(x.PlanName, pattern, AdminBillingProjections.LikeEscape));
+                    EF.Functions.ILike(x.SubscriberDisplayName ?? string.Empty, pattern, LikePattern.EscapeCharacter) ||
+                    EF.Functions.ILike(x.SubscriberEmail ?? string.Empty, pattern, LikePattern.EscapeCharacter) ||
+                    EF.Functions.ILike(x.PlanName, pattern, LikePattern.EscapeCharacter));
             }
         }
 
