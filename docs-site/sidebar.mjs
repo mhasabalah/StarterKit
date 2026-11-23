@@ -755,6 +755,11 @@ export const sections = [
         "order": 35
       },
       {
+        "source": "Decisions/0036-search-module-and-engine-port.md",
+        "label": "0036 search module and engine port",
+        "order": 36
+      },
+      {
         "source": "Decisions/0000-template.md",
         "label": "ADR template",
         "order": 99

@@ -94,6 +94,7 @@ wiki/
 - [0034](Decisions/0034-agent-mcp-server.md): agent tools served to external MCP clients through the tool gateway, as tainted calls
 <!--#endif-->
 - [0035](Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md): one LikeC4 architecture model for every system view, plus one hand-drawn big picture
+- [0036](Decisions/0036-search-module-and-engine-port.md): full-text search in one Search module behind an engine port (PostgreSQL or Meilisearch), fed by the outbox
 
 ## Modules
 
