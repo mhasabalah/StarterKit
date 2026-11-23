@@ -10,7 +10,8 @@ import { InView } from '@/components/in-view';
 import { RoutePlate } from '@/components/route-plate';
 import { WhyShowcase } from '@/components/why-showcase';
 import { families, modules, practices } from '@/lib/chart';
-import { source } from '@/lib/source';
+import { pageTree, source } from '@/lib/source';
+import type * as PageTree from 'fumadocs-core/page-tree';
 import { absoluteUrl, repository } from '@/lib/site';
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
@@ -26,6 +27,16 @@ const routes = [
   { title: 'Build your first module', description: 'Scaffold a module with dotnet new starterkit-module and keep to the conventions the tests enforce.', url: '/getting-started/new-project/#6-build-your-first-module', action: 'First module', plate: 'module' },
 ] as const;
 
+/** The API reference has no landing page: link to the first operation group in its navigation, so the link always resolves. */
+function firstPage(nodes: PageTree.Node[]): string | undefined {
+  for (const node of nodes) {
+    if (node.type === 'page') return node.url;
+    if (node.type === 'folder') { const url = node.index?.url ?? firstPage(node.children); if (url) return url; }
+  }
+}
+const apiFolder = pageTree.children.find((node): node is PageTree.Folder => node.type === 'folder' && node.name === 'API reference v1');
+const apiReferenceUrl = (apiFolder && firstPage(apiFolder.children)) ?? '/api-reference/v1/openapi.json';
+
 const footerColumns: { title: string; links: { label: string; href: string; external?: boolean }[] }[] = [
   { title: 'Build', links: [
     { label: 'New project guide', href: '/getting-started/new-project/' },
@@ -37,7 +48,7 @@ const footerColumns: { title: string; links: { label: string; href: string; exte
     { label: 'Deployment', href: '/deployment/' },
     { label: 'Configuration', href: '/reference/configuration/' },
     { label: 'Local stack with Aspire', href: '/infrastructure/aspire/' },
-    { label: 'API reference', href: '/api-reference/' },
+    { label: 'API reference', href: apiReferenceUrl },
   ] },
   { title: 'Resources', links: [
     { label: 'Architecture decisions', href: '/decisions/' },
