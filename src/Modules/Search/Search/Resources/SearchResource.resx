@@ -57,4 +57,7 @@
   <data name="Validation.Sort.NotSortable" xml:space="preserve">
     <value>Results cannot be sorted by '{0}'.</value>
   </data>
+  <data name="Validation.Documents.Max" xml:space="preserve">
+    <value>At most {0} documents can be indexed per change.</value>
+  </data>
 </root>

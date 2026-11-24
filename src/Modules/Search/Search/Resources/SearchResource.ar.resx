@@ -57,4 +57,7 @@
   <data name="Validation.Sort.NotSortable" xml:space="preserve">
     <value>لا يمكن ترتيب النتائج حسب '{0}'.</value>
   </data>
+  <data name="Validation.Documents.Max" xml:space="preserve">
+    <value>يمكن فهرسة {0} مستند كحد أقصى في كل تغيير.</value>
+  </data>
 </root>

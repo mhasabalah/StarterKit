@@ -172,6 +172,9 @@ public sealed class MessagingArchitectureTests
     public void Consumers_exist_and_are_found_by_the_scan()
     {
         Consumers().Select(t => t.Name).Should().Contain(["UserAvatarChangedConsumer", "TenantBillingStatusConsumer", "UserDeletedAttachmentConsumer", "UserDeletedTenancyConsumer", "UserDeletedNotificationConsumer", "UserSessionsRevokedConsumer"]);
+#if (SEARCH)
+        Consumers().Select(t => t.Name).Should().Contain("SearchDocumentsChangedConsumer");
+#endif
     }
 
     [Fact]

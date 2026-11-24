@@ -11,10 +11,9 @@ Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id
 
 ## Status
 
-The contract, the index registry, the query validation, the configuration, the text pipeline and the PostgreSQL
-engine are in place. Nothing builds an index yet, so every index of every tenant answers `IndexNotReady` and owning
-modules keep their SQL search. The indexing pipeline (outbox consumer, rebuild, reconcile, drift), the admin API, the
-analytics and the Meilisearch adapter follow.
+The contract, the PostgreSQL engine and the indexing pipeline are in place: an index of a tenant is built by the
+reconcile job and kept in sync through the outbox. No module registers an index yet. The admin API, the analytics, the
+Meilisearch adapter and Catalog's indexed product search follow.
 
 ## Layout
 
@@ -32,7 +31,10 @@ Search/
                     document checks), SearchDocumentPreparer, SearchEngineUnavailableException
   Engine/Text/      SearchTextNormalizer, SearchQueryParser, SearchHighlighter (the same for every engine)
   Engine/Postgres/  PostgresSearchEngine, PostgresIndexSql (upsert per index), tsquery and filter compilers
-  Domains/Indexes/  SearchIndexState (build state per tenant and index: stamps, lease, drift)
+  Domains/Indexes/  SearchIndexState (build state per tenant and index: stamps, lease, drift), SearchIndexer,
+                    ApplySearchDocumentChangesCommand, SearchDocumentsChangedConsumer,
+                    RebuildSearchIndexJob, ReconcileSearchIndexesJob, DetectSearchDriftJob, SearchTenantPurgeHandler
+  Observability/    SearchMetrics (meter StarterKit.Search)
   Domains/Querying/ SearchDocumentsQueryValidator + handler
 Search.Tests/            contracts, registry, fingerprint, options, query validation, text pipeline, SQL builders, index state
 Search.IntegrationTests/ Testcontainers Postgres, real module and migration, RLS app role; the engine conformance suite
@@ -91,6 +93,41 @@ Search prepares text the same way for every engine, so results do not change whe
   cut on word boundaries, HTML-encoded) with matches in `<mark>`. A word matches when its normalized form equals a
   query word, starts with it, is a stem of it, or does so after an Arabic article or prefix (ال، وال، بال، كال، فال،
   لل). Excluded words are never highlighted.
+
+## Keeping an index in sync
+
+```mermaid
+flowchart LR
+    accTitle: Search indexing pipeline
+    accDescr: An owning module's change goes through the outbox to the Search consumer, which re-reads the source and writes the engine. Rebuild, reconcile and drift jobs repair and rebuild.
+    owner["Owning module<br/>aggregate change"] -->|"SearchDocumentsChangedIntegrationEvent<br/>(outbox, same transaction)"| consumer["SearchDocumentsChangedConsumer"]
+    consumer -->|"ApplySearchDocumentChangesCommand"| indexer["SearchIndexer"]
+    indexer -->|"GetAsync(ids): current state"| source["ISearchDocumentSource<br/>(owning module)"]
+    indexer -->|"upsert present, remove absent"| engine[("Engine<br/>(PostgreSQL)")]
+    reconcile["ReconcileSearchIndexesJob<br/>every 15 min + at startup"] -->|"enqueue on the search queue"| rebuild["RebuildSearchIndexJob"]
+    rebuild -->|"StreamAllAsync, batches, new stamp, sweep"| engine
+    drift["DetectSearchDriftJob<br/>daily"] -->|"compare stamps, repair"| indexer
+```
+
+- **Live changes.** The owning aggregate raises `SearchDocumentsChangedIntegrationEvent` in the same transaction as
+  the change. The consumer, in the event's tenant, sends `ApplySearchDocumentChangesCommand`; `SearchIndexer` reads
+  the current documents from the source, writes those that exist and removes the others. Repeats and reordering are
+  harmless. A change is searchable seconds after it commits (metric `search.index.lag`).
+- **Rebuild** (`RebuildSearchIndexJob`, Hangfire queue `search`, per tenant). It takes the lease on the index state,
+  streams the whole source in `Indexing:BatchSize` batches under a new stamp (extending the lease every batch), sweeps
+  the documents the stamp did not reach, and makes the stamp live. The previous build keeps answering throughout, and
+  live changes during the rebuild carry the new stamp, so the sweep keeps them. An unavailable engine is retried by
+  Hangfire; any other failure is recorded (`LastErrorCode`) and the previous build stays live.
+- **Reconcile** (`ReconcileSearchIndexesJob`, `Reconcile:Cron`, and once at startup when indexes exist). It enqueues
+  a rebuild in every tenant whose index was never built or was built from another definition (the fingerprint
+  changes with any field, weight, analyzer or the normalizer). A failed rebuild is retried at most once an hour.
+- **Drift** (`DetectSearchDriftJob`, `Drift:Cron`). It compares the ids and versions of the source with the index:
+  missing, stale and orphaned documents are recorded on the index state and, with `Drift:AutoRepair`, re-indexed.
+  Indexes above `Drift:MaxDocuments` are skipped.
+- **Tenant purge.** `TenantDataPurgeRequestedEvent` removes the tenant's documents from the engine (the database rows
+  are purged centrally by Tenancy).
+- **Worker replicas.** The `search` queue has its own Hangfire server, `Hangfire:Servers:Search` (enabled with 2
+  workers by default). An instance without it logs a warning at startup: some replica must run it.
 
 ## PostgreSQL engine
 

@@ -461,6 +461,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
 <!--#endif-->
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
+<!--#if (search)-->
+| Any owner `SearchDocumentsChangedIntegrationEvent` (in `Search.Contracts`) → Search `SearchDocumentsChangedConsumer` re-reads the documents from the source and re-indexes them | Integration |
+<!--#endif-->
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |

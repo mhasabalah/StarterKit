@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Search.Engine.Text;
+using Search.Observability;
 
 namespace Search.Domains.Querying.Features.SearchDocuments;
 
@@ -114,6 +115,8 @@ public sealed class SearchDocumentsHandler(
     ISearchEngine engine,
     ITenantContext tenantContext,
     IOptions<SearchOptions> options,
+    SearchMetrics metrics,
+    TimeProvider time,
     ILogger<SearchDocumentsHandler> logger)
     : IQueryHandler<SearchDocumentsQuery, SearchDocumentsResult>
 {
@@ -147,6 +150,7 @@ public sealed class SearchDocumentsHandler(
             FacetScanLimit = settings.Facets.ScanLimit
         };
 
+        var started = time.GetTimestamp();
         EngineSearchResult result;
         try
         {
@@ -157,8 +161,12 @@ public sealed class SearchDocumentsHandler(
         {
             logger.LogWarning(ex, "Search engine {Engine} unavailable for index {IndexKey}; the owner falls back to SQL",
                 ex.Engine, index.Key);
+            metrics.Queried(index.Key, SearchStatus.EngineUnavailable, SearchMatchMode.Browse, time.GetElapsedTime(started).TotalMilliseconds);
             return SearchDocumentsResult.Unavailable(SearchStatus.EngineUnavailable, query.Page, query.PageSize);
         }
+
+        var matchMode = text.IsEmpty ? SearchMatchMode.Browse : result.MatchMode;
+        metrics.Queried(index.Key, SearchStatus.Ok, matchMode, time.GetElapsedTime(started).TotalMilliseconds);
 
         return new SearchDocumentsResult
         {
@@ -167,7 +175,7 @@ public sealed class SearchDocumentsHandler(
             Total = result.Total,
             Facets = result.Facets,
             FacetsExhaustive = result.FacetsExhaustive,
-            MatchMode = text.IsEmpty ? SearchMatchMode.Browse : result.MatchMode,
+            MatchMode = matchMode,
             Page = query.Page,
             PageSize = query.PageSize
         };

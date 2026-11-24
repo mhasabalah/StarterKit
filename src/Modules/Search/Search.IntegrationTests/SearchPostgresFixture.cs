@@ -1,3 +1,7 @@
+using System.Collections.Concurrent;
+using Hangfire;
+using Hangfire.Common;
+using Hangfire.States;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -37,6 +41,9 @@ public sealed class SearchPostgresFixture : IAsyncLifetime, ISearchEngineTestHos
     public string AdminConnectionString => _container.GetConnectionString();
 
     public ArticleStore Articles { get; } = new();
+
+    /// <summary>Jobs enqueued by the module (rebuilds), with the tenant they were enqueued in.</summary>
+    public RecordingJobClient Jobs { get; } = new();
 
     public RegisteredIndex Index => Services.GetRequiredService<SearchIndexRegistry>().Find(TestArticles.Key)!;
 
@@ -80,7 +87,9 @@ public sealed class SearchPostgresFixture : IAsyncLifetime, ISearchEngineTestHos
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [$"ConnectionStrings:{DatabaseDefaults.ConnectionStringName}"] = _appConnection,
-                ["MultiTenancy:Enabled"] = "true"
+                ["MultiTenancy:Enabled"] = "true",
+                // Small batches, so a rebuild of a handful of articles crosses several batches and lease extensions.
+                ["Search:Indexing:BatchSize"] = "2"
             })
             .Build();
 
@@ -93,6 +102,7 @@ public sealed class SearchPostgresFixture : IAsyncLifetime, ISearchEngineTestHos
         services.AddSingleton<ITenantStore>(new FixedTenantStore(TenantA, TenantB));
         services.AddSingleton(new Mock<IHttpContextService> { DefaultValue = DefaultValue.Empty }.Object);
         services.AddSingleton(Articles);
+        services.AddSingleton<IBackgroundJobClient>(Jobs);
 
         services.AddSearchModule(configuration);
         services.AddSearchIndex<InMemoryArticleSource>(TestArticles.Definition);
@@ -183,6 +193,26 @@ public sealed class FixedTenantStore(params TenantInfo[] tenants) : ITenantStore
 
     public Task<IReadOnlyList<TenantInfo>> GetServiceableTenantsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<TenantInfo>>(tenants);
+}
+
+/// <summary>Records enqueued jobs instead of running them, with the ambient tenant at enqueue time.</summary>
+public sealed class RecordingJobClient : IBackgroundJobClient
+{
+    public sealed record Recorded(Job Job, IState State, Guid? TenantId);
+
+    private readonly ConcurrentQueue<Recorded> _jobs = new();
+
+    public IReadOnlyList<Recorded> All => [.. _jobs];
+
+    public IReadOnlyList<Recorded> For(Guid tenantId) => _jobs.Where(j => j.TenantId == tenantId).ToList();
+
+    public string Create(Job job, IState state)
+    {
+        _jobs.Enqueue(new Recorded(job, state, TenantScope.Current?.Tenant?.Id));
+        return Guid.NewGuid().ToString("N");
+    }
+
+    public bool ChangeState(string jobId, IState state, string expectedState) => true;
 }
 
 [CollectionDefinition(Name)]
