@@ -49,7 +49,7 @@ Follow-up (done, ADR [0017](../Decisions/0017-money-precision-and-per-currency-r
 |---|---|---|
 | G15 | Enterprise SSO per tenant (SAML/OIDC) + SCIM provisioning ([SSO](../Identity/Enterprise-SSO.md), [SCIM](../Identity/SCIM.md)) | ✅ |
 | G16 | Passkeys (WebAuthn) ([Passkeys](../Identity/Passkeys.md)) | ✅ |
-| G17 | Full-text search abstraction (PostgreSQL `tsvector` first) | ⬜ [#53](https://github.com/mhasabalah/StarterKit/issues/53) |
+| G17 | Full-text search abstraction: the Search module behind an engine port, PostgreSQL first and Meilisearch, with facets, admin API and zero-result analytics ([Search](../Modules/Search.md), [ADR 0036](../Decisions/0036-search-module-and-engine-port.md)) | ✅ |
 | G18 | Mobile push (FCM for Android, iOS via APNs, Web) channel + session-bound device-token registration | ✅ |
 | G19 | Bulk CSV/Excel import/export jobs with progress and error report ([DataTransfer](../Modules/DataTransfer.md)) | ✅ |
 | G20 | Blobs in tenant data export + zero-downtime tenant move (= #14 remaining) | ⬜ [#54](https://github.com/mhasabalah/StarterKit/issues/54) |

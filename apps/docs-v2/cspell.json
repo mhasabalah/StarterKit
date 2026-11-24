@@ -285,6 +285,14 @@
     "wordmarks",
     "wordprocessingml",
     "workstreams",
+    "alef",
+    "BYPASSRLS",
+    "facetable",
+    "ILIKE",
+    "Meilisearch",
+    "phraseto",
+    "tatweel",
+    "tsquery",
     "البيانات"
   ],
   "overrides": [

@@ -1,5 +1,5 @@
 {
-  "reviewed": 150,
+  "reviewed": 153,
   "renderers": {
     "v2": "Mermaid 12.3.0",
     "v1": "Mermaid 12.2.0; unchanged renderer"
@@ -3538,6 +3538,90 @@
         "src/Modules/Agentic/Agentic/Agentic.csproj"
       ],
       "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Search.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Search indexing pipeline",
+      "after": "4d50febb2a525cd37b07c68a0cf5523e345ccd66be9fa8a1ee607431a4bcee8f",
+      "review": "Live changes travel as SearchDocumentsChangedIntegrationEvent through the owner outbox to SearchDocumentsChangedConsumer, which sends ApplySearchDocumentChangesCommand; SearchIndexer re-reads the source and upserts present ids, removes absent ones. Reconcile (cron and startup) enqueues RebuildSearchIndexJob on the search queue; drift compares stamps and repairs through the indexer. Checked against the consumer, indexer and job classes.",
+      "roles": {
+        "domain": [
+          "owner",
+          "source"
+        ],
+        "event": [
+          "consumer"
+        ],
+        "application": [
+          "indexer"
+        ],
+        "infrastructure": [
+          "reconcile",
+          "rebuild",
+          "drift"
+        ],
+        "data": [
+          "engine"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Search/Search/Domains/Indexes/Consumers/SearchDocumentsChangedConsumer.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Services/SearchIndexer.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Jobs/RebuildSearchIndexJob.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Jobs/ReconcileSearchIndexesJob.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Jobs/DetectSearchDriftJob.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Search/Meilisearch.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Meilisearch engine in the Search module",
+      "after": "d7ca9570535b1ce23a2935fac65ac68b910b455b013b3ccf31aa4a587fc31b35",
+      "review": "Handlers and jobs depend only on ISearchEngine; MeilisearchSearchEngine orchestrates the pure mapping parts and sends every request through MeilisearchClient (typed HttpClient with timeouts and a circuit breaker, task waits) to one index per key shared by tenants. Checked against SearchModule.AddMeilisearch and the adapter classes.",
+      "roles": {
+        "application": [
+          "handler",
+          "engine",
+          "parts"
+        ],
+        "data": [
+          "server"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Search/Search/SearchModule.cs",
+        "src/Modules/Search/Search/Engine/Meilisearch/MeilisearchSearchEngine.cs",
+        "src/Modules/Search/Search/Engine/Meilisearch/MeilisearchClient.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Search/Postgres-Engine.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "PostgreSQL engine query path",
+      "after": "166cee82b6b3afde1f7cd3686dbc446b2dc533eab3d01d77725a2194477dd19a",
+      "review": "Full text first through every configuration of the index (PostgresTsQueryCompiler); when nothing matches and fuzzy is allowed, word_similarity with <% on suggest_text. The page ranks or sorts with count(*) OVER () and highlights; facets are counted over the filtered matches up to ScanLimit. Checked against PostgresSearchEngine.BuildPlan, QueryAsync and FacetsAsync.",
+      "roles": {
+        "application": [
+          "query",
+          "fts",
+          "trgm",
+          "page"
+        ],
+        "data": [
+          "facets"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Search/Search/Engine/Postgres/PostgresSearchEngine.cs",
+        "src/Modules/Search/Search/Engine/Postgres/PostgresSql.cs"
+      ],
+      "status": "reviewed"
     }
   ],
   "originalCount": 106,
@@ -3553,7 +3637,7 @@
     "widthBudget": 860,
     "layout": "Dagre default; ELK for contract map and SCIM"
   },
-  "fileCount": 83,
+  "fileCount": 86,
   "originalInventory": [
     {
       "file": "README.md",
@@ -4218,6 +4302,18 @@
       "after": "e0dd83d12b54a26b0124be9151f62721a8bf2ac598ef2e2cfbb48bc88473d29d"
     },
     {
+      "review": "Optional file (removed by --sample false or --full-text-search false). Product raises SearchDocumentsChangedIntegrationEvent through the outbox; SearchIndexer reads ProductSearchDocumentSource; IndexedProductSearch sends SearchDocumentsQuery and hydrates through CatalogDbContext with filters re-applied.",
+      "evidence": [
+        "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/IndexedProductSearch.cs",
+        "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/ProductSearchDocumentSource.cs",
+        "src/Modules/Catalog/Catalog/Domains/Products/Models/Product.cs"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/catalog-search.c4",
+      "kind": "likec4",
+      "after": "ffa501a7add1524aef36a234883dd79d968e25f449be83c2b2799e9d784f71a4"
+    },
+    {
       "review": "Optional file. Product aggregate, CategoryTreeCache, ProductPublished to its own in-app consumer and to Webhooks, catalog.products definitions upserting by SKU, purge jobs.",
       "evidence": [
         "src/Modules/Catalog/Catalog/Domains/Products/Consumers/ProductPublishedConsumer.cs",
@@ -4280,6 +4376,19 @@
       "file": "wiki/Architecture/model/notification.c4",
       "kind": "likec4",
       "after": "db00553d553c77e446cc8b9e0788e0e19c8560d5a6354aba8833ac63b9bd7c02"
+    },
+    {
+      "review": "Optional file (--full-text-search false). Admin endpoints, SearchDocumentsQuery, text pipeline, SearchDocumentsChangedConsumer, SearchIndexer, the ISearchEngine port with both adapters, index jobs on the search queue, analytics buffer and flush, tenant purge handler; Meilisearch as an optional container. Edges checked against the Search module registrations and jobs.",
+      "evidence": [
+        "src/Modules/Search/Search/SearchModule.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Jobs/RebuildSearchIndexJob.cs",
+        "src/Modules/Search/Search/Domains/Analytics/Services/SearchAnalyticsFlushService.cs",
+        "docker-compose.meilisearch.yml"
+      ],
+      "status": "reviewed",
+      "file": "wiki/Architecture/model/search.c4",
+      "kind": "likec4",
+      "after": "02d82dcbc7d2c521dfedf499113d523e29ba169eb5dc926f59fb24084529ca5a"
     },
     {
       "review": "Optional file. ShipmentReadyForClearance event and consumer sending RequestAgentRunCommand; agents and tools over ISender; shipping.assistant opts in to MCP.",

@@ -49,17 +49,29 @@ test('element colours keep white labels readable', async () => {
 });
 
 test('an optional module is mentioned only in its own model file and pages', async () => {
-  const optional = { catalog: ['catalog.c4'], shipping: ['shipping.c4'], agentic: ['agentic.c4', 'shipping.c4'] };
+  // catalog-search.c4 holds the edges between Catalog and Search, so a product without either removes it.
+  const optional = {
+    catalog: ['catalog.c4', 'catalog-search.c4'],
+    shipping: ['shipping.c4'],
+    agentic: ['agentic.c4', 'shipping.c4'],
+    search: ['search.c4', 'catalog-search.c4']
+  };
   for (const file of await modelSources()) {
     for (const [name, owners] of Object.entries(optional)) {
       if (owners.includes(file.name)) continue;
       assert.doesNotMatch(file.text, new RegExp(`starterkit\\.app\\.${name}\\b`), `${file.name} references ${name}; move the edge to ${owners[0]}`);
     }
   }
-  const optionalPages = { catalog: ['wiki/Modules/Catalog.md'], shipping: ['wiki/Modules/Shipping.md'], agentic: ['wiki/Modules/Agentic.md', 'wiki/Modules/Shipping.md'] };
+  const optionalPages = {
+    catalog: ['wiki/Modules/Catalog.md'],
+    shipping: ['wiki/Modules/Shipping.md'],
+    agentic: ['wiki/Modules/Agentic.md', 'wiki/Modules/Shipping.md'],
+    search: ['wiki/Modules/Search.md'],
+    'catalog-search': ['wiki/Modules/Catalog.md']
+  };
   for (const fence of fences) {
     const view = views.get(fence.id);
-    const optionalModule = Object.keys(optional).find((name) => view.source?.endsWith(`/${name}.c4`));
+    const optionalModule = Object.keys(optionalPages).find((name) => view.source?.endsWith(`/${name}.c4`));
     if (optionalModule) assert.ok(optionalPages[optionalModule].includes(fence.file), `${fence.file} embeds ${fence.id} from optional ${optionalModule}`);
   }
 });

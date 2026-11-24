@@ -4240,6 +4240,65 @@
         },
         "type": "object"
       },
+      "ApiResponseOfCheckSearchIndexDriftResult": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CheckSearchIndexDriftResult"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "ApiResponseOfCompSubscriptionResult": {
         "properties": {
           "code": {
@@ -8459,6 +8518,64 @@
         },
         "type": "object"
       },
+      "ApiResponseOfListOfProductSuggestionDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSuggestionDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "ApiResponseOfListOfPushDeviceDto": {
         "properties": {
           "code": {
@@ -8647,6 +8764,122 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/ScimGroupDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfListOfSearchDailyStatsDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SearchDailyStatsDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfListOfSearchIndexDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SearchIndexDto"
             },
             "type": [
               "null",
@@ -11333,6 +11566,65 @@
         },
         "type": "object"
       },
+      "ApiResponseOfPaginatedResultOfSearchZeroResultTermDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaginatedResultOfSearchZeroResultTermDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "ApiResponseOfPaginatedResultOfShipmentDto": {
         "properties": {
           "code": {
@@ -12295,6 +12587,124 @@
               },
               {
                 "$ref": "#/components/schemas/ReactivateSubscriptionResult"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfRebuildSearchIndexInAllTenantsResult": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RebuildSearchIndexInAllTenantsResult"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfRebuildSearchIndexResult": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RebuildSearchIndexResult"
               }
             ]
           },
@@ -14006,6 +14416,183 @@
               },
               {
                 "$ref": "#/components/schemas/ScimGroupDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfSearchEngineDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SearchEngineDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfSearchIndexDto": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SearchIndexDto"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "successMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseOfSearchProductsResult": {
+        "properties": {
+          "code": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SearchProductsResult"
               }
             ]
           },
@@ -18013,6 +18600,17 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "CheckSearchIndexDriftResult": {
+        "properties": {
+          "indexKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexKey"
+        ],
         "type": "object"
       },
       "CommitImportRequest": {
@@ -23202,6 +23800,32 @@
         },
         "type": "object"
       },
+      "PaginatedResultOfSearchZeroResultTermDto": {
+        "properties": {
+          "orderBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "orderByDesc": {
+            "type": "boolean"
+          },
+          "pageInfoResult": {
+            "$ref": "#/components/schemas/PageInfoResult"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/SearchZeroResultTermDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "PaginatedResultOfShipmentDto": {
         "properties": {
           "orderBy": {
@@ -24753,6 +25377,53 @@
         },
         "type": "object"
       },
+      "ProductFacet": {
+        "enum": [
+          "Category",
+          "Tag",
+          "Type",
+          "Currency",
+          "Featured"
+        ]
+      },
+      "ProductFacetDto": {
+        "properties": {
+          "facet": {
+            "$ref": "#/components/schemas/ProductFacet"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ProductFacetValueDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "facet",
+          "values"
+        ],
+        "type": "object"
+      },
+      "ProductFacetValueDto": {
+        "properties": {
+          "count": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "count"
+        ],
+        "type": "object"
+      },
       "ProductHistoryEntryDto": {
         "properties": {
           "action": {
@@ -24841,6 +25512,14 @@
         },
         "type": "object"
       },
+      "ProductSearchMatch": {
+        "enum": [
+          "Browse",
+          "Contains",
+          "Exact",
+          "Fuzzy"
+        ]
+      },
       "ProductStatus": {
         "enum": [
           "Draft",
@@ -24874,6 +25553,33 @@
           "productId",
           "status",
           "version"
+        ],
+        "type": "object"
+      },
+      "ProductSuggestionDto": {
+        "properties": {
+          "highlight": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sku",
+          "highlight"
         ],
         "type": "object"
       },
@@ -25111,6 +25817,28 @@
           "renewalDate",
           "invoiceId",
           "invoiceNumber"
+        ],
+        "type": "object"
+      },
+      "RebuildSearchIndexInAllTenantsResult": {
+        "properties": {
+          "indexKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexKey"
+        ],
+        "type": "object"
+      },
+      "RebuildSearchIndexResult": {
+        "properties": {
+          "indexKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexKey"
         ],
         "type": "object"
       },
@@ -26548,6 +27276,357 @@
           "externalId",
           "tenantRoleId",
           "members"
+        ],
+        "type": "object"
+      },
+      "SearchAnalyzer": {
+        "type": "integer"
+      },
+      "SearchDailyStatsDto": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "type": "string"
+          },
+          "fuzzyRescues": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "indexKey": {
+            "type": "string"
+          },
+          "searches": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "unanswered": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "zeroResultRate": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "zeroResults": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "day",
+          "indexKey",
+          "searches",
+          "zeroResults",
+          "fuzzyRescues",
+          "unanswered"
+        ],
+        "type": "object"
+      },
+      "SearchEngineDto": {
+        "properties": {
+          "engine": {
+            "type": "string"
+          },
+          "indexes": {
+            "items": {
+              "$ref": "#/components/schemas/SearchIndexDefinitionDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "indexes"
+        ],
+        "type": "object"
+      },
+      "SearchFieldType": {
+        "type": "integer"
+      },
+      "SearchFilterFieldDto": {
+        "properties": {
+          "facetable": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortable": {
+            "type": "boolean"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SearchFieldType"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "facetable",
+          "sortable"
+        ],
+        "type": "object"
+      },
+      "SearchIndexDefinitionDto": {
+        "properties": {
+          "filterFields": {
+            "items": {
+              "$ref": "#/components/schemas/SearchFilterFieldDto"
+            },
+            "type": "array"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "textFields": {
+            "items": {
+              "$ref": "#/components/schemas/SearchTextFieldDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "fingerprint",
+          "textFields",
+          "filterFields"
+        ],
+        "type": "object"
+      },
+      "SearchIndexDriftDto": {
+        "properties": {
+          "checkedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "missing": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "orphaned": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "stale": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "checkedAt",
+          "missing",
+          "stale",
+          "orphaned"
+        ],
+        "type": "object"
+      },
+      "SearchIndexDto": {
+        "properties": {
+          "buildStartedAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "drift": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SearchIndexDriftDto"
+              }
+            ]
+          },
+          "filterFields": {
+            "items": {
+              "$ref": "#/components/schemas/SearchFilterFieldDto"
+            },
+            "type": "array"
+          },
+          "key": {
+            "type": "string"
+          },
+          "lastBuiltAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastErrorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SearchIndexStatus"
+          },
+          "textFields": {
+            "items": {
+              "$ref": "#/components/schemas/SearchTextFieldDto"
+            },
+            "type": "array"
+          },
+          "upToDate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SearchIndexStatus": {
+        "type": "integer"
+      },
+      "SearchProductsResult": {
+        "properties": {
+          "facets": {
+            "items": {
+              "$ref": "#/components/schemas/ProductFacetDto"
+            },
+            "type": "array"
+          },
+          "facetsExhaustive": {
+            "type": "boolean"
+          },
+          "highlights": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ProductSearchMatch"
+          },
+          "orderBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "orderByDesc": {
+            "type": "boolean"
+          },
+          "pageInfoResult": {
+            "$ref": "#/components/schemas/PageInfoResult"
+          },
+          "result": {
+            "items": {
+              "$ref": "#/components/schemas/ProductDto"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "SearchTextFieldDto": {
+        "properties": {
+          "analyzer": {
+            "$ref": "#/components/schemas/SearchAnalyzer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "weight": {
+            "$ref": "#/components/schemas/SearchWeight"
+          }
+        },
+        "required": [
+          "name",
+          "weight",
+          "analyzer"
+        ],
+        "type": "object"
+      },
+      "SearchWeight": {
+        "type": "integer"
+      },
+      "SearchZeroResultTermDto": {
+        "properties": {
+          "count": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "indexKey": {
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexKey",
+          "term",
+          "count",
+          "lastSeenAt"
         ],
         "type": "object"
       },
@@ -37396,6 +38475,76 @@
         ]
       }
     },
+    "/api/v1/admin/search/engine": {
+      "get": {
+        "description": "The configured engine (`Search:Engine`) and every registered index definition with its fingerprint.",
+        "operationId": "GetSearchEngine",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfSearchEngineDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Search engine",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/v1/admin/search/indexes/{key}/rebuild-all": {
+      "post": {
+        "description": "Queues one full rebuild per tenant on the `search` queue; each tenant keeps its current build until its new one completes. For an engine change or a repair after an incident.",
+        "operationId": "RebuildSearchIndexInAllTenants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfRebuildSearchIndexInAllTenantsResult"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Rebuild a search index in every tenant",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
     "/api/v1/admin/sso/connections": {
       "get": {
         "operationId": "GetAllSsoConnections",
@@ -44446,7 +45595,7 @@
     },
     "/api/v1/products/search": {
       "get": {
-        "description": "Search published products by `searchTerm` (name en/ar, SKU, description; '%' and '_' match literally). Page 1 is public, page 2+ requires authentication. Rate limited.",
+        "description": "Search published products by `searchTerm` (name en/ar, SKU, description) with the catalogue filters. With the search index: best matches first, stemming, Arabic normalization, close spellings (`match: Fuzzy`), `facets` (Category, Tag, Type, Currency, Featured) and `highlight=true` snippets; otherwise a literal 'contains' match (`match: Contains`). Page 1 is public, page 2+ requires authentication. Rate limited.",
         "operationId": "SearchProducts",
         "parameters": [
           {
@@ -44455,6 +45604,113 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Type",
+            "schema": {
+              "$ref": "#/components/schemas/ProductType"
+            }
+          },
+          {
+            "in": "query",
+            "name": "CategoryId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "IncludeSubcategories",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "MinPrice",
+            "schema": {
+              "format": "double",
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "MaxPrice",
+            "schema": {
+              "format": "double",
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "Currency",
+            "schema": {
+              "$ref": "#/components/schemas/Currency"
+            }
+          },
+          {
+            "in": "query",
+            "name": "TagIds",
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "AttributeTypeIds",
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "OwnerId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "IsFeatured",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Facets",
+            "schema": {
+              "items": {
+                "$ref": "#/components/schemas/ProductFacet"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Highlight",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -44503,7 +45759,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseOfPaginatedResultOfProductDto"
+                  "$ref": "#/components/schemas/ApiResponseOfSearchProductsResult"
                 }
               }
             },
@@ -44534,6 +45790,63 @@
           }
         },
         "summary": "Search Products",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/suggest": {
+      "get": {
+        "description": "As-you-type suggestions over published products: `q` matches the name (en/ar) and SKU, the last word as a prefix (\"lap\" finds \"laptop\"), with close spellings when nothing matches. At most `limit` (1-20, default 8). Names in the request culture, with the typed text in `<mark>`. Empty while the search index is not available. Public, rate limited.",
+        "operationId": "SuggestProducts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "Q",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Limit",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfListOfProductSuggestionDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Suggest Products",
         "tags": [
           "Products"
         ]
@@ -46036,6 +47349,328 @@
         "summary": "Add To Wishlist",
         "tags": [
           "Wishlist"
+        ]
+      }
+    },
+    "/api/v1/search/analytics/daily": {
+      "get": {
+        "description": "Per index and UTC day: searches, zero results, close-spelling rescues and searches the index could not answer, over `from`..`to` (default the last 30 days, at most 366).",
+        "operationId": "GetSearchDailyStats",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "IndexKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "From",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "To",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfListOfSearchDailyStatsDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          }
+        },
+        "summary": "Daily search counts",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/v1/search/analytics/zero-results": {
+      "get": {
+        "description": "Normalized search terms that returned no results, most frequent first, over `from`..`to` (UTC days, default the last 30). Filter by `indexKey`. Terms that look like an email address or a long number are never kept.",
+        "operationId": "GetSearchZeroResultTerms",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "IndexKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "From",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "To",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageNumber",
+            "schema": {
+              "default": 1,
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "PageSize",
+            "schema": {
+              "default": 10,
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortBy",
+            "schema": {
+              "$ref": "#/components/schemas/SortBy"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortColumn",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfPaginatedResultOfSearchZeroResultTermDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Bad Request"
+          }
+        },
+        "summary": "Searches that found nothing",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/v1/search/indexes": {
+      "get": {
+        "description": "Every registered index with its build state in the current tenant (NotBuilt until the first build).",
+        "operationId": "GetSearchIndexes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfListOfSearchIndexDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Search indexes",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/v1/search/indexes/{key}": {
+      "get": {
+        "description": "Build state, the last drift check and the fields of one index, e.g. `catalog.products`.",
+        "operationId": "GetSearchIndexByKey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfSearchIndexDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Search index",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/v1/search/indexes/{key}/drift-check": {
+      "post": {
+        "description": "Queues a comparison of the index with its source; the findings appear on the index (`drift`). 409 `search_index_not_built` before the first build.",
+        "operationId": "CheckSearchIndexDrift",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfCheckSearchIndexDriftResult"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Check a search index for drift",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/v1/search/indexes/{key}/rebuild": {
+      "post": {
+        "description": "Queues a full rebuild from the owning module's data. The current build keeps answering until the new one completes. 409 `search_rebuild_running` while a rebuild is in progress.",
+        "operationId": "RebuildSearchIndex",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfRebuildSearchIndexResult"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOfObject"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Rebuild a search index",
+        "tags": [
+          "Search"
         ]
       }
     },
@@ -50483,6 +52118,9 @@
     },
     {
       "name": "DataTransfer"
+    },
+    {
+      "name": "Search"
     },
     {
       "name": "Shipping"
