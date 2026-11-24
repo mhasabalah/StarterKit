@@ -106,6 +106,25 @@ chmod 600 "$SECRETS_DIR/rabbitmq_password.txt"
 RABBITMQ_PASS_LEN=$(wc -c < "$SECRETS_DIR/rabbitmq_password.txt")
 echo "  ✅ rabbitmq_password.txt ($RABBITMQ_PASS_LEN chars)"
 
+#if (search)
+# Meilisearch (only used with docker-compose.meilisearch.yml; harmless if unused). The master key is NEVER regenerated
+# when it exists: every API key of the server is derived from it. The API key file starts empty: create a scoped key
+# once the server runs (wiki/Search/Meilisearch.md) and paste it there.
+if [ -f "$SECRETS_DIR/meilisearch_master_key.txt" ]; then
+    echo "  ⏭️  meilisearch_master_key.txt exists - kept (API keys are derived from it)"
+else
+    echo "  Generating meilisearch_master_key..."
+    openssl rand -base64 32 | tr -d '\n' > "$SECRETS_DIR/meilisearch_master_key.txt"
+    chmod 600 "$SECRETS_DIR/meilisearch_master_key.txt"
+    echo "  ✅ meilisearch_master_key.txt"
+fi
+if [ ! -f "$SECRETS_DIR/meilisearch_api_key.txt" ]; then
+    : > "$SECRETS_DIR/meilisearch_api_key.txt"
+    chmod 600 "$SECRETS_DIR/meilisearch_api_key.txt"
+    echo "  ✅ meilisearch_api_key.txt (empty; fill in a scoped key before switching Search to Meilisearch)"
+fi
+
+#endif
 # JWT secret (48 bytes = 64 base64 chars)
 echo "  Generating jwt_secret..."
 openssl rand -base64 48 | tr -d '\n' > "$SECRETS_DIR/jwt_secret.txt"

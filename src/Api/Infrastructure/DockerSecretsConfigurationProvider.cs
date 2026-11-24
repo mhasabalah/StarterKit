@@ -35,6 +35,10 @@ public class DockerSecretsConfigurationProvider(string secretsPath, string? envi
             // Data Protection key-ring encryption (docker-compose.dataprotection.yml). The PFX itself is mounted as
             // /run/secrets/dataprotection_cert.pfx and referenced by Identity:DataProtection:Certificate:Path.
             ["dataprotection_cert_password"] = ["Identity:DataProtection:Certificate:Password"],
+#if (SEARCH)
+            // The Search module's Meilisearch engine (docker-compose.meilisearch.yml); a scoped admin key, not the master key.
+            ["meilisearch_api_key"] = ["Search:Meilisearch:ApiKey"],
+#endif
         };
 
     /// <summary>

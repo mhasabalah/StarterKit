@@ -1,4 +1,7 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Search.Contracts.Indexing;
 using Search.Engine;
 using Shared.Core.Modularity;
@@ -54,6 +57,37 @@ public class ModuleRegistrationTests
 
         FluentActions.Invoking(() => SearchModule.VerifyIndexes(provider))
             .Should().Throw<InvalidOperationException>().WithMessage("*at least one text field*");
+    }
+
+    [Theory]
+    [InlineData("Postgres", typeof(global::Search.Engine.Postgres.PostgresSearchEngine), false)]
+    [InlineData("Meilisearch", typeof(global::Search.Engine.Meilisearch.MeilisearchSearchEngine), true)]
+    public void The_configured_engine_is_the_one_registered(string engine, Type implementation, bool healthCheck)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:starterkit"] = "Host=localhost;Database=unused",
+            ["Search:Engine"] = engine,
+            ["Search:Meilisearch:Url"] = "http://meilisearch:7700",
+            ["Search:Meilisearch:ApiKey"] = "key"
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        services.AddSearchModule(configuration);
+
+        services.Single(d => d.ServiceType == typeof(ISearchEngine)).ImplementationType.Should().Be(implementation);
+        using var provider = services.BuildServiceProvider();
+        var registrations = provider.GetService<IOptions<HealthCheckServiceOptions>>()?.Value.Registrations ?? [];
+        if (healthCheck)
+        {
+            registrations.Should().ContainSingle(r => r.Name == "search-engine")
+                .Which.FailureStatus.Should().Be(HealthStatus.Degraded, "owners fall back to SQL: an outage never takes the API out of rotation");
+        }
+        else
+        {
+            registrations.Should().NotContain(r => r.Name == "search-engine");
+        }
     }
 
     private sealed class ArticleSource : ISearchDocumentSource

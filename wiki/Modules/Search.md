@@ -12,7 +12,8 @@ Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id
 ## Status
 
 The contract, the PostgreSQL engine, the indexing pipeline, the admin API and the search analytics are in place: an
-index of a tenant is built by the reconcile job and kept in sync through the outbox. The Meilisearch adapter follows.
+index of a tenant is built by the reconcile job and kept in sync through the outbox. Two engines pass the
+conformance suite: PostgreSQL (default) and [Meilisearch](../Search/Meilisearch.md).
 <!--#if (sample)-->
 
 Catalog's products are the reference index (`catalog.products`, see [Catalog](Catalog.md#search-index)).
@@ -36,6 +37,8 @@ Search/
                     document checks), SearchDocumentPreparer, SearchEngineUnavailableException
   Engine/Text/      SearchTextNormalizer, SearchQueryParser, SearchHighlighter (the same for every engine)
   Engine/Postgres/  PostgresSearchEngine, PostgresIndexSql (upsert per index), tsquery and filter compilers
+  Engine/Meilisearch/ MeilisearchSearchEngine, MeilisearchClient (HTTP, tasks, failures), MeilisearchIndexes, and the
+                    pure parts: names, settings, documents, filter compiler, query text, requests/responses
   Domains/Indexes/  SearchIndexState (build state per tenant and index: stamps, lease, drift), SearchIndexer,
                     ApplySearchDocumentChangesCommand, SearchDocumentsChangedConsumer,
                     RebuildSearchIndexJob, ReconcileSearchIndexesJob, DetectSearchDriftJob, SearchTenantPurgeHandler,
@@ -208,6 +211,13 @@ RLS), one row per tenant, index and document:
   search runs with `Postgres:StatementTimeoutMs`. A timeout or a lost connection answers `EngineUnavailable`; any
   other error is a bug and is not hidden.
 
+## Meilisearch engine
+
+`Search:Engine=Meilisearch` (`docker-compose.meilisearch.yml`) stores the indexes on a Meilisearch server: one index
+per key shared by every tenant, a tenant filter on every request. It has no stemming and no cross-batch version guard,
+and `OR` queries report estimated totals; setup, the least-privilege key and operations are in
+[Meilisearch](../Search/Meilisearch.md).
+
 ## Configuration
 
 Section `Search` (validated at startup):
@@ -220,6 +230,7 @@ Section `Search` (validated at startup):
 | `Facets:MaxValues` / `ScanLimit` | 20 / 10000 | facet counts |
 | `Postgres:StatementTimeoutMs` | 2000 | timeout of every search query |
 | `Meilisearch:Url` / `ApiKey` / `IndexPrefix` | | required with `Engine=Meilisearch` (the key from a secret) |
+| `Meilisearch:TimeoutSeconds` / `TaskTimeoutSeconds` | 10 / 30 | per request, and per write task |
 | `Indexing:BatchSize` / `LeaseMinutes` | 500 / 30 | rebuilds |
 | `Reconcile:Cron`, `Drift:Cron` / `AutoRepair` / `MaxDocuments` | every 15 min, 03:00 / true / 200000 | index upkeep |
 | `Analytics:Enabled` / `RetentionDays` / `MaxQueryLength` / `FlushSeconds` | true / 90 / 64 / 30 | zero-result analytics |

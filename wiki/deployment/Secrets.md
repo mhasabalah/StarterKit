@@ -42,6 +42,9 @@ overlays and `secrets/README.md`; a file is not mounted merely because it exists
   | `smtp_password` | `Email:SmtpPassword` |
   | `rabbitmq_password` | `Messaging:RabbitMq:Password` |
   | `dataprotection_cert_password` | `Identity:DataProtection:Certificate:Password` |
+  <!--#if (search)-->
+  | `meilisearch_api_key` | `Search:Meilisearch:ApiKey` (a scoped key; the server's own `meilisearch_master_key` is read by the `meilisearch` container only) |
+  <!--#endif-->
   <!--#if (agentic)-->
   | `agentic_<provider>_api_key` | `Agentic:Providers:<provider>:ApiKey` when the configuration leaves it empty (provider name in lower case; `docker-compose.agents.yml` mounts `agentic_openai_api_key`) |
   <!--#endif-->

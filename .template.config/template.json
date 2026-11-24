@@ -361,6 +361,7 @@
             "src/Modules/Catalog/Catalog.IntegrationTests/Search/**",
             "src/Api.E2ETests/Catalog/ProductSearchIndexTests.cs",
             "docker-compose.meilisearch.yml",
+            "docker-compose.meilisearch-worker.yml",
             "tests/load/scenarios/search.js",
             "wiki/Modules/Search.md",
             "wiki/Search/**",

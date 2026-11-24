@@ -2,12 +2,15 @@ using Hangfire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Search.Domains.Analytics.Jobs;
 using Search.Domains.Analytics.Services;
 using Search.Domains.Indexes.Jobs;
 using Search.Domains.Indexes.Services;
+using Search.Engine.Meilisearch;
 using Search.Observability;
 using Shared.Core.Mapster;
 
@@ -71,11 +74,48 @@ public static class SearchModule
                 services.AddScoped<ISearchEngine, Engine.Postgres.PostgresSearchEngine>();
                 break;
             case SearchEngineKind.Meilisearch:
-                throw new InvalidOperationException(
-                    "Search:Engine=Meilisearch is not available in this version yet; use Postgres.");
+                AddMeilisearch(services, configuration);
+                break;
             default:
                 throw new InvalidOperationException($"Search:Engine '{engine}' is not an engine.");
         }
+    }
+
+    /// <summary>
+    /// The Meilisearch adapter: a typed HTTP client with a per-request timeout (<c>Meilisearch:TimeoutSeconds</c>) and a
+    /// circuit breaker, so an outage fails searches fast and owners fall back to SQL. No HTTP retries: indexing is
+    /// retried by its consumer or job, which knows what was applied. The health check reports Degraded only.
+    /// </summary>
+    private static void AddMeilisearch(IServiceCollection services, IConfiguration configuration)
+    {
+        var timeout = TimeSpan.FromSeconds(configuration.GetSection(SearchOptions.SectionName)
+            .GetValue($"{nameof(SearchOptions.Meilisearch)}:{nameof(SearchMeilisearchOptions.TimeoutSeconds)}",
+                new SearchMeilisearchOptions().TimeoutSeconds));
+
+        services.TryAddSingleton<MeilisearchIndexCache>();
+        services.AddScoped<MeilisearchIndexes>();
+        services.AddScoped<ISearchEngine, MeilisearchSearchEngine>();
+
+        services.AddHttpClient<MeilisearchClient>((sp, http) =>
+            {
+                var meilisearch = sp.GetRequiredService<IOptions<SearchOptions>>().Value.Meilisearch;
+                http.BaseAddress = new Uri(meilisearch.Url!.TrimEnd('/') + "/");
+                http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", meilisearch.ApiKey);
+                http.Timeout = Timeout.InfiniteTimeSpan; // the resilience pipeline owns the timeouts
+            })
+            .AddStandardResilienceHandler(o =>
+            {
+                o.Retry.ShouldHandle = _ => ValueTask.FromResult(false);
+                o.AttemptTimeout.Timeout = timeout;
+                o.TotalRequestTimeout.Timeout = timeout;
+                o.CircuitBreaker.SamplingDuration = TimeSpan.FromTicks(Math.Max(TimeSpan.FromSeconds(30).Ticks, timeout.Ticks * 2));
+            });
+
+        services.AddHealthChecks().AddCheck<MeilisearchHealthCheck>(
+            MeilisearchHealthCheck.Name,
+            failureStatus: HealthStatus.Degraded,
+            tags: [Shared.Core.HealthCheck.HealthCheckTags.Ready]);
     }
 
     public static IApplicationBuilder UseSearchModule(this IApplicationBuilder app)

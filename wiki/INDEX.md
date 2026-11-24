@@ -112,6 +112,7 @@ wiki/
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
 <!--#if (search)-->
 - [Search](Modules/Search.md): full-text search behind an engine port (index definitions plugged in by the owning module, PostgreSQL or Meilisearch)
+  - [Meilisearch](Search/Meilisearch.md): the Meilisearch engine: when to choose it, setup with a least-privilege key, layout, differences, operations
 <!--#endif-->
 <!--#if (agentic)-->
 - [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (overview, the five rules, architecture, guide map)

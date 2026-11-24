@@ -1,0 +1,97 @@
+# ==============================================
+# StarterKit Meilisearch Overlay (optional)
+# ==============================================
+# Adds a Meilisearch server and switches the Search module to it (Search:Engine=Meilisearch). Without this overlay the
+# Search module uses the PostgreSQL engine (no extra infrastructure).
+#   dev:  docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.meilisearch.yml up -d
+#   prod: docker compose -f docker-compose.yml -f docker-compose.meilisearch.yml up -d
+# With docker-compose.worker.yml, also add docker-compose.meilisearch-worker.yml LAST: the worker runs the search queue
+# (index rebuilds) and must write to the same engine.
+#
+# Keys (Docker secrets, created by deployment/secrets-setup.sh):
+#   secrets/meilisearch_master_key.txt  the server's master key (Meilisearch refuses to start in production without one)
+#   secrets/meilisearch_api_key.txt     the key the API uses (Search:Meilisearch:ApiKey). Use a scoped admin key, not the
+#                                       master key; create it once the server is up (see wiki/Search/Meilisearch.md).
+# In Development the API skips Docker secrets and uses MEILISEARCH_API_KEY from .env (the master key is fine there).
+#
+# Switching engines does not move documents: after the first start, rebuild every index
+# (POST /api/v1/admin/search/indexes/{key}/rebuild-all as SuperAdmin), or wait for the drift check.
+# Dedicated-database tenants: every tenant shares the Meilisearch indexes (isolated by a tenant filter). Products that
+# promise database-level isolation per tenant should keep the PostgreSQL engine.
+# Docs: wiki/Search/Meilisearch.md.
+# ==============================================
+
+volumes:
+  meilisearch-data:
+    name: ${COMPOSE_PROJECT_NAME:-starterkit}_meilisearch_data
+
+secrets:
+  meilisearch_master_key:
+    file: ./secrets/meilisearch_master_key.txt
+  meilisearch_api_key:
+    file: ./secrets/meilisearch_api_key.txt
+
+services:
+
+  meilisearch:
+    # Same image as the adapter's conformance tests (Search.IntegrationTests/Conformance/MeilisearchFixture.cs).
+    image: getmeili/meilisearch:v1.15.2
+    container_name: ${COMPOSE_PROJECT_NAME:-starterkit}-meilisearch
+    restart: unless-stopped
+    secrets:
+      - meilisearch_master_key
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_ENV_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-}
+      TZ: ${TZ:-UTC}
+    # Meilisearch reads the master key from the environment only: export it from the secret (or .env in dev) and start.
+    entrypoint:
+      - tini
+      - --
+      - sh
+      - -c
+      - |
+        if [ -n "$$MEILI_ENV_MASTER_KEY" ]; then
+          export MEILI_MASTER_KEY="$$MEILI_ENV_MASTER_KEY"
+        else
+          export MEILI_MASTER_KEY="$$(tr -d '\r\n' < /run/secrets/meilisearch_master_key)"
+        fi
+        unset MEILI_ENV_MASTER_KEY
+        exec /bin/meilisearch
+    ports:
+      # Loopback only: the API reaches it over the internal network; the port is for creating keys and inspecting.
+      - "${BIND_ADDRESS:-127.0.0.1}:${MEILISEARCH_PORT:-7700}:7700"
+    volumes:
+      - meilisearch-data:/meili_data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:7700/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '${MEILISEARCH_CPUS:-1.0}'
+          memory: ${MEILISEARCH_MEMORY_LIMIT:-2g}
+
+  api:
+    secrets:
+      - meilisearch_api_key
+    environment:
+      Search__Engine: Meilisearch
+      Search__Meilisearch__Url: http://meilisearch:7700
+      # Dev only: in Docker env the secret file (meilisearch_api_key -> Search:Meilisearch:ApiKey) overrides this value.
+      Search__Meilisearch__ApiKey: ${MEILISEARCH_API_KEY:-}
+    depends_on:
+      meilisearch:
+        condition: service_healthy

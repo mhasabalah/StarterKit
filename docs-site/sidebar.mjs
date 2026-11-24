@@ -300,9 +300,19 @@ export const sections = [
         "order": 7
       },
       {
-        "source": "Modules/Search.md",
         "label": "Search",
-        "order": 7.5
+        "items": [
+          {
+            "source": "Modules/Search.md",
+            "label": "Overview",
+            "order": 1
+          },
+          {
+            "source": "Search/Meilisearch.md",
+            "label": "Meilisearch engine",
+            "order": 2
+          }
+        ]
       },
       {
         "source": "Modules/Shipping.md",
