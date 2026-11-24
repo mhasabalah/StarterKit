@@ -13,14 +13,16 @@ public class SearchProductsEndPoint : ICarterModule
             .WithName("SearchProducts")
             .WithTags("Products")
             .WithApiVersionSet(app.NewApiVersionSet("Catalog").Build())
-            .Produces<ApiResponse<PaginatedResult<ProductDto>>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<SearchProductsResult>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object>>(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status429TooManyRequests)
             .WithSummary("Search Products")
             .WithDescription(
-                "Search published products by `searchTerm` (name en/ar, SKU, description; '%' and '_' match " +
-                "literally). Page 1 is public, page 2+ requires authentication. Rate limited.")
+                "Search published products by `searchTerm` (name en/ar, SKU, description) with the catalogue filters. " +
+                "With the search index: best matches first, stemming, Arabic normalization, close spellings (`match: Fuzzy`), " +
+                "`facets` (Category, Tag, Type, Currency, Featured) and `highlight=true` snippets; otherwise a literal " +
+                "'contains' match (`match: Contains`). Page 1 is public, page 2+ requires authentication. Rate limited.")
             .RequireAuthorization("PageGate")
             .RequireRateLimiting("search")
             .HasApiVersion(1.0);

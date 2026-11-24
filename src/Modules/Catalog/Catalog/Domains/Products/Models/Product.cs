@@ -2,6 +2,10 @@ using Shared.Core.Auditing;
 using Shared.Core.MultiTenancy;
 using Catalog.Contracts.Products.IntegrationEvents;
 using Catalog.Domains.Products.Events;
+#if (SEARCH)
+using Catalog.Domains.Products.SearchIndex;
+using Search.Contracts.Indexing.IntegrationEvents;
+#endif
 
 namespace Catalog.Domains.Products.Models;
 
@@ -17,6 +21,8 @@ namespace Catalog.Domains.Products.Models;
 /// Every mutation stamps <see cref="UpdatedAt"/>, so the product row is always UPDATEd — and its
 /// <c>Version</c> (optimistic concurrency, bumped centrally by AuditableEntityInterceptor) covers the
 /// whole aggregate, including child-only changes. Never touch <c>Version</c> here.
+/// The same stamp (plus create and purge) tells the search index to re-read the product: at most one
+/// <c>SearchDocumentsChangedIntegrationEvent</c> per save, through the outbox.
 /// </summary>
 public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditable
 {
@@ -106,6 +112,9 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
         product.ApplyDetails(name, description, sku, type, pricing, categoryId);
 
         product.AddDomainEvent(new ProductCreatedEvent(product.Id, product.OwnerId, product.Sku));
+#if (SEARCH)
+        product.RaiseSearchChange();
+#endif
         return product;
     }
 
@@ -372,6 +381,9 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
             throw new InvalidProductException("Only soft-deleted products can be purged.");
 
         AddDomainEvent(new ProductPurgedEvent(Id));
+#if (SEARCH)
+        RaiseSearchChange();
+#endif
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -406,7 +418,24 @@ public class Product : Aggregate<Guid>, IMustHaveTenant, IBranchScoped, IAuditab
             ordered[i].SetDisplayOrder(i);
     }
 
-    private void Touch() => UpdatedAt = DateTime.UtcNow;
+    private void Touch()
+    {
+        UpdatedAt = DateTime.UtcNow;
+#if (SEARCH)
+        RaiseSearchChange();
+#endif
+    }
+#if (SEARCH)
+
+    /// <summary>
+    /// Asks Search to re-read this product (it reads the committed state, so one event per save is enough).
+    /// </summary>
+    private void RaiseSearchChange()
+    {
+        if (!IntegrationEvents.OfType<SearchDocumentsChangedIntegrationEvent>().Any())
+            AddIntegrationEvent(SearchDocumentsChangedIntegrationEvent.For(ProductSearchIndex.Key, Id));
+    }
+#endif
 
     private void ApplyDetails(
         LocalizedText name,

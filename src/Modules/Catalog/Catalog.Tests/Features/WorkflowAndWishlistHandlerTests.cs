@@ -128,8 +128,7 @@ public class ProductPublishedIntegrationEventTests
 
         product.Publish();
 
-        var evt = product.IntegrationEvents.Should().ContainSingle().Subject
-            .Should().BeOfType<ProductPublishedIntegrationEvent>().Subject;
+        var evt = product.IntegrationEvents.OfType<ProductPublishedIntegrationEvent>().Should().ContainSingle().Subject;
         evt.ProductId.Should().Be(product.Id);
         evt.OwnerId.Should().Be(OwnerId);
         evt.Sku.Should().Be("SKU-1");
@@ -138,29 +137,29 @@ public class ProductPublishedIntegrationEventTests
     }
 
     [Fact]
-    public void OtherTransitions_AddNoIntegrationEvent()
+    public void OtherTransitions_AddNoPublishedEvent()
     {
         var product = NewProduct();
         product.SubmitForReview();
         product.Approve(AdminId);
-        product.IntegrationEvents.Should().BeEmpty();
+        product.IntegrationEvents.OfType<ProductPublishedIntegrationEvent>().Should().BeEmpty();
 
         var rejected = NewProduct(sku: "R-1");
         rejected.SubmitForReview();
         rejected.Reject(AdminId, "no");
-        rejected.IntegrationEvents.Should().BeEmpty();
+        rejected.IntegrationEvents.OfType<ProductPublishedIntegrationEvent>().Should().BeEmpty();
 
         var changes = NewProduct(sku: "C-1");
         changes.SubmitForReview();
         changes.RequestChanges(AdminId, "photos");
-        changes.IntegrationEvents.Should().BeEmpty();
+        changes.IntegrationEvents.OfType<ProductPublishedIntegrationEvent>().Should().BeEmpty();
 
         var published = Approved();
         published.Publish();
         published.ClearIntegrationEvents();
         published.Archive();
         published.ReturnToDraft();
-        published.IntegrationEvents.Should().BeEmpty();
+        published.IntegrationEvents.OfType<ProductPublishedIntegrationEvent>().Should().BeEmpty();
     }
 }
 

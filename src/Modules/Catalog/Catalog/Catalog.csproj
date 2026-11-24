@@ -27,6 +27,9 @@
         <ProjectReference Include="..\..\DataTransfer\DataTransfer.Contracts\DataTransfer.Contracts.csproj" />
         <ProjectReference Include="..\Catalog.Contracts\Catalog.Contracts.csproj" />
         <ProjectReference Include="..\..\Notification\Notification.Contracts\Notification.Contracts.csproj" />
+        <!--#if (search)-->
+        <ProjectReference Include="..\..\Search\Search.Contracts\Search.Contracts.csproj" />
+        <!--#endif-->
     </ItemGroup>
 
     <ItemGroup>

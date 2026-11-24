@@ -13,4 +13,8 @@ public sealed class CatalogOptions
 
     /// <summary>Hangfire cron for the purge job (UTC).</summary>
     public string PurgeCron { get; set; } = "0 3 * * *";
+#if (SEARCH)
+
+    public CatalogSearchOptions Search { get; set; } = new();
+#endif
 }

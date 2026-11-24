@@ -12,8 +12,11 @@ Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id
 ## Status
 
 The contract, the PostgreSQL engine, the indexing pipeline, the admin API and the search analytics are in place: an
-index of a tenant is built by the reconcile job and kept in sync through the outbox. No module registers an index yet.
-The Meilisearch adapter and Catalog's indexed product search follow.
+index of a tenant is built by the reconcile job and kept in sync through the outbox. The Meilisearch adapter follows.
+<!--#if (sample)-->
+
+Catalog's products are the reference index (`catalog.products`, see [Catalog](Catalog.md#search-index)).
+<!--#endif-->
 
 ## Layout
 
@@ -83,6 +86,8 @@ Search.IntegrationTests/ Testcontainers Postgres, real module and migration, RLS
 5. **Search** from the owning module's handler with `SearchDocumentsQuery` (through `ISender`), always with its
    visibility filters. Load the hits through the module's own DbContext and filter them again. When `Status` is not
    `Ok`, fall back to the module's SQL search.
+
+The key must start with the owning module's name (`SearchIndexArchitectureTests`).
 
 ## Text pipeline
 

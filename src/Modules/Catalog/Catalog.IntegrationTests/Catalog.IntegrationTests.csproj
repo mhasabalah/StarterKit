@@ -29,6 +29,9 @@
         <ProjectReference Include="..\Catalog\Catalog.csproj" />
         <ProjectReference Include="..\Catalog.Contracts\Catalog.Contracts.csproj" />
         <ProjectReference Include="..\..\..\Shared\Shared.Core\Shared.Core.csproj" />
+        <!--#if (search)-->
+        <ProjectReference Include="..\..\Search\Search\Search.csproj" />
+        <!--#endif-->
     </ItemGroup>
 
     <ItemGroup>

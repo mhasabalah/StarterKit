@@ -1379,6 +1379,9 @@ Source: [SearchProductsEndPoint](../../src/Modules/Catalog/Catalog/Domains/Produ
 | Method | Route | Authorization / tenant scope | Restrictions | Filters |
 |---|---|---|---|---|
 | GET | `/api/v{version:apiVersion}/products/search` | `RequireAuthorization("PageGate")` | — | `RequireRateLimiting("search")` |
+<!--#if (search)-->
+| GET | `/api/v{version:apiVersion}/products/suggest` | `RequireAuthorization("PageGate")` | — | `RequireRateLimiting("search")` |
+<!--#endif-->
 
 Source: [SetPrimaryProductImageEndPoint](../../src/Modules/Catalog/Catalog/Domains/Products/Features/SetPrimaryProductImage/SetPrimaryProductImageEndPoint.cs).
 
