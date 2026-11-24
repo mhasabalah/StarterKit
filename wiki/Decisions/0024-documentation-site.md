@@ -105,7 +105,7 @@ The homepage offers the same for starting a product. Prompt text lives in `apps/
 `tests/agent-prompt.test.mjs` checks its commands against the template and the New project guide.
 
 V2 also ships the **configuration builder** (`/tools/config-builder/`), a client-only page that composes
-appsettings for a product. Sync generates its catalog from `src/Api/appsettings{,.Development,.Docker}.json` (template
+appsettings for a product, as a guided setup (ending in a prompt for an AI agent or an apply script) or as a full sheet. Sync generates its catalog from `src/Api/appsettings{,.Development,.Docker}.json` (template
 markers kept and rendered in the browser for the reader's choice of `dotnet new` options), `.template.config/template.json`,
 the key tables of `Reference/Configuration.md` and the module configuration pages, the secret table of
 `deployment/Secrets.md`, and the Compose files. A small overlay (`apps/docs-v2/lib/config-builder/overlay.mjs`) adds

@@ -8,7 +8,7 @@ type Props = { title: string; code: string; language: 'json' | 'yaml' | 'shell';
 /** A framed code block (ground title strip, hairline frame) with Copy and Download, highlighted with the site tokens. */
 export function CodeView({ title, code, language, fileName, empty }: Props) {
   const tokens = useMemo(() => tokenize(code, language) as [string, string][], [code, language]);
-  if (!code.trim()) return <div className="cb-code cb-code-empty"><div className="cb-code-head"><span>{title}</span></div><p>{empty ?? 'Nothing to export yet.'}</p></div>;
+  if (!code.trim()) return <div className="cb-code cb-code-empty"><div className="cb-code-head"><span className="cb-code-title">{title}</span></div><p>{empty ?? 'Nothing to export yet.'}</p></div>;
   return <figure className="cb-code">
     <figcaption className="cb-code-head">
       <span className="cb-code-title">{title}</span>

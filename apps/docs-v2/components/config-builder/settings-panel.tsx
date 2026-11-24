@@ -169,7 +169,10 @@ function SectionBlock(props: Props & { view: SectionView }) {
   </section>;
 }
 
-function FieldRow({ row, issuesByPath, secretNote, onChange, onReset, compact, more, label }: Props & { row: Row; compact?: boolean; more?: React.ReactNode; label?: string }) {
+export type FieldRowProps = Pick<Props, 'issuesByPath' | 'secretNote' | 'onChange' | 'onReset'> & { row: Row; compact?: boolean; more?: React.ReactNode; label?: string };
+
+/** One setting: its name, key and docs link, its meaning and checks, and the control. Shared with the guided setup. */
+export function FieldRow({ row, issuesByPath, secretNote, onChange, onReset, compact, more, label }: FieldRowProps) {
   const { field, value, changed } = row;
   const id = compact ? `cb-d-${field.path.replace(/[^\w-]/g, '-')}` : fieldId(field.path);
   const describedBy = `${id}-meaning`;

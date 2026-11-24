@@ -22,7 +22,7 @@ const stack = [
 ];
 
 /** Module folders the template generates (src/Modules) and the resources the Aspire AppHost starts. */
-const folders = ['Identity', 'Tenancy', 'Attachment', 'Catalog', 'Subscriptions', 'Webhooks', 'DataTransfer', 'Shipping', 'Agentic', 'Notification'];
+const folders = ['Identity', 'Tenancy', 'Attachment', 'Catalog', 'Subscriptions', 'Webhooks', 'DataTransfer', 'Shipping', 'Search', 'Agentic', 'Notification'];
 const resources = ['api', 'postgres', 'redis', 'seq'];
 
 function Terminal() {
@@ -59,6 +59,14 @@ function Tiles({ items }: { items: Capability[] }) {
         <span className="why-detail">{detail}</span>
       </Link>
     </li>)}
+    {/* The reader's own piece, printed inverted: what to configure for the modules kept. */}
+    <li>
+      <Link href="/tools/config-builder/#guided" className="why-tile why-tile-own">
+        <span className="why-tile-top" aria-hidden="true"><span className="why-symbol">Cf</span><ArrowUpRight size={16} /></span>
+        <b>Your configuration</b>
+        <span className="why-detail">Seven short steps give you appsettings, .env and the secrets list for the modules you keep.</span>
+      </Link>
+    </li>
   </ul>;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { FileUp, Link2, RotateCcw, X } from 'lucide-react';
+import { FileUp, Link2, ListChecks, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import {
   initialState, createContext, buildFields, lookup, isVisible, isChanged, valueOf, withValue, addEntry, removeEntry,
   dictionaryEntries, buildEnvironmentFile, buildFullFile, buildEnvironmentVariables, buildSecrets, encodeState,
@@ -9,15 +9,23 @@ import {
 import { evaluateRules } from '@/lib/config-builder/rules.mjs';
 import { environments, modules, decisions } from '@/lib/config-builder/overlay.mjs';
 import { fieldId, sectionId } from '@/lib/config-builder/format.mjs';
+import { clampStep, guidePathOf, secretNoteFor } from '@/lib/config-builder/guide.mjs';
 import { ProductPanel } from './product-panel';
 import { SettingsPanel, type Row, type SectionView } from './settings-panel';
 import { OutputPanel, type Outputs } from './output-panel';
+import { GuidedSetup, type GuidePath } from './guided-setup';
 import { CopyButton } from './code-view';
 import type { Catalog, Field, Issue, State } from './types';
 import './config-builder.css';
 
 const storageKey = 'starterkit-config-builder:v1';
 type Pane = 'product' | 'settings' | 'output';
+type Mode = 'guided' | 'builder';
+
+/** The guide's place as a hash, so a reload or a shared link resumes it. */
+/** #guided starts at the first question; #guided=agent (a door already taken) at step 1; &step= resumes. */
+const guideHash = (path: GuidePath | null, step: number) => `#guided${path ? `=${path}&step=${step}` : ''}`;
+const stepFrom = (hash: URLSearchParams, path: GuidePath | null) => (hash.has('step') ? clampStep(hash.get('step')) : path && guidePathOf(hash.get('guided')) ? 1 : 0);
 
 /**
  * The configuration builder: choose where the API runs and which modules the product has, change what differs, and
@@ -37,6 +45,10 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
   const [jump, setJump] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Set<string>>(() => new Set());
+  // First visits start the guided setup; a share link, a section link or a reader who chose the builder opens the builder.
+  const [mode, setMode] = useState<Mode>('guided');
+  const [guidePath, setGuidePath] = useState<GuidePath | null>(null);
+  const [guideStep, setGuideStep] = useState(0);
   const openSection = useCallback((section: string) => setOpenSections((current) => (current.has(section) ? current : new Set(current).add(section))), []);
 
   const context = useMemo(() => createContext(catalog, state.symbols, state.environment), [catalog, state.symbols, state.environment]);
@@ -54,6 +66,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     let restored: State | null = null;
     let name: string | undefined;
+    let savedGuide: { mode?: Mode; path?: unknown; step?: unknown } | null = null;
     const shared = hash.get('s');
     if (shared) restored = decodeState(catalog, shared) as State | null;
     if (!restored) {
@@ -61,6 +74,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
         const saved = JSON.parse(window.localStorage.getItem(storageKey) ?? 'null');
         if (saved?.state) restored = decodeState(catalog, encodeState(saved.state)) as State | null;
         if (typeof saved?.productName === 'string') name = saved.productName;
+        if (saved?.guide) savedGuide = saved.guide;
       } catch { /* a corrupt entry starts fresh */ }
     }
     if (restored) {
@@ -72,14 +86,34 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     if (name) setProductName(name);
     const section = hash.get('section');
     if (section) { setActiveSection(section); openSection(section); setJump(`section:${section}`); }
+    if (shared || section || hash.has('builder')) setMode('builder');
+    else if (hash.has('guided')) {
+      const path = guidePathOf(hash.get('guided')) ?? guidePathOf(savedGuide?.path);
+      setGuidePath(path);
+      setGuideStep(stepFrom(hash, path));
+      setMode('guided');
+    } else if (savedGuide) {
+      const path = guidePathOf(savedGuide.path);
+      setMode(savedGuide.mode === 'builder' ? 'builder' : 'guided');
+      setGuidePath(path);
+      setGuideStep(path ? clampStep(savedGuide.step) : 0);
+    } else if (restored) setMode('builder');
     setReady(true);
   }, [catalog, openSection]);
 
   // A #section= link followed while the page is already open.
   useEffect(() => {
     const onHash = () => {
-      const section = new URLSearchParams(window.location.hash.slice(1)).get('section');
-      if (section) { setPane('settings'); setActiveSection(section); openSection(section); setJump(`section:${section}`); }
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const section = hash.get('section');
+      if (section) { setMode('builder'); setPane('settings'); setActiveSection(section); openSection(section); setJump(`section:${section}`); }
+      else if (hash.has('builder')) setMode('builder');
+      else if (hash.has('guided')) {
+        const path = guidePathOf(hash.get('guided'));
+        if (path) setGuidePath(path);
+        setGuideStep(stepFrom(hash, path));
+        setMode('guided');
+      }
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -87,8 +121,15 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     if (!ready) return;
-    try { window.localStorage.setItem(storageKey, JSON.stringify({ state, productName })); } catch { /* storage full or blocked */ }
-  }, [state, productName, ready]);
+    try { window.localStorage.setItem(storageKey, JSON.stringify({ state, productName, guide: { mode, path: guidePath, step: guideStep } })); } catch { /* storage full or blocked */ }
+  }, [state, productName, ready, mode, guidePath, guideStep]);
+
+  // The guide keeps its place in the address, without adding history entries.
+  useEffect(() => {
+    if (!ready || mode !== 'guided') return;
+    const hash = guideHash(guidePath, guideStep);
+    if (window.location.hash !== hash) window.history.replaceState(null, '', `${window.location.pathname}${hash}`);
+  }, [ready, mode, guidePath, guideStep]);
 
   // Scroll to (and focus) a field or section once it is rendered.
   // One tick later, so the router's own scroll on navigation (a deep link) has already happened.
@@ -143,16 +184,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     };
   }, [context, fields, state]);
 
-  const secretNote = useCallback((field: Field) => {
-    if (state.environment === 'Development') return `Set it with dotnet user-secrets set "${field.path}".`;
-    if (state.environment === 'Production') return `Set ${field.path.split(':').join('__')} from your secret store.`;
-    if (field.composeVariable) return `Set ${field.composeVariable} in .env: Compose passes it to the API.`;
-    const mountedBy = catalog.composeSecrets[field.secretFile ?? ''];
-    const file = `secrets/${field.secretFile}.txt`;
-    if (mountedBy === 'docker-compose.yml') return `Supplied by ${file}, mounted by docker-compose.yml.`;
-    if (mountedBy) return `Supplied by ${file}, mounted by ${mountedBy} (add it with -f).`;
-    return `Supplied by ${file}. Mount it with the snippet in Secrets.`;
-  }, [catalog, state.environment]);
+  const secretNote = useCallback((field: Field) => secretNoteFor(catalog, state.environment, field), [catalog, state.environment]);
 
   const update = (next: State) => { setState(next); setConfirmReset(false); };
   const onChange = (field: Field, value: unknown) => update(withValue(state, field, value) as State);
@@ -165,6 +197,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
 
   const onJump = (path: string) => {
     const field = byPath.get(path);
+    setMode('builder');
     setPane('settings');
     setQuery('');
     setChangedOnly(false);
@@ -174,11 +207,34 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     setJump(path);
   };
 
+  const openBuilder = () => { setMode('builder'); window.history.replaceState(null, '', window.location.pathname); window.scrollTo({ top: 0 }); };
+  const openGuide = () => { setMode('guided'); window.scrollTo({ top: 0 }); };
+
   const share = () => {
     const url = `${window.location.origin}${window.location.pathname}#s=${encodeState(state)}`;
     window.history.replaceState(null, '', url);
     return url;
   };
+
+  if (mode === 'guided') {
+    return <div className="cb cb-guided">
+      <header className="cb-head">
+        <div className="cb-head-text">
+          <h1>Configuration builder</h1>
+          <p>Seven short steps to appsettings, environment variables and the secrets list. Answers stay in this browser; the full builder shows the same changes.</p>
+        </div>
+        <div className="cb-head-actions">
+          <span className="cb-head-count" aria-live="polite">{changeCount === 0 ? 'No changes yet' : `${changeCount} change${changeCount === 1 ? '' : 's'}, saved in this browser`}</span>
+          <button type="button" className="cb-tool" onClick={openBuilder}><SlidersHorizontal aria-hidden="true" />Open the full builder</button>
+        </div>
+        {notice && <p className="cb-notice" role="status">{notice}<button type="button" className="cb-icon-button" aria-label="Dismiss" onClick={() => setNotice('')}><X aria-hidden="true" /></button></p>}
+      </header>
+      <GuidedSetup catalog={catalog} state={state} byPath={byPath} issues={issues} issuesByPath={issuesByPath} outputs={outputs}
+        productName={productName} path={guidePath} step={guideStep} onPath={setGuidePath} onStep={setGuideStep}
+        onProductName={setProductName} onSymbol={onSymbol} onEnvironment={onEnvironment} onChange={onChange} onReset={onReset}
+        secretNote={secretNote} onOpenBuilder={openBuilder} />
+    </div>;
+  }
 
   return <div className="cb" data-pane={pane}>
     <header className="cb-head">
@@ -188,6 +244,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
       </div>
       <div className="cb-head-actions">
         <span className="cb-head-count" aria-live="polite" title="Your changes are kept in this browser until you reset them.">{changeCount === 0 ? 'No changes yet' : `${changeCount} change${changeCount === 1 ? '' : 's'}, saved in this browser`}</span>
+        <button type="button" className="cb-tool" onClick={openGuide}><ListChecks aria-hidden="true" />Guided setup</button>
         <CopyButton text={share} label="Copy a link to this configuration (secrets are never included)"><Link2 aria-hidden="true" />Copy share link</CopyButton>
         <button type="button" className="cb-tool" aria-expanded={importing} aria-controls="cb-import" onClick={() => setImporting(!importing)}><FileUp aria-hidden="true" />Import</button>
         {confirmReset

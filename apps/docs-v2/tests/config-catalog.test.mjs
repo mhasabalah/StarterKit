@@ -9,6 +9,9 @@ import { evaluateWith, renderJsonc, parseJsonc, loadEnvFile } from '../lib/confi
 import { modules, fields as specs, extras, dictionaries, environments, decisions, decisionLabels } from '../lib/config-builder/overlay.mjs';
 import { createContext, buildFields, flatten, specFor, initialState } from '../lib/config-builder/model.mjs';
 import { tools } from '../lib/tools.mjs';
+import { guideSteps, stepKeys, handover, clampStep, guidePathOf, applyScript, questionHelp } from '../lib/config-builder/guide.mjs';
+import { buildEnvironmentFile, buildEnvironmentVariables, buildSecrets, withValue } from '../lib/config-builder/model.mjs';
+import { evaluateRules } from '../lib/config-builder/rules.mjs';
 
 const catalog = await buildConfigCatalog();
 const routes = new Set(pages.map((page) => `/${pageSlug(page.source)}/`));
@@ -134,4 +137,63 @@ test('secrets: every secret file of Secrets.md and the compose files is known', 
   assert.ok(secretFields.length >= 15);
   for (const field of secretFields) assert.match(field.secretFile, /^[\w]+$/, field.path);
   assert.equal(all.get('Agentic:Providers:scripted:ApiKey')?.secretFile, 'agentic_scripted_api_key');
+});
+
+test('the guided setup asks every key decision once, and only keys that exist', () => {
+  const asked = guideSteps.flatMap((step) => stepKeys(step));
+  assert.equal(new Set(asked).size, asked.length, 'a key is asked in two steps');
+  for (const key of asked) assert.ok(all.has(key), `guide step key ${key}`);
+  const omitted = guideSteps.flatMap((step) => step.omit ?? []);
+  for (const group of decisions) for (const key of group.keys) assert.ok(asked.includes(key) || omitted.includes(key), `decision ${key} is in no step`);
+  for (const step of guideSteps) for (const id of step.groups) assert.ok(decisions.some((group) => group.id === id), `${step.id} names group ${id}`);
+  for (const key of asked) assert.ok(questionHelp[key], `guide question ${key} has no plain help`);
+  for (const key of Object.keys(questionHelp)) assert.ok(asked.includes(key), `help for ${key}, which no step asks`);
+  assert.deepEqual([clampStep('3'), clampStep(99), clampStep('x'), guidePathOf('agent'), guidePathOf('other')], [3, guideSteps.length - 1, 0, 'agent', null]);
+});
+
+test('the guide hand-over carries files, .env lines and secrets by name, never a secret value', () => {
+  let current = { ...state({ ...allOn, transport: 'PostgreSql' }, 'Docker') };
+  const context = createContext(catalog, current.symbols, 'Docker');
+  let fields = buildFields(context, current);
+  const set = (path, value) => { current = withValue(current, fields.find((field) => field.path === path), value); fields = buildFields(context, current); };
+  set('Messaging:Transport', 'RabbitMq');
+  set('Email:Provider', 'Smtp');
+  const outputs = {
+    environment: { id: 'Docker', label: 'Docker (Compose)', relaxed: false },
+    environmentFile: buildEnvironmentFile(context, fields, current),
+    variables: buildEnvironmentVariables(context, fields, current),
+    secrets: buildSecrets(context, fields, current),
+  };
+  const parts = handover({ catalog, outputs, issues: evaluateRules(context, fields, current) });
+  assert.equal(parts.files[0].path, 'src/Api/appsettings.Docker.json');
+  assert.match(parts.files[0].text, /"Provider": "Smtp"/);
+  assert.match(parts.additions[0].text, /^MESSAGING_TRANSPORT=RabbitMq$/m);
+  assert.ok(parts.secrets.list.some((line) => line.startsWith('JwtSettings:SecretKey: Supplied by secrets/jwt_secret.txt')));
+  assert.match(parts.secrets.script, /openssl rand/);
+  // Secret leaves may appear only empty or as the shipped CHANGE_ME placeholder.
+  const written = [...parts.files, ...parts.additions].map((part) => part.text).join('\n');
+  for (const leaf of new Set(fields.filter((entry) => entry.secret).map((field) => field.path.split(':').at(-1)))) {
+    for (const [, value] of written.matchAll(new RegExp(`"${leaf}": "([^"]*)"`, 'g'))) assert.ok(value === '' || value.includes('CHANGE_ME'), `${leaf} = ${value}`);
+  }
+});
+
+test('the apply script writes each file, merges .env by key and keeps backups', () => {
+  const parts = {
+    files: [{ path: 'src/Api/appsettings.Docker.json', language: 'json', text: '{\n  "Email": { "Provider": "Smtp" }\n}\n' }],
+    additions: [{ title: '.env', language: 'shell', text: 'MESSAGING_TRANSPORT=RabbitMq\nREDIS_ENABLED=true\n' }],
+    secrets: { list: ['JwtSettings:SecretKey: Supplied by secrets/jwt_secret.txt.'], script: 'mkdir -p secrets\nchmod 600 secrets/*\n', language: 'shell' },
+    blocking: [], recommendations: [],
+  };
+  const script = applyScript(parts, { id: 'Docker', label: 'Docker (Compose)' });
+  assert.ok(script.startsWith('#!/usr/bin/env bash\n'));
+  assert.match(script, /set -euo pipefail/);
+  assert.match(script, /cp 'src\/Api\/appsettings\.Docker\.json' 'src\/Api\/appsettings\.Docker\.json\.bak'/);
+  assert.match(script, /cat > 'src\/Api\/appsettings\.Docker\.json' <<'STARTERKIT_EOF'\n\{\n {2}"Email"/);
+  assert.match(script, /grep -v -E '\^\(MESSAGING_TRANSPORT\|REDIS_ENABLED\)=' \.env\.bak > \.env/);
+  assert.match(script, /chmod 600 secrets\/\* 2>\/dev\/null \|\| true/);
+  // Every here-document is closed.
+  assert.equal(script.match(/<<'STARTERKIT_EOF'/g).length, script.match(/^STARTERKIT_EOF$/gm).length);
+  const production = applyScript({ ...parts, additions: [] }, { id: 'Production', label: 'Production' });
+  assert.match(production, /echo '  JwtSettings__SecretKey'/);
+  assert.ok(!production.includes('mkdir -p secrets'));
 });

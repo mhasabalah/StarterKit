@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { startPrompt, pagePrompt } from '../lib/agent-prompt.mjs';
+import { startPrompt, pagePrompt, configPrompt } from '../lib/agent-prompt.mjs';
 
 const docs = 'https://docs.example.com/preview';
 const read = (file) => readFile(new URL(`../../../${file}`, import.meta.url), 'utf8');
@@ -36,4 +36,23 @@ test('the page prompt wraps the guide with its source, the rules and a task slot
   assert.ok(prompt.includes('<guide>\n# Messaging\n\nUse the outbox.\n</guide>'));
   assert.ok(prompt.includes('Read CLAUDE.md'));
   assert.ok(prompt.trimEnd().endsWith('My task:'));
+});
+
+test('the configuration prompt applies the builder export and never carries a secret value', () => {
+  const prompt = configPrompt({
+    docs, productName: 'Acme', command: 'dotnet new starterkit -n Acme --search false',
+    environment: { id: 'Docker', label: 'Docker (Compose)' },
+    files: [{ path: 'src/Api/appsettings.Docker.json', language: 'json', text: '{\n  "Email": { "Provider": "Smtp" }\n}\n' }],
+    additions: [{ title: 'Add these lines to .env:', language: 'shell', text: 'MESSAGING_TRANSPORT=RabbitMq\n' }],
+    secrets: { list: ['JwtSettings:SecretKey: Supplied by secrets/jwt_secret.txt.'], script: 'mkdir -p secrets\n', language: 'shell' },
+    blocking: ['In-memory messaging outside Development'], recommendations: ['No trusted proxy'],
+  });
+  for (const fact of ['dotnet new install StarterKit.Templates', 'dotnet new starterkit -n Acme --search false', 'src/Api/appsettings.Docker.json', '"Provider": "Smtp"',
+    'MESSAGING_TRANSPORT=RabbitMq', 'secrets/jwt_secret.txt', 'dotnet build Acme.slnx', 'dotnet test src/Api.Tests', 'docker compose up -d',
+    'In-memory messaging outside Development', 'No trusted proxy', 'never ask me to paste a secret', 'Read CLAUDE.md', `${docs}/tools/config-builder/`]) {
+    assert.ok(prompt.includes(fact), fact);
+  }
+  // Steps are numbered in order and the fences are closed.
+  assert.match(prompt, /\n1\. If the product does not exist yet[\s\S]*\n2\. Write src\/Api\/appsettings\.Docker\.json[\s\S]*\n3\. Add these lines to \.env/);
+  assert.equal(prompt.split('```').length % 2, 1);
 });

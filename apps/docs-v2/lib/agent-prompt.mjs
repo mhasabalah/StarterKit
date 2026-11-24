@@ -36,6 +36,69 @@ My goal: `;
 }
 
 /**
+ * @typedef {object} ConfigPromptInput
+ * @property {string} docs
+ * @property {string} productName
+ * @property {string} command                       The `dotnet new starterkit` command for the chosen modules.
+ * @property {{ id: string, label: string }} environment
+ * @property {{ path: string, language: string, text: string }[]} files   Files to write, relative to the product root.
+ * @property {{ title: string, language: string, text: string }[]} additions  Lines to add (.env, a Compose file, variables).
+ * @property {{ list: string[], script: string, language: string }} secrets  Secret names and where each goes; never a value.
+ * @property {string[]} blocking                     Checks that still stop the API from starting.
+ * @property {string[]} recommendations              Open checks the reader chose not to fix.
+ */
+
+/** @param {string} language @param {string} text */
+const fence = (language, text) => `\`\`\`${language}\n${text.trimEnd()}\n\`\`\``;
+
+/**
+ * The guided setup's hand-over: apply a configuration chosen in the configuration builder. It carries only what the
+ * builder exports (no secret values: the exports never contain them) plus the commands that check the result.
+ * @param {ConfigPromptInput} input @returns {string}
+ */
+export function configPrompt({ docs, productName, command, environment, files, additions, secrets, blocking, recommendations }) {
+  const steps = [];
+  steps.push(`If the product does not exist yet, create it with exactly these modules and options:
+   dotnet new install StarterKit.Templates
+   ${command}
+   If the template package feed is not configured, follow ${link(docs, '/getting-started/templates/#install')}. If the product already exists, do not generate it again: compare its modules with these options and tell me about any difference.`);
+  for (const file of files) {
+    steps.push(`Write ${file.path} with exactly this content. If the file exists, show me the difference before you replace it.
+${fence(file.language, file.text)}`);
+  }
+  for (const addition of additions) steps.push(`${addition.title}
+${fence(addition.language, addition.text)}`);
+  if (secrets.list.length) {
+    steps.push(`Set up these secrets. Never commit them, never print their values, and never ask me to paste a secret into this chat:
+${secrets.list.map((line) => `   - ${line}`).join('\n')}${secrets.script.trim() ? `
+   Run this from the product root. Lines with PASTE_THE_VALUE need a value only I have (a provider key or password): leave them as they are and list them for me at the end.
+${fence(secrets.language, secrets.script)}` : ''}`);
+  }
+  steps.push(`Check the build: dotnet build ${productName}.slnx, then dotnet test src/Api.Tests.`);
+  if (environment.id === 'Docker') steps.push('Start the stack with docker compose up -d and confirm the API is healthy. ProductionConfigurationGuard stops the API at startup when a production rule is broken; if it does, fix the setting it names.');
+  else if (environment.id === 'Production') steps.push('These settings target ASPNETCORE_ENVIRONMENT=Production. ProductionConfigurationGuard stops the API at startup when a production rule is broken; tell me what to set on the host, and fix the setting it names if a test start fails.');
+  else steps.push('Run the API locally (dotnet run --project src/Api, or the Aspire AppHost) and confirm it starts.');
+
+  return `I am setting up a product built from StarterKit, an ASP.NET Core 10 modular monolith template. I chose its configuration in the StarterKit configuration builder (${link(docs, '/tools/config-builder/')}). Apply it exactly.
+
+Target environment: ${environment.label} (ASPNETCORE_ENVIRONMENT=${environment.id}).
+
+Steps:
+${steps.map((step, index) => `${index + 1}. ${step}`).join('\n')}
+${blocking.length ? `
+These checks still stop the API from starting in this environment. Tell me before you deploy, and fix them only as I decide:
+${blocking.map((line) => `- ${line}`).join('\n')}
+` : ''}${recommendations.length ? `
+Recommendations I have not applied yet (mention them when you finish; do not change them without asking):
+${recommendations.map((line) => `- ${line}`).join('\n')}
+` : ''}
+${rules(docs)}
+
+When you finish, list what you changed and every secret I still have to fill in.
+`;
+}
+
+/**
  * A documentation page wrapped for an agent: what the product is, the rules, the page as Markdown, and a slot for the
  * task. @param {{ docs: string, title: string, path: string, markdown: string }} page @returns {string}
  */
