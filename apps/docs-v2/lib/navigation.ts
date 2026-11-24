@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import type * as PageTree from 'fumadocs-core/page-tree';
 import {
   Blocks, BookOpen, Boxes, Braces, Building2, CircleHelp, CreditCard, FileClock,
-  FolderOpen, HardDrive, KeyRound, Layers3, Lightbulb, Network, Rocket, Server,
+  FolderOpen, HardDrive, KeyRound, Layers3, Lightbulb, Network, Rocket, Search, Server,
   Settings2, ShieldCheck, TestTubeDiagonal, Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -13,14 +13,14 @@ const sectionChips: Record<string, [string, string]> = {
   Identity: ['Id', 'foundations'], Attachments: ['At', 'foundations'], Subscriptions: ['Sb', 'foundations'],
   'Shared services': ['Ar', 'practices'], Deployment: ['Dp', 'practices'], Infrastructure: ['If', 'practices'],
   Testing: ['Ts', 'practices'], Reference: ['Rf', 'practices'], Decisions: ['Dc', 'practices'], 'API reference v1': ['Ap', 'api'],
-  Notification: ['Nt', 'connected'], Agentic: ['Ag', 'connected'],
+  Notification: ['Nt', 'connected'], Agentic: ['Ag', 'connected'], Search: ['Se', 'connected'],
   // Groups that are not chart elements carry a neutral chip, so every top-level entry reads the same way.
   Concepts: ['Co', 'api'], Modules: ['Mo', 'api'], Operations: ['Op', 'api'],
 };
 const moduleChips: Record<string, [string, string]> = {
   catalog: ['Ct', 'samples'], tenancy: ['Tn', 'foundations'], subscriptions: ['Sb', 'foundations'],
   notification: ['Nt', 'connected'], webhooks: ['Wh', 'connected'], datatransfer: ['Dt', 'connected'],
-  agentic: ['Ag', 'connected'], shipping: ['Sh', 'samples'],
+  agentic: ['Ag', 'connected'], shipping: ['Sh', 'samples'], search: ['Se', 'connected'],
 };
 const chip = ([symbol, family]: [string, string]) => createElement('span', { className: 'element-chip', 'data-family': family, 'aria-hidden': true }, symbol);
 
@@ -46,7 +46,7 @@ const sectionIcons: Record<string, LucideIcon> = {
 const moduleIcons: Record<string, LucideIcon> = {
   catalog: Boxes, tenancy: Building2, subscriptions: CreditCard,
   notification: Network, webhooks: Braces, datatransfer: HardDrive,
-  agentic: Blocks, shipping: Boxes,
+  agentic: Blocks, shipping: Boxes, search: Search,
 };
 
 function pageChip(url: string) {
@@ -65,11 +65,11 @@ function pageIcon(url: string) {
 /** Startup order (ModuleOrder.cs) for the Modules group, so the sidebar reads like the home chart. */
 const moduleOrder: Record<string, number> = {
   Identity: 0, Tenancy: 100, Attachments: 200, Catalog: 300, Subscriptions: 400, Webhooks: 500,
-  DataTransfer: 600, Shipping: 700, Agentic: 800, Notification: 900,
+  DataTransfer: 600, Shipping: 700, Search: 700, Agentic: 800, Notification: 900,
 };
 const moduleKey: Record<string, string> = {
   catalog: 'Catalog', tenancy: 'Tenancy', subscriptions: 'Subscriptions', notification: 'Notification',
-  webhooks: 'Webhooks', datatransfer: 'DataTransfer', agentic: 'Agentic', shipping: 'Shipping',
+  webhooks: 'Webhooks', datatransfer: 'DataTransfer', agentic: 'Agentic', shipping: 'Shipping', search: 'Search',
 };
 function keyOf(node: PageTree.Node) {
   if (node.type === 'page') return moduleKey[node.url.split('/')[2]?.split('-')[0] ?? ''];

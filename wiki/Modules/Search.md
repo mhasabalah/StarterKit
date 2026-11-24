@@ -1,24 +1,55 @@
 # Search module
 
-Search gives every module full-text search (ranking, stemming, Arabic normalization, typo tolerance, facets and
-highlights) through one engine-neutral contract. PostgreSQL is the default engine; Meilisearch is an option.
+Search gives any module **full-text search**: best matches first, English and Arabic word forms, letter forms and
+diacritics, close spellings, facets and highlights, through one engine-neutral contract. PostgreSQL is the default
+engine; Meilisearch is a configuration switch away.
 
-Search is the **index**. The module that owns the data plugs in an **index definition** and a **document source**,
-so Search never references an owning business module. Design rationale:
-[ADR-0036](../Decisions/0036-search-module-and-engine-port.md).
+This page is the overview and the map. Each part has its own page in [the guide](#the-guide); start with
+[the big picture](#the-big-picture) and [the five rules](#the-five-rules) if you are new.
 
-Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id` and has forced RLS.
+## In one minute
 
-## Status
+| Search **is** | Search **is not** |
+|---|---|
+| An index that owning modules feed with their records | The source of truth: the owning module always is |
+| A ranked, faceted, typo-tolerant answer: ids in order | A visibility check: the owner loads every hit again with its own rules |
+| Kept in sync through the outbox, seconds after a change | Read-your-writes: lists people check right after editing stay on SQL |
+| A port (`ISearchEngine`) with a PostgreSQL and a Meilisearch adapter | Tied to one engine: both pass the same conformance suite |
+| Always answering: not ready or down means the owner's SQL search answers | A new failure mode for your routes |
 
-Search has two engines that pass one conformance suite: PostgreSQL (default, [details](../Search/Postgres-Engine.md))
-and [Meilisearch](../Search/Meilisearch.md). An index of a tenant is built by the reconcile job and kept in sync
-through the outbox; tenants manage their indexes and read zero-result analytics through the admin API, and
-[operations](../Search/Operations.md) has the runbook.
-<!--#if (sample)-->
+Its data lives in schema `search` (an `ITenantDataContext`): every row carries `tenant_id` under forced row-level
+security, and every engine request names the tenant.
 
-Catalog's products are the reference index (`catalog.products`, see [Catalog](Catalog.md#search-index)).
-<!--#endif-->
+## The big picture
+
+```mermaid
+flowchart LR
+  accTitle: Search in the system
+  accDescr: An owning module raises a change event and provides a document source; Search keeps the index in an engine and answers queries with ids that the owner loads again.
+  subgraph Owner["Owning module, for example Catalog"]
+    direction TB
+    A[Aggregate]
+    H[Search route]
+    SRC[ISearchDocumentSource]
+    DB[(Own tables)]
+  end
+  subgraph Search
+    direction TB
+    I[Indexer and jobs]
+    Q[Query handler]
+    E[(Engine: PostgreSQL<br/>or Meilisearch)]
+  end
+  A -->|"SearchDocumentsChanged<br/>(outbox)"| I
+  I -->|"reads current documents"| SRC
+  I --> E
+  H -->|"SearchDocumentsQuery"| Q
+  Q --> E
+  Q -->|"ids, total, facets, highlights"| H
+  H -->|"loads ids, rules re-applied"| DB
+  class A,H,SRC,I,Q application
+  class DB,E data
+```
+*Figure: The owner tells Search what changed and asks it for ids; Search ranks, the owner decides what the caller sees.*
 
 ## System design
 
@@ -33,6 +64,75 @@ searchRebuild
 ```
 
 *Figure: Reconcile finds an index of a tenant that was never built or was built from another definition; the rebuild streams the owner source under a new stamp while the previous build keeps answering, sweeps what the stamp did not reach, and makes it live.*
+
+| Runtime component | What this module uses it for |
+|---|---|
+| PostgreSQL | Schema `search`: index states, the PostgreSQL engine's documents, analytics (tenant data, row-level security) |
+| Hangfire (`search`) | `RebuildSearchIndexJob`, `ReconcileSearchIndexesJob`, `DetectSearchDriftJob`, `PurgeSearchAnalyticsJob` |
+| Events in | `SearchDocumentsChangedIntegrationEvent` from any owning module; `TenantDataPurgeRequestedEvent` (in-process) |
+| Meilisearch (optional) | `Search:Engine=Meilisearch`: one index per key shared by tenants, behind a scoped API key |
+
+The views come from [search.c4](../Architecture/model/search.c4); the whole system is on
+[System Design](../Architecture/System-Design.md).
+
+## Core concepts
+
+| Concept | In one line | Type / page |
+|---|---|---|
+| Index | What one module makes searchable: a key, weighted text fields, typed filter fields | `SearchIndexDefinition` ([Adding a search index](../Search/Adding-A-Search-Index.md#2-define-the-index)) |
+| Document | One record as the index sees it: id, version, branch, text, filter values | `SearchDocument.For(id, version)...Build()` |
+| Source | How Search reads the owner's current data, by id or all of it | `ISearchDocumentSource` ([step 3](../Search/Adding-A-Search-Index.md#3-write-the-document-source)) |
+| Change event | "These ids changed": Search re-reads them from the source | `SearchDocumentsChangedIntegrationEvent` |
+| Query | Text, filters, facets, sort and page against one index | `SearchDocumentsQuery` ([Searching from a client](../Search/Using-Search.md)) |
+| Status | `Ok`, `IndexNotReady`, `EngineUnavailable`: anything but `Ok` means "answer from SQL" | `SearchStatus` |
+| Match mode | `Exact`, `Fuzzy` (close spellings), `Browse` (no text) | `SearchMatchMode` |
+| Rebuild | A full reload of one tenant's index without downtime | `RebuildSearchIndexJob` ([How search works](../Search/How-It-Works.md#keeping-an-index-in-sync)) |
+| Drift | Documents the index has out of sync with the source; repaired daily | `DetectSearchDriftJob` |
+| Engine | Where documents are stored and matched | `ISearchEngine` ([PostgreSQL](../Search/Postgres-Engine.md), [Meilisearch](../Search/Meilisearch.md)) |
+
+## The five rules
+
+1. **The owner is the source of truth.** Search stores a copy to rank; it re-reads the owner's source on every change
+   and never decides what a caller may see. The owner loads every hit again with all its rules.
+2. **Changes travel through the outbox.** The aggregate raises one `SearchDocumentsChangedIntegrationEvent` per save,
+   in the same transaction. Nothing calls the indexer or an engine from feature code.
+3. **Search never fails a request.** Not built or engine down is a status; the owner answers from SQL.
+4. **Only engines touch the index.** No module reads or writes the `search` schema or a Meilisearch index, and engine
+   specifics stay behind `ISearchEngine`, pinned by the conformance suite.
+5. **Tenant first, everywhere.** Every engine statement names the tenant and the reader's branch scope; analytics keep
+   no user id or IP address.
+
+## Quick start
+
+```csharp
+// 1. In Add<M>Module: the definition and the source (Search.Contracts).
+services.AddSearchIndex<OrderSearchDocumentSource>(OrderSearchIndex.Definition);
+
+// 2. In the aggregate, on every searchable change (one per save).
+AddIntegrationEvent(SearchDocumentsChangedIntegrationEvent.For(OrderSearchIndex.Key, Id));
+
+// 3. In your search handler: ids from the index, rows from your DbContext, SQL when the status is not Ok.
+var found = await sender.Send(new SearchDocumentsQuery { IndexKey = OrderSearchIndex.Key, Text = text, Page = 1, PageSize = 20 }, ct);
+```
+
+The full walkthrough, with the source, the handler and the tests: [Adding a search index](../Search/Adding-A-Search-Index.md).
+<!--#if (sample)-->
+Catalog's products are the running reference (`catalog.products`, see [Catalog](Catalog.md#search-index)).
+<!--#endif-->
+
+## The guide
+
+| Page | Read it when you want to know |
+|---|---|
+| [How search works](../Search/How-It-Works.md) | How changes reach the index, how a search is answered, guarantees and failure modes |
+| [Searching from a client](../Search/Using-Search.md) | What a front end sends and receives: query syntax, facets, highlights, suggestions, UI patterns |
+| [Adding a search index](../Search/Adding-A-Search-Index.md) | Step by step: make your module's records searchable, with code and tests |
+| [Text and languages](../Search/Text-And-Languages.md) | Query syntax, Arabic and Latin normalization, analyzers and word forms, highlights |
+| [Managing indexes and analytics](../Search/Managing-Indexes-And-Analytics.md) | The tenant and platform routes, permissions, zero-result analytics |
+| [PostgreSQL engine](../Search/Postgres-Engine.md) | The default engine: storage, matching, ranking, safety, capacity |
+| [Meilisearch engine](../Search/Meilisearch.md) | When to choose it, setup with a least-privilege key, differences |
+| [Configuration](../Search/Configuration.md) | Every setting, with defaults |
+| [Operations](../Search/Operations.md) | First deployment, the search queue, signals, alerts and their answers |
 
 ## Layout
 
@@ -69,175 +169,16 @@ Search.IntegrationTests/ Testcontainers Postgres, real module and migration, RLS
                          the indexing pipeline, the admin commands and queries, analytics flush and purge
 ```
 
-## Making an entity searchable
+`SearchModuleManifest.Order` is `ModuleOrder.Default` (700): owning modules register their definitions before it, and
+the registry is built and validated when the host starts.
 
-1. **Define the index** in the owning module: a key `<module>.<entity>` (never renamed), text fields with a weight and
-   an analyzer (`Simple`, `English`, `Arabic`, `Bilingual`), and typed filter fields (`Keyword`, `KeywordList`,
-   `Number`, `Date`, `Boolean`; facetable, sortable).
+## Decisions
 
-   ```csharp
-   public static readonly SearchIndexDefinition Definition = new()
-   {
-       Key = "orders.orders",
-       Name = LocalizedText.Create("Orders", "الطلبات"),
-       TextFields =
-       [
-           new SearchTextField("number", SearchWeight.Highest, SearchAnalyzer.Simple) { Suggest = true },
-           new SearchTextField("customer", SearchWeight.High, SearchAnalyzer.Bilingual) { Highlight = true }
-       ],
-       FilterFields =
-       [
-           new SearchFilterField("status", SearchFieldType.Keyword) { Facetable = true },
-           new SearchFilterField("total", SearchFieldType.Number) { Sortable = true }
-       ]
-   };
-   ```
-
-2. **Implement the source** (`ISearchDocumentSource`): the current documents for a set of ids, and a stream of all of
-   them. Read every branch (`IgnoreBranchScope()`), never return soft-deleted entities, and build each document with
-   `SearchDocument.For(entity.Id, entity.Version)...Build()`.
-3. **Register both**: `services.AddSearchIndex<OrderSearchSource>(OrderSearchIndex.Definition);` in `Add<M>Module`.
-   The host refuses to start when a definition is invalid or duplicated.
-4. **Raise the change** from the aggregate whenever a searchable value changes, including delete and restore:
-   `AddIntegrationEvent(SearchDocumentsChangedIntegrationEvent.For(OrderSearchIndex.Definition.Key, Id));`. It goes
-   through the outbox; Search reads the current state from the source.
-5. **Search** from the owning module's handler with `SearchDocumentsQuery` (through `ISender`), always with its
-   visibility filters. Load the hits through the module's own DbContext and filter them again. When `Status` is not
-   `Ok`, fall back to the module's SQL search.
-
-The key must start with the owning module's name (`SearchIndexArchitectureTests`).
-
-## Text pipeline
-
-Search prepares text the same way for every engine, so results do not change when the engine does.
-
-- **Normalization** (`SearchTextNormalizer`), applied to documents and queries alike, following Lucene's Arabic rules:
-  diacritics, Quranic marks and tatweel are removed; أ إ آ ٱ become ا, ى becomes ي, ة becomes ه; hamza on waw and ya
-  folds (ؤ to و, ئ to ي); Arabic-Indic and Persian digits become 0-9; ligatures and full-width forms are decomposed;
-  Latin loses case and accents (Café matches cafe); invisible characters are removed. A map back to the original text
-  is kept for highlights. Changing a rule bumps `RegisteredIndex.FormatVersion`, which rebuilds every index.
-- **Query syntax** (`SearchQueryParser`), like web search: words (all must match), `"quoted phrases"`, `-excluded`
-  words or phrases, and `OR` between alternatives. `ab-123` is the phrase `ab 123`. Words beyond
-  `Search:Query:MaxTerms` are dropped. A query of excluded words only is no query. In autocomplete mode the word
-  being typed matches as a prefix.
-- **Highlights** (`SearchHighlighter`): a snippet of the original text (about 160 characters around the first match,
-  cut on word boundaries, HTML-encoded) with matches in `<mark>`. A word matches when its normalized form equals a
-  query word, starts with it, is a stem of it, or does so after an Arabic article or prefix (ال، وال، بال، كال، فال،
-  لل). Excluded words are never highlighted.
-
-## Keeping an index in sync
-
-```mermaid
-flowchart LR
-    accTitle: Search indexing pipeline
-    accDescr: An owning module's change goes through the outbox to the Search consumer, which re-reads the source and writes the engine. Rebuild, reconcile and drift jobs repair and rebuild.
-    owner["Owning module<br/>aggregate change"] -->|"SearchDocumentsChangedIntegrationEvent<br/>(outbox, same transaction)"| consumer["SearchDocumentsChangedConsumer"]
-    consumer -->|"ApplySearchDocumentChangesCommand"| indexer["SearchIndexer"]
-    indexer -->|"GetAsync(ids): current state"| source["ISearchDocumentSource<br/>(owning module)"]
-    indexer -->|"upsert present, remove absent"| engine[("Engine<br/>(PostgreSQL)")]
-    reconcile["ReconcileSearchIndexesJob<br/>every 15 min + at startup"] -->|"enqueue on the search queue"| rebuild["RebuildSearchIndexJob"]
-    rebuild -->|"StreamAllAsync, batches, new stamp, sweep"| engine
-    drift["DetectSearchDriftJob<br/>daily"] -->|"compare stamps, repair"| indexer
-```
-
-- **Live changes.** The owning aggregate raises `SearchDocumentsChangedIntegrationEvent` in the same transaction as
-  the change. The consumer, in the event's tenant, sends `ApplySearchDocumentChangesCommand`; `SearchIndexer` reads
-  the current documents from the source, writes those that exist and removes the others. Repeats and reordering are
-  harmless. A change is searchable seconds after it commits (metric `search.index.lag`).
-- **Rebuild** (`RebuildSearchIndexJob`, Hangfire queue `search`, per tenant). It takes the lease on the index state,
-  streams the whole source in `Indexing:BatchSize` batches under a new stamp (extending the lease every batch), sweeps
-  the documents the stamp did not reach, and makes the stamp live. The previous build keeps answering throughout, and
-  live changes during the rebuild carry the new stamp, so the sweep keeps them. An unavailable engine is retried by
-  Hangfire; any other failure is recorded (`LastErrorCode`) and the previous build stays live.
-- **Reconcile** (`ReconcileSearchIndexesJob`, `Reconcile:Cron`, and once at startup when indexes exist). It enqueues
-  a rebuild in every tenant whose index was never built or was built from another definition (the fingerprint
-  changes with any field, weight, analyzer or the normalizer). A failed rebuild is retried at most once an hour.
-- **Drift** (`DetectSearchDriftJob`, `Drift:Cron`). It compares the ids and versions of the source with the index:
-  missing, stale and orphaned documents are recorded on the index state and, with `Drift:AutoRepair`, re-indexed.
-  Indexes above `Drift:MaxDocuments` are skipped.
-- **Tenant purge.** `TenantDataPurgeRequestedEvent` removes the tenant's documents from the engine (the database rows
-  are purged centrally by Tenancy).
-- **Worker replicas.** The `search` queue has its own Hangfire server, `Hangfire:Servers:Search` (enabled with 2
-  workers by default). An instance without it logs a warning at startup: some replica must run it.
-
-## Managing indexes
-
-Tenants manage their own indexes with the tenant permission `search.manage` (Owner and Administrator by default);
-platform operators use `search.operate` (SuperAdmin only, host-only routes). Searching itself is not a Search route:
-each owning module's search endpoint decides who may search.
-
-| Route | Permission | What it does |
-|---|---|---|
-| `GET /api/v1/search/indexes` | `search.manage` | every registered index with its state in the tenant: status (`NotBuilt`, `Building`, `Ready`, `Failed`), up to date with the definition, documents, last build, last error, last drift check, fields |
-| `GET /api/v1/search/indexes/{key}` | `search.manage` | one index; 404 for a key no module registers |
-| `POST /api/v1/search/indexes/{key}/rebuild` | `search.manage`, not while impersonating | 202: queues a forced rebuild on the `search` queue; 409 `search_rebuild_running` while one holds the lease |
-| `POST /api/v1/search/indexes/{key}/drift-check` | `search.manage`, not while impersonating | 202: queues a drift check of the index; the findings appear on the index. 409 `search_index_not_built` before the first build |
-| `GET /api/v1/search/analytics/zero-results` | `search.manage` | the searches that found nothing (see below), paged |
-| `GET /api/v1/search/analytics/daily` | `search.manage` | daily counts per index |
-| `GET /api/v1/admin/search/engine` | `search.operate` | the configured engine and every definition with its fingerprint |
-| `POST /api/v1/admin/search/indexes/{key}/rebuild-all` | `search.operate`, not while impersonating | 202: queues one forced rebuild per tenant (after an engine change or an incident; definition changes rebuild on their own) |
-
-The enums the routes return (`SearchIndexStatus`, `SearchWeight`, `SearchAnalyzer`, `SearchFieldType`, `SearchStatus`,
-`SearchMatchMode`) are served, localized, by the enum lookup endpoint.
-
-## Search analytics
-
-What people look for and do not find is the most useful search signal: it shows missing products, missing synonyms
-and spellings the index does not handle. Search counts it without recording who searched.
-
-- **What counts.** Only searches a person submitted: full mode, with text, first page. Autocomplete keystrokes,
-  later pages and browsing by filters are not counted. Each counts once as found, zero results, rescued by close
-  spellings (`Fuzzy`), or unanswered (index not built or engine down, so the owner's SQL search answered).
-- **What is kept.** Per tenant, index and UTC day: the counts (`search_daily_stats`) and, for zero results, the
-  normalized term with its count and last time (`search_zero_result_terms`). No user id, IP address or session. The
-  term is normalized like the index (case, accents, Arabic letter forms), cut to `Analytics:MaxQueryLength`, and
-  dropped when it contains `@` (emails, handles), six or more digits (phone, card, id and order numbers, also with
-  spaces, dashes or dots) or is shorter than two characters (`SearchQueryScrubber`).
-- **How it is written.** Each replica counts in memory (`SearchAnalyticsBuffer`, at most `Analytics:MaxPendingTerms`
-  distinct terms between flushes; more are dropped and counted in `search.analytics.terms_dropped`), and
-  `SearchAnalyticsFlushService` adds the counts to the tables every `Analytics:FlushSeconds` and when the host stops,
-  one unit of work per tenant. A search never waits for it, and a failed write loses those counts only (fail open).
-- **Retention.** `PurgeSearchAnalyticsJob` (`Analytics:PurgeCron`, daily) removes days older than
-  `Analytics:RetentionDays`. `Analytics:Enabled=false` stops counting; the purge still runs.
-
-## PostgreSQL engine
-
-The default engine keeps documents in the application database, in `search.search_documents` (tenant data, forced
-RLS): a weighted `tsvector` per document (English and Arabic stemming), a trigram index for close spellings and
-suggestions, and typed `jsonb` filters. An older write never replaces a newer one, totals are exact, and every search
-runs under a statement timeout. Storage, matching, safety and capacity are in [PostgreSQL engine](../Search/Postgres-Engine.md).
-
-## Meilisearch engine
-
-`Search:Engine=Meilisearch` (`docker-compose.meilisearch.yml`) stores the indexes on a Meilisearch server: one index
-per key shared by every tenant, a tenant filter on every request. It has no stemming and no cross-batch version guard,
-and `OR` queries report estimated totals; setup, the least-privilege key and operations are in
-[Meilisearch](../Search/Meilisearch.md).
-
-## Operations
-
-First deployment, switching engines, scaling the `search` queue, the signals to watch and the answer to each alert are
-in [Search operations](../Search/Operations.md).
-
-## Configuration
-
-Section `Search` (validated at startup):
-
-| Key | Default | Meaning |
-|---|---|---|
-| `Engine` | `Postgres` | `Postgres` or `Meilisearch` |
-| `Query:MaxPageSize` / `MaxWindow` / `MaxTextLength` / `MaxTerms` | 100 / 1000 / 200 / 10 | query limits |
-| `Query:Fuzzy:Enabled` / `MinTermLength` / `Threshold` | true / 3 / 0.4 | close-spelling fallback |
-| `Facets:MaxValues` / `ScanLimit` | 20 / 10000 | facet counts |
-| `Postgres:StatementTimeoutMs` | 2000 | timeout of every search query |
-| `Meilisearch:Url` / `ApiKey` / `IndexPrefix` | | required with `Engine=Meilisearch` (the key from a secret) |
-| `Meilisearch:TimeoutSeconds` / `TaskTimeoutSeconds` | 10 / 30 | per request, and per write task |
-| `Indexing:BatchSize` / `LeaseMinutes` | 500 / 30 | rebuilds |
-| `Reconcile:Cron`, `Drift:Cron` / `AutoRepair` / `MaxDocuments` | every 15 min, 03:00 / true / 200000 | index upkeep |
-| `Analytics:Enabled` / `RetentionDays` / `MaxQueryLength` / `FlushSeconds` | true / 90 / 64 / 30 | zero-result analytics |
-| `Analytics:MaxPendingTerms` / `PurgeCron` | 10000 / 03:30 | analytics buffer bound and retention purge |
+| ADR | Decision |
+|---|---|
+| [ADR-0036](../Decisions/0036-search-module-and-engine-port.md) | Full-text search in one Search module, behind an engine port, fed by the outbox |
 
 ## Related
 
-[ADR-0036](../Decisions/0036-search-module-and-engine-port.md), [Messaging](../Architecture/Messaging.md),
-[Multi-tenancy overview](../MultiTenancy/Overview.md), [Endpoint authorization](../Reference/Endpoint-Authorization.md).
+[Messaging](../Architecture/Messaging.md), [Multi-tenancy overview](../MultiTenancy/Overview.md),
+[Endpoint authorization](../Reference/Endpoint-Authorization.md), [Database conventions](../Architecture/DatabaseConventions.md).

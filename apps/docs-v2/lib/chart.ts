@@ -30,6 +30,7 @@ const moduleDefinitions: Definition[] = [
   { symbol: 'Sb', name: 'Subscriptions', family: 'foundations', order: 400, url: '/modules/subscriptions/', prefixes: ['/modules/subscriptions/', '/subscriptions/'] },
   { symbol: 'Wh', name: 'Webhooks', family: 'connected', order: 500, url: '/modules/webhooks/', prefixes: ['/modules/webhooks/'] },
   { symbol: 'Dt', name: 'DataTransfer', family: 'connected', order: 600, url: '/modules/datatransfer/', prefixes: ['/modules/datatransfer/'] },
+  { symbol: 'Se', name: 'Search', family: 'connected', order: 700, url: '/modules/search/', prefixes: ['/modules/search/', '/search/'] },
   { symbol: 'Sh', name: 'Shipping', family: 'samples', order: 700, url: '/modules/shipping/', prefixes: ['/modules/shipping/'] },
   { symbol: 'Ag', name: 'Agentic', family: 'connected', order: 800, url: '/modules/agentic/', prefixes: ['/modules/agentic/'] },
   { symbol: 'Nt', name: 'Notification', family: 'connected', order: 900, url: '/modules/notification/', prefixes: ['/modules/notification'] },

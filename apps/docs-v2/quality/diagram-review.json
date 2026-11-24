@@ -1,5 +1,5 @@
 {
-  "reviewed": 153,
+  "reviewed": 156,
   "renderers": {
     "v2": "Mermaid 12.3.0",
     "v1": "Mermaid 12.2.0; unchanged renderer"
@@ -3540,42 +3540,6 @@
       "status": "reviewed"
     },
     {
-      "file": "wiki/Modules/Search.md",
-      "diagram": 1,
-      "type": "flowchart",
-      "title": "Search indexing pipeline",
-      "after": "4d50febb2a525cd37b07c68a0cf5523e345ccd66be9fa8a1ee607431a4bcee8f",
-      "review": "Live changes travel as SearchDocumentsChangedIntegrationEvent through the owner outbox to SearchDocumentsChangedConsumer, which sends ApplySearchDocumentChangesCommand; SearchIndexer re-reads the source and upserts present ids, removes absent ones. Reconcile (cron and startup) enqueues RebuildSearchIndexJob on the search queue; drift compares stamps and repairs through the indexer. Checked against the consumer, indexer and job classes.",
-      "roles": {
-        "domain": [
-          "owner",
-          "source"
-        ],
-        "event": [
-          "consumer"
-        ],
-        "application": [
-          "indexer"
-        ],
-        "infrastructure": [
-          "reconcile",
-          "rebuild",
-          "drift"
-        ],
-        "data": [
-          "engine"
-        ]
-      },
-      "evidence": [
-        "src/Modules/Search/Search/Domains/Indexes/Consumers/SearchDocumentsChangedConsumer.cs",
-        "src/Modules/Search/Search/Domains/Indexes/Services/SearchIndexer.cs",
-        "src/Modules/Search/Search/Domains/Indexes/Jobs/RebuildSearchIndexJob.cs",
-        "src/Modules/Search/Search/Domains/Indexes/Jobs/ReconcileSearchIndexesJob.cs",
-        "src/Modules/Search/Search/Domains/Indexes/Jobs/DetectSearchDriftJob.cs"
-      ],
-      "status": "reviewed"
-    },
-    {
       "file": "wiki/Search/Meilisearch.md",
       "diagram": 1,
       "type": "flowchart",
@@ -3622,6 +3586,114 @@
         "src/Modules/Search/Search/Engine/Postgres/PostgresSql.cs"
       ],
       "status": "reviewed"
+    },
+    {
+      "file": "wiki/Modules/Search.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Search in the system",
+      "after": "912f790ca88b393df7af784a3b55766fe72c9cf886cbb926e24f92886f3d638d",
+      "review": "The owner raises SearchDocumentsChangedIntegrationEvent through the outbox and provides ISearchDocumentSource; the indexer reads current documents and writes the engine; the owner route sends SearchDocumentsQuery and loads the returned ids through its own tables with every rule re-applied. Checked against IndexedProductSearch and SearchIndexer.",
+      "roles": {
+        "application": [
+          "A",
+          "H",
+          "SRC",
+          "I",
+          "Q"
+        ],
+        "data": [
+          "DB",
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/IndexedProductSearch.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Services/SearchIndexer.cs",
+        "src/Modules/Search/Search.Contracts/Indexing/ISearchDocumentSource.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Search/How-It-Works.md",
+      "diagram": 1,
+      "type": "sequenceDiagram",
+      "title": "A change and a search, end to end",
+      "after": "61d1b6034ebec4842dc7f77a47b1c3f824d694fc71a5614b2d7d1bbec52ec9d4",
+      "review": "Write path: save plus outbox row in one transaction, delivery to the consumer, source re-read, upsert or remove. Read path: SearchDocumentsQuery with tenant and branch scope, ids in ranked order, hydration with the owner rules. Checked against SearchDocumentsChangedConsumer, SearchIndexer, SearchDocumentsHandler and IndexedProductSearch.",
+      "roles": {
+        "external": [
+          "U"
+        ],
+        "application": [
+          "C",
+          "S"
+        ],
+        "event": [
+          "O"
+        ],
+        "data": [
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Search/Search/Domains/Indexes/Consumers/SearchDocumentsChangedConsumer.cs",
+        "src/Modules/Search/Search/Domains/Querying/Features/SearchDocuments/SearchDocumentsHandler.cs",
+        "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/IndexedProductSearch.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Search/How-It-Works.md",
+      "diagram": 2,
+      "type": "flowchart",
+      "title": "Search in the system",
+      "after": "4d50febb2a525cd37b07c68a0cf5523e345ccd66be9fa8a1ee607431a4bcee8f",
+      "review": "The owner raises SearchDocumentsChangedIntegrationEvent through the outbox and provides ISearchDocumentSource; the indexer reads current documents and writes the engine; the owner route sends SearchDocumentsQuery and loads the returned ids through its own tables with every rule re-applied. Checked against IndexedProductSearch and SearchIndexer.",
+      "roles": {
+        "application": [
+          "A",
+          "H",
+          "SRC",
+          "I",
+          "Q"
+        ],
+        "data": [
+          "DB",
+          "E"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/IndexedProductSearch.cs",
+        "src/Modules/Search/Search/Domains/Indexes/Services/SearchIndexer.cs",
+        "src/Modules/Search/Search.Contracts/Indexing/ISearchDocumentSource.cs"
+      ],
+      "status": "reviewed"
+    },
+    {
+      "file": "wiki/Search/Adding-A-Search-Index.md",
+      "diagram": 1,
+      "type": "flowchart",
+      "title": "Adding a search index",
+      "after": "df0225db1d5390c396dfc884eb642535de9848a6fd119b204a814afdee6cc9ab",
+      "review": "The steps of the guide in order: decide fields and visibility, SearchIndexDefinition, ISearchDocumentSource, AddSearchIndex, the change event from the aggregate, the handler with SQL fallback, tests. Matches Catalog's integration.",
+      "roles": {
+        "application": [
+          "D",
+          "I",
+          "S",
+          "R",
+          "E",
+          "Q",
+          "T"
+        ]
+      },
+      "evidence": [
+        "src/Modules/Search/Search.Contracts/Indexing/SearchIndexServiceCollectionExtensions.cs",
+        "src/Modules/Catalog/Catalog/CatalogModule.cs",
+        "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/ProductSearchDocumentSource.cs"
+      ],
+      "status": "reviewed"
     }
   ],
   "originalCount": 106,
@@ -3637,7 +3709,7 @@
     "widthBudget": 860,
     "layout": "Dagre default; ELK for contract map and SCIM"
   },
-  "fileCount": 86,
+  "fileCount": 88,
   "originalInventory": [
     {
       "file": "README.md",

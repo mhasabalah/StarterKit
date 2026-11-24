@@ -82,6 +82,7 @@ const capabilities: { symbol: string; title: string; detail: string }[] = [
   { symbol: 'Nt', title: 'Notifications', detail: 'Email and WhatsApp with fallback, an in-app inbox over SignalR, and push.' },
   { symbol: 'Wh', title: 'Webhooks', detail: 'Signed outbound webhooks per tenant, with retries and a delivery log.' },
   { symbol: 'Dt', title: 'Bulk import and export', detail: 'CSV and Excel jobs with a dry run, an error report and resume after a crash.' },
+  { symbol: 'Se', title: 'Full-text search', detail: 'Ranked, faceted, typo-tolerant search in English and Arabic for any module, on PostgreSQL or Meilisearch.' },
   { symbol: 'Ag', title: 'AI agents', detail: 'Durable agent runs with typed tools, approvals, knowledge on pgvector and an MCP server.' },
   { symbol: 'Ar', title: 'Observability', detail: 'OpenTelemetry traces, metrics and logs, with Grafana, Tempo, Loki and Prometheus locally.' },
   { symbol: 'Dp', title: 'Deployment', detail: 'Docker and Nginx, a GitHub Actions pipeline with an approval gate, migrations at deploy, rollback.' },

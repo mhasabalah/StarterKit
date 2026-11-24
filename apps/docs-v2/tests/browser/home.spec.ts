@@ -16,7 +16,8 @@ for (const theme of ['light', 'dark']) {
       await expect(page.locator('#nd-nav .brand-logo')).toHaveCount(1);
       await expect(page.locator('.brand-mark:visible').first()).toBeVisible();
       const chart = page.locator('.chart');
-      await expect(chart.locator('.chart-modules .tile')).toHaveCount(11);
+      await expect(chart.locator('.chart-modules .tile')).toHaveCount(12);
+      await expect(chart.getByRole('link', { name: /^Search, startup order 700, \d+ pages/ })).toBeVisible();
       await expect(chart.locator('.chart-practices .tile')).toHaveCount(8);
       await expect(chart.getByRole('link', { name: /^Identity, startup order 000, \d+ pages/ })).toBeVisible();
       await expect(chart.getByRole('link', { name: /^Your module, startup order 700/ })).toBeVisible();
@@ -95,7 +96,8 @@ test('the home says what ships on day one, what it is built on and how it is sha
   await page.goto(base + '/');
   const why = page.getByRole('region', { name: 'Ship the product, not the plumbing.' });
   const tiles = why.getByRole('list', { name: 'Ready on day one' });
-  await expect(tiles.getByRole('link')).toHaveCount(10);
+  await expect(tiles.getByRole('link')).toHaveCount(11);
+  await expect(tiles.getByRole('link', { name: /^Full-text search Ranked, faceted/ })).toHaveAttribute('href', /\/modules\/search\/$/);
   await expect(tiles.getByRole('link', { name: /^Identity JWT with rotating refresh tokens/ })).toHaveAttribute('href', /\/identity\/$/);
   await expect(why.getByRole('list', { name: 'Built on' }).getByRole('listitem').first()).toHaveText('ASP.NET Core 10');
   await expect(why.getByRole('link', { name: 'Every package, with its version' })).toHaveAttribute('href', /\/architecture\/technologystack\/$/);

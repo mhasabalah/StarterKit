@@ -216,8 +216,9 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .chart-cell[data-cell='Nt'] { grid-column: 6; grid-row: 1; }
 .chart-cell[data-cell='Tn'] { grid-column: 1; grid-row: 2; }
 .chart-cell[data-cell='Sh'] { grid-column: 1; grid-row: 3; }
-.chart-cell[data-cell='yours'] { grid-column: 2; grid-row: 3; }
-.chart-cell[data-cell='Ag'] { grid-column: 3; grid-row: 3; }
+.chart-cell[data-cell='Se'] { grid-column: 2; grid-row: 3; }
+.chart-cell[data-cell='yours'] { grid-column: 3; grid-row: 3; }
+.chart-cell[data-cell='Ag'] { grid-column: 4; grid-row: 3; }
 
 .tile {
   --fam: var(--sk-muted); --fam-tint: var(--sk-paper);

@@ -111,9 +111,15 @@ wiki/
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
 <!--#if (search)-->
-- [Search](Modules/Search.md): full-text search behind an engine port (index definitions plugged in by the owning module, PostgreSQL or Meilisearch)
+- [Search](Modules/Search.md): full-text search behind an engine port (overview, the five rules, system design, guide map)
+  - [How search works](Search/How-It-Works.md): the indexing pipeline, answering a search, guarantees, failure modes
+  - [Searching from a client](Search/Using-Search.md): query syntax, facets, highlights, suggestions, UI patterns, errors
+  - [Adding a search index](Search/Adding-A-Search-Index.md): step by step: definition, source, change event, search handler with SQL fallback, tests
+  - [Text and languages](Search/Text-And-Languages.md): query syntax, Arabic and Latin normalization, analyzers, highlights
+  - [Managing indexes and analytics](Search/Managing-Indexes-And-Analytics.md): tenant and platform routes, permissions, zero-result analytics
   - [PostgreSQL engine](Search/Postgres-Engine.md): the default engine: storage, analyzers, matching and ranking, safety, capacity
   - [Meilisearch](Search/Meilisearch.md): the Meilisearch engine: when to choose it, setup with a least-privilege key, layout, differences, operations
+  - [Search configuration](Search/Configuration.md): every setting with its default
   - [Search operations](Search/Operations.md): first deployment, the search queue, signals, alert answers, routine tasks
 <!--#endif-->
 <!--#if (agentic)-->
