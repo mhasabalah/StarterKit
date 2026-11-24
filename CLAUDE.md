@@ -74,6 +74,9 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 <!--#else-->
 | `src/Modules/<M>/<M>.Tests`, `<M>.IntegrationTests` | Unit tests; integration tests on Testcontainers Postgres (Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks; Attachment's live in `Attachment.Tests/Integration`) |
 <!--#endif-->
+<!--#if (search)-->
+| `src/Modules/Search/Search.IntegrationTests` | Search on Testcontainers Postgres and Meilisearch: the engine conformance suite runs against both engines |
+<!--#endif-->
 | `src/Modules/Identity/UserDirectory.Contracts` | Provider-neutral user port: the ONLY way other modules see users |
 | `src/Shared/Shared.Contracts` | CQRS interfaces + the owned mediator port (`Mediation`: `ISender`, `IPublisher`, ...), pagination, `IDomainEvent`, `IntegrationEvent`, `LocalizedText`, `[LocalizedDescription]` |
 | `src/Shared/Shared.Core` | Base classes, mediator behaviors, EF/outbox/multi-tenancy/auth/web helpers (`Shared.Core.Tests` beside it) |
@@ -106,6 +109,10 @@ The SDK is pinned in `global.json` (10.0.x). All NuGet versions are in `Director
 - **Notification**: every email/WhatsApp delivery and its log, the in-app inbox + SignalR hub, push devices + FCM.
 - **Webhooks**: outbound customer webhooks (tenant endpoints, signed deliveries, retries, delivery log).
 - **DataTransfer**: bulk CSV/Excel import/export jobs; owning modules plug in definitions (`catalog.products`).
+<!--#if (search)-->
+- **Search**: full-text search behind an engine port (PostgreSQL or Meilisearch); owning modules plug in an index
+  definition and a document source (`Search.Contracts`, ADR-0036).
+<!--#endif-->
 <!--#if (agentic)-->
 - **Agentic**: AI agents as durable runs; owning modules plug in agents and typed tools (`Agentic.Contracts`).
 <!--#endif-->
@@ -390,6 +397,24 @@ Notification is the exception: its context is in `Persistence/`.
     `SummarizeAgentConversationJob`, from messages and final answers (never tool results), are untrusted history, and
     are erased with the content of any turn they cover.
 <!--#endif-->
+<!--#if (search)-->
+- **Full-text search** (Search, [ADR-0036](wiki/Decisions/0036-search-module-and-engine-port.md); guide:
+  `wiki/Modules/Search.md`, engines and operations in `wiki/Search/`):
+  - Never add `ILIKE` ranking, a search table or a search-engine client to another module. Make an entity searchable
+    with an index definition and an `ISearchDocumentSource` in the owning module, registered with
+    `AddSearchIndex<TSource>(definition)` (`Search.Contracts`). The key is `<module>.<entity>`, never renamed.
+  - The source reads every branch (`IgnoreBranchScope()`), never returns soft-deleted entities, and uses the entity's
+    `Version` as the document version.
+  - The aggregate raises `SearchDocumentsChangedIntegrationEvent.For(key, id)` with `AddIntegrationEvent` whenever a
+    searchable value changes, including create, delete, restore and purge: at most one per save. Never call the
+    indexer or an engine from feature code.
+  - The index decides nothing about visibility. Search through `SearchDocumentsQuery` with the visibility filters,
+    then load the ids through the owner's own DbContext with every filter re-applied, in the index's order. When the
+    status is not `Ok` (index not built, engine down), answer from the owner's SQL search; never fail the request.
+  - Only the engines touch the index: never read or write the `search` schema or a Meilisearch index directly.
+    Engine-specific behaviour stays behind `ISearchEngine` and is pinned by the conformance suite
+    (`SearchEngineConformanceTests`); a new engine passes it before it ships.
+<!--#endif-->
 
 - **Plan reads vs billing.** Feature gates and quotas use `ISubscriberIdProvider.GetPayingSubscriberId()` (any member;
   the tenant pays). `GetCurrentSubscriberId()` is for managing the subscription and needs `tenant.billing.manage`.
@@ -404,6 +429,12 @@ Notification is the exception: its context is in `Persistence/`.
     Agentic).
 <!--#else-->
   - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer).
+<!--#endif-->
+<!--#if (search)-->
+    - Search (`SearchDbContext`) is tenant data too. Its documents table is written only by the PostgreSQL engine and
+      its analytics tables only by `SearchAnalyticsStore`, in raw SQL that names the tenant; never write them through
+      EF or from another module. Search analytics never store a user id or IP address, and terms go through
+      `SearchQueryScrubber`.
 <!--#endif-->
     - Every entity there, children included, is `IMustHaveTenant`.
     - Unique indexes start with `TenantId`.
@@ -453,6 +484,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | Attachment `AttachmentDeletedIntegrationEvent` → Agentic removes knowledge indexed from the file | Integration |
 <!--#endif-->
 | Identity `UserSessionsRevokedIntegrationEvent` (in `UserDirectory.Contracts`) → Notification `UserSessionsRevokedConsumer` closes hub sockets | Integration |
+<!--#if (search)-->
+| Any owner `SearchDocumentsChangedIntegrationEvent` (in `Search.Contracts`) → Search `SearchDocumentsChangedConsumer` re-reads the documents from the source and re-indexes them | Integration |
+<!--#endif-->
 | Subscriptions payment webhook → settlement (inbox `inbound_webhook_events`, unique per provider event) | Inbound, idempotent |
 | `ImpersonationStartedEvent` → Tenancy audit (must fail the command) | In-process, sync |
 | `TenantDataPurgeRequestedEvent` → blob/log purge (purge-job step) | In-process |
@@ -504,6 +538,9 @@ The full guide is `wiki/Architecture/Messaging.md`.
 | `AdminEndpointAuthorizationTests` | An `/admin` or `/superadmin` route has no admin or permission policy; a used permission policy is unregistered; **any endpoint declares no authorization at all** |
 <!--#if (agentic)-->
 | `AgentToolArchitectureTests` | An agent tool takes a DbContext, a repository, `IServiceProvider` or `IServiceScopeFactory` instead of calling `ISender`, or a tool class lacks `[AgentTool]` / `IAgentTool<,>` |
+<!--#endif-->
+<!--#if (search)-->
+| `SearchIndexArchitectureTests` | A search index definition has no document source, its source is outside a module implementation, its key does not start with the owning module's name, or two definitions share a key. (`ThirdPartyIsolationTests` also keeps search-engine client packages inside Search.) |
 <!--#endif-->
 | `ClientGeneratedKeyTests` | A child entity (reached through a collection navigation) has a store-generated Guid key: needs `ValueGeneratedNever()` |
 | `PendingModelChangesTests` (`Api.E2ETests`) | The EF model changed without a migration |

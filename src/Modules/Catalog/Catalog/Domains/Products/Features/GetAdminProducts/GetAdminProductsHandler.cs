@@ -14,26 +14,25 @@ public class GetAdminProductsQueryValidator : AbstractValidator<GetAdminProducts
 /// <summary>Admin listing over the same filter pipeline as the public one; any status, optionally deleted rows.</summary>
 public class GetAdminProductsHandler(
     CatalogDbContext dbContext,
-    IHttpContextService httpContextService,
+    IProductSearch productSearch,
     ProductDtoMapper mapper)
     : IQueryHandler<GetAdminProductsQuery, PaginatedResult<ProductAdminDto>>
 {
     public async Task<PaginatedResult<ProductAdminDto>> Handle(
         GetAdminProductsQuery query, CancellationToken cancellationToken)
     {
-        var categoryIds = await ProductQueryBuilder.ResolveCategoryIdsAsync(dbContext, query, cancellationToken);
-
         var products = dbContext.Products.AsNoTracking();
         if (query.IncludeDeleted)
             products = products.IgnoreNonIsolationFilters();
 
-        var rows = ProductQueryBuilder
-            .ApplyFilters(products, query, categoryIds)
-            .ToProductRows(dbContext.WishlistItems, httpContextService.GetUserIdAsGuid() ?? Guid.Empty,
-                includeGallery: false)
-            .Sorted(query);
+        var page = await productSearch.SearchAsync(new ProductSearchRequest
+        {
+            Products = products,
+            Filters = query,
+            Paging = query,
+            IncludesDeleted = query.IncludeDeleted // deleted products are never indexed: SQL answers
+        }, cancellationToken);
 
-        var page = await rows.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
-        return page.Map(mapper.ToAdmin);
+        return page.Rows.Map(mapper.ToAdmin);
     }
 }

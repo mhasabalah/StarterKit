@@ -57,6 +57,9 @@ flowchart TB
 <!--#if (agentic)-->
 | `AttachmentDeletedIntegrationEvent` (Attachment) | Integration | Agentic `AttachmentDeletedKnowledgeConsumer` removes the knowledge documents indexed from the file. |
 <!--#endif-->
+<!--#if (search)-->
+| `SearchDocumentsChangedIntegrationEvent` (`Search.Contracts`, raised by any owning module) | Integration | Search `SearchDocumentsChangedConsumer` re-reads the ids from the index's document source and upserts or removes them (idempotent, order-independent). A rebuild, the reconcile job and the daily drift check repair anything an event missed. |
+<!--#endif-->
 | `UserSessionsRevokedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | Identity persists a `SessionRevocation` tombstone and outbox fact for session revocation; Notification `UserSessionsRevokedConsumer` closes revoked hub sessions across replicas. Sign-out does not wait for Notification. |
 <!--#if (agentic)-->
 | `UserDeletedIntegrationEvent` (`UserDirectory.Contracts`) | Integration | `UserDeletedAttachmentConsumer`, `UserDeletedTenancyConsumer`, `UserDeletedNotificationConsumer`, `UserDeletedAgenticConsumer` clean up module-owned data. |

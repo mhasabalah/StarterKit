@@ -21,14 +21,28 @@ namespace Catalog.IntegrationTests;
 /// Catalog outbox table, which the tests assert on.
 /// The schema comes from the module's migrations (<c>MigrateAsync</c>).
 /// Tests share the database; each test uses fresh owners / SKUs so they stay independent.
+/// Product lists and searches run on the SQL path here (<c>Catalog:Search:UseSearchIndex=false</c>); a derived fixture
+/// adds more modules through <see cref="ConfigureServices"/>.
 /// </summary>
-public sealed class CatalogPostgresFixture : IAsyncLifetime
+public class CatalogPostgresFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private ServiceProvider _provider = default!;
 
     public FakeHttpContextService Http { get; } = new();
     public IServiceProvider Services => _provider;
+    public string ConnectionString => _container.GetConnectionString();
+
+    /// <summary>Settings added to (or replacing) the base configuration.</summary>
+    protected virtual IEnumerable<KeyValuePair<string, string?>> Settings => [];
+
+    /// <summary>Registers more services after <c>AddCatalogModule</c>.</summary>
+    protected virtual void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+    {
+    }
+
+    /// <summary>Runs after the Catalog migrations and seed (more migrations, for example).</summary>
+    protected virtual Task InitializeMoreAsync(IServiceProvider services) => Task.CompletedTask;
 
     public async ValueTask InitializeAsync()
     {
@@ -39,8 +53,10 @@ public sealed class CatalogPostgresFixture : IAsyncLifetime
             {
                 ["ConnectionStrings:starterkit"] = _container.GetConnectionString(),
                 ["Catalog:SoftDeleteRetentionDays"] = "30",
-                ["Catalog:PurgeBatchSize"] = "100"
+                ["Catalog:PurgeBatchSize"] = "100",
+                ["Catalog:Search:UseSearchIndex"] = "false"
             })
+            .AddInMemoryCollection(Settings)
             .Build();
 
         var services = new ServiceCollection();
@@ -50,6 +66,7 @@ public sealed class CatalogPostgresFixture : IAsyncLifetime
         services.AddSingleton<IEnumLocalizationService, EnumLocalizationService>();
         services.AddSingleton<IHttpContextService>(Http);
         services.AddCatalogModule(configuration);
+        ConfigureServices(services, configuration);
 
         _provider = services.BuildServiceProvider();
 
@@ -60,6 +77,7 @@ public sealed class CatalogPostgresFixture : IAsyncLifetime
         await db.Database.MigrateAsync();
         await scope.ServiceProvider.GetServices<Shared.Core.Data.Seed.IDataSeeder>()
             .OfType<CatalogDataSeeder>().Single().SeedAllAsync();
+        await InitializeMoreAsync(scope.ServiceProvider);
     }
 
     public async ValueTask DisposeAsync()
@@ -67,6 +85,7 @@ public sealed class CatalogPostgresFixture : IAsyncLifetime
         if (_provider is not null)
             await _provider.DisposeAsync();
         await _container.DisposeAsync();
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>Sends a request through the real pipeline in a fresh scope (= a new HTTP request) as the given user.</summary>

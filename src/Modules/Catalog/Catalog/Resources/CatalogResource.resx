@@ -62,6 +62,8 @@
   <data name="Validation.PageSize.Range" xml:space="preserve"><value>Page size must be between {From} and {To}.</value></data>
   <data name="Validation.SearchTerm.Required" xml:space="preserve"><value>Search term is required.</value></data>
   <data name="Validation.SearchTerm.MaxLength" xml:space="preserve"><value>Search term must not exceed {MaxLength} characters.</value></data>
+  <data name="Validation.Facet.Invalid" xml:space="preserve"><value>Unknown facet. Use Category, Tag, Type, Currency or Featured.</value></data>
+  <data name="Validation.SuggestLimit.Range" xml:space="preserve"><value>The number of suggestions must be between 1 and {0}.</value></data>
   <data name="Validation.PriceRange.Invalid" xml:space="preserve"><value>Maximum price must be greater than or equal to the minimum price.</value></data>
   <data name="Validation.Slug.Required" xml:space="preserve"><value>Slug is required.</value></data>
   <data name="Validation.Slug.MaxLength" xml:space="preserve"><value>Slug must not exceed {MaxLength} characters.</value></data>

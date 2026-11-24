@@ -75,6 +75,20 @@ public static class HangfireConfiguration
             });
         }
 
+#if (SEARCH)
+        // Search index rebuilds (Search module): they stream every document of an index, so they get their own
+        // server and never delay the default queue.
+        if (servers.Search.Enabled)
+        {
+            services.AddHangfireServer(options =>
+            {
+                options.Queues = [Search.Options.SearchOptions.Queue];
+                options.WorkerCount = servers.Search.WorkerCount;
+                options.ServerName = "search-server";
+            });
+        }
+#endif
+
 #if (AGENTIC)
         // AI agent runs (Agentic module): a worker is held for the length of a model request, so they get their own
         // server and never delay notifications or the default queue.
@@ -110,6 +124,9 @@ public sealed class HangfireServerRoles
     public HangfireServerRole Default { get; set; } = new() { WorkerCount = 5 };
     public HangfireServerRole Notification { get; set; } = new() { WorkerCount = 4 };
     public HangfireServerRole DataTransfer { get; set; } = new() { WorkerCount = 2 };
+#if (SEARCH)
+    public HangfireServerRole Search { get; set; } = new() { WorkerCount = 2 };
+#endif
 #if (AGENTIC)
     public HangfireServerRole Agentic { get; set; } = new() { WorkerCount = 4 };
 #endif
@@ -119,6 +136,9 @@ public sealed class HangfireServerRoles
         var roles = new HangfireServerRoles();
         configuration.GetSection("Hangfire:Servers").Bind(roles);
         List<HangfireServerRole> all = [roles.Default, roles.Notification, roles.DataTransfer];
+#if (SEARCH)
+        all.Add(roles.Search);
+#endif
 #if (AGENTIC)
         all.Add(roles.Agentic);
 #endif

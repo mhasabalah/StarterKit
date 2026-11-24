@@ -44,6 +44,12 @@
       "defaultValue": "true",
       "description": "Include the Agentic module (AI agents as durable runs, tools, approvals, knowledge, conversations, delegation, MCP server) and everything that uses it, the Shipping sample included."
     },
+    "search": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include the Search module (full-text index behind an engine port: PostgreSQL by default or Meilisearch; facets, typo tolerance, Arabic normalization, admin API, zero-result analytics) and Catalog's indexed product search."
+    },
     "multitenancy": {
       "type": "parameter",
       "datatype": "choice",
@@ -132,6 +138,10 @@
     "AGENTIC": {
       "type": "computed",
       "value": "(agentic)"
+    },
+    "SEARCH": {
+      "type": "computed",
+      "value": "(search)"
     },
     "templateSource": {
       "type": "computed",
@@ -304,7 +314,9 @@
             "wiki/Modules/Shipping.md",
             "wiki/Architecture/model/catalog.c4",
             "wiki/Architecture/model/shipping.c4",
-            "tests/load/scenarios/agents.js"
+            "wiki/Architecture/model/catalog-search.c4",
+            "tests/load/scenarios/agents.js",
+            "tests/load/scenarios/search.js"
           ]
         },
         {
@@ -335,6 +347,29 @@
             "wiki/Decisions/0032-knowledge-hnsw-index.md",
             "wiki/Decisions/0033-agent-delegation.md",
             "wiki/Decisions/0034-agent-mcp-server.md"
+          ]
+        },
+        {
+          "condition": "(!search)",
+          "exclude": [
+            "src/Modules/Search/**",
+            "src/Api.E2ETests/Search/**",
+            "src/Api.Tests/Architecture/SearchIndexArchitectureTests.cs",
+            "src/Modules/Catalog/Catalog/Domains/Products/SearchIndex/**",
+            "src/Modules/Catalog/Catalog/Options/CatalogSearchOptions.cs",
+            "src/Modules/Catalog/Catalog/Domains/Products/Features/SuggestProducts/**",
+            "src/Modules/Catalog/Catalog.Contracts/Products/Queries/SuggestProductsQuery.cs",
+            "src/Modules/Catalog/Catalog.Tests/Search/**",
+            "src/Modules/Catalog/Catalog.IntegrationTests/Search/**",
+            "src/Api.E2ETests/Catalog/ProductSearchIndexTests.cs",
+            "docker-compose.meilisearch.yml",
+            "docker-compose.meilisearch-worker.yml",
+            "tests/load/scenarios/search.js",
+            "wiki/Modules/Search.md",
+            "wiki/Search/**",
+            "wiki/Architecture/model/search.c4",
+            "wiki/Architecture/model/catalog-search.c4",
+            "wiki/Decisions/0036-search-module-and-engine-port.md"
           ]
         },
         {

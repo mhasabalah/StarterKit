@@ -42,6 +42,9 @@ public sealed partial class TenantIsolationArchitectureTests
 #if (AGENTIC)
             "AgenticDbContext",
 #endif
+#if (SEARCH)
+            "SearchDbContext",
+#endif
             "AttachmentDbContext", "WebhooksDbContext", "DataTransferDbContext"
         ]);
 

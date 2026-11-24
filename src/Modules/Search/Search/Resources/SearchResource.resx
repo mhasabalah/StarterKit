@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Validation.IndexKey.Unknown" xml:space="preserve">
+    <value>There is no search index '{0}'.</value>
+  </data>
+  <data name="Validation.Text.MaxLength" xml:space="preserve">
+    <value>The search text must not exceed {0} characters.</value>
+  </data>
+  <data name="Validation.Mode.Invalid" xml:space="preserve">
+    <value>The search mode is not valid.</value>
+  </data>
+  <data name="Validation.Page.Min" xml:space="preserve">
+    <value>The page must be at least 1.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>The page size must be between 1 and {0}.</value>
+  </data>
+  <data name="Validation.Window.Max" xml:space="preserve">
+    <value>Results can be paged only within the first {0} matches.</value>
+  </data>
+  <data name="Validation.Filters.Max" xml:space="preserve">
+    <value>At most {0} filters can be used.</value>
+  </data>
+  <data name="Validation.Filter.UnknownField" xml:space="preserve">
+    <value>'{0}' is not a filter field of this index.</value>
+  </data>
+  <data name="Validation.Filter.WrongType" xml:space="preserve">
+    <value>The filter on '{0}' does not fit the type of the field.</value>
+  </data>
+  <data name="Validation.Filter.Values" xml:space="preserve">
+    <value>The filter on '{0}' needs 1 to {1} values.</value>
+  </data>
+  <data name="Validation.Filter.Bounds" xml:space="preserve">
+    <value>The filter on '{0}' needs a lower bound that is not above its upper bound.</value>
+  </data>
+  <data name="Validation.Filter.Utc" xml:space="preserve">
+    <value>The date filter on '{0}' must use UTC.</value>
+  </data>
+  <data name="Validation.Facets.Max" xml:space="preserve">
+    <value>At most {0} facets can be requested.</value>
+  </data>
+  <data name="Validation.Facet.NotFacetable" xml:space="preserve">
+    <value>Values of '{0}' cannot be counted.</value>
+  </data>
+  <data name="Validation.Sort.NotSortable" xml:space="preserve">
+    <value>Results cannot be sorted by '{0}'.</value>
+  </data>
+  <data name="Validation.Documents.Max" xml:space="preserve">
+    <value>At most {0} documents can be indexed per change.</value>
+  </data>
+  <data name="Index.NotFound" xml:space="preserve">
+    <value>No search index "{0}" is registered.</value>
+  </data>
+  <data name="Index.RebuildRunning" xml:space="preserve">
+    <value>The search index "{0}" is already being rebuilt. Try again when the rebuild has finished.</value>
+  </data>
+  <data name="Index.NotBuilt" xml:space="preserve">
+    <value>The search index "{0}" has not been built yet, so it cannot be checked for drift.</value>
+  </data>
+  <data name="Validation.Range.Order" xml:space="preserve">
+    <value>The start day must not be after the end day.</value>
+  </data>
+  <data name="Validation.Range.Max" xml:space="preserve">
+    <value>The range can cover at most {0} days.</value>
+  </data>
+</root>

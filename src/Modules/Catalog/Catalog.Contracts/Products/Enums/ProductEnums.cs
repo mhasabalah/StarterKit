@@ -63,3 +63,44 @@ public enum Currency
     [LocalizedDescription("Egyptian Pound", "جنيه مصري")]
     EGP = 5
 }
+
+/// <summary>How the products of a search matched the text.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ProductSearchMatch
+{
+    /// <summary>No text: filters only.</summary>
+    [LocalizedDescription("Browse", "تصفح")]
+    Browse = 0,
+
+    /// <summary>The text appears as typed in the name, SKU or description (SQL search, no search index).</summary>
+    [LocalizedDescription("Contains", "يحتوي على")]
+    Contains = 1,
+
+    /// <summary>The words matched (search index: stemming and Arabic normalization included).</summary>
+    [LocalizedDescription("Exact match", "مطابقة تامة")]
+    Exact = 2,
+
+    /// <summary>Nothing matched exactly; these products have close spellings.</summary>
+    [LocalizedDescription("Close spelling", "تهجئة قريبة")]
+    Fuzzy = 3
+}
+
+/// <summary>The value counts a product search can return (search index only).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ProductFacet
+{
+    [LocalizedDescription("Category", "الفئة")]
+    Category = 1,
+
+    [LocalizedDescription("Tag", "الوسم")]
+    Tag = 2,
+
+    [LocalizedDescription("Type", "النوع")]
+    Type = 3,
+
+    [LocalizedDescription("Currency", "العملة")]
+    Currency = 4,
+
+    [LocalizedDescription("Featured", "مميز")]
+    Featured = 5
+}

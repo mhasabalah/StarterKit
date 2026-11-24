@@ -76,6 +76,14 @@
     <Project Path="src/Modules/Shipping/Shipping.IntegrationTests/Shipping.IntegrationTests.csproj" />
   </Folder>
   <!--#endif-->
+  <!--#if (search)-->
+  <Folder Name="/src/Modules/Search/">
+    <Project Path="src/Modules/Search/Search.Contracts/Search.Contracts.csproj" />
+    <Project Path="src/Modules/Search/Search/Search.csproj" />
+    <Project Path="src/Modules/Search/Search.Tests/Search.Tests.csproj" />
+    <Project Path="src/Modules/Search/Search.IntegrationTests/Search.IntegrationTests.csproj" />
+  </Folder>
+  <!--#endif-->
   <Folder Name="/src/Modules/Subscriptions/">
     <Project Path="src/Modules/Subscriptions/Subscriptions.Contracts/Subscriptions.Contracts.csproj" />
     <Project Path="src/Modules/Subscriptions/Subscriptions/Subscriptions.csproj" />

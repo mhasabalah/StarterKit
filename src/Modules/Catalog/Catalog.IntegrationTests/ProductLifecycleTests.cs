@@ -29,9 +29,12 @@ public sealed class ProductLifecycleTests(CatalogPostgresFixture fx)
     private Task<long> VersionOf(Guid id) =>
         fx.WithDb(db => db.Products.IgnoreQueryFilters().Where(p => p.Id == id).Select(p => p.Version).SingleAsync());
 
+    /// <summary>The product's outbox rows, except the search-index sync events (their own tests cover them).</summary>
     private Task<List<TenantOutboxMessage>> OutboxRowsFor(Guid productId) =>
         fx.WithDb(async db => (await db.Set<TenantOutboxMessage>().AsNoTracking().ToListAsync())
-            .Where(m => m.Payload.Contains(productId.ToString())).ToList());
+            .Where(m => m.Payload.Contains(productId.ToString())
+                        && !m.MessageType.EndsWith(":search.documents-changed.v1", StringComparison.Ordinal))
+            .ToList());
 
     private UpdateProductCommand Update(Guid id, long? version, string nameEn = "Renamed", List<Guid>? tags = null) =>
         new(id, LocalizedText.Create(nameEn, "معدل"), null, Scenario.UniqueSku(), ProductType.Physical, 20m, null,

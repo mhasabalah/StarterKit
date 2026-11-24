@@ -30,6 +30,11 @@ export const SCENARIOS = {
   inbox: { rate: 12, vus: 6, maxVus: 30, p95: 400, exec: 'inboxScenario' },
   // One active import per definition and tenant (409 otherwise): exactly one VU, closed loop (submit, then poll).
   import: { vus: 1, p95: 1000, exec: 'importScenario', closed: true },
+//#if (sample && search)
+  // Full-text search through the Search module, four requests per iteration: a search with facets and highlights,
+  // suggestions, a close spelling and an Arabic query.
+  search: { rate: 10, vus: 10, maxVus: 40, p95: 600, exec: 'searchScenario' },
+//#endif
 //#if (sample && agentic)
   // Opt-in (needs agents on and the Shipping sample): a few VUs, each walking the whole agent demo (closed loop). The
   // p95 is the API's; the agent's own latency is the agent_flow_ms trend.

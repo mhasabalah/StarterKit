@@ -37,10 +37,36 @@ public record GetAdminProductsQuery : BaseQuery, IQuery<PaginatedResult<ProductA
     public bool IncludeDeleted { get; init; }
 }
 
-/// <summary>Dedicated search endpoint (name en/ar, SKU, description). Published products only.</summary>
-public record SearchProductsQuery : BaseQuery, IQuery<PaginatedResult<ProductDto>>
+/// <summary>
+/// Dedicated search endpoint over published products (name en/ar, SKU, description), with the catalogue filters.
+/// With the search index: relevance order, stemming, Arabic normalization, close spellings, <see cref="Facets"/> and
+/// <see cref="Highlight"/>; otherwise a case-insensitive "contains" match (see <see cref="SearchProductsResult.Match"/>).
+/// </summary>
+public record SearchProductsQuery : BaseQuery, IQuery<SearchProductsResult>, IProductFilterQuery
 {
     public string SearchTerm { get; init; } = string.Empty;
+
+    public ProductType? Type { get; init; }
+    public Guid? CategoryId { get; init; }
+    public bool? IncludeSubcategories { get; init; }
+    public decimal? MinPrice { get; init; }
+    public decimal? MaxPrice { get; init; }
+    public Currency? Currency { get; init; }
+    public Guid[]? TagIds { get; init; }
+    public Guid[]? AttributeTypeIds { get; init; }
+    public Guid? OwnerId { get; init; }
+    public bool? IsFeatured { get; init; }
+
+    /// <summary>Value counts to return over all matches (needs the search index; empty otherwise).</summary>
+    public ProductFacet[]? Facets { get; init; }
+
+    /// <summary>Return snippets of the name and description with the matches in <c>&lt;mark&gt;</c> (search index only).</summary>
+    public bool? Highlight { get; init; }
+
+    string? IProductFilterQuery.Search => SearchTerm;
+
+    /// <summary>Always published: the public search never sees other statuses.</summary>
+    ProductStatus? IProductFilterQuery.Status => ProductStatus.Published;
 }
 
 /// <summary>The current user's own products (any status) plus aggregate stats.</summary>

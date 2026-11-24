@@ -46,7 +46,11 @@ changes instead revoke the user's sessions through `ISessionRevoker`, requiring 
 | Role | Grants from `RolePermissionMap` |
 |---|---|
 | SuperAdmin | All platform permissions and all tenant permission claims |
-| Admin | All platform permissions except `admins.manage`, `outbox.manage`, `feature-flags.manage`; all tenant permission claims |
+<!--#if (search)-->
+| Admin | All platform permissions except the SuperAdmin-only ones (`RolePermissionMap.SuperAdminOnly`: `admins.manage`, `outbox.manage`, `feature-flags.manage`, `search.operate`); all tenant permission claims |
+<!--#else-->
+| Admin | All platform permissions except the SuperAdmin-only ones (`RolePermissionMap.SuperAdminOnly`: `admins.manage`, `outbox.manage`, `feature-flags.manage`); all tenant permission claims |
+<!--#endif-->
 | Finance | `billing.read`, `billing.approve`, `billing.refund`, `billing.export`, `billing.coupons.manage`, `plans.manage`, `payment-settings.manage`, `audit.read` |
 | Support | `billing.read`, `users.read`, `tenants.read`, `tenants.impersonate`, `sessions.manage` |
 | User / unknown role | No platform grants |

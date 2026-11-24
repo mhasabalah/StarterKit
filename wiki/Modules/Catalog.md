@@ -149,7 +149,10 @@ admins at any status.
 | Set primary / delete (file deleted after the gallery change commits) / reorder images | `Features/SetPrimaryProductImage`, `Features/DeleteProductImage`, `Features/ReorderProductImages` |
 | Public list: forced `Published`, `PageGate` policy, rate limit `search` | `Features/GetProducts` |
 | Admin list (+ `IncludeDeleted`) / admin detail | `Features/GetAdminProducts`, `Features/GetAdminProductById` |
-| Dedicated search endpoint (rate limit `search`) | `Features/SearchProducts` |
+| Dedicated search endpoint with the catalogue filters (rate limit `search`) | `Features/SearchProducts` |
+<!--#if (search)-->
+| As-you-type suggestions from the search index (`PageGate`, rate limit `search`) | `Features/SuggestProducts` |
+<!--#endif-->
 | Public detail: owner sees own drafts; atomic view counter (`ExecuteUpdateAsync`, no version bump) | `Features/GetProductById/GetProductByIdHandler.cs` |
 | "My products" + stats in one `GroupBy(_ => 1)` query | `Features/GetMyProducts/GetMyProductsHandler.cs` |
 | Admin moderation queue (FIFO) | `Features/GetPendingProducts` |
@@ -168,7 +171,46 @@ admins at any status.
 | `IsWishlisted` projected per current user | `ProductProjections.ToProductRows` |
 | Default sort (newest first) + `OrderByDynamic` + stable tie-breaker; `PaginatedResult<T>` | `Catalog/Common/PaginatedResultExtensions.cs` |
 | Mapster `IRegister` + `ProjectToType` for simple projections; culture filled in memory | `Catalog/Domains/Products/Mappings/LookupMappingConfig.cs`, `GetTagsHandler`, `GetCategoriesHandler` |
-| LIKE-wildcard escaping | `Catalog/Common/LikePattern.cs` |
+| LIKE-wildcard escaping | `src/Shared/Shared.Core/Data/LikePattern.cs` |
+| One search strategy for the list and search queries (`IProductSearch`; `SqlProductSearch` is the SQL path) | `Catalog/Domains/Products/Services/ProductSearch.cs` |
+
+<!--#if (search)-->
+### Search index
+
+Products are searchable through the [Search module](Search.md) (index `catalog.products`). This is the reference for
+making an entity searchable:
+
+| Part | File |
+|---|---|
+| Index definition: names en (English) / ar (Arabic) and SKU weigh most and feed suggestions, description (bilingual) less; filter fields status, type, currency, category, tags, attribute types, owner, featured, price, created/published dates | `Domains/Products/SearchIndex/ProductSearchIndex.cs` |
+| Document source: every branch, never soft-deleted products, projected in SQL, `Version` as the document version | `Domains/Products/SearchIndex/ProductSearchDocumentSource.cs` |
+| Change event: every product mutation (`Touch`), create and purge raise at most one `SearchDocumentsChangedIntegrationEvent` per save, through the outbox | `Domains/Products/Models/Product.cs` (`RaiseSearchChange`) |
+| Strategy: `IndexedProductSearch` asks the index, then loads the hits through `CatalogDbContext` with every filter and visibility rule re-applied, in the index's order | `Domains/Products/SearchIndex/IndexedProductSearch.cs` |
+| Filters, sort columns, facets and highlight names mapped in one place | `Domains/Products/SearchIndex/ProductSearchMapping.cs` |
+
+```likec4-view
+catalogSearch
+```
+
+*Figure: A product change reaches the index through the outbox seconds after it commits; a search asks the index for ids and loads them through Catalog with every visibility rule re-applied, falling back to SQL when the index cannot answer.*
+
+- **What uses the index.** `GET /products/search` and the text search of the public and admin lists, when there is
+  text (or, for the search endpoint, facets). Browsing without text, "my products", the moderation queue and the admin
+  list with deleted products stay in SQL.
+- **What the index adds.** Best matches first (when no sort column is given), word forms ("lamps" finds "lamp"),
+  Arabic letter forms and diacritics, close spellings when nothing matches (`match: Fuzzy`), `facets` (Category, Tag,
+  Type, Currency, Featured) and `highlight=true` snippets with `<mark>`. The search response keeps the paging shape of
+  every product list and adds `match`, `facets`, `facetsExhaustive` and `highlights`.
+- **When SQL answers instead** (`match: Contains`): `Catalog:Search:UseSearchIndex=false`, the index is not built yet
+  or the engine is down, a sort column the index cannot sort on (it sorts on `price`, `createdAt`, `publishedAt`),
+  more than 100 category or tag ids, or a page beyond `Catalog:Search:MaxWindow`. Results are the same products either
+  way; only the order and the extras differ.
+- **Consistency.** A change is searchable seconds after it commits. Until then, a hit the caller may no longer see is
+  left out of the page (visibility is always re-checked in SQL), while the total comes from the index.
+- **Suggestions.** `GET /products/suggest?q=lap&limit=8`: published products whose name or SKU matches the words
+  typed so far (the last one as a prefix), names in the request culture with the match in `<mark>`. Empty while the
+  index is not available.
+<!--#endif-->
 
 ### Cross-cutting
 
@@ -241,6 +283,9 @@ Routes use `/api/v1` for `EndpointConfig.BaseApiPath`. The table records Carter 
 | POST | `/api/v1/products/{id:guid}/wishlist` | `RequireAuthorization()` |
 | GET | `/api/v1/products/my` | `RequireAuthorization()` |
 | GET | `/api/v1/products/search` | `RequireAuthorization("PageGate")` |
+<!--#if (search)-->
+| GET | `/api/v1/products/suggest` | `RequireAuthorization("PageGate")` |
+<!--#endif-->
 | GET | `/api/v1/products/wishlist` | `RequireAuthorization()` |
 | GET | `/api/v1/tags` | `AllowAnonymous()` |
 | POST | `/api/v1/tags` | `RequireAuthorization(PolicyConstants.AdminOnly)` |
@@ -264,6 +309,10 @@ From `Catalog/Options/CatalogOptions.cs` and `src/Api/appsettings.json`:
 | `Catalog:SoftDeleteRetentionDays` | 30 | Age before hard purge |
 | `Catalog:PurgeBatchSize` | 100 | Maximum products per purge run |
 | `Catalog:PurgeCron` | `0 3 * * *` | Daily purge schedule |
+<!--#if (search)-->
+| `Catalog:Search:UseSearchIndex` | true | Answer text searches and facets from the search index; `false` keeps every query in SQL |
+| `Catalog:Search:MaxWindow` | 1000 | Deepest result (page × size) read from the index; deeper pages are answered by SQL |
+<!--#endif-->
 
 `PurgeSoftDeletedProductsJob` removes expired soft-deleted products; `PurgeAuditEntriesJob` handles audit retention. `ProductPublishedConsumer` consumes the module's own `ProductPublishedIntegrationEvent`, re-reads visibility and notifies the owner; Webhooks forwards the public event. Integration delivery follows [Messaging](../Architecture/Messaging.md).
 
@@ -323,6 +372,11 @@ Invalid workflow transitions are rejected by the allow-list. Stale critical-upda
 | Unit | `Catalog.Tests/Features/*`, `Services/*` | validators (incl. en/ar messages and resx key parity), handlers (ExpectVersion via a disconnected DbContext, owner/admin/status authorization, upload compensation), cache (invalidate, swallow failures), mapper, LIKE escaping |
 | Integration | `Catalog.IntegrationTests/*` | real `AddCatalogModule` + PostgreSQL: filters, has-all, search escaping, sort/paging, public vs admin, my-products stats, soft-delete filter + restore + purge job cascade, wishlist unique index, atomic view counter, stale version → `ConcurrencyConflictException`, cache invalidation via events, seeder idempotency, integration event published |
 | E2E | `src/Api.E2ETests/Catalog/ProductCrudFlowTests.cs` | seller → moderation → public → wishlist → archive, 403s, 409, soft delete + restore, lookups |
+<!--#if (search)-->
+| Unit | `Catalog.Tests/Search/*` | one search event per save for every mutation, create, restore and purge; filter, sort, facet and highlight mapping |
+| Integration | `Catalog.IntegrationTests/Search/*` | Catalog + the real Search module: ranking, word forms, Arabic, close spellings, facets, highlights, changes through the outbox (rename, delete), visibility re-checked in SQL, SQL fallback for unindexed sorts and deleted products, price sort and paging, suggestions |
+| E2E | `src/Api.E2ETests/Catalog/ProductSearchIndexTests.cs` | the real Hangfire server builds the index; a product published over HTTP is found through the index (stemming, Arabic, highlights, facets, suggestions) |
+<!--#endif-->
 
 ## Related
 

@@ -62,6 +62,8 @@
   <data name="Validation.PageSize.Range" xml:space="preserve"><value>يجب أن يكون حجم الصفحة بين {From} و {To}.</value></data>
   <data name="Validation.SearchTerm.Required" xml:space="preserve"><value>عبارة البحث مطلوبة.</value></data>
   <data name="Validation.SearchTerm.MaxLength" xml:space="preserve"><value>يجب ألا تتجاوز عبارة البحث {MaxLength} حرفاً.</value></data>
+  <data name="Validation.Facet.Invalid" xml:space="preserve"><value>تجميع غير معروف. استخدم Category أو Tag أو Type أو Currency أو Featured.</value></data>
+  <data name="Validation.SuggestLimit.Range" xml:space="preserve"><value>يجب أن يكون عدد الاقتراحات بين 1 و{0}.</value></data>
   <data name="Validation.PriceRange.Invalid" xml:space="preserve"><value>يجب أن يكون الحد الأقصى للسعر أكبر من أو يساوي الحد الأدنى.</value></data>
   <data name="Validation.Slug.Required" xml:space="preserve"><value>المعرف النصي (Slug) مطلوب.</value></data>
   <data name="Validation.Slug.MaxLength" xml:space="preserve"><value>يجب ألا يتجاوز المعرف النصي {MaxLength} حرفاً.</value></data>

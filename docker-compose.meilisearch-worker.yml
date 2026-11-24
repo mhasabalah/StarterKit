@@ -1,0 +1,22 @@
+# ==============================================
+# StarterKit Meilisearch + Worker combination
+# ==============================================
+# The worker `extends` the base api service, so docker-compose.meilisearch.yml does not reach it. Use this file whenever
+# both overlays are on, otherwise the worker rebuilds indexes in PostgreSQL while the API searches Meilisearch:
+#   docker compose -f docker-compose.yml -f docker-compose.worker.yml \
+#     -f docker-compose.meilisearch.yml -f docker-compose.meilisearch-worker.yml up -d
+# ==============================================
+
+services:
+
+  worker:
+    secrets:
+      - meilisearch_api_key
+    environment:
+      Search__Engine: Meilisearch
+      Search__Meilisearch__Url: http://meilisearch:7700
+      # Dev only: in Docker env the secret file overrides this value.
+      Search__Meilisearch__ApiKey: ${MEILISEARCH_API_KEY:-}
+    depends_on:
+      meilisearch:
+        condition: service_healthy

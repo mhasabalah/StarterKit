@@ -305,6 +305,61 @@ export const sections = [
         "order": 8
       },
       {
+        "label": "Search",
+        "items": [
+          {
+            "source": "Modules/Search.md",
+            "label": "Overview",
+            "order": 1
+          },
+          {
+            "source": "Search/How-It-Works.md",
+            "label": "How search works",
+            "order": 2
+          },
+          {
+            "source": "Search/Using-Search.md",
+            "label": "Searching from a client",
+            "order": 3
+          },
+          {
+            "source": "Search/Adding-A-Search-Index.md",
+            "label": "Adding a search index",
+            "order": 4
+          },
+          {
+            "source": "Search/Text-And-Languages.md",
+            "label": "Text and languages",
+            "order": 5
+          },
+          {
+            "source": "Search/Managing-Indexes-And-Analytics.md",
+            "label": "Managing indexes and analytics",
+            "order": 6
+          },
+          {
+            "source": "Search/Postgres-Engine.md",
+            "label": "PostgreSQL engine",
+            "order": 7
+          },
+          {
+            "source": "Search/Meilisearch.md",
+            "label": "Meilisearch engine",
+            "order": 8
+          },
+          {
+            "source": "Search/Configuration.md",
+            "label": "Configuration",
+            "order": 9
+          },
+          {
+            "source": "Search/Operations.md",
+            "label": "Operations",
+            "order": 10
+          }
+        ]
+      },
+      {
         "label": "Agentic",
         "items": [
           {
@@ -753,6 +808,11 @@ export const sections = [
         "source": "Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md",
         "label": "0035 architecture model (LikeC4)",
         "order": 35
+      },
+      {
+        "source": "Decisions/0036-search-module-and-engine-port.md",
+        "label": "0036 search module and engine port",
+        "order": 36
       },
       {
         "source": "Decisions/0000-template.md",

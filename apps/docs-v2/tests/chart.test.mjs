@@ -9,8 +9,8 @@ test('module chart orders mirror ModuleOrder.cs', async () => {
   const tiles = [...chart.matchAll(/name: '(\w+)', family: '\w+', order: (\d+)/g)].map(([, name, order]) => [name, Number(order)]);
   assert.ok(tiles.length >= 10);
   for (const [name, order] of tiles) {
-    // Shipping is the sample of a new module and sits in the Default slot.
-    const expected = name === 'Shipping' ? constants.Default : constants[name];
+    // Shipping (the sample of a new module) and Search sit in the Default slot.
+    const expected = name === 'Shipping' || name === 'Search' ? constants.Default : constants[name];
     assert.equal(order, expected, `${name} should be ${expected}`);
   }
 });

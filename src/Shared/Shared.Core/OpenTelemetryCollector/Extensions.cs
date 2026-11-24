@@ -115,6 +115,10 @@ public static class Extensions
                     // Agentic module: agent runs, model turns/tokens and tool calls (Agentic...Telemetry.AgenticMetrics).
                     .AddMeter("StarterKit.Agentic")
 #endif
+#if (SEARCH)
+                    // Search module: queries, indexing, lag, rebuilds and drift (Search.Observability.SearchMetrics).
+                    .AddMeter("StarterKit.Search")
+#endif
                     // Attachment module: attachment.malware.scans by result (Attachment...Validation.MalwareScanMetrics).
                     .AddMeter("StarterKit.Attachment");
 

@@ -152,6 +152,9 @@ Each module page has a **System design** section: the module's view, one or two 
 | [Shipping](../Modules/Shipping.md#system-design) | A shipment triggers the preparation agent |
 <!--#endif-->
 <!--#endif-->
+<!--#if (search)-->
+| [Search](../Modules/Search.md#system-design) | Rebuilding an index without downtime |
+<!--#endif-->
 <!--#if (agentic)-->
 | [Agentic](../Modules/Agentic.md#system-design) | An agent run with an approval |
 <!--#endif-->

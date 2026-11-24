@@ -12,26 +12,25 @@ public class GetProductsQueryValidator : AbstractValidator<GetProductsQuery>
 
 /// <summary>
 /// Public catalogue. Forces Status = Published (whatever the caller sent) — the endpoint does too, this is
-/// defence in depth. Query handlers read through the DbContext and project in SQL; nothing is tracked.
+/// defence in depth. <see cref="IProductSearch"/> reads through the DbContext (or the search index for a text search,
+/// re-checked in SQL); nothing is tracked.
 /// </summary>
 public class GetProductsHandler(
     CatalogDbContext dbContext,
-    IHttpContextService httpContextService,
+    IProductSearch productSearch,
     ProductDtoMapper mapper)
     : IQueryHandler<GetProductsQuery, PaginatedResult<ProductDto>>
 {
     public async Task<PaginatedResult<ProductDto>> Handle(GetProductsQuery query, CancellationToken cancellationToken)
     {
         var publicQuery = query with { Status = ProductStatus.Published };
-        var categoryIds = await ProductQueryBuilder.ResolveCategoryIdsAsync(dbContext, publicQuery, cancellationToken);
+        var page = await productSearch.SearchAsync(new ProductSearchRequest
+        {
+            Products = dbContext.Products.AsNoTracking(),
+            Filters = publicQuery,
+            Paging = query
+        }, cancellationToken);
 
-        var rows = ProductQueryBuilder
-            .ApplyFilters(dbContext.Products.AsNoTracking(), publicQuery, categoryIds)
-            .ToProductRows(dbContext.WishlistItems, httpContextService.GetUserIdAsGuid() ?? Guid.Empty,
-                includeGallery: false)
-            .Sorted(query);
-
-        var page = await rows.PagedResult(query.PageNumber, query.PageSize, cancellationToken);
-        return page.Map(mapper.ToPublic);
+        return page.Rows.Map(mapper.ToPublic);
     }
 }

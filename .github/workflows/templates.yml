@@ -112,10 +112,10 @@ jobs:
             product: '--multitenancy shared --transport RabbitMq --storage S3 --github-owner acme-inc'
             modules: 'Orders --outbox|Payroll --data-plane host'
           - name: Mini
-            product: '--sample false --agentic false --ai-tooling false --ci false --deploy false'
+            product: '--sample false --agentic false --full-text-search false --ai-tooling false --ci false --deploy false'
             modules: 'Orders'
           - name: Shop
-            product: '--agentic false'
+            product: '--agentic false --full-text-search false'
             modules: 'Orders'
     steps:
       - uses: actions/checkout@v7

@@ -16,6 +16,10 @@ StarterKit composes the runtime from a base file and optional overlays, with a s
 | `docker-compose.rabbitmq.yml` | Messaging overlay | `rabbitmq` + switches the API and the migrator to `Messaging:Transport=RabbitMq` (needs `secrets/rabbitmq_password.txt`) |
 | `docker-compose.rabbitmq-worker.yml` | Combination overlay | Required when `docker-compose.rabbitmq.yml` and `docker-compose.worker.yml` are both on: switches the worker to RabbitMQ too |
 | `docker-compose.clamav.yml` | Malware-scanning overlay | `clamav` (clamd, ~1.5 GB RAM, healthy after 1-2 min) + turns on upload scanning with `RequireVirusScanning=true` ([details](../Attachment/Security.md#malware-scanning)) |
+<!--#if (search)-->
+| `docker-compose.meilisearch.yml` | Search engine overlay (optional) | `meilisearch` + switches the Search module to `Search:Engine=Meilisearch` (needs `secrets/meilisearch_master_key.txt` and a scoped key in `secrets/meilisearch_api_key.txt`; [setup](../Search/Meilisearch.md#setup)) |
+| `docker-compose.meilisearch-worker.yml` | Combination overlay | Required when `docker-compose.meilisearch.yml` and `docker-compose.worker.yml` are both on: the worker rebuilds indexes on Meilisearch too |
+<!--#endif-->
 | `docker-compose.worker.yml` | Worker overlay | Moves `data-transfer` processing from `api` to `worker`; same image, no published worker ports. |
 <!--#if (agentic)-->
 | `docker-compose.agents.yml` | AI agents overlay (optional) | Turns on the Agentic module with an OpenAI-compatible provider: secret `secrets/agentic_openai_api_key.txt`, `AGENTIC_MODEL_ID` (and `AGENTIC_ENDPOINT` for Azure OpenAI or a self-hosted server) in `.env` ([operations](Agentic-Operations.md)) |

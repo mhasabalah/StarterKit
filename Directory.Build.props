@@ -24,9 +24,9 @@
 
 	<!-- Template repository only (wiki/Getting-Started/Templates.md): compile every optional part, so the template itself
 	     builds and tests exactly what `dotnet new starterkit` generates with all switches on. Code behind
-	     `#if (SAMPLE)` / `#if (AGENTIC)` is kept or removed by the template engine; this block is never copied into a generated project. -->
+	     `#if (SAMPLE)` / `#if (AGENTIC)` / `#if (SEARCH)` is kept or removed by the template engine; this block is never copied into a generated project. -->
 	<PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory).template.config/template.json')">
-		<DefineConstants>$(DefineConstants);SAMPLE;AGENTIC</DefineConstants>
+		<DefineConstants>$(DefineConstants);SAMPLE;AGENTIC;SEARCH</DefineConstants>
 	</PropertyGroup>
 	<!--#endif-->
 </Project>

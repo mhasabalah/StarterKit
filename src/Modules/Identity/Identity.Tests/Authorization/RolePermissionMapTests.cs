@@ -38,13 +38,20 @@ public sealed class RolePermissionMapTests
     }
 
     [Fact]
-    public void Admin_has_everything_except_admins_manage_and_outbox_manage()
+    public void Admin_has_everything_except_the_superadmin_only_platform_operations()
     {
+        string[] superAdminOnly =
+        [
+            Permissions.AdminsManage, Permissions.OutboxManage, Permissions.FeatureFlagsManage,
+#if (SEARCH)
+            Permissions.SearchOperate
+#endif
+        ];
+
+        RolePermissionMap.SuperAdminOnly.Should().BeEquivalentTo(superAdminOnly);
         RolePermissionMap.For(RoleConstants.Admin).Should()
-            .BeEquivalentTo(Permissions.All
-                .Where(p => p != Permissions.AdminsManage && p != Permissions.OutboxManage && p != Permissions.FeatureFlagsManage)
-                .Concat(TenantPermissions.All))
-            .And.NotContain([Permissions.AdminsManage, Permissions.OutboxManage, Permissions.FeatureFlagsManage]);
+            .BeEquivalentTo(Permissions.All.Except(superAdminOnly).Concat(TenantPermissions.All))
+            .And.NotContain(superAdminOnly);
     }
 
     [Fact]

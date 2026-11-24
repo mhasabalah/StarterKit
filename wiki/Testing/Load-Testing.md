@@ -99,12 +99,22 @@ stays one closed-loop VU. Tag: `load_scenario`.
 | `catalog` | 20 it/s (10 to 40) | anonymous list (page 1), search, product detail | 500 ms |
 | `products` | 8 it/s (8 to 30) | create, read, update (with `version`), list mine, delete (bearer) | 800 ms |
 | `inbox` | 12 it/s (6 to 30) | `GET /notifications/inbox`, `/unread-count` | 400 ms |
+<!--#if (sample && search)-->
+| `search` | 10 it/s (10 to 40) | anonymous full-text search through the Search index: word forms with facets and highlights, `/products/suggest`, a close spelling, an Arabic query | 600 ms |
+<!--#endif-->
 | `import` | 1 VU | multipart `POST /data-transfer/imports` (`catalog.products`, 200 generated rows, Commit), poll `GET /jobs/{id}` until done, API key | 1000 ms (submit and poll requests) |
 
 `LOAD_RATE_SCALE` multiplies the rates and `LOAD_P95_SCALE` the p95 budgets (CI sets 3, see below). Global: `http_req_failed < 1%`, `checks > 99%`; per scenario
 `http_req_failed < 1%`, `dropped_iterations < 1`, and at least one request. The import scenario is exactly one VU because
 the API allows one active import per definition and tenant (409 `import_already_running`). The budgets are regression
 tripwires with a wide margin, not SLAs.
+<!--#if (sample && search)-->
+
+The `search` scenario expects the seeded products in the search index (they arrive through the outbox seconds after
+the seed). The rate `search_from_index` (no threshold) is the share of searches the index answered; a low value means
+the owner's SQL search answered instead because the index was not built or the engine was down
+([Search operations](../Search/Operations.md)).
+<!--#endif-->
 
 <!--#if (sample && agentic)-->
 

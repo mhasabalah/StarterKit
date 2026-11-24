@@ -20,6 +20,12 @@ Apply migrations and seeds under PostgreSQL advisory locks while keeping runtime
 <!--#if (agentic)-->
   See [ADR-0028](../Decisions/0028-agent-knowledge-and-memory-on-pgvector.md).
 <!--#endif-->
+<!--#if (search)-->
+- The `pg_trgm` extension (typo tolerance and suggestions of the Search module): the Search migration runs
+  `CREATE EXTENSION IF NOT EXISTS pg_trgm`. It ships with PostgreSQL and is a trusted extension, but creating it needs
+  `CREATE` on the database; a hardened migration role gets it from `init-rls-roles.sql`, which also grants the
+  `search` schema. See [ADR-0036](../Decisions/0036-search-module-and-engine-port.md).
+<!--#endif-->
 
 ## Steps
 

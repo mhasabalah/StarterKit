@@ -6,6 +6,10 @@ using Catalog.Domains.Products.DataTransfer;
 using DataTransfer.Contracts.Definitions;
 using Catalog.Domains.Products.Jobs;
 using Catalog.Domains.Products.Mappings;
+#if (SEARCH)
+using Catalog.Domains.Products.SearchIndex;
+using Search.Contracts.Indexing;
+#endif
 using Catalog.Options;
 using Hangfire;
 using Microsoft.Extensions.Configuration;
@@ -42,6 +46,14 @@ public static class CatalogModule
         services.AddScoped<IProductLookupValidator, ProductLookupValidator>();
         services.AddScoped<ProductWorkflowRunner>();
         services.AddScoped<ProductDtoMapper>();
+        services.AddScoped<SqlProductSearch>();
+#if (SEARCH)
+        // Cross-module: products are searchable through the Search module (index catalog.products, ADR-0036).
+        services.AddSearchIndex<ProductSearchDocumentSource>(ProductSearchIndex.Definition);
+        services.AddScoped<IProductSearch, IndexedProductSearch>();
+#else
+        services.AddScoped<IProductSearch>(sp => sp.GetRequiredService<SqlProductSearch>());
+#endif
         services.AddScoped<ICategoryTreeCache, CategoryTreeCache>(); // IDistributedCache comes from AddRedisCache
 
         // Cross-module: tell the Attachment module who may attach to / read files of a Product (deny-by-default there).

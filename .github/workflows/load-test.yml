@@ -3,7 +3,7 @@
 # ==============================================
 # Boots docker-compose.loadtest.yml (API in the LoadTest profile + Postgres + Redis), seeds users / an admin / API keys /
 # products through the public API (tests/load/seed.js), then runs the k6 scenarios in tests/load/main.js: auth
-# (login + refresh), catalog browse/search, product CRUD with an API key, bulk-import submit + poll, notification inbox.
+# (login + refresh), catalog browse/search, product CRUD with an API key, bulk-import submit + poll, notification inbox, full-text search.
 # k6 exits non-zero when a threshold fails (p95 per scenario, http_req_failed < 1%), which fails this job.
 #   - nightly: catches a slow regression before a release does
 #   - on demand (Run workflow): pick duration and VU scale

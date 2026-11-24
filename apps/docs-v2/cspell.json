@@ -285,6 +285,15 @@
     "wordmarks",
     "wordprocessingml",
     "workstreams",
+    "alef",
+    "BYPASSRLS",
+    "facetable",
+    "ILIKE",
+    "Meilisearch",
+    "phraseto",
+    "tatweel",
+    "tsquery",
+    "tashkeel",
     "البيانات"
   ],
   "overrides": [
@@ -299,6 +308,12 @@
         "occured"
       ],
       "filename": "content/docs/subscriptions/online-payments.md"
+    },
+    {
+      "words": [
+        "lantren"
+      ],
+      "filename": "content/docs/search/text-and-languages.md"
     }
   ]
 }

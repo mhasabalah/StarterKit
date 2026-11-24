@@ -94,6 +94,9 @@ wiki/
 - [0034](Decisions/0034-agent-mcp-server.md): agent tools served to external MCP clients through the tool gateway, as tainted calls
 <!--#endif-->
 - [0035](Decisions/0035-architecture-model-likec4-and-excalidraw-hero.md): one LikeC4 architecture model for every system view, plus one hand-drawn big picture
+<!--#if (search)-->
+- [0036](Decisions/0036-search-module-and-engine-port.md): full-text search in one Search module behind an engine port (PostgreSQL or Meilisearch), fed by the outbox
+<!--#endif-->
 
 ## Modules
 
@@ -107,6 +110,18 @@ wiki/
   - [Notification-Email-Design-System](Modules/Notification-Email-Design-System.md): tokens, components, dark mode, branding, plain text
 - [Webhooks](Modules/Webhooks.md): outbound customer webhooks (signed, retried, SSRF-guarded)
 - [DataTransfer](Modules/DataTransfer.md): bulk CSV/Excel import/export jobs (dry run, error report, resumable, own Hangfire queue)
+<!--#if (search)-->
+- [Search](Modules/Search.md): full-text search behind an engine port (overview, the five rules, system design, guide map)
+  - [How search works](Search/How-It-Works.md): the indexing pipeline, answering a search, guarantees, failure modes
+  - [Searching from a client](Search/Using-Search.md): query syntax, facets, highlights, suggestions, UI patterns, errors
+  - [Adding a search index](Search/Adding-A-Search-Index.md): step by step: definition, source, change event, search handler with SQL fallback, tests
+  - [Text and languages](Search/Text-And-Languages.md): query syntax, Arabic and Latin normalization, analyzers, highlights
+  - [Managing indexes and analytics](Search/Managing-Indexes-And-Analytics.md): tenant and platform routes, permissions, zero-result analytics
+  - [PostgreSQL engine](Search/Postgres-Engine.md): the default engine: storage, analyzers, matching and ranking, safety, capacity
+  - [Meilisearch](Search/Meilisearch.md): the Meilisearch engine: when to choose it, setup with a least-privilege key, layout, differences, operations
+  - [Search configuration](Search/Configuration.md): every setting with its default
+  - [Search operations](Search/Operations.md): first deployment, the search queue, signals, alert answers, routine tasks
+<!--#endif-->
 <!--#if (agentic)-->
 - [Agentic](Modules/Agentic.md): AI agents as durable runs that act only through typed, authorized tools (overview, the five rules, architecture, guide map)
   - [Runs and durable execution](Agentic/Runs.md): lifecycle, how a worker executes a run, leases, retries, budgets, acting as the person
