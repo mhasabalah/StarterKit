@@ -96,11 +96,32 @@ test('the home says what ships on day one, what it is built on and how it is sha
   await page.goto(base + '/');
   const why = page.getByRole('region', { name: 'Ship the product, not the plumbing.' });
   const tiles = why.getByRole('list', { name: 'Ready on day one' });
-  await expect(tiles.getByRole('link')).toHaveCount(11);
+  await expect(tiles.getByRole('link')).toHaveCount(12);
+  await expect(tiles.getByRole('link', { name: /^Your configuration Seven short steps/ })).toHaveAttribute('href', /\/tools\/config-builder\/#guided$/);
+  // Every row of tiles is full: the last tile ends at the grid's right edge, at four and at two columns.
+  for (const width of [1440, 900]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const edges = await tiles.evaluate((grid) => ({ grid: grid.getBoundingClientRect().right, last: (grid.lastElementChild as HTMLElement).getBoundingClientRect().right }));
+    expect(Math.abs(edges.grid - edges.last)).toBeLessThan(2);
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(tiles.getByRole('link', { name: /^Full-text search Ranked, faceted/ })).toHaveAttribute('href', /\/modules\/search\/$/);
   await expect(tiles.getByRole('link', { name: /^Identity JWT with rotating refresh tokens/ })).toHaveAttribute('href', /\/identity\/$/);
   await expect(why.getByRole('list', { name: 'Built on' }).getByRole('listitem').first()).toHaveText('ASP.NET Core 10');
   await expect(why.getByRole('link', { name: 'Every package, with its version' })).toHaveAttribute('href', /\/architecture\/technologystack\/$/);
   await expect(why.getByRole('list', { name: 'The architecture in three rules' }).getByRole('listitem')).toHaveCount(3);
   await expect(why.getByRole('link', { name: 'Generate your product' })).toHaveAttribute('href', /\/getting-started\/new-project\/$/);
+});
+
+test('the home leads into the guided configuration setup', async ({ page }) => {
+  await page.goto(base + '/');
+  const band = page.getByRole('region', { name: 'Configure it before the first deploy' });
+  await expect(band.getByRole('link', { name: /^Hand it to my AI agent/ })).toHaveAttribute('href', /\/tools\/config-builder\/#guided=agent$/);
+  await expect(band.getByRole('link', { name: /^Set it up by hand/ })).toHaveAttribute('href', /\/tools\/config-builder\/#guided=manual$/);
+  await expect(band.getByRole('link', { name: 'Open the full builder' })).toHaveAttribute('href', /\/tools\/config-builder\/#builder$/);
+  await expect(band.getByRole('list', { name: 'The steps of the guided setup' }).getByRole('listitem')).toHaveCount(7);
+  // The specimen is the builder's own output for the example answers.
+  await expect(band.locator('figcaption')).toContainText('appsettings.Docker.json');
+  await expect(band.locator('pre')).toContainText('"EnforcementMode": "Enforce"');
+  await expect(page.locator('.home-start').getByRole('link', { name: 'configure it in seven steps' })).toHaveAttribute('href', /#guided$/);
 });

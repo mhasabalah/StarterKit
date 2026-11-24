@@ -5,5 +5,6 @@ export const navLinks = [
   { text: 'Get started', url: '/getting-started/new-project/' },
   { text: 'Architecture', url: '/architecture/overview/' },
   { text: 'Decisions', url: '/decisions/' },
+  { text: 'Config builder', url: '/tools/config-builder/' },
 ];
 export const githubUrl = `https://github.com/${repository}`;

@@ -15,7 +15,7 @@ export function diagramTheme(dark = false) {
   const [fill, stroke] = p.roles.application;
   return {
     startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true,
-    theme: 'base', look: 'classic', layout: 'dagre', fontFamily: 'Inter, ui-sans-serif, sans-serif',
+    theme: 'base', look: 'classic', layout: 'dagre', fontFamily: '"IBM Plex Sans", ui-sans-serif, sans-serif',
     secure: ['securityLevel', 'startOnLoad', 'maxTextSize', 'suppressErrorRendering', 'secure', 'theme', 'themeVariables', 'themeCSS'],
     flowchart: { htmlLabels: false, useMaxWidth: true, curve: 'linear', nodeSpacing: 24, rankSpacing: 40, padding: 16 },
     sequence: { useMaxWidth: true, wrap: true, width: 125, actorMargin: 24, diagramMarginX: 12, messageMargin: 28 },
@@ -25,7 +25,7 @@ export function diagramTheme(dark = false) {
       secondaryColor: p.roles.domain[0], secondaryBorderColor: p.roles.domain[1], secondaryTextColor: p.text,
       tertiaryColor: p.surface, tertiaryTextColor: p.text, tertiaryBorderColor: p.border,
       textColor: p.text, lineColor: p.edge, mainBkg: fill, nodeBorder: stroke, clusterBkg: p.surface, clusterBorder: p.border,
-      edgeLabelBackground: p.background, fontFamily: 'Inter, ui-sans-serif, sans-serif', fontSize: '14px',
+      edgeLabelBackground: p.background, fontFamily: '"IBM Plex Sans", ui-sans-serif, sans-serif', fontSize: '14px',
       actorBkg: fill, actorBorder: stroke, actorTextColor: p.text, actorLineColor: p.border,
       signalColor: p.edge, signalTextColor: p.text, labelBoxBkgColor: p.surface, labelBoxBorderColor: p.border,
       labelTextColor: p.text, loopTextColor: p.text, noteBkgColor: p.surface, noteBorderColor: p.border, noteTextColor: p.text,
@@ -37,7 +37,7 @@ export function diagramTheme(dark = false) {
       .cluster rect { rx: 2px; ry: 2px; stroke-dasharray: 4 3; }
       .cluster-label text, .cluster-label tspan { font-weight: 600; }
       .edgeLabel rect { opacity: 1; }
-      text, tspan { font-family: Inter, ui-sans-serif, sans-serif; }
+      text, tspan { font-family: "IBM Plex Sans", ui-sans-serif, sans-serif; }
       ${Object.entries(p.roles).map(([role, [bg, border]]) => `
         .node.${role} rect, .node.${role} polygon, .node.${role} circle, .node.${role} path {
           fill: ${bg} !important; stroke: ${border} !important;

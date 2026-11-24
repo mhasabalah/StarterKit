@@ -9,6 +9,7 @@ import { RequestJourney } from '@/components/request-journey';
 import { InView } from '@/components/in-view';
 import { RoutePlate } from '@/components/route-plate';
 import { WhyShowcase } from '@/components/why-showcase';
+import { HomeConfigure } from '@/components/home-configure';
 import { families, modules, practices } from '@/lib/chart';
 import { pageTree, source } from '@/lib/source';
 import type * as PageTree from 'fumadocs-core/page-tree';
@@ -115,7 +116,7 @@ export default function Home() {
           <ServerCodeBlock lang="bash" code={'dotnet new install StarterKit.Templates\ndotnet new starterkit -n Acme'}
             themes={{ light: 'github-light', dark: 'github-dark' }}
             codeblock={{ title: 'Terminal', icon: <Terminal size={14} aria-hidden="true" />, className: 'home-command', viewportProps: { 'aria-label': 'Template installation and project creation commands' } }} />
-          <p>Installing from the package feed? <Link href="/getting-started/templates/#install">Set up the feed first</Link>.</p>
+          <p>Installing from the package feed? <Link href="/getting-started/templates/#install">Set up the feed first</Link>. Then <Link href="/tools/config-builder/#guided">configure it in seven steps</Link>.</p>
           <CopyStartPrompt />
         </div>
       </div>
@@ -123,6 +124,8 @@ export default function Home() {
     </section>
 
     <WhyShowcase capabilities={dayOne} />
+
+    <HomeConfigure />
 
     <section className="home-routes" aria-labelledby="routes-title">
       <div className="home-stratum-head">

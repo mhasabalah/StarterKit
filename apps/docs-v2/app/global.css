@@ -3,10 +3,11 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 @import 'fumadocs-openapi/css/preset.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
-@import '@fontsource/inter/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/400-italic.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
 @import '@fontsource/schibsted-grotesk/600.css';
 @import '@fontsource/schibsted-grotesk/700.css';
 @import '@fontsource/schibsted-grotesk/800.css';
@@ -17,8 +18,8 @@
    An offset-printed wall chart: cool chart-white ground, ink type, hairline cell rules and four flat family
    tints (cell fills and markers only). Rank is shown by inversion: the current item prints as an ink tile. */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Schibsted Grotesk', 'Inter', ui-sans-serif, sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Schibsted Grotesk', 'IBM Plex Sans', ui-sans-serif, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 :root {
@@ -62,7 +63,7 @@
 /* ── Browser surfaces ── */
 html { background: var(--sk-paper); color-scheme: light; }
 html.dark { color-scheme: dark; }
-body { font-family: var(--font-sans); color: var(--sk-text); background: var(--sk-paper); font-feature-settings: 'cv11', 'ss01'; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-sans); color: var(--sk-text); background: var(--sk-paper); -webkit-font-smoothing: antialiased; }
 ::selection { background: var(--sk-foundations-tint); color: var(--sk-ink); }
 :root { caret-color: var(--sk-foundations); scrollbar-color: var(--sk-rule-strong) transparent; }
 a { text-underline-offset: .2em; text-decoration-thickness: 1px; }
@@ -121,7 +122,9 @@ a.element-tile:hover { background: var(--sk-ink); color: var(--sk-paper); }
 .home-header { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--sk-paper) 90%, transparent); border-bottom: 1px solid var(--sk-rule); backdrop-filter: blur(10px); }
 .home-header-bar { display: flex; align-items: center; gap: clamp(12px, 3vw, 32px); width: 100%; max-width: 1360px; height: 60px; margin-inline: auto; padding-inline: clamp(12px, 4vw, 48px) clamp(6px, 4vw, 48px); }
 .home-header-links { display: flex; align-items: center; gap: 2px; }
-.home-header-links a { padding: 7px 10px; border-radius: 4px; color: var(--sk-text); font-size: .875rem; transition: background-color 120ms ease, color 120ms ease; }
+.home-header-links a { padding: 7px 10px; border-radius: 4px; color: var(--sk-text); font-size: .875rem; white-space: nowrap; transition: background-color 120ms ease, color 120ms ease; }
+/* Four sections and the search field share the bar down to 1024px: the field narrows before a label could wrap. */
+@media (max-width: 1199px) { .home-header-links a { padding-inline: 8px; } .home-header-search { width: 180px; } }
 .home-header-links a:hover { background: var(--sk-hover); color: var(--sk-ink); }
 .home-header .site-bar-actions { gap: 4px; margin-inline-start: auto; }
 .home-header-search { display: inline-flex; align-items: center; gap: 8px; width: 240px; height: 36px; margin-inline-end: 4px; padding: 0 6px 0 10px; border: 1px solid var(--sk-rule); border-radius: 4px; background: var(--sk-ground); color: var(--sk-muted); font-size: .875rem; transition: border-color 120ms ease; }
@@ -349,7 +352,9 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 
 /* Capability tiles: the chart's cells in the dark, touching through a 1px rule; a light follows the pointer. */
 .why-subhead { margin-top: clamp(64px, 8vw, 104px); padding-bottom: 14px; border-bottom: 2px solid var(--sk-ink); font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
-.why-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; margin-top: 20px; background: var(--sk-rule); box-shadow: 0 0 0 1px var(--sk-rule); border-radius: 6px; overflow: hidden; }
+/* Each cell draws its own rule (its ring fills the 1px gap), so a short last row leaves blank ground, never a grey block. */
+.why-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 20px; background: var(--sk-ground); box-shadow: 0 0 0 1px var(--sk-rule); border-radius: 6px; overflow: hidden; }
+.why-tiles > li { box-shadow: 0 0 0 1px var(--sk-rule); }
 .why-tile { position: relative; display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 200px; padding: 20px 20px 22px; background: var(--sk-ground); color: var(--sk-text); overflow: hidden; transition: background-color 260ms var(--sk-ease); }
 .why-tile::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--fam) 32%, transparent), transparent 70%); transition: opacity 260ms var(--sk-ease); }
 .why-tiles:hover .why-tile::before { opacity: .6; }
@@ -362,6 +367,14 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .why-tile b { font: 700 1.0625rem/1.25 var(--font-display); letter-spacing: -.015em; }
 .why-detail { color: var(--sk-muted); font-size: .8125rem; line-height: 1.55; text-wrap: pretty; }
 .why-tile:focus-visible { outline: 2px solid var(--sk-foundations); outline-offset: -2px; }
+/* "Your configuration": the reader's own cell prints inverted, the site's mark of rank. */
+.why-tile-own { background: var(--sk-ink); color: var(--sk-ground); }
+.why-tile-own::before { display: none; }
+.why-tile-own .why-symbol, .home-why .why-tile-own b { color: var(--sk-ground); }
+.why-tile-own .why-detail { color: color-mix(in srgb, var(--sk-ground) 80%, var(--sk-ink)); }
+.why-tile-own .why-tile-top svg, .why-tile-own:hover .why-tile-top svg, .why-tile-own:focus-visible .why-tile-top svg { color: var(--sk-ground); }
+.why-tile-own:hover { background: #ffffff; }
+.why-tile-own:focus-visible { outline-offset: -5px; outline-color: #2342b5; }
 
 /* The stack: a slow ribbon that pauses under the pointer; reduced motion lays it out as a wrapped list. */
 .why-stack { display: flex; align-items: center; gap: 24px; margin-top: clamp(40px, 5vw, 64px); }
@@ -394,6 +407,55 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
   .why-folders { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 10px; }
   .why-terminal-body { font-size: .75rem; padding: 16px; }
   .why-primary, .why-secondary { width: 100%; justify-content: center; }
+}
+
+/* Configure: step 0 of the guided setup taken on the home page (two doors), beside a printed specimen of what the
+   steps produce. The sheet is generated at build time by the builder's own model. */
+.home-configure { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 80px); align-items: start; padding-block: var(--stratum); }
+.configure-pitch h2 { font-size: clamp(1.875rem, 3.4vw, 2.75rem); font-weight: 800; letter-spacing: -.04em; line-height: 1.02; text-wrap: balance; }
+.configure-lead { max-width: 34rem; margin-top: 18px; color: var(--sk-muted); font-size: 1.0625rem; line-height: 1.6; text-wrap: pretty; }
+.configure-doors { display: grid; gap: 10px; margin-top: 32px; }
+.configure-door { display: grid; grid-template-columns: 26px minmax(0, 1fr) 18px; gap: 16px; align-items: center; padding: 18px 20px; border: 1px solid var(--sk-rule-strong); border-radius: 6px; background: var(--sk-paper); color: var(--sk-text); transition: background-color 200ms var(--sk-ease), border-color 200ms var(--sk-ease), color 200ms var(--sk-ease); }
+.configure-door-icon { width: 24px; height: 24px; color: var(--sk-ink); }
+.configure-door-text { display: grid; gap: 4px; }
+.configure-door-text b { color: var(--sk-ink); font: 700 1.125rem/1.25 var(--font-display); letter-spacing: -.015em; }
+.configure-door-text span { color: var(--sk-muted); font-size: .875rem; line-height: 1.5; }
+.configure-door-arrow { color: var(--sk-ink); transition: transform 220ms var(--sk-ease); }
+.configure-door:hover, .configure-door:focus-visible { border-color: var(--sk-ink); background: var(--sk-ink); }
+.configure-door:hover :is(.configure-door-icon, .configure-door-text b, .configure-door-text span, .configure-door-arrow),
+.configure-door:focus-visible :is(.configure-door-icon, .configure-door-text b, .configure-door-text span, .configure-door-arrow) { color: var(--sk-paper); }
+.configure-door:hover .configure-door-arrow, .configure-door:focus-visible .configure-door-arrow { transform: translateX(4px); }
+.configure-door:focus-visible { outline: 2px solid var(--sk-foundations); outline-offset: 3px; }
+.configure-more { margin-top: 18px; color: var(--sk-muted); font-size: .875rem; }
+.configure-more a { color: var(--sk-ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--sk-rule-strong); text-underline-offset: .18em; }
+.configure-more a:hover { text-decoration-color: currentColor; }
+
+.configure-specimen { display: grid; grid-template-columns: 172px minmax(0, 1fr); border-top: 2px solid var(--sk-ink); }
+.configure-steps { position: relative; align-self: start; display: grid; align-content: start; gap: 6px; padding: 20px 20px 20px 0; }
+.configure-steps::before { content: ''; position: absolute; top: 34px; bottom: 34px; left: 12px; width: 1px; background: var(--sk-rule-strong); }
+.configure-steps li { position: relative; display: grid; grid-template-columns: 25px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 34px; color: var(--sk-text); font-size: .875rem; }
+.configure-steps li span { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--sk-rule-strong); border-radius: 3px; background: var(--sk-paper); color: var(--sk-muted); font: 500 .75rem/1 var(--font-mono); }
+.configure-steps li[data-last] { color: var(--sk-ink); font-weight: 600; }
+.configure-steps li[data-last] span { border-color: var(--sk-ink); background: var(--sk-ink); color: var(--sk-paper); }
+.configure-sheet { min-width: 0; margin: 20px 0 0; border: 1px solid var(--sk-rule); border-radius: 6px; background: var(--sk-paper); overflow: hidden; }
+.configure-sheet figcaption { display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--sk-rule); background: var(--sk-ground); color: var(--sk-ink); font: 500 .75rem/1.2 var(--font-mono); }
+.configure-sheet figcaption span:last-child { color: var(--sk-muted); }
+.configure-sheet pre { max-height: 480px; margin: 0; padding: 14px 16px; overflow: auto; color: var(--sk-text); font: 400 .75rem/1.65 var(--font-mono); tab-size: 2; }
+.configure-sheet pre:focus-visible { outline: 2px solid var(--sk-foundations); outline-offset: -2px; }
+.configure-sheet .cb-t-key { color: var(--sk-foundations); }
+.configure-sheet .cb-t-string { color: var(--sk-connected); }
+.configure-sheet :is(.cb-t-number, .cb-t-literal) { color: var(--sk-samples); }
+.configure-sheet .cb-t-punct { color: var(--sk-muted); }
+.configure-sheet-foot { padding: 11px 14px 13px; border-top: 1px solid var(--sk-rule); color: var(--sk-muted); font-size: .8125rem; line-height: 1.5; }
+@media (max-width: 1100px) {
+  .home-configure { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .configure-specimen { grid-template-columns: minmax(0, 1fr); }
+  .configure-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px 0 4px; }
+  .configure-steps::before { display: none; }
+  .configure-sheet pre { max-height: 300px; }
+  .configure-door { padding: 16px; gap: 12px; }
 }
 
 /* Quiet stratum: three ways in. Each path shows a printed plate of where it ends. */
@@ -473,7 +535,8 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .journey-live { display: grid; min-width: 0; }
 .journey-card { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); column-gap: clamp(24px, 4vw, 64px); align-content: start; justify-items: start; visibility: hidden; }
 .journey-card[data-current] { visibility: visible; animation: journey-in 240ms var(--sk-ease) both; }
-@keyframes journey-in { from { opacity: .6; transform: translateY(4px); } }
+/* The card slides in without fading: its text keeps full contrast from the first frame. */
+@keyframes journey-in { from { transform: translateY(4px); } }
 .journey-card > * { grid-column: 1; }
 .journey-ends { grid-column: 2 !important; grid-row: 1 / span 6; align-self: start; justify-self: stretch; padding-top: 2px; }
 .journey-ends h4 { padding-bottom: 10px; border-bottom: 2px solid var(--sk-ink); color: var(--sk-ink); font: 600 .8125rem/1.2 var(--font-sans); }
@@ -691,6 +754,13 @@ body:has(.docs-chat) .back-to-top { display: none; }
 .page-tools:last-child :is(button, a) { border: 0; padding: 0; min-height: 0; background: transparent; color: var(--sk-muted); }
 .page-tools:last-child :is(button, a):hover { color: var(--sk-ink); text-decoration: underline; }
 .page-tools:last-child { margin-block: 48px 0; padding-top: 16px; border-top: 1px solid var(--sk-rule); }
+/* The way from a configuration page into the configuration builder: one ruled line, the link in ink. */
+.config-callout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 24px; padding: 10px 12px; border: 1px solid var(--sk-rule); border-radius: 3px; background: var(--sk-ground); font-size: .8125rem; line-height: 1.5; color: var(--sk-text); }
+.config-callout svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--sk-ink); }
+.config-callout p { flex: 1 1 280px; margin: 0; }
+.config-callout code { padding: 0 4px; border-radius: 2px; background: var(--sk-paper); color: var(--sk-ink); font-size: .75rem; }
+.config-callout a { color: var(--sk-ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--sk-rule-strong); }
+.config-callout a:hover { text-decoration-color: currentColor; }
 
 /* Reading column */
 #nd-page .prose { --tw-prose-body: var(--sk-text); --tw-prose-headings: var(--sk-ink); --tw-prose-links: var(--sk-ink); --tw-prose-bold: var(--sk-ink); --tw-prose-counters: var(--sk-muted); --tw-prose-bullets: var(--sk-rule-strong); --tw-prose-quotes: var(--sk-ink); --tw-prose-code: var(--sk-ink); --tw-prose-th-borders: var(--sk-ink); --tw-prose-td-borders: var(--sk-rule); font-size: 1rem; line-height: 1.72; }

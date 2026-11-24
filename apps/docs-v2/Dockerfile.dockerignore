@@ -18,6 +18,12 @@ apps/docs-v2/playwright-report/
 !docs-site/src/
 !docs-site/src/assets/
 !docs-site/src/assets/**
+!src/Api/appsettings.json
+!src/Api/appsettings.Development.json
+!src/Api/appsettings.Docker.json
+!.template.config/template.json
+!.env.example
+!docker-compose*.yml
 !.git/
 !.git/**
 .git/hooks/

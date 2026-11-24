@@ -15,6 +15,8 @@ import { createOpenAPI } from 'fumadocs-openapi/server';
 import { sections, pages, pageSlug, outputPath, repository } from '../../../docs-site/sidebar.mjs';
 import { renderTemplate } from './template.mjs';
 import { buildArchitecture, modelRepoPath } from './architecture.mjs';
+import { writeConfigCatalog } from './config-catalog.mjs';
+import { tools } from '../lib/tools.mjs';
 
 export const app = fileURLToPath(new URL('../', import.meta.url));
 const root = path.resolve(app, '../..');
@@ -165,18 +167,30 @@ export async function sync() {
   inventory.unshift({ source: 'docs-site/src/content/docs/index.mdx', oldPath: '/', newPath: '/', title: 'StarterKit', status: 'converted-homepage', dependencies: ['Cards', 'Steps'], assets: publicAssets.map((asset) => asset.path) });
   const report = { schemaVersion: 1, pageCount: inventory.length, excluded: [{ source: 'wiki/INDEX.md', reason: 'Authoring index; represented by homepage and navigation, as in V1' }], pages: inventory, assets: publicAssets, redirects: [], unresolved: [] };
   searchIndexes.unshift({ id: prefix + '/', url: prefix + '/', title: 'StarterKit', structuredData: structure(await readFile(path.join(app, 'content/home.mdx'), 'utf8')) });
+  // Tools are pages too: search finds them by their words (lib/tools.mjs).
+  for (const tool of tools) {
+    const url = `${prefix}${tool.url}`;
+    searchIndexes.push({ id: url, url, title: tool.title, description: tool.description, structuredData: structure(`# ${tool.title}
+
+${tool.description}
+
+${tool.keywords}
+`) });
+  }
   const api = await createOpenAPI({ input: { v1: path.join(app, 'openapi/v1.json') } }).staticSource({ baseDir: 'api-reference/v1', groupBy: 'tag' });
   for (const file of api.files.filter((file) => file.type === 'page')) {
     const url = `${prefix}/${slash(file.path).replace(/\.mdx?$/, '')}/`;
     searchIndexes.push({ id: url, url, title: file.data.title, description: file.data.description, structuredData: file.data.structuredData });
   }
+  // The configuration builder reads the real appsettings files and the configuration pages (scripts/config-catalog.mjs).
+  const configCatalog = await writeConfigCatalog();
   await writeFile(path.join(generated, 'search-index.json'), JSON.stringify(searchIndexes) + '\n');
   await writeFile(path.join(generated, 'inventory.json'), JSON.stringify(report, null, 2) + '\n');
   await writeFile(path.join(generated, 'navigation.json'), JSON.stringify(nav, null, 2) + '\n');
   await writeFile(path.join(generated, 'diagrams.json'), JSON.stringify(allDiagrams, null, 2) + '\n');
   await writeFile(path.join(generated, 'architecture-uses.json'), JSON.stringify(architectureUses, null, 2) + '\n');
   await writeFile(path.join(generated, 'external-links.txt'), [...external].sort().join('\n') + '\n');
-  console.log(`V2: ${inventory.length} pages, ${allDiagrams.length} Mermaid diagrams, ${architectureUses.length} architecture views, ${publicAssets.length} assets; no missing wiki pages.`);
+  console.log(`V2: ${inventory.length} pages, ${allDiagrams.length} Mermaid diagrams, ${architectureUses.length} architecture views, ${publicAssets.length} assets, ${Object.keys(configCatalog.docs).length} configuration keys; no missing wiki pages.`);
   return report;
 }
 

@@ -22,7 +22,7 @@ export async function socialCard() {
   const before = modules.filter((m) => (m.order ?? 0) <= 700);
   const after = modules.filter((m) => (m.order ?? 0) > 700);
   return new ImageResponse(
-    <div style={{ display: 'flex', width: '100%', height: '100%', padding: 64, background: ground, color: ink, fontFamily: 'Inter' }}>
+    <div style={{ display: 'flex', width: '100%', height: '100%', padding: 64, background: ground, color: ink, fontFamily: 'IBM Plex Sans' }}>
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, paddingRight: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <svg width="44" height="40" viewBox="8 16 104 96">

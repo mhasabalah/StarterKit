@@ -24,37 +24,37 @@ colors:
   danger-tint: "#f9e3e8"
 typography:
   display:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "clamp(2.5rem, 4.4vw, 4rem)"
     fontWeight: 800
     lineHeight: 0.98
     letterSpacing: "-0.04em"
   headline:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "clamp(1.875rem, 3.2vw, 2.5rem)"
     fontWeight: 800
     lineHeight: 1.08
     letterSpacing: "-0.035em"
   title:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "-0.02em"
   symbol:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "clamp(1.75rem, 2.6vw, 2.5rem)"
     fontWeight: 800
     lineHeight: 0.9
     letterSpacing: "-0.045em"
   body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.72
     fontFeature: "'cv11', 'ss01'"
   label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1
@@ -199,11 +199,11 @@ Dark theme redefines every token under `.dark` (ground #0b0e14, paper #10141c, i
 
 ## Typography
 
-**Display Font:** Schibsted Grotesk 600/700/800 (with Inter, ui-sans-serif)
-**Body Font:** Inter 400-700 with `cv11` and `ss01` (with ui-sans-serif, system-ui)
+**Display Font:** Schibsted Grotesk 600/700/800 (with IBM Plex Sans, ui-sans-serif)
+**Body Font:** IBM Plex Sans 400-700, with a true 400 italic for emphasis (with ui-sans-serif, system-ui)
 **Label/Mono Font:** JetBrains Mono 400/500 (with ui-monospace)
 
-**Character:** A heavy, tightly tracked grotesk prints the chart's element symbols and every heading; Inter reads quietly underneath; mono is reserved for numbers that are data (orders, page counts, ADR numbers) and code. All three are bundled locally via `@fontsource`.
+**Character:** A heavy, tightly tracked grotesk prints the chart's element symbols and every heading; IBM Plex Sans reads underneath, compact and engineered, with real italics (and IBM Plex Sans Arabic as its sibling when an Arabic edition comes); mono is reserved for numbers that are data (orders, page counts, ADR numbers) and code. All three are bundled locally via `@fontsource`.
 
 ### Hierarchy
 - **Display** (800, clamp 2.5-4rem, 0.98, -0.04em): the home title only.
@@ -290,13 +290,13 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 ### Brand Images
 - **Favicon:** the mark in ink with the connected-green terminal; light and dark through `prefers-color-scheme` (`app/icon.svg`).
 - **Home-screen icon:** the paper mark on an opaque ink tile, terminal in dark-theme green, 180px.
-- **Social card:** 1200x630 chart white. Brand lockup, "The developer guide" in display 800, the lead in muted Inter, a 2px ink rule over a mono caption; on the right the module chart printed with real orders and page counts and the dashed 700 slot. Both are generated at build (`lib/brand-images.tsx`) and served from `.png` routes, so crawlers get them without a redirect.
+- **Social card:** 1200x630 chart white. Brand lockup, "The developer guide" in display 800, the lead in muted IBM Plex Sans, a 2px ink rule over a mono caption; on the right the module chart printed with real orders and page counts and the dashed 700 slot. Both are generated at build (`lib/brand-images.tsx`) and served from `.png` routes, so crawlers get them without a redirect.
 
 ### Navigation
 - **Sidebar:** 0.8125rem entries, 34px min height, 4px radius, body-text colour; hover fills with the hover wash. Group headers are 600 ink. Nested groups hang from a 1px hairline 18px in. Modules are ordered by `ModuleOrder` so the sidebar reads like the chart. The current page alone prints as an ink tile.
 - **Running head (768px and up):** one ruled bar; search, Ask AI, GitHub and theme are separated by hairline dividers, not floating pills. GitHub is pinned here, so the sidebar does not repeat it.
 - **Phone bar (below 768px):** a 56px top bar, paper over the page with a light blur and a hairline: the logo (home) on the left; search, Ask AI, GitHub and the navigation drawer as 40px icon buttons on the right. It replaces Glass's floating bottom buttons; docs and home share it (`components/site-header.tsx`).
-- **Home header:** the same bar at 60px, aligned to the 1360px page: lockup, the three guide sections, a ground search field with its shortcut, GitHub and theme. Below 1024px search becomes an icon; below 768px the sections and theme move into a menu panel of large ruled links with a theme row.
+- **Home header:** the same bar at 60px, aligned to the 1360px page: lockup, the three guide sections and the configuration builder, a ground search field with its shortcut, GitHub and theme. Below 1024px search becomes an icon; below 768px the sections and theme move into a menu panel of large ruled links with a theme row.
 - **Section bar (below 1280px):** "On this page" as a sticky 44px bar under the header: an ink progress ring (reading progress), the current section's title, its position as a mono `3/16`, and a chevron. It opens to the outline, depth indented, the current item in 600 ink with a 2px ink mark; Escape, an outside tap or a choice closes it. It reads the active heading from the same Fumadocs TOC state as the desktop outline (`components/section-bar.tsx`).
 - **Outline (1280px and up):** "On this page" in 600 ink over a hairline track; entries 0.8125rem muted, indented by depth. The sections in view print a 2px ink thumb on the track and turn ink.
 - **Back to top:** a 44px paper square with a strong hairline and a soft overlay shadow, bottom right (safe-area aware), shown once the reader is a screen and a half down; it inverts to ink on hover, moves focus to the page title, and hides while Ask AI is open. Inert while hidden.
@@ -315,10 +315,13 @@ The dashed empty 700 slot beside Shipping. At rest: transparent, dashed strong h
 ### Why Showcase (signature)
 `components/why-showcase.tsx`, the first stratum under the hero and the home's one full-bleed band. It always prints in the dark palette (the dark tokens are redeclared on the band, so chips, rules and focus work unchanged): in the light theme it is the dark ground, in the dark theme a deeper #06080c, painted edge to edge by a spread shadow clipped horizontally so the page never widens. Contents:
 - **Pitch:** "Ship the product, not the plumbing." in display 800 at clamp(2.75-5.25rem), 0.95 leading; a muted lead; the architecture as three checked rules; a paper primary action ("Generate your product", 52px, the band's only lifted control) and an outlined secondary.
-- **Terminal:** a raised paper panel (8px, rule ring and a soft overlay shadow) showing what the template really generates: the command, the ten `src/Modules` folders, the AppHost command and the four resources it starts (api, postgres, redis, seq). The commands are always printed; the output prints in once (folders 70ms apart, resources 120ms) the first time it is on screen, then a caret blinks. A screen-reader sentence states the same facts.
-- **Ready on day one:** ten capability tiles in the chart's form (cells touching through a 1px rule, 6px outer radius, 5 across, 2 at 1100px, 1 at 560px): the element symbol huge in its family colour, an arrow, the title and a muted detail naming only what ships. A light follows the pointer across the grid (a radial wash of the tile's family colour, stronger on the hovered tile); the arrow nudges up-right.
+- **Terminal:** a raised paper panel (8px, rule ring and a soft overlay shadow) showing what the template really generates: the command, the eleven `src/Modules` folders, the AppHost command and the four resources it starts (api, postgres, redis, seq). The commands are always printed; the output prints in once (folders 70ms apart, resources 120ms) the first time it is on screen, then a caret blinks. A screen-reader sentence states the same facts.
+- **Ready on day one:** eleven capability tiles and one reader's tile in the chart's form (6px outer radius; 4 across, 2 at 1100px, 1 at 560px, so twelve fill every row). Each cell draws its own 1px rule over a ground-coloured grid, so a short last row leaves blank paper, never a grey block. A tile is the element symbol huge in its family colour, an arrow, the title and a muted detail naming only what ships. The twelfth, **Your configuration** (`Cf`), prints inverted (ink fill, ground text) and opens the guided setup. A light follows the pointer across the grid (a radial wash of the tile's family colour, stronger on the hovered tile); the arrow nudges up-right.
 - **Built on:** the real stack as outlined pills in a slow ribbon (60s loop, edge-faded mask) that pauses under the pointer and while the band is off screen; under reduced motion it is a wrapped list. It ends with a link to the technology stack page.
 No numbers, logos or claims that are not in the repository.
+
+### Configure Band
+`components/home-configure.tsx`, the quiet stratum after the why showcase. Left: "Configure it before the first deploy" (display 800), a muted lead, and two doors that are step 0 of the guided setup taken on the home page ("Hand it to my AI agent", "Set it up by hand"): hairline rows (6px) with an icon, a display title, a muted line and an arrow; hover and focus invert the door to ink. A quiet link opens the full builder. Right, under a 2px ink rule: the seven steps as a numbered rail joined by a hairline (the last, "Get it", an ink tile) beside a framed sheet of `appsettings.Docker.json`. The sheet is generated at build time by the builder's own model for one stated example, so it cannot drift from the real files; one line under it names the example and that secrets are listed by name only.
 
 ### Route Plates
 Each "way in" opens on a printed plate (a 2px cell with the cell rule) of where the path ends: the template command over four ruled cells for the generated `src/` folders, the host/modules/contracts stack (module chips in their family tints), or the slice layout as a mono tree. Hover or focus inverts the plate to ink (260ms); nothing inside it moves. Decorative for assistive tech; the link's heading and description carry the meaning.
@@ -331,6 +334,16 @@ Family buttons with a 10px family swatch. Pressing one dims every other tile and
 
 ### Ruled Lists and Tables
 Header rule 2px ink, rows separated by 1px hairlines, no cell borders or fills, tabular figures. Used for prose tables, guardrails, decisions, the 404 "ways back" list and the three-routes row (columns split by hairlines). On mobile the guardrails table becomes stacked ruled rows.
+
+### Configuration Builder (tool)
+`/tools/config-builder/` (`components/config-builder/*`, styles in `config-builder.css`). The chart world at tool density: three panes under one 2px ink rule, split by hairlines, aligned to the 1360px header.
+- **Product pane (left, sticky):** where it runs (a stacked segmented control), the product's own chart, the `dotnet new` options and the command that generates the product, then the section index with mono change and check counts (the current section prints as an ink tile).
+- **The product's chart (the one bold element):** one cell per module in `ModuleOrder`, 3 across, touching through a 1px gap. An included module is its family tint with the symbol and order in the family ink; a left-out module becomes a dashed, hatched empty slot with its name struck through. Toggleable cells (samples, Search, Agentic) invert to ink on hover and focus; always-included cells carry a lock and do not invert.
+- **Settings (centre):** a sticky ruled filter bar (static on phones) with Changed only, Every key and Expand/Collapse all. It opens on **Key decisions**: one ground plate (6px, hairline) holding about twenty choices grouped by the question they answer (what it runs on, what it offers, how it is protected, how it reaches people), each under a 2px ink rule, named for use outside its section ("File storage", not "Provider"), with a link to its section. Below, module headings in display 800 over a 2px ink rule with their chip, and every section **folded to one ruled line**: chevron, key in mono, its size and its changed and check counts, with Reference and Guide outside the toggle. A section opens on click, on search, with Changed only, and on any jump (section index, a check, a docs deep link). Rows are hairline-ruled: label (600), the full key in muted mono with Docs beside it, the meaning from the reference, then the control. Label and control sit side by side once the column is 520px wide (a container query); decision rows give the control the wider share. A changed row marks its label with a 7px cobalt square and shows the default and Reset. Controls are native: switch (ink when on), segmented radios (chosen option inverts to ink), select, checkbox groups, an ordered list with up/down buttons, tag lists in mono chips, numbers with their unit. Secrets show a dashed note with the secret file, never an input.
+- **Checks and export (right, sticky):** the checks fold to one summary bar (state icon, "Checks", the counts) that opens by itself only while something blocks startup, then takes a signal-red frame; the export stays in view below it. Check cards use the callout recipe (7% tone fill, tinted hairline): signal red for what stops startup, ochre for recommendations, cobalt for notes; each names its keys as mono buttons that jump to the field. Exports are ink-inverting tabs over framed code blocks (ground title strip, 6px frame) highlighted with the site tokens: keys cobalt, strings green, numbers ochre, punctuation muted.
+- **Below 1280px** the export moves under the sheet; **below 1024px** one pane shows at a time behind a sticky three-way ruled tab bar.
+- **Guided setup (the default first visit):** the same state asked one question group per screen. Under the 2px ink rule a sticky **segmented progress line** (seven 4px bars; done and current print ink, a step with a blocking check prints signal red; names under the bars, hidden on phones behind a "3 of 7 · Infrastructure" line). The stage centres a 760px column: a display 800 heading at clamp(2-3rem) that takes focus on each step, a muted lead, then **question cards** (10px, hairline, 20px padding): a display-weight name in the reader's terms, one plain line of help (`questionHelp` in `lib/config-builder/guide.mjs`), Docs and Reset, the control and its checks. A choice of up to four options prints as **option tiles** that carry every option's meaning; the picked tile inverts to ink with a ground tick. On/off questions are one line with the switch at the right. A **live receipt** (sticky, right, 1280px and up) shows where it runs, the change and secret counts in mono, the modules as family chips, a health button (red, ochre or green tint) that opens Review, and the file being built. The sticky footer holds Back, a keyboard hint (Enter continues) and the one ink action. Each step enters with a 380ms slide (18px, direction-aware, exponential ease-out); reduced motion removes it. Step 0 is two large doors (12px, icon plate, display 800 title) and three checked promises. Review folds checks into cards that open on the blocking ones and carry their own controls, then lists the answers with Edit. **The finish** spans the full width: a ground plate with an ink check that pops in once, the facts as pills, and two end cards, the reader's pick first with a 2px ink frame: **Send it to your AI agent** (Copy the prompt, Download, a preview) and **Apply it yourself** (one `apply-starterkit-config.sh` that writes the files with `.bak` copies, merges `.env` by key and creates the secrets; Copy, a preview, or file by file).
+- **Docs callout:** pages that document configuration print one ruled ground line under the page tools, naming the section and linking into the builder (`lib/config-builder/doc-links.ts`, derived from the catalog).
 
 ### Motion
 One easing, `cubic-bezier(.16, 1, .3, 1)`, at 160-260ms for colour and transform changes; arrows nudge 4px on hover. Sidebar disclosure uses its own collapsible curves (200ms in, 160ms out). Loading states (search index, Ask AI) share one 2px ink scanning rule.
