@@ -137,8 +137,9 @@ the hits through its DbContext and falls back to SQL. The step-by-step guide is
 
 ## Related
 
-[Search module](../Modules/Search.md), [Text and languages](Text-And-Languages.md),
-[How search works](How-It-Works.md).
 <!--#if (sample)-->
 The reference integration is [Catalog](../Modules/Catalog.md#search-index).
+
 <!--#endif-->
+[Search module](../Modules/Search.md), [Text and languages](Text-And-Languages.md),
+[How search works](How-It-Works.md).
