@@ -25,6 +25,87 @@ namespace Search.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Search.Domains.Analytics.Models.SearchDailyStats", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("IndexKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("index_key");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<int>("FuzzyRescues")
+                        .HasColumnType("integer")
+                        .HasColumnName("fuzzy_rescues");
+
+                    b.Property<int>("Searches")
+                        .HasColumnType("integer")
+                        .HasColumnName("searches");
+
+                    b.Property<int>("Unanswered")
+                        .HasColumnType("integer")
+                        .HasColumnName("unanswered");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("ZeroResults")
+                        .HasColumnType("integer")
+                        .HasColumnName("zero_results");
+
+                    b.HasKey("TenantId", "IndexKey", "Day")
+                        .HasName("pk_search_daily_stats");
+
+                    b.HasIndex("TenantId", "Day")
+                        .HasDatabaseName("ix_search_daily_stats_tenant_id_day");
+
+                    b.ToTable("search_daily_stats", "search");
+                });
+
+            modelBuilder.Entity("Search.Domains.Analytics.Models.SearchZeroResultTerm", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("IndexKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("index_key");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<string>("Term")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("term");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.HasKey("TenantId", "IndexKey", "Day", "Term")
+                        .HasName("pk_search_zero_result_terms");
+
+                    b.HasIndex("TenantId", "Day")
+                        .HasDatabaseName("ix_search_zero_result_terms_tenant_id_day");
+
+                    b.ToTable("search_zero_result_terms", "search");
+                });
+
             modelBuilder.Entity("Search.Domains.Indexes.Models.SearchIndexState", b =>
                 {
                     b.Property<Guid>("Id")

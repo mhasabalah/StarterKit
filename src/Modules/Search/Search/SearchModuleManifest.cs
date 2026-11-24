@@ -14,8 +14,8 @@ public sealed class SearchModuleManifest : ModuleBase
     /// <summary>After the platform modules, before Notification (see <see cref="ModuleOrder"/>).</summary>
     public override int Order => ModuleOrder.Default;
 
-    // No EnumAssemblies: the Search.Contracts enums describe index definitions and queries for module code, not values
-    // clients pick from a lookup. Clients see search results through the owning modules' DTOs.
+    /// <summary>The index status, the field types and the match modes the admin API and owners' DTOs return.</summary>
+    public override IEnumerable<Assembly> EnumAssemblies => [Search.Contracts.SearchContractsRoot.AssemblyName];
 
     public override void AddServices(IHostApplicationBuilder builder) =>
         builder.Services.AddSearchModule(builder.Configuration);

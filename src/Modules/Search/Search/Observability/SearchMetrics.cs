@@ -10,7 +10,8 @@ namespace Search.Observability;
 /// <item><c>search.documents.indexed</c> by <c>index</c> and <c>operation</c> (upsert, delete);</item>
 /// <item><c>search.index.lag</c> (s): from the change to its indexing, by <c>index</c>;</item>
 /// <item><c>search.rebuilds</c> by <c>index</c> and <c>outcome</c>;</item>
-/// <item><c>search.drift.documents</c> by <c>index</c> and <c>kind</c> (missing, stale, orphaned).</item>
+/// <item><c>search.drift.documents</c> by <c>index</c> and <c>kind</c> (missing, stale, orphaned);</item>
+/// <item><c>search.analytics.terms_dropped</c>: zero-result terms not kept because the buffer was full.</item>
 /// </list>
 /// Tags never carry query text, tenant ids or document ids.
 /// </summary>
@@ -24,6 +25,7 @@ public sealed class SearchMetrics
     private readonly Histogram<double> _lag;
     private readonly Counter<long> _rebuilds;
     private readonly Counter<long> _drift;
+    private readonly Counter<long> _termsDropped;
 
     public SearchMetrics(IMeterFactory? meterFactory = null)
     {
@@ -34,6 +36,8 @@ public sealed class SearchMetrics
         _lag = meter.CreateHistogram<double>("search.index.lag", unit: "s", description: "Time from a change to its indexing");
         _rebuilds = meter.CreateCounter<long>("search.rebuilds", description: "Index rebuilds, by outcome");
         _drift = meter.CreateCounter<long>("search.drift.documents", description: "Documents found out of sync by the drift check");
+        _termsDropped = meter.CreateCounter<long>("search.analytics.terms_dropped",
+            description: "Zero-result terms not kept because the analytics buffer was full");
     }
 
     public void Queried(string index, SearchStatus status, SearchMatchMode mode, double milliseconds)
@@ -63,6 +67,8 @@ public sealed class SearchMetrics
         if (orphaned > 0)
             _drift.Add(orphaned, Tag("index", index), Tag("kind", "orphaned"));
     }
+
+    public void AnalyticsTermsDropped(int count) => _termsDropped.Add(count);
 
     private static KeyValuePair<string, object?> Tag(string key, string value) => new(key, value);
 

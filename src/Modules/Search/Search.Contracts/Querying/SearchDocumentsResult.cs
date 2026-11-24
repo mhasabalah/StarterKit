@@ -48,23 +48,29 @@ public sealed record SearchFacetValue(string Value, int Count);
 
 public enum SearchStatus
 {
+    [LocalizedDescription("Answered", "تمت الإجابة")]
     Ok = 0,
 
     /// <summary>The index of this tenant has not been built yet (first deploy, new tenant).</summary>
+    [LocalizedDescription("Index not ready", "الفهرس غير جاهز")]
     IndexNotReady = 1,
 
     /// <summary>The engine did not answer (down, timed out).</summary>
+    [LocalizedDescription("Search engine unavailable", "محرك البحث غير متاح")]
     EngineUnavailable = 2
 }
 
 public enum SearchMatchMode
 {
     /// <summary>No text: filters and sort only.</summary>
+    [LocalizedDescription("Browse", "تصفح")]
     Browse = 0,
 
     /// <summary>The words matched.</summary>
+    [LocalizedDescription("Exact match", "مطابقة تامة")]
     Exact = 1,
 
     /// <summary>Nothing matched exactly; these are close spellings.</summary>
+    [LocalizedDescription("Close spelling", "تهجئة قريبة")]
     Fuzzy = 2
 }

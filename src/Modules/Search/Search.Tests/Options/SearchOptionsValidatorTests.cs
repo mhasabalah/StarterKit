@@ -77,6 +77,8 @@ public sealed class SearchOptionsValidatorTests
         { "Analytics:RetentionDays", o => o.Analytics.RetentionDays = 0 },
         { "Analytics:MaxQueryLength", o => o.Analytics.MaxQueryLength = 1 },
         { "Analytics:FlushSeconds", o => o.Analytics.FlushSeconds = 0 },
+        { "Analytics:MaxPendingTerms", o => o.Analytics.MaxPendingTerms = 10 },
+        { "Analytics:PurgeCron", o => o.Analytics.PurgeCron = "daily" },
         { "Meilisearch:TimeoutSeconds", o => o.Meilisearch.TimeoutSeconds = 0 },
         { "Meilisearch:TaskTimeoutSeconds", o => o.Meilisearch.TaskTimeoutSeconds = 0 }
     };

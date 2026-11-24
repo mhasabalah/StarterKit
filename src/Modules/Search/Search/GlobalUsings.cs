@@ -19,6 +19,7 @@ global using Shared.Core.MultiTenancy;
 global using Shared.Core.MultiTenancy.Web;
 global using Shared.Core.Response;
 global using Shared.Core.Web;
+global using Search.Contracts.Admin;
 global using Search.Contracts.Indexing;
 global using Search.Contracts.Querying;
 global using Search.Data;

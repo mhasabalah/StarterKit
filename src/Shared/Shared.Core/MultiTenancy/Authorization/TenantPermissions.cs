@@ -60,6 +60,14 @@ public static class TenantPermissions
 
     /// <summary>Bulk CSV/Excel export (DataTransfer module), plus the definition's own permission.</summary>
     public const string DataExport = "datatransfer.export";
+#if (SEARCH)
+
+    /// <summary>
+    /// The tenant's search indexes (Search module): their status, a rebuild, a drift check and the search analytics.
+    /// Searching itself is decided by the owning module's endpoint.
+    /// </summary>
+    public const string SearchManage = "search.manage";
+#endif
 
 #if (AGENTIC)
     /// <summary>
@@ -85,6 +93,9 @@ public static class TenantPermissions
     [
         SettingsManage, MembersRead, MembersManage, RolesManage, BranchesRead, BranchesManage, BranchesAll,
         AuditRead, BillingManage, ProductsManage, CategoriesManage, WebhooksManage, SsoManage, DataImport, DataExport,
+#if (SEARCH)
+        SearchManage,
+#endif
 #if (AGENTIC)
         AgentRunsStart, AgentRunsRead, AgentApprovalsDecide, AgentsManage,
 #endif

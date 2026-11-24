@@ -1232,6 +1232,23 @@ Source: [TransferJobsModule](../../src/Modules/DataTransfer/DataTransfer/Domains
 | GET | `/api/v{version:apiVersion}/data-transfer/jobs/{id:guid}/files/{kind}` | `RequireTenantMember()` | — | — |
 | POST | `/api/v{version:apiVersion}/data-transfer/jobs/{id:guid}/cancel` | `RequireTenantMember()` | — | — |
 
+<!--#if (search)-->
+### Search
+
+Sources: [SearchIndexesModule](../../src/Modules/Search/Search/Domains/Indexes/Features/SearchIndexes/SearchIndexesModule.cs), [SearchAnalyticsModule](../../src/Modules/Search/Search/Domains/Analytics/Features/SearchAnalytics/SearchAnalyticsModule.cs), [SearchPlatformModule](../../src/Modules/Search/Search/Domains/Platform/Features/SearchPlatform/SearchPlatformModule.cs). Searching itself has no route here: each owning module's search endpoint decides who may search.
+
+| Method | Route | Authorization / tenant scope | Restrictions | Filters |
+|---|---|---|---|---|
+| GET | `/api/v{version:apiVersion}/search/indexes/` | `RequireTenantPermission(TenantPermissions.SearchManage)` | — | — |
+| GET | `/api/v{version:apiVersion}/search/indexes/{key}` | `RequireTenantPermission(TenantPermissions.SearchManage)` | — | — |
+| POST | `/api/v{version:apiVersion}/search/indexes/{key}/rebuild` | `RequireTenantPermission(TenantPermissions.SearchManage)` | `DisallowImpersonation()` | — |
+| POST | `/api/v{version:apiVersion}/search/indexes/{key}/drift-check` | `RequireTenantPermission(TenantPermissions.SearchManage)` | `DisallowImpersonation()` | — |
+| GET | `/api/v{version:apiVersion}/search/analytics/zero-results` | `RequireTenantPermission(TenantPermissions.SearchManage)` | — | — |
+| GET | `/api/v{version:apiVersion}/search/analytics/daily` | `RequireTenantPermission(TenantPermissions.SearchManage)` | — | — |
+| GET | `/api/v{version:apiVersion}/admin/search/engine` | `HostOnly()`; `RequirePermission(Permissions.SearchOperate)` | — | — |
+| POST | `/api/v{version:apiVersion}/admin/search/indexes/{key}/rebuild-all` | `HostOnly()`; `RequirePermission(Permissions.SearchOperate)` | `DisallowImpersonation()` | — |
+
+<!--#endif-->
 <!--#if (sample)-->
 
 ### Catalog
@@ -1461,6 +1478,9 @@ Impersonation also has middleware-wide restrictions beyond the explicit markers:
 | `Permissions.FeatureFlagsManage` | `feature-flags.manage` | SuperAdmin |
 | `Permissions.SessionsManage` | `sessions.manage` | SuperAdmin, Admin, Support |
 | `Permissions.ApiKeysManage` | `api-keys.manage` | SuperAdmin, Admin |
+<!--#if (search)-->
+| `Permissions.SearchOperate` | `search.operate` | SuperAdmin |
+<!--#endif-->
 
 `User` and unknown roles have no platform grants. Multiple roles grant the union. Admin and SuperAdmin also receive every grantable tenant permission as platform claims, honored for tenant authorization only in single-tenant mode.
 
@@ -1488,6 +1508,9 @@ The owner flag grants every permission; it is not a tenant role. The system `Adm
 | `TenantPermissions.SsoManage` | `tenant.sso.manage` | Owner; Administrator |
 | `TenantPermissions.DataImport` | `datatransfer.import` | Owner; Administrator |
 | `TenantPermissions.DataExport` | `datatransfer.export` | Owner; Administrator |
+<!--#if (search)-->
+| `TenantPermissions.SearchManage` | `search.manage` | Owner; Administrator |
+<!--#endif-->
 <!--#if (agentic)-->
 | `TenantPermissions.AgentRunsStart` | `agentic.runs.start` | Owner; Administrator |
 | `TenantPermissions.AgentRunsRead` | `agentic.runs.read` | Owner; Administrator |

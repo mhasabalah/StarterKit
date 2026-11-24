@@ -59,6 +59,14 @@ public static class Permissions
 
     /// <summary>Admin: list and revoke any user's API keys.</summary>
     public const string ApiKeysManage = "api-keys.manage";
+#if (SEARCH)
+
+    /// <summary>
+    /// Platform operations: the search engine's status and rebuilding an index in every tenant (SuperAdmin; tenants
+    /// manage their own indexes with the tenant permission <c>search.manage</c>).
+    /// </summary>
+    public const string SearchOperate = "search.operate";
+#endif
 
     /// <summary>Every permission; used to register one policy per permission.</summary>
     public static IReadOnlyList<string> All { get; } =
@@ -66,7 +74,10 @@ public static class Permissions
         BillingRead, BillingApprove, BillingRefund, BillingExport, PlansManage, PaymentSettingsManage,
         UsersRead, UsersManage, AdminsManage, AuditRead, CatalogModerate, TenantsRead, TenantsManage,
         TenantsImpersonate, OutboxManage, FeatureFlagsManage, SessionsManage, ApiKeysManage,
-        BillingCouponsManage
+        BillingCouponsManage,
+#if (SEARCH)
+        SearchOperate
+#endif
     ];
 
     public static string PolicyName(string permission) => PolicyPrefix + permission;

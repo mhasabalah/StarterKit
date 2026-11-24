@@ -60,4 +60,19 @@
   <data name="Validation.Documents.Max" xml:space="preserve">
     <value>يمكن فهرسة {0} مستند كحد أقصى في كل تغيير.</value>
   </data>
+  <data name="Index.NotFound" xml:space="preserve">
+    <value>لا يوجد فهرس بحث مسجّل باسم "{0}".</value>
+  </data>
+  <data name="Index.RebuildRunning" xml:space="preserve">
+    <value>تجري حالياً إعادة بناء فهرس البحث "{0}". حاول مرة أخرى بعد انتهاء إعادة البناء.</value>
+  </data>
+  <data name="Index.NotBuilt" xml:space="preserve">
+    <value>لم يُبنَ فهرس البحث "{0}" بعد، لذا لا يمكن فحص الاختلافات فيه.</value>
+  </data>
+  <data name="Validation.Range.Order" xml:space="preserve">
+    <value>يجب ألا يكون يوم البداية بعد يوم النهاية.</value>
+  </data>
+  <data name="Validation.Range.Max" xml:space="preserve">
+    <value>يمكن أن يغطي النطاق {0} يوماً كحد أقصى.</value>
+  </data>
 </root>

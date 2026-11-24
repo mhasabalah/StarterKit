@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Search.Domains.Analytics.Jobs;
+using Search.Domains.Analytics.Services;
 using Search.Domains.Indexes.Jobs;
 using Search.Domains.Indexes.Services;
 using Search.Observability;
@@ -19,6 +21,7 @@ public static class SearchModule
 {
     public const string ReconcileJobId = "search-reconcile-indexes";
     public const string DriftJobId = "search-detect-drift";
+    public const string PurgeAnalyticsJobId = "search-purge-analytics";
 
     public static IServiceCollection AddSearchModule(this IServiceCollection services, IConfiguration configuration)
     {
@@ -45,6 +48,13 @@ public static class SearchModule
         services.AddTransient<RebuildSearchIndexJob>();
         services.AddTransient<ReconcileSearchIndexesJob>();
         services.AddTransient<DetectSearchDriftJob>();
+
+        // Analytics: counted in memory per replica, flushed per tenant, purged after the retention.
+        services.TryAddSingleton<SearchAnalyticsBuffer>();
+        services.TryAddSingleton<SearchAnalyticsRecorder>();
+        services.AddScoped<SearchAnalyticsStore>();
+        services.AddHostedService<SearchAnalyticsFlushService>();
+        services.AddTransient<PurgeSearchAnalyticsJob>();
 
         return services;
     }
@@ -90,6 +100,8 @@ public static class SearchModule
             options.Reconcile.Cron);
         recurring.AddOrUpdate<DetectSearchDriftJob>(DriftJobId, x => x.ExecuteAsync(JobCancellationToken.Null),
             options.Drift.Cron);
+        recurring.AddOrUpdate<PurgeSearchAnalyticsJob>(PurgeAnalyticsJobId, x => x.ExecuteAsync(JobCancellationToken.Null),
+            options.Analytics.PurgeCron);
 
         // A new index (or a changed definition) starts building at once, not at the next reconcile tick.
         if (services.GetRequiredService<SearchIndexRegistry>().Indexes.Count > 0)

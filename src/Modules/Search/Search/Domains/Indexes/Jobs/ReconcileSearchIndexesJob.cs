@@ -11,7 +11,6 @@ namespace Search.Domains.Indexes.Jobs;
 /// never built or was built from another definition (its fingerprint changed: a field, a weight, the normalizer).
 /// A failed rebuild is retried at most once per <see cref="RetryFailedAfter"/>.
 /// </summary>
-[DisableConcurrentExecution(60)]
 public sealed class ReconcileSearchIndexesJob(
     IUnitOfWorkRunner unitOfWork,
     ITenantJobRunner tenantJobs,
@@ -22,6 +21,7 @@ public sealed class ReconcileSearchIndexesJob(
 {
     public static readonly TimeSpan RetryFailedAfter = TimeSpan.FromHours(1);
 
+    [DisableConcurrentExecution(60)]
     public async Task<int> ExecuteAsync(IJobCancellationToken? cancellationToken)
     {
         if (registry.Indexes.Count == 0)
@@ -59,6 +59,32 @@ public sealed class ReconcileSearchIndexesJob(
             enqueued++;
         }
 
+        return enqueued;
+    }
+
+    /// <summary>
+    /// Platform request (<c>POST /admin/search/indexes/{key}/rebuild-all</c>): enqueues a forced rebuild of
+    /// <paramref name="indexKey"/> in every serviceable tenant, each in its own tenant scope. Returns how many.
+    /// </summary>
+    [Queue(SearchOptions.Queue)]
+    public async Task<int> RebuildAllTenantsAsync(string indexKey, IJobCancellationToken? cancellationToken)
+    {
+        if (registry.Find(indexKey) is null)
+        {
+            logger.LogWarning("Rebuild in all tenants skipped: no module registers the search index {IndexKey}", indexKey);
+            return 0;
+        }
+
+        var enqueued = 0;
+        await tenantJobs.ForEachTenantScopeAsync((_, _) =>
+        {
+            cancellationToken?.ThrowIfCancellationRequested();
+            jobs.Enqueue<RebuildSearchIndexJob>(job => job.ExecuteAsync(indexKey, true, JobCancellationToken.Null));
+            enqueued++;
+            return Task.CompletedTask;
+        }, nameof(RebuildAllTenantsAsync));
+
+        logger.LogInformation("Search index {IndexKey}: rebuild enqueued in {Count} tenant(s)", indexKey, enqueued);
         return enqueued;
     }
 

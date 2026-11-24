@@ -180,10 +180,14 @@ public sealed class SearchPostgresFixture : IAsyncLifetime, ISearchEngineTestHos
     }
 }
 
+/// <summary>
+/// Serves <paramref name="tenants"/> to the per-tenant fan-outs; any other id is found too (tests use fresh tenants for
+/// isolation, and the analytics flush looks each one up).
+/// </summary>
 public sealed class FixedTenantStore(params TenantInfo[] tenants) : ITenantStore
 {
     public Task<TenantInfo?> FindByIdAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(tenants.FirstOrDefault(t => t.Id == tenantId));
+        Task.FromResult<TenantInfo?>(tenants.FirstOrDefault(t => t.Id == tenantId) ?? SearchPostgresFixture.Tenant(tenantId));
 
     public Task<TenantInfo?> FindByIdentifierAsync(string identifier, CancellationToken cancellationToken = default) =>
         Task.FromResult(tenants.FirstOrDefault(t => t.Identifier == identifier));

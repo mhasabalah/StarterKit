@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Search.Domains.Analytics.Services;
 using Search.Engine.Text;
 using Search.Observability;
 
@@ -107,7 +108,8 @@ public sealed class SearchDocumentsQueryValidator : AbstractValidator<SearchDocu
 /// Answers a search from the configured engine, in the caller's tenant and branch scope. An index that was never built
 /// answers <see cref="SearchStatus.IndexNotReady"/>, an engine that does not answer
 /// <see cref="SearchStatus.EngineUnavailable"/>: in both cases the owner falls back to its SQL search. Highlights are
-/// built here, on the original text, the same for every engine.
+/// built here, on the original text, the same for every engine. Every answer is counted for the search analytics
+/// (<see cref="SearchAnalyticsRecorder"/>; in memory, never delaying the search).
 /// </summary>
 public sealed class SearchDocumentsHandler(
     SearchIndexRegistry registry,
@@ -117,6 +119,7 @@ public sealed class SearchDocumentsHandler(
     IOptions<SearchOptions> options,
     SearchMetrics metrics,
     TimeProvider time,
+    SearchAnalyticsRecorder analytics,
     ILogger<SearchDocumentsHandler> logger)
     : IQueryHandler<SearchDocumentsQuery, SearchDocumentsResult>
 {
@@ -126,6 +129,15 @@ public sealed class SearchDocumentsHandler(
         if (tenantContext.TenantId is not { } tenantId)
             return SearchDocumentsResult.Unavailable(SearchStatus.IndexNotReady, query.Page, query.PageSize);
 
+        var text = SearchQueryParser.Parse(query.Text, query.Mode, options.Value.Query.MaxTerms);
+        var result = await SearchAsync(index, tenantId, query, text, cancellationToken);
+        analytics.Record(tenantId, query, text, result);
+        return result;
+    }
+
+    private async Task<SearchDocumentsResult> SearchAsync(
+        RegisteredIndex index, Guid tenantId, SearchDocumentsQuery query, ParsedSearchQuery text, CancellationToken cancellationToken)
+    {
         var built = await db.IndexStates.AsNoTracking()
             .Where(s => s.IndexKey == index.Key)
             .Select(s => s.LastBuiltAt)
@@ -134,7 +146,6 @@ public sealed class SearchDocumentsHandler(
             return SearchDocumentsResult.Unavailable(SearchStatus.IndexNotReady, query.Page, query.PageSize);
 
         var settings = options.Value;
-        var text = SearchQueryParser.Parse(query.Text, query.Mode, settings.Query.MaxTerms);
         var engineQuery = new EngineQuery
         {
             Text = text,

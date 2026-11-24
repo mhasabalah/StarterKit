@@ -410,8 +410,10 @@ Notification is the exception: its context is in `Persistence/`.
   - **Data rules.** Business data lives in `ITenantDataContext`s (today: Catalog, Attachment, Webhooks, DataTransfer).
 <!--#endif-->
 <!--#if (search)-->
-    - Search (`SearchDbContext`) is tenant data too. Its documents table is written only by the PostgreSQL engine, in
-      raw SQL that names the tenant; never write it through EF or from another module.
+    - Search (`SearchDbContext`) is tenant data too. Its documents table is written only by the PostgreSQL engine and
+      its analytics tables only by `SearchAnalyticsStore`, in raw SQL that names the tenant; never write them through
+      EF or from another module. Search analytics never store a user id or IP address, and terms go through
+      `SearchQueryScrubber`.
 <!--#endif-->
     - Every entity there, children included, is `IMustHaveTenant`.
     - Unique indexes start with `TenantId`.

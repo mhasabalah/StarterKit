@@ -1,5 +1,3 @@
-using Shared.Contracts.CQRS;
-
 namespace Search.Contracts.Querying;
 
 /// <summary>
@@ -50,9 +48,11 @@ public sealed record SearchDocumentsQuery : IQuery<SearchDocumentsResult>
 public enum SearchMode
 {
     /// <summary>Every word must match (prefix matching is not applied).</summary>
+    [LocalizedDescription("Full search", "بحث كامل")]
     Full = 0,
 
     /// <summary>As-you-type: the last word also matches as a prefix ("lap" finds "laptop").</summary>
+    [LocalizedDescription("Autocomplete", "إكمال تلقائي")]
     Autocomplete = 1
 }
 
@@ -86,6 +86,8 @@ public sealed record BoolFilter(string Field, bool Value) : SearchFilter(Field);
 
 public enum SearchMatch
 {
+    [LocalizedDescription("Any", "أي منها")]
     Any = 0,
+    [LocalizedDescription("All", "جميعها")]
     All = 1
 }

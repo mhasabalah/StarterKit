@@ -20,7 +20,6 @@ public sealed record DriftReport(string IndexKey, int Missing, int Stale, int Or
 /// source. Catches what the outbox cannot: a change raised without its event, a failed consumer past its retries.
 /// Indexes above <c>Search:Drift:MaxDocuments</c> are skipped (rebuild them instead).
 /// </summary>
-[DisableConcurrentExecution(60)]
 public sealed class DetectSearchDriftJob(
     IUnitOfWorkRunner unitOfWork,
     ITenantJobRunner tenantJobs,
@@ -31,6 +30,7 @@ public sealed class DetectSearchDriftJob(
     SearchMetrics metrics,
     ILogger<DetectSearchDriftJob> logger)
 {
+    [DisableConcurrentExecution(60)]
     public async Task<int> ExecuteAsync(IJobCancellationToken? cancellationToken)
     {
         var drifted = 0;
@@ -40,6 +40,18 @@ public sealed class DetectSearchDriftJob(
                 drifted += report.Missing + report.Stale + report.Orphaned;
         }, nameof(DetectSearchDriftJob));
         return drifted;
+    }
+
+    /// <summary>
+    /// One index of the CURRENT tenant, on request (<c>POST /search/indexes/{key}/drift-check</c>), on the
+    /// <c>search</c> queue. Returns the documents found out of sync.
+    /// </summary>
+    [Queue(SearchOptions.Queue)]
+    public async Task<int> CheckIndexAsync(string indexKey, IJobCancellationToken? cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(indexKey);
+        var reports = await CheckCurrentTenantAsync(indexKey, cancellationToken);
+        return reports.Sum(report => report.Missing + report.Stale + report.Orphaned);
     }
 
     /// <summary>Checks the built indexes of the CURRENT tenant (all of them, or only <paramref name="indexKey"/>).</summary>

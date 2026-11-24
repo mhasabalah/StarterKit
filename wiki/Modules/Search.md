@@ -11,9 +11,9 @@ Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id
 
 ## Status
 
-The contract, the PostgreSQL engine and the indexing pipeline are in place: an index of a tenant is built by the
-reconcile job and kept in sync through the outbox. No module registers an index yet. The admin API, the analytics, the
-Meilisearch adapter and Catalog's indexed product search follow.
+The contract, the PostgreSQL engine, the indexing pipeline, the admin API and the search analytics are in place: an
+index of a tenant is built by the reconcile job and kept in sync through the outbox. No module registers an index yet.
+The Meilisearch adapter and Catalog's indexed product search follow.
 
 ## Layout
 
@@ -23,21 +23,29 @@ Search.Contracts/
               AddSearchIndex<TSource>(definition)
               IntegrationEvents/SearchDocumentsChangedIntegrationEvent (search.documents-changed.v1)
   Querying/   SearchDocumentsQuery, filters (keyword, keywords, number/date range, bool), SearchDocumentsResult
+  Admin/      index status (SearchIndexStatus), rebuild and drift commands, analytics queries, platform engine view
 Search/
   SearchModule.cs   Add/UseSearchModule, options, registry, startup checks
   Options/          SearchOptions (section "Search") + SearchOptionsValidator
-  Data/             SearchDbContext (search_index_states, search_documents), configurations, migration AddSearch (RLS)
+  Data/             SearchDbContext (search_index_states, search_documents, search_daily_stats,
+                    search_zero_result_terms), configurations, migrations AddSearch and AddSearchAnalytics (RLS)
   Engine/           ISearchEngine (the port), SearchIndexRegistry, RegisteredIndex (field lookups, fingerprint,
                     document checks), SearchDocumentPreparer, SearchEngineUnavailableException
   Engine/Text/      SearchTextNormalizer, SearchQueryParser, SearchHighlighter (the same for every engine)
   Engine/Postgres/  PostgresSearchEngine, PostgresIndexSql (upsert per index), tsquery and filter compilers
   Domains/Indexes/  SearchIndexState (build state per tenant and index: stamps, lease, drift), SearchIndexer,
                     ApplySearchDocumentChangesCommand, SearchDocumentsChangedConsumer,
-                    RebuildSearchIndexJob, ReconcileSearchIndexesJob, DetectSearchDriftJob, SearchTenantPurgeHandler
+                    RebuildSearchIndexJob, ReconcileSearchIndexesJob, DetectSearchDriftJob, SearchTenantPurgeHandler,
+                    Features/SearchIndexes (the tenant's index routes)
+  Domains/Analytics/ SearchQueryScrubber, SearchAnalyticsRecorder, SearchAnalyticsBuffer, SearchAnalyticsStore,
+                    SearchAnalyticsFlushService, PurgeSearchAnalyticsJob, Features/SearchAnalytics (routes)
+  Domains/Platform/ Features/SearchPlatform (the operators' routes)
   Observability/    SearchMetrics (meter StarterKit.Search)
   Domains/Querying/ SearchDocumentsQueryValidator + handler
-Search.Tests/            contracts, registry, fingerprint, options, query validation, text pipeline, SQL builders, index state
-Search.IntegrationTests/ Testcontainers Postgres, real module and migration, RLS app role; the engine conformance suite
+Search.Tests/            contracts, registry, fingerprint, options, query validation, text pipeline, SQL builders, index state,
+                         analytics scrubber, buffer and recorder
+Search.IntegrationTests/ Testcontainers Postgres, real module and migration, RLS app role; the engine conformance suite,
+                         the indexing pipeline, the admin commands and queries, analytics flush and purge
 ```
 
 ## Making an entity searchable
@@ -129,6 +137,46 @@ flowchart LR
 - **Worker replicas.** The `search` queue has its own Hangfire server, `Hangfire:Servers:Search` (enabled with 2
   workers by default). An instance without it logs a warning at startup: some replica must run it.
 
+## Managing indexes
+
+Tenants manage their own indexes with the tenant permission `search.manage` (Owner and Administrator by default);
+platform operators use `search.operate` (SuperAdmin only, host-only routes). Searching itself is not a Search route:
+each owning module's search endpoint decides who may search.
+
+| Route | Permission | What it does |
+|---|---|---|
+| `GET /api/v1/search/indexes` | `search.manage` | every registered index with its state in the tenant: status (`NotBuilt`, `Building`, `Ready`, `Failed`), up to date with the definition, documents, last build, last error, last drift check, fields |
+| `GET /api/v1/search/indexes/{key}` | `search.manage` | one index; 404 for a key no module registers |
+| `POST /api/v1/search/indexes/{key}/rebuild` | `search.manage`, not while impersonating | 202: queues a forced rebuild on the `search` queue; 409 `search_rebuild_running` while one holds the lease |
+| `POST /api/v1/search/indexes/{key}/drift-check` | `search.manage`, not while impersonating | 202: queues a drift check of the index; the findings appear on the index. 409 `search_index_not_built` before the first build |
+| `GET /api/v1/search/analytics/zero-results` | `search.manage` | the searches that found nothing (see below), paged |
+| `GET /api/v1/search/analytics/daily` | `search.manage` | daily counts per index |
+| `GET /api/v1/admin/search/engine` | `search.operate` | the configured engine and every definition with its fingerprint |
+| `POST /api/v1/admin/search/indexes/{key}/rebuild-all` | `search.operate`, not while impersonating | 202: queues one forced rebuild per tenant (after an engine change or an incident; definition changes rebuild on their own) |
+
+The enums the routes return (`SearchIndexStatus`, `SearchWeight`, `SearchAnalyzer`, `SearchFieldType`, `SearchStatus`,
+`SearchMatchMode`) are served, localized, by the enum lookup endpoint.
+
+## Search analytics
+
+What people look for and do not find is the most useful search signal: it shows missing products, missing synonyms
+and spellings the index does not handle. Search counts it without recording who searched.
+
+- **What counts.** Only searches a person submitted: full mode, with text, first page. Autocomplete keystrokes,
+  later pages and browsing by filters are not counted. Each counts once as found, zero results, rescued by close
+  spellings (`Fuzzy`), or unanswered (index not built or engine down, so the owner's SQL search answered).
+- **What is kept.** Per tenant, index and UTC day: the counts (`search_daily_stats`) and, for zero results, the
+  normalized term with its count and last time (`search_zero_result_terms`). No user id, IP address or session. The
+  term is normalized like the index (case, accents, Arabic letter forms), cut to `Analytics:MaxQueryLength`, and
+  dropped when it contains `@` (emails, handles), six or more digits (phone, card, id and order numbers, also with
+  spaces, dashes or dots) or is shorter than two characters (`SearchQueryScrubber`).
+- **How it is written.** Each replica counts in memory (`SearchAnalyticsBuffer`, at most `Analytics:MaxPendingTerms`
+  distinct terms between flushes; more are dropped and counted in `search.analytics.terms_dropped`), and
+  `SearchAnalyticsFlushService` adds the counts to the tables every `Analytics:FlushSeconds` and when the host stops,
+  one unit of work per tenant. A search never waits for it, and a failed write loses those counts only (fail open).
+- **Retention.** `PurgeSearchAnalyticsJob` (`Analytics:PurgeCron`, daily) removes days older than
+  `Analytics:RetentionDays`. `Analytics:Enabled=false` stops counting; the purge still runs.
+
 ## PostgreSQL engine
 
 The default engine keeps documents in the application database, in `search.search_documents` (tenant data, forced
@@ -170,8 +218,9 @@ Section `Search` (validated at startup):
 | `Indexing:BatchSize` / `LeaseMinutes` | 500 / 30 | rebuilds |
 | `Reconcile:Cron`, `Drift:Cron` / `AutoRepair` / `MaxDocuments` | every 15 min, 03:00 / true / 200000 | index upkeep |
 | `Analytics:Enabled` / `RetentionDays` / `MaxQueryLength` / `FlushSeconds` | true / 90 / 64 / 30 | zero-result analytics |
+| `Analytics:MaxPendingTerms` / `PurgeCron` | 10000 / 03:30 | analytics buffer bound and retention purge |
 
 ## Related
 
 [ADR-0036](../Decisions/0036-search-module-and-engine-port.md), [Messaging](../Architecture/Messaging.md),
-[Multi-tenancy overview](../MultiTenancy/Overview.md).
+[Multi-tenancy overview](../MultiTenancy/Overview.md), [Endpoint authorization](../Reference/Endpoint-Authorization.md).

@@ -48,6 +48,8 @@ public sealed class SearchOptionsValidator : IValidateOptions<SearchOptions>
         Range(options.Analytics.RetentionDays, 1, 3650, "Analytics:RetentionDays");
         Range(options.Analytics.MaxQueryLength, 2, 200, "Analytics:MaxQueryLength");
         Range(options.Analytics.FlushSeconds, 1, 3600, "Analytics:FlushSeconds");
+        Range(options.Analytics.MaxPendingTerms, 100, 1_000_000, "Analytics:MaxPendingTerms");
+        Cron(options.Analytics.PurgeCron, "Analytics:PurgeCron");
 
         var meili = options.Meilisearch;
         Range(meili.TimeoutSeconds, 1, 300, "Meilisearch:TimeoutSeconds");

@@ -60,4 +60,19 @@
   <data name="Validation.Documents.Max" xml:space="preserve">
     <value>At most {0} documents can be indexed per change.</value>
   </data>
+  <data name="Index.NotFound" xml:space="preserve">
+    <value>No search index "{0}" is registered.</value>
+  </data>
+  <data name="Index.RebuildRunning" xml:space="preserve">
+    <value>The search index "{0}" is already being rebuilt. Try again when the rebuild has finished.</value>
+  </data>
+  <data name="Index.NotBuilt" xml:space="preserve">
+    <value>The search index "{0}" has not been built yet, so it cannot be checked for drift.</value>
+  </data>
+  <data name="Validation.Range.Order" xml:space="preserve">
+    <value>The start day must not be after the end day.</value>
+  </data>
+  <data name="Validation.Range.Max" xml:space="preserve">
+    <value>The range can cover at most {0} days.</value>
+  </data>
 </root>

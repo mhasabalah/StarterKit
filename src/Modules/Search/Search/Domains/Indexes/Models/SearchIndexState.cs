@@ -1,20 +1,5 @@
 namespace Search.Domains.Indexes.Models;
 
-/// <summary>Where an index of one tenant stands in its build cycle.</summary>
-public enum SearchIndexStatus
-{
-    /// <summary>Never built: searches answer <c>IndexNotReady</c> and owners use their SQL search.</summary>
-    NotBuilt = 0,
-
-    /// <summary>A rebuild holds the lease. A previous build, if any, keeps answering.</summary>
-    Building = 1,
-
-    Ready = 2,
-
-    /// <summary>The first build failed; nothing can answer yet.</summary>
-    Failed = 3
-}
-
 /// <summary>
 /// The build state of one index in one tenant: which rebuild stamp is live, who holds the rebuild lease, and the last
 /// drift check. The documents themselves live in the engine; this row (always in PostgreSQL) decides whether the index

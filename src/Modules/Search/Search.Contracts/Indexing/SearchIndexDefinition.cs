@@ -1,6 +1,3 @@
-using Search.Contracts.Querying;
-using Shared.Contracts.Localization;
-
 namespace Search.Contracts.Indexing;
 
 /// <summary>
@@ -68,9 +65,13 @@ public sealed record SearchFilterField(string Name, SearchFieldType Type)
 /// <summary>Relevance weight of a text field, lowest to highest.</summary>
 public enum SearchWeight
 {
+    [LocalizedDescription("Low", "منخفض")]
     Low = 0,
+    [LocalizedDescription("Medium", "متوسط")]
     Medium = 1,
+    [LocalizedDescription("High", "مرتفع")]
     High = 2,
+    [LocalizedDescription("Highest", "الأعلى")]
     Highest = 3
 }
 
@@ -78,15 +79,19 @@ public enum SearchWeight
 public enum SearchAnalyzer
 {
     /// <summary>Words as written: codes, SKUs, names in any language.</summary>
+    [LocalizedDescription("Simple", "بسيط")]
     Simple = 0,
 
     /// <summary>English stemming ("running" matches "run").</summary>
+    [LocalizedDescription("English", "الإنجليزية")]
     English = 1,
 
     /// <summary>Arabic stemming.</summary>
+    [LocalizedDescription("Arabic", "العربية")]
     Arabic = 2,
 
     /// <summary>English and Arabic stemming, for free text that may be in either language.</summary>
+    [LocalizedDescription("Bilingual", "ثنائي اللغة")]
     Bilingual = 3
 }
 
@@ -94,15 +99,20 @@ public enum SearchAnalyzer
 public enum SearchFieldType
 {
     /// <summary>One exact value: an id, a status, a code.</summary>
+    [LocalizedDescription("Keyword", "كلمة مفتاحية")]
     Keyword = 0,
 
     /// <summary>Several exact values: tag ids.</summary>
+    [LocalizedDescription("Keyword list", "قائمة كلمات مفتاحية")]
     KeywordList = 1,
 
+    [LocalizedDescription("Number", "رقم")]
     Number = 2,
 
     /// <summary>A UTC date and time.</summary>
+    [LocalizedDescription("Date", "تاريخ")]
     Date = 3,
 
+    [LocalizedDescription("Yes/No", "نعم/لا")]
     Boolean = 4
 }

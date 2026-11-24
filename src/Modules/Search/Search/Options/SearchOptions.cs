@@ -136,4 +136,10 @@ public sealed class SearchAnalyticsOptions
 
     /// <summary>How often each replica writes its counts.</summary>
     public int FlushSeconds { get; set; } = 30;
+
+    /// <summary>Distinct zero-result terms a replica holds between two flushes; more are dropped until the next flush.</summary>
+    public int MaxPendingTerms { get; set; } = 10_000;
+
+    /// <summary>Removes the analytics older than <see cref="RetentionDays"/> (also when analytics are off).</summary>
+    public string PurgeCron { get; set; } = "30 3 * * *";
 }

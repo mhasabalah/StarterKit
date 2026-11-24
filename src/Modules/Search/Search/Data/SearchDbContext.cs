@@ -1,3 +1,4 @@
+using Search.Domains.Analytics.Models;
 using Search.Domains.Indexes.Models;
 using Search.Engine.Postgres;
 
@@ -6,7 +7,7 @@ namespace Search.Data;
 /// <summary>
 /// DATA PLANE context (<see cref="ITenantDataContext"/>): every row is tenant-owned (<see cref="IMustHaveTenant"/>),
 /// filtered by the named Tenant filter and by forced row-level security (enabled in the migration). The index states
-/// are here whatever the engine; the documents table is the PostgreSQL engine's store.
+/// and the search analytics are here whatever the engine; the documents table is the PostgreSQL engine's store.
 /// </summary>
 public class SearchDbContext(DbContextOptions<SearchDbContext> options)
     : AppDbContextBase(options), ITenantDataContext
@@ -14,6 +15,10 @@ public class SearchDbContext(DbContextOptions<SearchDbContext> options)
     public DbSet<SearchIndexState> IndexStates => Set<SearchIndexState>();
 
     public DbSet<SearchDocumentEntry> Documents => Set<SearchDocumentEntry>();
+
+    public DbSet<SearchDailyStats> DailyStats => Set<SearchDailyStats>();
+
+    public DbSet<SearchZeroResultTerm> ZeroResultTerms => Set<SearchZeroResultTerm>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
