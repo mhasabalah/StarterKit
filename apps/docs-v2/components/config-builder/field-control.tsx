@@ -10,6 +10,8 @@ type Props = {
   onChange: (value: unknown) => void;
   describedBy: string;
   secretNote?: string;
+  /** DOM id of the control; defaults to the field's own (a second copy of a field needs another). */
+  controlId?: string;
 };
 
 const isSegmented = (field: Field) => {
@@ -23,8 +25,8 @@ export function isGroupControl(field: Field) {
 }
 
 /** One control per kind of setting. Every control is a native element, labelled by the row's label. */
-export function FieldControl({ field, value, onChange, describedBy, secretNote }: Props) {
-  const id = fieldId(field.path);
+export function FieldControl({ field, value, onChange, describedBy, secretNote, controlId }: Props) {
+  const id = controlId ?? fieldId(field.path);
   switch (field.control) {
     case 'secret': return <SecretNote id={id} note={secretNote} describedBy={describedBy} />;
     case 'boolean': return <label className="cb-switch">

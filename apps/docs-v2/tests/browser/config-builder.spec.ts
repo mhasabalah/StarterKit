@@ -41,7 +41,14 @@ test('modules, environments and checks drive the settings and the export', async
   await expect(settings.locator('#cb-f-Hangfire-Servers-Agentic-Enabled')).toHaveCount(0);
   await expect(page.locator('.cb-command')).toContainText('--agentic false');
 
-  await settings.locator('#cb-f-Attachment-Storage-Provider').selectOption('S3');
+  // Key decisions come first; sections stay folded until opened.
+  await expect(settings.getByRole('heading', { level: 2, name: 'Key decisions' })).toBeVisible();
+  await settings.getByLabel('File storage').selectOption('S3');
+  const attachment = settings.locator('#cb-s-Attachment-toggle');
+  await expect(attachment).toHaveAttribute('aria-expanded', 'false');
+  await expect(settings.locator('#cb-f-Attachment-Storage-S3-BucketName')).toHaveCount(0);
+  await attachment.click();
+  await expect(attachment).toHaveAttribute('aria-expanded', 'true');
   await expect(settings.locator('#cb-f-Attachment-Storage-S3-BucketName')).toBeVisible();
 
   await page.getByRole('radio', { name: 'Production (custom host)' }).check({ force: true });
@@ -73,7 +80,7 @@ test('modules, environments and checks drive the settings and the export', async
   await fresh.goto(link);
   await expect(fresh.getByRole('radio', { name: 'Production (custom host)' })).toBeChecked();
   await expect(fresh.getByRole('button', { name: /^Agentic: left out/ })).toBeVisible();
-  await expect(fresh.locator('.cb-head-count')).toHaveText('2 changes');
+  await expect(fresh.locator('.cb-head-count')).toContainText('2 changes');
 });
 
 test('a documentation page leads into the builder at its section', async ({ page }) => {
@@ -83,7 +90,8 @@ test('a documentation page leads into the builder at its section', async ({ page
   await expect(callout).toContainText('Attachment');
   await callout.getByRole('link', { name: 'Open the configuration builder' }).click();
   await expect(page).toHaveURL(/\/tools\/config-builder\/#section=Attachment$/);
-  await expect(page.locator('#cb-s-Attachment h3')).toBeFocused();
+  await expect(page.locator('#cb-s-Attachment-toggle')).toBeFocused();
+  await expect(page.locator('#cb-s-Attachment-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /^Attachment/ })).toHaveAttribute('aria-current', 'true');
   await page.goto(`${base}/reference/configuration/`);
   await expect(page.getByRole('complementary', { name: 'Configuration builder' }).getByRole('link')).toHaveAttribute('href', /\/tools\/config-builder\/$/);
@@ -96,15 +104,20 @@ test('filters, the ordered channel list and dictionary entries', async ({ page }
   await expect(settings.locator('.cb-row')).toHaveCount(1);
   await settings.getByRole('button', { name: 'Move Email up' }).click();
   await expect(settings.locator('.cb-ordered-name').first()).toHaveText('Email');
-  await expect(page.locator('.cb-head-count')).toHaveText('1 change');
+  await expect(page.locator('.cb-head-count')).toContainText('1 change');
   await settings.getByRole('searchbox').fill('');
   await settings.getByRole('checkbox', { name: 'Changed only' }).check();
   await expect(settings.locator('.cb-row')).toHaveCount(1);
   await settings.getByRole('button', { name: /Reset Notification:DefaultChannelOrder/ }).click();
-  await expect(settings.getByText('Nothing is changed yet.')).toBeVisible();
+  await expect(settings.getByText(/Nothing is changed yet/)).toBeVisible();
   await settings.getByRole('checkbox', { name: 'Changed only' }).uncheck();
 
-  await settings.locator('#cb-f-Agentic-Enabled').check();
+  await settings.getByLabel('AI agents').check();
+  await settings.getByRole('button', { name: 'Expand all' }).click();
+  await expect(settings.locator('.cb-section-toggle[aria-expanded="false"]')).toHaveCount(0);
+  await settings.getByRole('button', { name: 'Collapse all' }).click();
+  await settings.getByRole('button', { name: 'Open the Agentic section' }).click();
+  await expect(settings.locator('#cb-s-Agentic-toggle')).toHaveAttribute('aria-expanded', 'true');
   const add = settings.getByRole('textbox', { name: 'Add a provider' });
   await add.fill('openai');
   await add.press('Enter');

@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { buildConfigCatalog } from '../scripts/config-catalog.mjs';
 import { pages, pageSlug } from '../../../docs-site/sidebar.mjs';
 import { evaluateWith, renderJsonc, parseJsonc, loadEnvFile } from '../lib/config-builder/jsonc.mjs';
-import { modules, fields as specs, extras, dictionaries, environments } from '../lib/config-builder/overlay.mjs';
+import { modules, fields as specs, extras, dictionaries, environments, decisions, decisionLabels } from '../lib/config-builder/overlay.mjs';
 import { createContext, buildFields, flatten, specFor, initialState } from '../lib/config-builder/model.mjs';
 import { tools } from '../lib/tools.mjs';
 
@@ -83,6 +83,8 @@ test('every overlay pattern, extra and dictionary names keys that exist', () => 
     assert.ok(paths.some((path) => regex.test(path)), `overlay pattern ${pattern} matches no key`);
   }
   for (const extra of extras) assert.ok(all.has(extra.path), `extra ${extra.path}`);
+  for (const key of decisions.flatMap((group) => group.keys)) assert.ok(all.has(key), `decision ${key}`);
+  for (const key of Object.keys(decisionLabels)) assert.ok(decisions.some((group) => group.keys.includes(key)), `label for ${key}, which is not a decision`);
   for (const dictionary of Object.keys(dictionaries)) assert.ok(paths.some((path) => path.startsWith(`${dictionary}:`)), `dictionary ${dictionary}`);
 });
 

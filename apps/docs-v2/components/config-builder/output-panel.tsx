@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useId, useState, type KeyboardEvent } from 'react';
-import { AlertTriangle, CircleCheck, Info, OctagonX } from 'lucide-react';
+import { AlertTriangle, ChevronDown, CircleCheck, Info, OctagonX } from 'lucide-react';
 import { CodeView } from './code-view';
 import type { Field, Issue, Warning } from './types';
 
@@ -31,9 +31,13 @@ const severityLabel = { blocking: 'Stops the API from starting', warning: 'Recom
 export function OutputPanel({ outputs, issues, onJump, secretNote }: Props) {
   const [tab, setTab] = useState<Tab>('environment');
   const [onlyChanges, setOnlyChanges] = useState(false);
+  // Checks open by themselves only while something stops startup; the reader can open or close them any time.
+  const [checksOpen, setChecksOpen] = useState<boolean | null>(null);
   const base = useId();
   const blocking = issues.filter((issue) => issue.severity === 'blocking').length;
   const warnings = issues.filter((issue) => issue.severity === 'warning').length;
+  const notes = issues.length - blocking - warnings;
+  const open = checksOpen ?? blocking > 0;
   const onKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const next = event.key === 'ArrowRight' ? index + 1 : event.key === 'ArrowLeft' ? index - 1 : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -2;
     if (next === -2) return;
@@ -46,11 +50,18 @@ export function OutputPanel({ outputs, issues, onJump, secretNote }: Props) {
   const docker = environment.id === 'Docker';
   const required = secrets.needed.filter((field) => !field.optional).length;
   return <div className="cb-output">
-    <section className="cb-checks-panel" aria-labelledby={`${base}-checks`}>
-      <h2 id={`${base}-checks`} className="cb-pane-title">Checks
-        <span className="cb-check-summary" role="status">{blocking ? `${blocking} blocking` : 'Nothing blocks startup'}{warnings ? `, ${warnings} recommended` : ''}</span>
+    <section className="cb-checks-panel" aria-labelledby={`${base}-checks`} data-blocking={blocking > 0 || undefined}>
+      <h2 id={`${base}-checks`} className="cb-pane-title">
+        <button type="button" className="cb-checks-toggle" aria-expanded={open} aria-controls={`${base}-checks-body`} onClick={() => setChecksOpen(!open)}>
+          <span className="cb-checks-state" data-severity={blocking ? 'blocking' : warnings ? 'warning' : 'clear'} aria-hidden="true">{blocking ? <OctagonX /> : warnings ? <AlertTriangle /> : <CircleCheck />}</span>
+          <span className="cb-checks-text">
+            <span className="cb-checks-heading">Checks</span>
+            <span className="cb-check-summary" role="status">{blocking ? `${blocking} block${blocking === 1 ? 's' : ''} startup` : 'Nothing blocks startup'}{warnings ? `, ${warnings} recommended` : ''}{notes ? `, ${notes} note${notes === 1 ? '' : 's'}` : ''}</span>
+          </span>
+          <ChevronDown aria-hidden="true" className="cb-section-chevron" />
+        </button>
       </h2>
-      {issues.length === 0
+      {open && <div id={`${base}-checks-body`}>{issues.length === 0
         ? <p className="cb-all-clear"><CircleCheck aria-hidden="true" />{environment.relaxed ? 'Development tolerates placeholders and in-memory messaging. Switch to Docker or Production to check a deployment.' : 'No problems found for this environment.'}</p>
         : <ul className="cb-issues">{issues.map((issue) => {
           const Icon = severityIcon[issue.severity];
@@ -67,6 +78,7 @@ export function OutputPanel({ outputs, issues, onJump, secretNote }: Props) {
             </div>
           </li>;
         })}</ul>}
+      </div>}
     </section>
 
     <section className="cb-export" aria-label="Export">

@@ -121,7 +121,9 @@ a.element-tile:hover { background: var(--sk-ink); color: var(--sk-paper); }
 .home-header { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--sk-paper) 90%, transparent); border-bottom: 1px solid var(--sk-rule); backdrop-filter: blur(10px); }
 .home-header-bar { display: flex; align-items: center; gap: clamp(12px, 3vw, 32px); width: 100%; max-width: 1360px; height: 60px; margin-inline: auto; padding-inline: clamp(12px, 4vw, 48px) clamp(6px, 4vw, 48px); }
 .home-header-links { display: flex; align-items: center; gap: 2px; }
-.home-header-links a { padding: 7px 10px; border-radius: 4px; color: var(--sk-text); font-size: .875rem; transition: background-color 120ms ease, color 120ms ease; }
+.home-header-links a { padding: 7px 10px; border-radius: 4px; color: var(--sk-text); font-size: .875rem; white-space: nowrap; transition: background-color 120ms ease, color 120ms ease; }
+/* Four sections and the search field share the bar down to 1024px: the field narrows before a label could wrap. */
+@media (max-width: 1199px) { .home-header-links a { padding-inline: 8px; } .home-header-search { width: 180px; } }
 .home-header-links a:hover { background: var(--sk-hover); color: var(--sk-ink); }
 .home-header .site-bar-actions { gap: 4px; margin-inline-start: auto; }
 .home-header-search { display: inline-flex; align-items: center; gap: 8px; width: 240px; height: 36px; margin-inline-end: 4px; padding: 0 6px 0 10px; border: 1px solid var(--sk-rule); border-radius: 4px; background: var(--sk-ground); color: var(--sk-muted); font-size: .875rem; transition: border-color 120ms ease; }

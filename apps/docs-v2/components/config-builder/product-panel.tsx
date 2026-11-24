@@ -18,6 +18,13 @@ type Props = {
 /** The symbol a module tile switches, when it has one of its own. */
 const toggleOf: Record<string, string> = { Catalog: 'sample', Search: 'search', Agentic: 'agentic' };
 
+/** File names and variables in a hint print as code and may break only after `=`, `.` or `-`. */
+function codeWords(text: string) {
+  return text.split(/([\w-]+\.(?:ya?ml|json)|[A-Z][A-Z0-9_]+=\w+|appsettings\.json)/g).map((part, index) => (index % 2
+    ? <code key={index}>{part.split(/(?<=[=.-])/).flatMap((piece, at) => (at ? [<wbr key={at} />, piece] : [piece]))}</code>
+    : part));
+}
+
 /** Soft hyphens where a long module name may break inside a narrow cell. */
 const cellName: Record<string, string> = { Subscriptions: 'Subscrip­tions', DataTransfer: 'Data­Transfer', Notification: 'Notifi­cation' };
 
@@ -38,7 +45,7 @@ export function ProductPanel({ catalog, state, productName, onProductName, onSym
           <span>{entry.label}</span>
         </label>)}
       </div>
-      {environment && <p className="cb-reading">{environment.hint}</p>}
+      {environment && <p className="cb-reading">{codeWords(environment.hint)}</p>}
     </fieldset>
 
     <fieldset className="cb-block">

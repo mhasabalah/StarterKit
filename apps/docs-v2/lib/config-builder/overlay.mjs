@@ -87,6 +87,40 @@ export const templateOptions = [
 ];
 
 /**
+ * The choices that shape a deployment, asked first. Everything else has a working default and stays in its section.
+ * A key a product does not have (its module is left out) or that does not apply yet (its show-when rule) is skipped.
+ */
+export const decisions = [
+  { id: 'runtime', title: 'What it runs on', keys: ['Messaging:Transport', 'Redis:Enabled', 'Attachment:Storage:Provider', 'Search:Engine', 'Database:MigrateOnStartup'] },
+  { id: 'features', title: 'What it offers', keys: ['MultiTenancy:Enabled', 'MultiTenancy:DefaultIsolation', 'Agentic:Enabled', 'Subscriptions:PaymentGateways:Stripe:Enabled', 'Subscriptions:PaymentGateways:Paymob:Enabled'] },
+  { id: 'security', title: 'How it is protected', keys: ['Identity:TwoFactor:EnforcementMode', 'BotProtection:Enabled', 'Attachment:Validation:RequireVirusScanning', 'Attachment:Validation:Scanner:Provider', 'Hangfire:DashboardAuth:Enabled'] },
+  { id: 'messages', title: 'How it reaches people', keys: ['Email:Provider', 'Notification:DefaultChannelOrder', 'SmsSettings:Provider', 'Push:Provider'] },
+];
+
+/** Names a decision reads by outside its section, where "Enabled" or "Provider" alone says nothing. */
+export const decisionLabels = {
+  'Messaging:Transport': 'Message transport',
+  'Redis:Enabled': 'Redis cache',
+  'Attachment:Storage:Provider': 'File storage',
+  'Search:Engine': 'Search engine',
+  'Database:MigrateOnStartup': 'Migrate at startup',
+  'MultiTenancy:Enabled': 'Multi-tenancy',
+  'MultiTenancy:DefaultIsolation': 'Tenant isolation',
+  'Agentic:Enabled': 'AI agents',
+  'Subscriptions:PaymentGateways:Stripe:Enabled': 'Stripe payments',
+  'Subscriptions:PaymentGateways:Paymob:Enabled': 'Paymob payments',
+  'Identity:TwoFactor:EnforcementMode': 'Two-factor for privileged roles',
+  'BotProtection:Enabled': 'Bot protection (CAPTCHA)',
+  'Attachment:Validation:RequireVirusScanning': 'Require malware scanning',
+  'Attachment:Validation:Scanner:Provider': 'Malware scanner',
+  'Hangfire:DashboardAuth:Enabled': 'Jobs dashboard sign-in',
+  'Email:Provider': 'Email delivery',
+  'Notification:DefaultChannelOrder': 'Channel fallback order',
+  'SmsSettings:Provider': 'SMS provider',
+  'Push:Provider': 'Push notifications',
+};
+
+/**
  * Target environments. The file is what ASP.NET Core layers over appsettings.json for that environment name.
  * `relaxed` mirrors ProductionConfigurationGuard: placeholders and InMemory messaging are tolerated there.
  */

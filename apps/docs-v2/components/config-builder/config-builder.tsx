@@ -7,7 +7,7 @@ import {
   decodeState, sanitizeState, importSettings, moduleOfSection,
 } from '@/lib/config-builder/model.mjs';
 import { evaluateRules } from '@/lib/config-builder/rules.mjs';
-import { environments, modules } from '@/lib/config-builder/overlay.mjs';
+import { environments, modules, decisions } from '@/lib/config-builder/overlay.mjs';
 import { fieldId, sectionId } from '@/lib/config-builder/format.mjs';
 import { ProductPanel } from './product-panel';
 import { SettingsPanel, type Row, type SectionView } from './settings-panel';
@@ -36,6 +36,8 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [jump, setJump] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Set<string>>(() => new Set());
+  const openSection = useCallback((section: string) => setOpenSections((current) => (current.has(section) ? current : new Set(current).add(section))), []);
 
   const context = useMemo(() => createContext(catalog, state.symbols, state.environment), [catalog, state.symbols, state.environment]);
   const fields = useMemo(() => buildFields(context, state) as unknown as Field[], [context, state]);
@@ -69,19 +71,19 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     }
     if (name) setProductName(name);
     const section = hash.get('section');
-    if (section) { setActiveSection(section); setJump(`section:${section}`); }
+    if (section) { setActiveSection(section); openSection(section); setJump(`section:${section}`); }
     setReady(true);
-  }, [catalog]);
+  }, [catalog, openSection]);
 
   // A #section= link followed while the page is already open.
   useEffect(() => {
     const onHash = () => {
       const section = new URLSearchParams(window.location.hash.slice(1)).get('section');
-      if (section) { setPane('settings'); setActiveSection(section); setJump(`section:${section}`); }
+      if (section) { setPane('settings'); setActiveSection(section); openSection(section); setJump(`section:${section}`); }
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
-  }, []);
+  }, [openSection]);
 
   useEffect(() => {
     if (!ready) return;
@@ -96,8 +98,8 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
       const target = jump.startsWith('section:') ? document.getElementById(sectionId(jump.slice(8))) : document.getElementById(`${fieldId(jump)}-row`) ?? document.getElementById(fieldId(jump));
       if (!target) return;
       target.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-      const focusable = jump.startsWith('section:') ? target.querySelector('h3') : document.getElementById(fieldId(jump));
-      if (focusable instanceof HTMLElement) { if (focusable.tagName === 'H3') focusable.tabIndex = -1; focusable.focus({ preventScroll: true }); }
+      const focusable = jump.startsWith('section:') ? target.querySelector('.cb-section-toggle') : document.getElementById(fieldId(jump));
+      if (focusable instanceof HTMLElement) focusable.focus({ preventScroll: true });
       setJump(null);
     }, 60);
     return () => window.clearTimeout(handle);
@@ -114,7 +116,8 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
       const matches = !needle || field.path.toLowerCase().includes(needle) || field.label.toLowerCase().includes(needle) || field.description.toLowerCase().includes(needle);
       const prominent = showAll || field.essential || changed || issuesByPath.has(field.path) || Boolean(field.added);
       const shown = (needle ? matches : prominent) && (!changedOnly || changed);
-      const view = views.get(field.section) ?? { section: field.section, moduleId: moduleOfSection(field.section)?.id ?? 'Platform', rows: [] as Row[], hidden: 0, changes: 0 };
+      const view = views.get(field.section) ?? { section: field.section, moduleId: moduleOfSection(field.section)?.id ?? 'Platform', rows: [] as Row[], hidden: 0, changes: 0, total: 0 };
+      view.total++;
       if (changed) view.changes++;
       if (shown) view.rows.push({ field, value: valueOf(field, state), changed });
       else if (!needle && !changedOnly) view.hidden++;
@@ -122,6 +125,11 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     }
     return { list: [...views.values()].filter((view) => view.rows.length > 0), all: [...views.values()], total };
   }, [fields, byPath, state, query, showAll, changedOnly, issuesByPath]);
+
+  const decisionRows = useMemo(() => decisions.flatMap((group) => group.keys).flatMap((path) => {
+    const field = byPath.get(path);
+    return field && isVisible(field, byPath, state) ? [{ field, value: valueOf(field, state), changed: isChanged(field, state) }] : [];
+  }), [byPath, state]);
 
   const outputs = useMemo((): Outputs => {
     const environment = environments.find((entry) => entry.id === state.environment) ?? environments[0];
@@ -161,7 +169,8 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     setQuery('');
     setChangedOnly(false);
     if (field && !field.essential) setShowAll(true);
-    if (field && !isVisible(field, byPath, state)) { setNotice(`${path} applies only when ${field.visibleWhen.map((condition) => condition.path).join(' and ')} enables it.`); setJump(field.visibleWhen[0]?.path ?? null); return; }
+    if (field) openSection(field.section);
+    if (field && !isVisible(field, byPath, state)) { setNotice(`${path} applies only when ${field.visibleWhen.map((condition) => condition.path).join(' and ')} enables it.`); const controller = field.visibleWhen[0]?.path; if (controller) openSection(controller.split(':')[0]); setJump(controller ?? null); return; }
     setJump(path);
   };
 
@@ -178,7 +187,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
         <p>Pick where the API runs and which modules your product has, change what differs, and export appsettings, environment variables and the secrets list. Every key links to its documentation. Nothing leaves your browser, and secrets are never asked for.</p>
       </div>
       <div className="cb-head-actions">
-        <span className="cb-head-count" aria-live="polite">{changeCount} change{changeCount === 1 ? '' : 's'}</span>
+        <span className="cb-head-count" aria-live="polite" title="Your changes are kept in this browser until you reset them.">{changeCount === 0 ? 'No changes yet' : `${changeCount} change${changeCount === 1 ? '' : 's'}, saved in this browser`}</span>
         <CopyButton text={share} label="Copy a link to this configuration (secrets are never included)"><Link2 aria-hidden="true" />Copy share link</CopyButton>
         <button type="button" className="cb-tool" aria-expanded={importing} aria-controls="cb-import" onClick={() => setImporting(!importing)}><FileUp aria-hidden="true" />Import</button>
         {confirmReset
@@ -187,7 +196,7 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
             <button type="button" className="cb-tool cb-tool-danger" onClick={() => { setState(initialState(catalog) as State); setConfirmReset(false); setNotice('Every setting is back to its default.'); window.history.replaceState(null, '', window.location.pathname); }}>Discard</button>
             <button type="button" className="cb-tool" onClick={() => setConfirmReset(false)}>Keep</button>
           </span>
-          : <button type="button" className="cb-tool" disabled={changeCount === 0} onClick={() => setConfirmReset(true)}><RotateCcw aria-hidden="true" />Reset all</button>}
+          : changeCount > 0 && <button type="button" className="cb-tool" onClick={() => setConfirmReset(true)}><RotateCcw aria-hidden="true" />Reset all</button>}
       </div>
       {importing && <ImportPanel onClose={() => setImporting(false)} onImport={(text) => {
         const result = importSettings(context, fields as never, state, text);
@@ -206,10 +215,14 @@ export function ConfigBuilder({ catalog }: { catalog: Catalog }) {
     <div className="cb-grid">
       <aside className="cb-pane cb-pane-product" aria-label="Your product">
         <ProductPanel catalog={catalog} state={state} productName={productName} onProductName={setProductName} onSymbol={onSymbol} onEnvironment={onEnvironment} />
-        <SectionNav sections={sections.all} issuesByPath={issuesByPath} active={activeSection} onPick={(section) => { setPane('settings'); setActiveSection(section); setJump(`section:${section}`); }} />
+        <SectionNav sections={sections.all} issuesByPath={issuesByPath} active={activeSection} onPick={(section) => { setPane('settings'); setActiveSection(section); openSection(section); setJump(`section:${section}`); }} />
       </aside>
       <main className="cb-pane cb-pane-settings" aria-label="Settings">
-        <SettingsPanel catalog={catalog} sections={sections.list} query={query} onQuery={setQuery} showAll={showAll} onShowAll={setShowAll} changedOnly={changedOnly} onChangedOnly={setChangedOnly}
+        <SettingsPanel catalog={catalog} sections={sections.list} decisionRows={decisionRows} query={query}
+          isOpen={(section) => Boolean(query.trim()) || changedOnly || openSections.has(section)}
+          onToggle={(section, open) => setOpenSections((current) => { const next = new Set(current); if (open) next.add(section); else next.delete(section); return next; })}
+          onToggleAll={(open) => setOpenSections(open ? new Set(sections.list.map((view) => view.section)) : new Set())}
+          onOpenSection={(section) => { setActiveSection(section); openSection(section); setJump(`section:${section}`); }} onQuery={setQuery} showAll={showAll} onShowAll={setShowAll} changedOnly={changedOnly} onChangedOnly={setChangedOnly}
           totalVisible={sections.total} issuesByPath={issuesByPath} secretNote={secretNote} valueAt={valueAt} onChange={onChange} onReset={onReset}
           onAddEntry={(dictionary, name) => update(addEntry(state, dictionary, name) as State)} onRemoveEntry={(dictionary, name) => update(removeEntry(state, dictionary, name) as State)}
           entriesOf={(dictionary) => dictionaryEntries(context, state, dictionary) as string[]} />
