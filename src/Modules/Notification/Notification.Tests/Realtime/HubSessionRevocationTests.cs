@@ -424,3 +424,61 @@ public sealed class RedisHubRevocationBroadcasterTests
         await broadcaster.StopAsync(CancellationToken.None);
     }
 }
+
+/// <summary>
+/// The closer tells every client before it aborts any socket, waits <see cref="HubSessionCloser.DeliveryGrace"/> so the
+/// transport can deliver the message, and always aborts, even when telling a client fails.
+/// </summary>
+public sealed class HubSessionCloserTests
+{
+    [Fact]
+    public async Task Every_client_is_told_before_any_socket_is_aborted_and_a_failed_send_still_aborts()
+    {
+        var userId = Guid.NewGuid();
+        var registry = new HubConnectionRegistry();
+        var events = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var sockets = new[] { "c1", "c2" }.Select(id =>
+        {
+            var socket = new Mock<HubCallerContext>();
+            socket.SetupGet(c => c.UserIdentifier).Returns(userId.ToString("D"));
+            socket.SetupGet(c => c.ConnectionId).Returns(id);
+            socket.SetupGet(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity()));
+            socket.Setup(c => c.Abort()).Callback(() => events.Enqueue($"abort {id}"));
+            registry.Add(socket.Object);
+            return socket;
+        }).ToList();
+
+        var clients = new Mock<IHubClients<INotificationClient>>();
+        clients.Setup(c => c.Client(It.IsAny<string>())).Returns((string id) =>
+        {
+            var client = new Mock<INotificationClient>();
+            client.Setup(c => c.ForceDisconnect(It.IsAny<ForceDisconnectEvent>())).Returns(() =>
+            {
+                events.Enqueue($"tell {id}");
+                return id == "c2" ? Task.FromException(new IOException("transport gone")) : Task.CompletedTask;
+            });
+            return client.Object;
+        });
+        var hub = new Mock<IHubContext<NotificationHub, INotificationClient>>();
+        hub.SetupGet(h => h.Clients).Returns(clients.Object);
+        var closer = new HubSessionCloser(registry, hub.Object, new NotificationMetrics(), NullLogger<HubSessionCloser>.Instance);
+
+        var started = DateTime.UtcNow;
+        var closed = await closer.CloseAsync(new HubRevocation(userId, null, AllSessions: true));
+
+        closed.Should().Be(2);
+        events.Take(2).Should().BeEquivalentTo(["tell c1", "tell c2"], "every client hears it before any socket closes");
+        events.Skip(2).Should().BeEquivalentTo(["abort c1", "abort c2"]);
+        (DateTime.UtcNow - started).Should().BeGreaterThanOrEqualTo(HubSessionCloser.DeliveryGrace - TimeSpan.FromMilliseconds(50));
+        sockets.ForEach(socket => socket.Verify(c => c.Abort(), Times.Once));
+    }
+
+    [Fact]
+    public async Task Nobody_to_close_returns_at_once()
+    {
+        var hub = new Mock<IHubContext<NotificationHub, INotificationClient>>(MockBehavior.Strict);
+        var closer = new HubSessionCloser(new HubConnectionRegistry(), hub.Object, new NotificationMetrics(), NullLogger<HubSessionCloser>.Instance);
+
+        (await closer.CloseAsync(new HubRevocation(Guid.NewGuid(), null, AllSessions: true))).Should().Be(0);
+    }
+}

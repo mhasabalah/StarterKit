@@ -13,45 +13,61 @@ namespace Notification.Realtime;
 public sealed record HubRevocation(Guid UserId, Guid[]? SessionIds, bool AllSessions);
 
 /// <summary>
-/// Closes the local hub connections of revoked sessions: tells the client first (<c>ForceDisconnect</c>, so it stops
-/// reconnecting with a dead token), then aborts the socket server-side (a client that ignores the message is cut anyway).
+/// Closes the local hub connections of revoked sessions: tells every client first (<c>ForceDisconnect</c>, so it stops
+/// reconnecting with a dead token), gives the transports <see cref="DeliveryGrace"/> to deliver it, then aborts the
+/// sockets server-side (a client that ignores the message is cut anyway; the abort always happens).
 /// </summary>
 public sealed class HubSessionCloser(
     HubConnectionRegistry registry,
     IHubContext<NotificationHub, INotificationClient> hub,
     NotificationMetrics metrics,
-    ILogger<HubSessionCloser> logger)
+    ILogger<HubSessionCloser> logger,
+    TimeProvider? timeProvider = null)
 {
+    /// <summary>
+    /// How long the transports get to deliver <c>ForceDisconnect</c> before the sockets are aborted. A send completes
+    /// when the message is queued on the connection, not when the client has it; aborting at once can drop it.
+    /// </summary>
+    public static readonly TimeSpan DeliveryGrace = TimeSpan.FromMilliseconds(500);
+
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
     /// <summary>Returns how many local connections were closed.</summary>
     public async Task<int> CloseAsync(HubRevocation revocation)
     {
         var targets = registry.Find(revocation.UserId, revocation.SessionIds, revocation.AllSessions);
-        foreach (var connection in targets)
+        if (targets.Count == 0)
+            return 0;
+
+        try
         {
-            try
-            {
-                await hub.Clients.Client(connection.ConnectionId)
-                    .ForceDisconnect(new ForceDisconnectEvent(ForceDisconnectEvent.SessionRevoked));
-                metrics.RealtimeSent(NotificationHubContract.ForceDisconnect, success: true);
-            }
-            catch (Exception ex)
-            {
-                metrics.RealtimeSent(NotificationHubContract.ForceDisconnect, success: false);
-                logger.LogDebug(ex, "ForceDisconnect to {ConnectionId} failed; aborting anyway", connection.ConnectionId);
-            }
-            finally
-            {
+            await Task.WhenAll(targets.Select(TellAsync));
+            await Task.Delay(DeliveryGrace, _time);
+        }
+        finally
+        {
+            foreach (var connection in targets)
                 connection.Context.Abort();
-            }
         }
 
-        if (targets.Count > 0)
-        {
-            logger.LogInformation("Closed {Count} hub connection(s) of user {UserId} after session revocation",
-                targets.Count, revocation.UserId);
-        }
-
+        logger.LogInformation("Closed {Count} hub connection(s) of user {UserId} after session revocation",
+            targets.Count, revocation.UserId);
         return targets.Count;
+    }
+
+    private async Task TellAsync(TrackedHubConnection connection)
+    {
+        try
+        {
+            await hub.Clients.Client(connection.ConnectionId)
+                .ForceDisconnect(new ForceDisconnectEvent(ForceDisconnectEvent.SessionRevoked));
+            metrics.RealtimeSent(NotificationHubContract.ForceDisconnect, success: true);
+        }
+        catch (Exception ex)
+        {
+            metrics.RealtimeSent(NotificationHubContract.ForceDisconnect, success: false);
+            logger.LogDebug(ex, "ForceDisconnect to {ConnectionId} failed; aborting anyway", connection.ConnectionId);
+        }
     }
 }
 
