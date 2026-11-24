@@ -535,7 +535,8 @@ html:has(main.home), html:has(main.home) body { background: var(--sk-ground); }
 .journey-live { display: grid; min-width: 0; }
 .journey-card { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); column-gap: clamp(24px, 4vw, 64px); align-content: start; justify-items: start; visibility: hidden; }
 .journey-card[data-current] { visibility: visible; animation: journey-in 240ms var(--sk-ease) both; }
-@keyframes journey-in { from { opacity: .6; transform: translateY(4px); } }
+/* The card slides in without fading: its text keeps full contrast from the first frame. */
+@keyframes journey-in { from { transform: translateY(4px); } }
 .journey-card > * { grid-column: 1; }
 .journey-ends { grid-column: 2 !important; grid-row: 1 / span 6; align-self: start; justify-self: stretch; padding-top: 2px; }
 .journey-ends h4 { padding-bottom: 10px; border-bottom: 2px solid var(--sk-ink); color: var(--sk-ink); font: 600 .8125rem/1.2 var(--font-sans); }

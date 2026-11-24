@@ -1,8 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { load } from 'cheerio';
+import { tools } from '../lib/tools.mjs';
 const origin = process.env.DOCS_TEST_URL || 'http://localhost:3000';
 const prefix = (process.env.NEXT_PUBLIC_DOCS_BASE || '').replace(/\/$/, '');
 const inventory = JSON.parse(await readFile('.generated/inventory.json', 'utf8'));
+// Tool pages read their hash as state (#guided=agent, #section=Messaging), not as an element id: the page itself is
+// still checked, its hash is not.
+const statefulHash = new Set(tools.map((tool) => prefix + tool.url));
 const documents = new Map();
 const failures = [];
 async function get(url) {
@@ -33,7 +37,7 @@ for (const page of inventory.pages) {
     if (link.origin !== url.origin) continue;
     const anchor = decodeURIComponent(link.hash.slice(1)); link.hash = '';
     const result = await get(link.href);
-    if (anchor && result.html && !result.ids.has(anchor)) failures.push(`${page.newPath}: missing anchor ${target}`);
+    if (anchor && result.html && !statefulHash.has(link.pathname) && !result.ids.has(anchor)) failures.push(`${page.newPath}: missing anchor ${target}`);
   }
   for (const heading of page.headings || []) if (!document.ids.has(heading.id)) failures.push(`${page.newPath}: missing original heading ${heading.id}`);
 }
