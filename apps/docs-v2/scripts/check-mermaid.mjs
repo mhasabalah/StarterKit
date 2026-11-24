@@ -10,7 +10,7 @@ const root = path.resolve('node_modules/mermaid/dist');
 const server = createServer(async (request, response) => {
   if (request.url === '/theme.mjs') { response.setHeader('Content-Type', 'text/javascript'); response.end(await readFile('lib/mermaid-theme.mjs')); return; }
   const font = request.url.match(/^\/fonts\/(400|600|700)\.woff2$/);
-  if (font) { response.setHeader('Content-Type', 'font/woff2'); response.end(await readFile(`node_modules/@fontsource/inter/files/inter-latin-${font[1]}-normal.woff2`)); return; }
+  if (font) { response.setHeader('Content-Type', 'font/woff2'); response.end(await readFile(`node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-${font[1]}-normal.woff2`)); return; }
   if (request.url === '/') { response.setHeader('Content-Type', 'text/html'); response.end('<!doctype html><html><body></body></html>'); return; }
   const file = path.resolve(root, '.' + new URL(request.url, 'http://localhost').pathname);
   if (!file.startsWith(root + path.sep)) { response.writeHead(403).end(); return; }
@@ -24,7 +24,7 @@ try {
   await page.goto(`http://localhost:${server.address().port}`);
   await page.evaluate(async () => {
     for (const weight of [400, 600, 700]) {
-      const font = await new FontFace('Inter', `url(/fonts/${weight}.woff2)`, { weight: String(weight) }).load();
+      const font = await new FontFace('IBM Plex Sans', `url(/fonts/${weight}.woff2)`, { weight: String(weight) }).load();
       document.fonts.add(font);
     }
     await document.fonts.ready;

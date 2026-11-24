@@ -24,37 +24,37 @@ colors:
   danger-tint: "#f9e3e8"
 typography:
   display:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "clamp(2.5rem, 4.4vw, 4rem)"
     fontWeight: 800
     lineHeight: 0.98
     letterSpacing: "-0.04em"
   headline:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "clamp(1.875rem, 3.2vw, 2.5rem)"
     fontWeight: 800
     lineHeight: 1.08
     letterSpacing: "-0.035em"
   title:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "-0.02em"
   symbol:
-    fontFamily: "Schibsted Grotesk, Inter, ui-sans-serif, sans-serif"
+    fontFamily: "Schibsted Grotesk, IBM Plex Sans, ui-sans-serif, sans-serif"
     fontSize: "clamp(1.75rem, 2.6vw, 2.5rem)"
     fontWeight: 800
     lineHeight: 0.9
     letterSpacing: "-0.045em"
   body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.72
     fontFeature: "'cv11', 'ss01'"
   label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1
@@ -199,11 +199,11 @@ Dark theme redefines every token under `.dark` (ground #0b0e14, paper #10141c, i
 
 ## Typography
 
-**Display Font:** Schibsted Grotesk 600/700/800 (with Inter, ui-sans-serif)
-**Body Font:** Inter 400-700 with `cv11` and `ss01` (with ui-sans-serif, system-ui)
+**Display Font:** Schibsted Grotesk 600/700/800 (with IBM Plex Sans, ui-sans-serif)
+**Body Font:** IBM Plex Sans 400-700, with a true 400 italic for emphasis (with ui-sans-serif, system-ui)
 **Label/Mono Font:** JetBrains Mono 400/500 (with ui-monospace)
 
-**Character:** A heavy, tightly tracked grotesk prints the chart's element symbols and every heading; Inter reads quietly underneath; mono is reserved for numbers that are data (orders, page counts, ADR numbers) and code. All three are bundled locally via `@fontsource`.
+**Character:** A heavy, tightly tracked grotesk prints the chart's element symbols and every heading; IBM Plex Sans reads underneath, compact and engineered, with real italics (and IBM Plex Sans Arabic as its sibling when an Arabic edition comes); mono is reserved for numbers that are data (orders, page counts, ADR numbers) and code. All three are bundled locally via `@fontsource`.
 
 ### Hierarchy
 - **Display** (800, clamp 2.5-4rem, 0.98, -0.04em): the home title only.
@@ -290,7 +290,7 @@ Nearly square. Chart cells are 2px; chips and page tools 3px; buttons, sidebar e
 ### Brand Images
 - **Favicon:** the mark in ink with the connected-green terminal; light and dark through `prefers-color-scheme` (`app/icon.svg`).
 - **Home-screen icon:** the paper mark on an opaque ink tile, terminal in dark-theme green, 180px.
-- **Social card:** 1200x630 chart white. Brand lockup, "The developer guide" in display 800, the lead in muted Inter, a 2px ink rule over a mono caption; on the right the module chart printed with real orders and page counts and the dashed 700 slot. Both are generated at build (`lib/brand-images.tsx`) and served from `.png` routes, so crawlers get them without a redirect.
+- **Social card:** 1200x630 chart white. Brand lockup, "The developer guide" in display 800, the lead in muted IBM Plex Sans, a 2px ink rule over a mono caption; on the right the module chart printed with real orders and page counts and the dashed 700 slot. Both are generated at build (`lib/brand-images.tsx`) and served from `.png` routes, so crawlers get them without a redirect.
 
 ### Navigation
 - **Sidebar:** 0.8125rem entries, 34px min height, 4px radius, body-text colour; hover fills with the hover wash. Group headers are 600 ink. Nested groups hang from a 1px hairline 18px in. Modules are ordered by `ModuleOrder` so the sidebar reads like the chart. The current page alone prints as an ink tile.

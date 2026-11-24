@@ -3,10 +3,11 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 @import 'fumadocs-openapi/css/preset.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
-@import '@fontsource/inter/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/400-italic.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
 @import '@fontsource/schibsted-grotesk/600.css';
 @import '@fontsource/schibsted-grotesk/700.css';
 @import '@fontsource/schibsted-grotesk/800.css';
@@ -17,8 +18,8 @@
    An offset-printed wall chart: cool chart-white ground, ink type, hairline cell rules and four flat family
    tints (cell fills and markers only). Rank is shown by inversion: the current item prints as an ink tile. */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Schibsted Grotesk', 'Inter', ui-sans-serif, sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Schibsted Grotesk', 'IBM Plex Sans', ui-sans-serif, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 :root {
@@ -62,7 +63,7 @@
 /* ── Browser surfaces ── */
 html { background: var(--sk-paper); color-scheme: light; }
 html.dark { color-scheme: dark; }
-body { font-family: var(--font-sans); color: var(--sk-text); background: var(--sk-paper); font-feature-settings: 'cv11', 'ss01'; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-sans); color: var(--sk-text); background: var(--sk-paper); -webkit-font-smoothing: antialiased; }
 ::selection { background: var(--sk-foundations-tint); color: var(--sk-ink); }
 :root { caret-color: var(--sk-foundations); scrollbar-color: var(--sk-rule-strong) transparent; }
 a { text-underline-offset: .2em; text-decoration-thickness: 1px; }
