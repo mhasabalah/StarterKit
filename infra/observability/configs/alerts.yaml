@@ -160,4 +160,61 @@ groups:
           summary: "Agent actions wait more than a day for approval"
           description: "{{ $value }}s for the oldest. Approvers need agentic.approvals.decide AND the tool's own permission; check that someone holds both and receives the in-app notices (GET /api/v1/agent-approvals) (wiki/deployment/Agentic-Operations.md)."
   #endif
+  #if (search)
+  - name: search
+    # Search module (meter StarterKit.Search). Searches degrade to the owning module's SQL search instead of failing, so
+    # these rules are the only sign that the index is not answering. Runbook: wiki/Search/Operations.md.
+    rules:
+      - alert: SearchEngineUnavailable
+        # search.queries{status}: the engine timed out, refused the connection or its circuit breaker is open.
+        expr: sum by (index) (increase({__name__=~"search_queries(_total)?", status="engine_unavailable"}[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Search engine unavailable for {{ $labels.index }}"
+          description: "{{ $value }} search(es) fell back to SQL in 10m. PostgreSQL engine: statement timeouts (Search:Postgres:StatementTimeoutMs) or lost connections. Meilisearch: /health search-engine, the server and its key (wiki/Search/Operations.md)."
+
+      - alert: SearchIndexNotReady
+        # Searches keep finding an index that was never built: nothing runs the search queue, or every rebuild fails.
+        expr: sum by (index) (increase({__name__=~"search_queries(_total)?", status="index_not_ready"}[30m])) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Search index {{ $labels.index }} is still not built"
+          description: "Searches have been answered by SQL for an hour. Check that a replica runs Hangfire:Servers:Search and GET /api/v1/search/indexes for the status and last error (wiki/Search/Operations.md)."
+
+      - alert: SearchIndexingLagHigh
+        # search.index.lag: from the committed change to its indexing (outbox, bus, consumer, engine write).
+        expr: histogram_quantile(0.95, sum by (le, index) (rate({__name__=~"search_index_lag(_seconds)?_bucket"}[10m]))) > 60
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Changes reach search index {{ $labels.index }} after more than a minute"
+          description: "p95 lag {{ $value }}s. Check the outbox backlog (OutboxBacklogGrowing), the search consumer's error queue and the engine latency (wiki/Search/Operations.md)."
+
+      - alert: SearchRebuildFailing
+        # search.rebuilds{outcome="failed"}: the previous build keeps answering, but the index misses the change that
+        # needed the rebuild (a new definition, or an operator's request).
+        expr: sum by (index) (increase({__name__=~"search_rebuilds(_total)?", outcome="failed"}[1h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rebuilds of search index {{ $labels.index }} fail"
+          description: "Read lastErrorCode on GET /api/v1/search/indexes/{key} and the API log of RebuildSearchIndexJob. Reconcile retries at most once an hour (wiki/Search/Operations.md)."
+
+      - alert: SearchDriftRecurring
+        # search.drift.documents: the daily drift check keeps finding documents out of sync, so changes are being lost
+        # between the owner and the index (an aggregate that does not raise the event, or dead-lettered messages).
+        expr: sum by (index) (increase({__name__=~"search_drift_documents(_total)?"}[1d])) > 100
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Search index {{ $labels.index }} drifts from its source"
+          description: "{{ $value }} document(s) out of sync in a day (by kind: missing, stale, orphaned). Auto-repair fixes them; find the change that does not raise SearchDocumentsChangedIntegrationEvent (wiki/Search/Operations.md)."
+  #endif
 # End of the rule groups.

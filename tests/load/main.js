@@ -12,6 +12,9 @@ export { catalogScenario } from './scenarios/catalog.js';
 export { productsScenario } from './scenarios/products.js';
 export { importScenario } from './scenarios/import.js';
 export { inboxScenario } from './scenarios/inbox.js';
+//#if (sample && search)
+export { searchScenario } from './scenarios/search.js';
+//#endif
 //#if (sample && agentic)
 export { agentsScenario } from './scenarios/agents.js';
 //#endif

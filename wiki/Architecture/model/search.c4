@@ -1,0 +1,109 @@
+// Search: full-text search behind an engine port (PostgreSQL by default, Meilisearch optional).
+// Optional: --full-text-search false removes this file. Every edge that mentions Search lives here; the edges between
+// Search and Catalog live in catalog-search.c4 (removed with either module).
+model {
+  extend starterkit {
+    meilisearch = container 'Meilisearch' {
+      technology 'getmeili/meilisearch'
+      description 'Optional engine (Search:Engine=Meilisearch, docker-compose.meilisearch.yml): one index per index key shared by every tenant, a tenant filter on every request, a scoped API key.'
+      link ../../Search/Meilisearch.md 'Meilisearch engine'
+    }
+  }
+
+  extend starterkit.app {
+    search = module 'Search' {
+      technology 'schema search'
+      description 'The index: owning modules plug in an index definition and a document source, raise one event per change, and hydrate the ids it returns through their own DbContext.'
+      link ../../Modules/Search.md 'Search guide'
+
+      endpoints = endpoint 'Search admin endpoints' {
+        technology 'Carter'
+        description 'Index status, rebuild and drift check (search.manage), zero-result analytics; engine view and rebuild in every tenant for platform operators (search.operate, host only).'
+      }
+      query = component 'Search query' {
+        technology 'SearchDocumentsQuery'
+        description 'Validates the query, runs it on the engine, reports Ok, IndexNotReady or EngineUnavailable so the owner can fall back to SQL.'
+      }
+      text = component 'Text pipeline' {
+        technology 'SearchTextNormalizer, SearchQueryParser, SearchHighlighter'
+        description 'Arabic and Latin normalization, the query syntax and highlights: the same for every engine.'
+      }
+      consumer = consumer 'SearchDocumentsChangedConsumer' {
+        description 'Receives an owner change and sends ApplySearchDocumentChangesCommand in the event tenant; idempotent and order-independent.'
+      }
+      indexer = component 'SearchIndexer' {
+        description 'Reads the current documents from the owner source, writes those that exist and removes the others.'
+      }
+      engine = adapter 'Engine port' {
+        technology 'ISearchEngine: PostgresSearchEngine, MeilisearchSearchEngine'
+        description 'Both adapters pass one conformance suite. Unavailable means a timeout or outage, never a hidden bug.'
+      }
+      jobs = job 'Index jobs' {
+        technology 'queue search'
+        description 'RebuildSearchIndexJob (lease, batches under a new stamp, sweep), ReconcileSearchIndexesJob (every 15 min and at startup), DetectSearchDriftJob (daily, auto-repair).'
+      }
+      analytics = component 'Search analytics' {
+        technology 'SearchAnalyticsBuffer, SearchAnalyticsFlushService, PurgeSearchAnalyticsJob'
+        description 'Counts searches and zero-result terms per tenant and day; no user id or IP, scrubbed terms, fail open, retention purge.'
+      }
+      tenantPurge = component 'SearchTenantPurgeHandler' {
+        description 'Removes a purged tenant documents from the engine.'
+      }
+    }
+  }
+
+  user -> starterkit.app.search.endpoints 'manages the tenant indexes, reads search analytics' {
+    technology 'HTTPS'
+  }
+  staff -> starterkit.app.search.endpoints 'operates the engine, rebuilds in every tenant' {
+    technology 'HTTPS, host only'
+  }
+  starterkit.app.search.endpoints -[async]-> starterkit.app.search.jobs 'enqueues rebuilds and drift checks on search'
+  starterkit.app.hangfire -> starterkit.app.search.jobs 'runs (search server, API or worker replicas)'
+  starterkit.app.search.consumer -> starterkit.app.search.indexer 'ApplySearchDocumentChangesCommand' {
+    technology 'ISender'
+  }
+  starterkit.app.search.jobs -> starterkit.app.search.indexer 'rebuild batches, drift repair'
+  starterkit.app.search.jobs -> starterkit.postgres 'index states: lease, stamps, drift' {
+    technology 'schema search, RLS'
+  }
+  starterkit.app.search.indexer -> starterkit.app.search.text 'normalizes documents'
+  starterkit.app.search.indexer -> starterkit.app.search.engine 'upserts, deletes, sweeps'
+  starterkit.app.search.query -> starterkit.app.search.text 'parses the query, builds highlights'
+  starterkit.app.search.query -> starterkit.app.search.engine 'searches, counts facets'
+  starterkit.app.search.query -> starterkit.app.search.analytics 'records the outcome'
+  starterkit.app.search.analytics -> starterkit.postgres 'daily stats, zero-result terms' {
+    technology 'schema search, RLS'
+  }
+  starterkit.app.search.engine -> starterkit.postgres 'search_documents: tsvector, trigram, jsonb filters' {
+    technology 'PostgreSQL engine, RLS'
+  }
+  starterkit.app.search.engine -> starterkit.meilisearch 'documents, settings, searches' {
+    technology 'HTTPS, scoped API key'
+  }
+  starterkit.app.tenancy.purgeJob -> starterkit.app.search.tenantPurge 'TenantDataPurgeRequestedEvent' {
+    technology 'in-process'
+  }
+  starterkit.app.search.tenantPurge -> starterkit.app.search.engine 'deletes the tenant documents'
+}
+
+views {
+  view search of starterkit.app.search {
+    title 'Search: components and runtime dependencies'
+    description 'Search keeps its indexes behind an engine port (PostgreSQL in the search schema, or Meilisearch), indexes owner changes from integration events, rebuilds and repairs on the search queue, and counts zero-result searches.'
+    autoLayout TopBottom 60 50
+    include *
+  }
+
+  dynamic view searchRebuild {
+    title 'Rebuilding a search index without downtime'
+    description 'Reconcile finds an index of a tenant that was never built or was built from another definition; the rebuild streams the owner source under a new stamp while the previous build keeps answering, sweeps what the stamp did not reach, and makes it live.'
+    autoLayout TopBottom 60 50
+    starterkit.app.hangfire -> starterkit.app.search.jobs 'ReconcileSearchIndexesJob: stale fingerprint, enqueue a rebuild (search)'
+    starterkit.app.search.jobs -> starterkit.postgres 'take the lease, new building stamp'
+    starterkit.app.search.jobs -> starterkit.app.search.indexer 'stream the source in batches'
+    starterkit.app.search.indexer -> starterkit.app.search.engine 'upsert under the new stamp (live changes too)'
+    starterkit.app.search.jobs -> starterkit.app.search.engine 'sweep documents of older stamps'
+    starterkit.app.search.jobs -> starterkit.postgres 'make the stamp live, status Ready'
+  }
+}

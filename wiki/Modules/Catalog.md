@@ -188,6 +188,12 @@ making an entity searchable:
 | Strategy: `IndexedProductSearch` asks the index, then loads the hits through `CatalogDbContext` with every filter and visibility rule re-applied, in the index's order | `Domains/Products/SearchIndex/IndexedProductSearch.cs` |
 | Filters, sort columns, facets and highlight names mapped in one place | `Domains/Products/SearchIndex/ProductSearchMapping.cs` |
 
+```likec4-view
+catalogSearch
+```
+
+*Figure: A product change reaches the index through the outbox seconds after it commits; a search asks the index for ids and loads them through Catalog with every visibility rule re-applied, falling back to SQL when the index cannot answer.*
+
 - **What uses the index.** `GET /products/search` and the text search of the public and admin lists, when there is
   text (or, for the search endpoint, facets). Browsing without text, "my products", the moderation queue and the admin
   list with deleted products stay in SQL.

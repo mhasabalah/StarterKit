@@ -11,13 +11,28 @@ Data plane (`ITenantDataContext`, schema `search`): every row carries `tenant_id
 
 ## Status
 
-The contract, the PostgreSQL engine, the indexing pipeline, the admin API and the search analytics are in place: an
-index of a tenant is built by the reconcile job and kept in sync through the outbox. Two engines pass the
-conformance suite: PostgreSQL (default) and [Meilisearch](../Search/Meilisearch.md).
+Search has two engines that pass one conformance suite: PostgreSQL (default, [details](../Search/Postgres-Engine.md))
+and [Meilisearch](../Search/Meilisearch.md). An index of a tenant is built by the reconcile job and kept in sync
+through the outbox; tenants manage their indexes and read zero-result analytics through the admin API, and
+[operations](../Search/Operations.md) has the runbook.
 <!--#if (sample)-->
 
 Catalog's products are the reference index (`catalog.products`, see [Catalog](Catalog.md#search-index)).
 <!--#endif-->
+
+## System design
+
+```likec4-view
+search
+```
+
+*Figure: Search keeps its indexes behind an engine port (PostgreSQL in the search schema, or Meilisearch), indexes owner changes from integration events, rebuilds and repairs on the search queue, and counts zero-result searches.*
+
+```likec4-view
+searchRebuild
+```
+
+*Figure: Reconcile finds an index of a tenant that was never built or was built from another definition; the rebuild streams the owner source under a new stamp while the previous build keeps answering, sweeps what the stamp did not reach, and makes it live.*
 
 ## Layout
 
@@ -36,7 +51,7 @@ Search/
   Engine/           ISearchEngine (the port), SearchIndexRegistry, RegisteredIndex (field lookups, fingerprint,
                     document checks), SearchDocumentPreparer, SearchEngineUnavailableException
   Engine/Text/      SearchTextNormalizer, SearchQueryParser, SearchHighlighter (the same for every engine)
-  Engine/Postgres/  PostgresSearchEngine, PostgresIndexSql (upsert per index), tsquery and filter compilers
+  Engine/Postgres/  PostgresSearchEngine, PostgresSql (PostgresIndexSql: upsert per index; tsquery and filter compilers)
   Engine/Meilisearch/ MeilisearchSearchEngine, MeilisearchClient (HTTP, tasks, failures), MeilisearchIndexes, and the
                     pure parts: names, settings, documents, filter compiler, query text, requests/responses
   Domains/Indexes/  SearchIndexState (build state per tenant and index: stamps, lease, drift), SearchIndexer,
@@ -188,28 +203,9 @@ and spellings the index does not handle. Search counts it without recording who 
 ## PostgreSQL engine
 
 The default engine keeps documents in the application database, in `search.search_documents` (tenant data, forced
-RLS), one row per tenant, index and document:
-
-| Column | Content |
-|---|---|
-| `search_vector` (`tsvector`, GIN) | built by PostgreSQL from the normalized text: per field and analyzer `setweight(to_tsvector(config, text), weight)` (configurations `simple`, `english`, `arabic`; weights A to D); analyses and fields are separated by a position gap, so a phrase never matches across them |
-| `suggest_text` (GIN `gin_trgm_ops`) | the normalized suggest fields, for the typo-tolerant fallback |
-| `filters` (`jsonb`, GIN `jsonb_path_ops`) | the filter values (dates as epoch milliseconds) |
-| `content` (`jsonb`) | the original text of the highlight fields |
-| `source_version`, `rebuild_stamp`, `indexed_at` | the version guard (an older write never replaces a newer one) and the rebuild sweep |
-
-- **Matching.** Every clause of the query must match; each word is matched through every configuration the index
-  uses, and a word one configuration drops as a stop word ("the") is dropped entirely. Phrases use
-  `phraseto_tsquery`, autocomplete a `:*` prefix, exclusions `!!`. When nothing matches and a word has at least
-  `Query:Fuzzy:MinTermLength` letters, a trigram similarity search on the suggest text runs instead and the result
-  says `Fuzzy`.
-- **Ranking and order.** `ts_rank_cd` with the field weights, or a sortable filter field; ties by document id.
-  Without text, the index's default sort.
-- **Facets** are counted over the filtered matches, up to `Facets:ScanLimit` of them (`FacetsExhaustive` tells).
-- **Safety.** Every statement names the tenant and the index as well as relying on RLS; words, values and field names
-  are always parameters (only configuration names, weight letters and casts, from closed enums, are SQL text); every
-  search runs with `Postgres:StatementTimeoutMs`. A timeout or a lost connection answers `EngineUnavailable`; any
-  other error is a bug and is not hidden.
+RLS): a weighted `tsvector` per document (English and Arabic stemming), a trigram index for close spellings and
+suggestions, and typed `jsonb` filters. An older write never replaces a newer one, totals are exact, and every search
+runs under a statement timeout. Storage, matching, safety and capacity are in [PostgreSQL engine](../Search/Postgres-Engine.md).
 
 ## Meilisearch engine
 
@@ -217,6 +213,11 @@ RLS), one row per tenant, index and document:
 per key shared by every tenant, a tenant filter on every request. It has no stemming and no cross-batch version guard,
 and `OR` queries report estimated totals; setup, the least-privilege key and operations are in
 [Meilisearch](../Search/Meilisearch.md).
+
+## Operations
+
+First deployment, switching engines, scaling the `search` queue, the signals to watch and the answer to each alert are
+in [Search operations](../Search/Operations.md).
 
 ## Configuration
 

@@ -112,7 +112,8 @@ services:
       LOAD_USERS: ${LOAD_USERS:-20}
       LOAD_PRODUCTS: ${LOAD_PRODUCTS:-40}
       LOAD_AGENT_TIMEOUT: ${LOAD_AGENT_TIMEOUT:-90}
-      SCENARIOS: ${SCENARIOS:-auth,catalog,products,import,inbox}
+      # Empty runs every default (not opt-in) scenario of tests/load/lib/config.js.
+      SCENARIOS: ${SCENARIOS:-}
     volumes:
       - ./tests/load:/scripts:ro
       - ${LOADTEST_RESULTS_DIR:-./tests/load/results}:/results

@@ -100,11 +100,21 @@ Both profiles load `infra/observability/configs/alerts.yaml`. No Alertmanager is
 | `AgentRunQueueBacklog` | warning / 10m | A queued run waited over 10 minutes for an `agentic` worker |
 | `AgentApprovalBacklog` | warning / 30m | A proposed action has waited over a day for a decision |
 <!--#endif-->
+<!--#if (search)-->
+| `SearchEngineUnavailable` | warning / 5m | More than five searches of one index fell back to SQL in 10m because the engine did not answer |
+| `SearchIndexNotReady` | warning / 30m | Searches keep finding an index that was never built (no replica runs the `search` queue, or rebuilds fail) |
+| `SearchIndexingLagHigh` | warning / 15m | p95 time from a change to its indexing is over a minute |
+| `SearchRebuildFailing` | warning / 0m | A rebuild failed in the last hour; the previous build keeps answering |
+| `SearchDriftRecurring` | warning / 0m | The drift check found more than 100 documents out of sync in a day |
+<!--#endif-->
 
 Outbox success means publication, not consumer success. See [messaging operations](../Architecture/Messaging.md#operations)
 and [notification operations](../Modules/Notification-Realtime-and-Push.md#operations).
 <!--#if (agentic)-->
 Agent alerts have their own runbook: [agent operations](Agentic-Operations.md).
+<!--#endif-->
+<!--#if (search)-->
+Search alerts have their own runbook: [search operations](../Search/Operations.md).
 <!--#endif-->
 Missing/no-traffic series can leave ratio alerts inactive; absence of a firing rule is not evidence of delivery.
 

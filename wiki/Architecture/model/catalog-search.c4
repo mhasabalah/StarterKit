@@ -1,0 +1,47 @@
+// Catalog's products in the Search index: the reference consumer of the Search module.
+// Removed by --sample false or --full-text-search false, so neither catalog.c4 nor search.c4 mentions the other.
+model {
+  extend starterkit.app.catalog {
+    searchSource = component 'catalog.products index' {
+      technology 'ProductSearchIndex, ProductSearchDocumentSource'
+      description 'The definition (names, SKU, description; status, type, category, tags, price, dates) and the source: every branch, never soft-deleted products, Version as the document version.'
+    }
+    indexedSearch = component 'IndexedProductSearch' {
+      technology 'IProductSearch'
+      description 'Asks the index, then loads the hits through CatalogDbContext with every filter and visibility rule re-applied; SqlProductSearch answers when the index cannot.'
+    }
+  }
+
+  starterkit.app.catalog.products -[async]-> starterkit.app.search.consumer 'SearchDocumentsChangedIntegrationEvent' {
+    technology 'outbox, MassTransit'
+  }
+  starterkit.app.search.indexer -> starterkit.app.catalog.searchSource 'current documents by id, every document for a rebuild' {
+    technology 'ISearchDocumentSource'
+  }
+  starterkit.app.catalog.endpoints -> starterkit.app.catalog.indexedSearch 'search, suggest, text filters'
+  starterkit.app.catalog.indexedSearch -> starterkit.app.search.query 'SearchDocumentsQuery' {
+    technology 'ISender, Search.Contracts'
+  }
+  starterkit.app.catalog.indexedSearch -> starterkit.app.catalog.products 'hydrates the ids, re-checks visibility'
+}
+
+views {
+  dynamic view catalogSearch {
+    title 'Searching products through the index'
+    description 'A product change reaches the index through the outbox seconds after it commits; a search asks the index for ids and loads them through Catalog with every visibility rule re-applied, falling back to SQL when the index cannot answer.'
+    autoLayout TopBottom 60 50
+    user -> starterkit.app.catalog.endpoints 'PUT product (rename)'
+    starterkit.app.catalog.products -> starterkit.postgres 'save product + outbox row (SearchDocumentsChanged)'
+    starterkit.app.outbox -> starterkit.bus 'publish'
+    starterkit.bus -> starterkit.app.search.consumer 'deliver'
+    starterkit.app.search.consumer -> starterkit.app.search.indexer 'apply the change'
+    starterkit.app.search.indexer -> starterkit.app.catalog.searchSource 'read the current document'
+    starterkit.app.search.indexer -> starterkit.app.search.engine 'upsert (version guard)'
+    user -> starterkit.app.catalog.endpoints 'GET /products/search?searchTerm=...'
+    starterkit.app.catalog.endpoints -> starterkit.app.catalog.indexedSearch 'search'
+    starterkit.app.catalog.indexedSearch -> starterkit.app.search.query 'SearchDocumentsQuery (status=Published)'
+    starterkit.app.search.query -> starterkit.app.search.engine 'ids, total, facets, highlights'
+    starterkit.app.catalog.indexedSearch -> starterkit.app.catalog.products 'load the ids, filters re-applied'
+    user <- starterkit.app.catalog.endpoints 'page in index order, match, facets'
+  }
+}

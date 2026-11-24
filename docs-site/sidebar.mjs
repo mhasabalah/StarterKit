@@ -308,9 +308,19 @@ export const sections = [
             "order": 1
           },
           {
+            "source": "Search/Postgres-Engine.md",
+            "label": "PostgreSQL engine",
+            "order": 2
+          },
+          {
             "source": "Search/Meilisearch.md",
             "label": "Meilisearch engine",
-            "order": 2
+            "order": 3
+          },
+          {
+            "source": "Search/Operations.md",
+            "label": "Operations",
+            "order": 4
           }
         ]
       },

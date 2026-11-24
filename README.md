@@ -218,6 +218,9 @@ dotnet test StarterKit.slnx            # needs Docker (Testcontainers)
 <!--#else-->
 | Integration (real Postgres) | `src/Modules/<M>/<M>.IntegrationTests` (Catalog, DataTransfer, Identity, Shipping, Subscriptions, Tenancy, Webhooks) | `dotnet test src/Modules/Tenancy/Tenancy.IntegrationTests` |
 <!--#endif-->
+<!--#if (search)-->
+| Search engine conformance (real Postgres and Meilisearch) | `src/Modules/Search/Search.IntegrationTests` | `dotnet test src/Modules/Search/Search.IntegrationTests` |
+<!--#endif-->
 | Architecture guardrails | `src/Api.Tests/Architecture` | `dotnet test src/Api.Tests` |
 | HTTP end-to-end (+ multi-tenant) | `src/Api.E2ETests` | `dotnet test src/Api.E2ETests` |
 | Shared kernel / Aspire | `src/Shared/Shared.Core.Tests`, `src/Aspire/AppHost.Tests` | `dotnet test <project>` |

@@ -314,7 +314,9 @@
             "wiki/Modules/Shipping.md",
             "wiki/Architecture/model/catalog.c4",
             "wiki/Architecture/model/shipping.c4",
-            "tests/load/scenarios/agents.js"
+            "wiki/Architecture/model/catalog-search.c4",
+            "tests/load/scenarios/agents.js",
+            "tests/load/scenarios/search.js"
           ]
         },
         {
@@ -366,6 +368,7 @@
             "wiki/Modules/Search.md",
             "wiki/Search/**",
             "wiki/Architecture/model/search.c4",
+            "wiki/Architecture/model/catalog-search.c4",
             "wiki/Decisions/0036-search-module-and-engine-port.md"
           ]
         },

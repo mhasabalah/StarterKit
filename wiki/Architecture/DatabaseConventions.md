@@ -76,6 +76,12 @@ Admin, restore and purge queries use `IgnoreNonIsolationFilters()` to remove sof
 ### Reading data
 
 Queries use `AsNoTracking()` and SQL projection, then `.PagedResult(pageNumber, pageSize, ct)` from `src/Shared/Shared.Core/Extensions/QueryExtensions.cs`. Small bounded lookups can return a list. Avoid per-row database calls: batch ids into a single query. Escape user-supplied wildcard characters before an `EF.Functions.ILike` search; parameterization alone does not make `%` or `_` literal.
+<!--#if (search)-->
+
+`ILIKE` is a filter, not a search: it cannot rank, match word forms or forgive a typo, and it scans. Text search that
+users type goes through the [Search module](../Modules/Search.md): the owning module registers an index, asks it for
+ids and loads them through its own DbContext, keeping `ILIKE` only as the fallback while the index cannot answer.
+<!--#endif-->
 
 ### Writing data and transactions
 
