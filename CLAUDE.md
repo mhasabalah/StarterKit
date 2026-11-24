@@ -603,6 +603,10 @@ forbidden C# patterns after edits. Spec Kit
   MultiTenancy, Messaging, Modules, Identity, Attachment, Testing, Deployment, Decisions (ADRs).
 <!--#if (templateSource)-->
 - `wiki/` is rendered to the documentation site; every new page also needs an entry in `docs-site/sidebar.mjs`.
+- The docs V2 configuration builder is generated from `src/Api/appsettings*.json` and the configuration pages. A new
+  key needs its row in `wiki/Reference/Configuration.md` (or the module's configuration page). A key with fixed values,
+  a secret or a show-when rule also needs an entry in `apps/docs-v2/lib/config-builder/overlay.mjs`, and a new
+  section needs its module there; `tests/config-catalog.test.mjs` fails until they match.
 <!--#endif-->
 - **Routing:** reference material every developer needs goes in `wiki/`. Flow walkthroughs, session analyses and
   investigations go in your notes vault (`<vault>/projects/<project>/`). Never add markdown to the repo root (only

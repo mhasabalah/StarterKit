@@ -104,6 +104,17 @@ coding agent (what StarterKit is, the rules from `CLAUDE.md`, the guardrail comm
 The homepage offers the same for starting a product. Prompt text lives in `apps/docs-v2/lib/agent-prompt.mjs`, and
 `tests/agent-prompt.test.mjs` checks its commands against the template and the New project guide.
 
+V2 also ships the **configuration builder** (`/tools/config-builder/`), a client-only page that composes
+appsettings for a product. Sync generates its catalog from `src/Api/appsettings{,.Development,.Docker}.json` (template
+markers kept and rendered in the browser for the reader's choice of `dotnet new` options), `.template.config/template.json`,
+the key tables of `Reference/Configuration.md` and the module configuration pages, the secret table of
+`deployment/Secrets.md`, and the Compose files. A small overlay (`apps/docs-v2/lib/config-builder/overlay.mjs`) adds
+what JSON cannot say: allowed values, secrets, show-when rules and option-only keys. Its checks mirror
+`ProductionConfigurationGuard`. It exports the environment file, a full `appsettings.json`, environment variables
+(`.env` for keys Compose sets) and the list of secrets; secret values are never asked for, stored or shared.
+`tests/config-catalog.test.mjs` fails when the overlay names a key, C# enum member, section or page that no longer
+exists. Configuration pages link into the builder from V2 only; the wiki carries no V2 links.
+
 Search filters use the official tag controls and filter the server index: all pages, documentation, getting
 started, architecture, and API reference. The site supplies its own header in the Glass `header` slot and the home
 `header` slot: on phones a top bar pins the logo, search, Ask AI, GitHub and the menu, and below 1280px "On this page"

@@ -92,7 +92,7 @@ for (const width of [390, 1440]) {
 test('home header: links on wide screens, a menu on phones', async ({ page }) => {
   await open(page, '/', 1440);
   const header = page.locator('header#nd-nav');
-  await expect(header.getByRole('navigation', { name: 'Guide sections' }).first().getByRole('link')).toHaveCount(3);
+  await expect(header.getByRole('navigation', { name: 'Guide sections' }).first().getByRole('link')).toHaveCount(4);
   await expect(header.locator('.home-header-menu')).toBeHidden();
 
   await open(page, '/', 390);

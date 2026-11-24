@@ -691,6 +691,13 @@ body:has(.docs-chat) .back-to-top { display: none; }
 .page-tools:last-child :is(button, a) { border: 0; padding: 0; min-height: 0; background: transparent; color: var(--sk-muted); }
 .page-tools:last-child :is(button, a):hover { color: var(--sk-ink); text-decoration: underline; }
 .page-tools:last-child { margin-block: 48px 0; padding-top: 16px; border-top: 1px solid var(--sk-rule); }
+/* The way from a configuration page into the configuration builder: one ruled line, the link in ink. */
+.config-callout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 24px; padding: 10px 12px; border: 1px solid var(--sk-rule); border-radius: 3px; background: var(--sk-ground); font-size: .8125rem; line-height: 1.5; color: var(--sk-text); }
+.config-callout svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--sk-ink); }
+.config-callout p { flex: 1 1 280px; margin: 0; }
+.config-callout code { padding: 0 4px; border-radius: 2px; background: var(--sk-paper); color: var(--sk-ink); font-size: .75rem; }
+.config-callout a { color: var(--sk-ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--sk-rule-strong); }
+.config-callout a:hover { text-decoration-color: currentColor; }
 
 /* Reading column */
 #nd-page .prose { --tw-prose-body: var(--sk-text); --tw-prose-headings: var(--sk-ink); --tw-prose-links: var(--sk-ink); --tw-prose-bold: var(--sk-ink); --tw-prose-counters: var(--sk-muted); --tw-prose-bullets: var(--sk-rule-strong); --tw-prose-quotes: var(--sk-ink); --tw-prose-code: var(--sk-ink); --tw-prose-th-borders: var(--sk-ink); --tw-prose-td-borders: var(--sk-rule); font-size: 1rem; line-height: 1.72; }
