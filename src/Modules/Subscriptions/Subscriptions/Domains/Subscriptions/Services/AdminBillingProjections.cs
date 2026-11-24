@@ -90,11 +90,4 @@ public static class AdminBillingProjections
         x.ComplimentaryUntil,
         x.UpdatedAt,
         x.Version);
-
-    /// <summary>Escape character for <see cref="ContainsPattern"/> (pass it to <c>EF.Functions.ILike</c>).</summary>
-    public const string LikeEscape = "\\";
-
-    /// <summary>"Contains" pattern for ILIKE with the LIKE wildcards in the user text escaped (see <see cref="LikeEscape"/>).</summary>
-    public static string ContainsPattern(string text) =>
-        "%" + text.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
 }

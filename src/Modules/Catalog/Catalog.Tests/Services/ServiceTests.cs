@@ -207,14 +207,3 @@ public class ProductDtoMapperTests
         _mapper.ToPending(Row() with { SubmittedForReviewAt = null }, now).DaysPending.Should().Be(0);
     }
 }
-
-public class LikePatternTests
-{
-    [Theory]
-    [InlineData("50%", "%50\\%%")]
-    [InlineData("a_b", "%a\\_b%")]
-    [InlineData("back\\slash", "%back\\\\slash%")]
-    [InlineData("  plain  ", "%plain%")]
-    public void Contains_EscapesWildcards(string input, string expected) =>
-        Catalog.Common.LikePattern.Contains(input).Should().Be(expected);
-}
